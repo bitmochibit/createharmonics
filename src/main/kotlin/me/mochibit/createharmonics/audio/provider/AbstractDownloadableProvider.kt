@@ -2,6 +2,8 @@ package me.mochibit.createharmonics.audio.provider
 
 import me.mochibit.createharmonics.CreateHarmonics
 import me.mochibit.createharmonics.CreateHarmonicsMod
+import me.mochibit.createharmonics.Logger.err
+import me.mochibit.createharmonics.Logger.info
 import net.minecraft.client.Minecraft
 import java.io.File
 import java.io.FileOutputStream
@@ -70,19 +72,19 @@ abstract class AbstractDownloadableProvider(
 
     fun install(): Boolean {
         if (isAvailable()) {
-            CreateHarmonicsMod.LOGGER.info("$providerName is already installed")
+            info("$providerName is already installed")
             return true
         }
 
         try {
-            CreateHarmonicsMod.LOGGER.info("Installing $providerName...")
+            info("Installing $providerName...")
 
             if (!directory.exists()) {
                 directory.mkdirs()
             }
 
             val downloadUrl = getDownloadUrl()
-            CreateHarmonicsMod.LOGGER.info("Downloading from: $downloadUrl")
+            info("Downloading from: $downloadUrl")
 
             val tempFile = File.createTempFile("${providerName}_download", ".tmp")
             try {
@@ -98,7 +100,7 @@ abstract class AbstractDownloadableProvider(
                     targetFile.setExecutable(true)
                 }
 
-                CreateHarmonicsMod.LOGGER.info("$providerName installed successfully")
+                info("$providerName installed successfully")
 
                 // Clear cache and verify
                 cachedExecutablePath = null
@@ -107,7 +109,7 @@ abstract class AbstractDownloadableProvider(
                 tempFile.delete()
             }
         } catch (e: Exception) {
-            CreateHarmonicsMod.LOGGER.error("Failed to install $providerName", e)
+            err("Failed to install $providerName")
             return false
         }
     }

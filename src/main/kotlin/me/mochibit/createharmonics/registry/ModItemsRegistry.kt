@@ -3,6 +3,7 @@ package me.mochibit.createharmonics.registry
 import com.tterrag.registrate.util.entry.ItemEntry
 import me.mochibit.createharmonics.CreateHarmonics
 import me.mochibit.createharmonics.CreateHarmonicsMod
+import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.cRegistrate
 import me.mochibit.createharmonics.content.item.EtherealDiscItem
 import net.minecraftforge.eventbus.api.IEventBus
@@ -19,6 +20,6 @@ object ModItemsRegistry : AbstractModRegistry {
 
 
     override fun register(eventBus: IEventBus) {
-        CreateHarmonicsMod.LOGGER.info("Registering items for ${CreateHarmonicsMod.MOD_ID}")
+        info("Registering items for ${CreateHarmonicsMod.MOD_ID}")
     }
 }

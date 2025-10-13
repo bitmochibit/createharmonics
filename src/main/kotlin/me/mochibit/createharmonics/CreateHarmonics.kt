@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics
 
-import com.mojang.logging.LogUtils
 import com.simibubi.create.foundation.data.CreateRegistrate
+import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.audio.provider.FFMPEG
 import me.mochibit.createharmonics.audio.provider.YTDL
 import me.mochibit.createharmonics.registry.ModCreativeTabs
@@ -17,15 +17,12 @@ import net.minecraftforge.fml.config.ModConfig
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
-import org.slf4j.Logger
-import thedarkcolour.kotlinforforge.forge.MOD_BUS
 import thedarkcolour.kotlinforforge.forge.registerConfig
 
 @Mod(CreateHarmonicsMod.MOD_ID)
-class CreateHarmonicsMod {
+class CreateHarmonicsMod(context: FMLJavaModLoadingContext) {
     companion object {
         const val MOD_ID: String = "createharmonics"
-        val LOGGER: Logger = LogUtils.getLogger()
 
         @JvmStatic
         lateinit var instance: CreateHarmonicsMod
@@ -34,38 +31,30 @@ class CreateHarmonicsMod {
 
     init {
         instance = this
+
+        val forgeModEventBus: IEventBus = context.modEventBus
+        cRegistrate().registerEventListeners(forgeModEventBus)
+        forgeModEventBus.addListener(::commonSetup)
+        MinecraftForge.EVENT_BUS.register(this)
+        ModItemsRegistry.register(forgeModEventBus)
+        ModCreativeTabs.register(forgeModEventBus)
+        YTDL.install()
+        FFMPEG.install()
+        registerConfig(ModConfig.Type.COMMON, Config.SPEC)
     }
 
     private val _registrate: CreateRegistrate = CreateRegistrate.create(MOD_ID)
     fun getRegistrate(): CreateRegistrate = _registrate
 
-    constructor(context: FMLJavaModLoadingContext ) {
-        val forgeModEventBus: IEventBus = context.modEventBus
-
-        cRegistrate().registerEventListeners(forgeModEventBus)
-
-        forgeModEventBus.addListener(::commonSetup)
-
-        MinecraftForge.EVENT_BUS.register(this)
-
-        ModItemsRegistry.register(forgeModEventBus)
-        ModCreativeTabs.register(forgeModEventBus)
-
-        YTDL.install()
-        FFMPEG.install()
-
-        registerConfig(ModConfig.Type.COMMON, Config.SPEC)
-    }
-
     private fun commonSetup(event: FMLCommonSetupEvent) {
-        LOGGER.info("Create: Harmonics is setting up!")
+        info("Create: Harmonics is setting up!")
     }
 
 
     // You can use SubscribeEvent and let the Event Bus discover methods to call
     @SubscribeEvent
     fun onServerStarting(event: ServerStartingEvent) {
-        LOGGER.info("Create: Harmonics server is starting!")
+        info("Create: Harmonics server is starting!")
     }
 
 
@@ -73,7 +62,7 @@ class CreateHarmonicsMod {
     object ClientModEvents {
         @SubscribeEvent
         fun onClientSetup(event: FMLClientSetupEvent) {
-            LOGGER.info("Create: Harmonics client is setting up!")
+            info("Create: Harmonics client is setting up!")
         }
     }
 }
