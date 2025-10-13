@@ -20,7 +20,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 import thedarkcolour.kotlinforforge.forge.registerConfig
 
 @Mod(CreateHarmonicsMod.MOD_ID)
-class CreateHarmonicsMod(context: FMLJavaModLoadingContext) {
+class CreateHarmonicsMod {
     companion object {
         const val MOD_ID: String = "createharmonics"
 
@@ -31,7 +31,9 @@ class CreateHarmonicsMod(context: FMLJavaModLoadingContext) {
 
     init {
         instance = this
+    }
 
+    constructor(context: FMLJavaModLoadingContext) {
         val forgeModEventBus: IEventBus = context.modEventBus
         cRegistrate().registerEventListeners(forgeModEventBus)
         forgeModEventBus.addListener(::commonSetup)
