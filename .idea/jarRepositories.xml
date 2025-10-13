@@ -36,5 +36,20 @@
       <option name="name" value="Kotlin for Forge" />
       <option name="url" value="https://thedarkcolour.github.io/KotlinForForge/" />
     </remote-repository>
+    <remote-repository>
+      <option name="id" value="maven" />
+      <option name="name" value="maven" />
+      <option name="url" value="https://maven.createmod.net" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="maven2" />
+      <option name="name" value="maven2" />
+      <option name="url" value="https://maven.ithundxr.dev/mirror" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="maven3" />
+      <option name="name" value="maven3" />
+      <option name="url" value="https://raw.githubusercontent.com/Fuzss/modresources/main/maven/" />
+    </remote-repository>
   </component>
 </project>
