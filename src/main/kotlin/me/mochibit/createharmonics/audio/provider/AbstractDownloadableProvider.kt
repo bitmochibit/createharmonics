@@ -13,7 +13,7 @@ import java.util.zip.ZipInputStream
 
 abstract class AbstractDownloadableProvider(
     private val providerName: String,
-    val directory: File = Minecraft.getInstance().gameDirectory.toPath().resolve("/audio_providers/$providerName").toFile(), // Default to mod directory
+    val directory: File = Minecraft.getInstance().gameDirectory.toPath().resolve("audio_providers/$providerName").toFile(), // Default to mod directory
 ) {
 
     private var cachedExecutablePath: String? = null
