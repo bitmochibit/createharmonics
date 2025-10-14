@@ -10,7 +10,7 @@ import net.minecraftforge.eventbus.api.IEventBus
 
 object ModItemsRegistry : AbstractModRegistry {
 
-    val etherealDisc: ItemEntry<EtherealDiscItem> = cRegistrate().item("ethereal_disc") { _ ->
+    val etherealDisc: ItemEntry<EtherealDiscItem> = cRegistrate().item<EtherealDiscItem>("ethereal_disc") { _ ->
         EtherealDiscItem()
     }.properties { prop ->
         prop.stacksTo(1)

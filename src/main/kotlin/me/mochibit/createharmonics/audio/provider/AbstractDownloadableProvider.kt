@@ -10,11 +10,16 @@ import java.io.FileOutputStream
 import java.net.URL
 import java.nio.channels.Channels
 import java.util.zip.ZipInputStream
+import java.util.concurrent.ConcurrentHashMap
 
 abstract class AbstractDownloadableProvider(
     private val providerName: String,
     val directory: File = Minecraft.getInstance().gameDirectory.toPath().resolve("audio_providers/$providerName").toFile(), // Default to mod directory
 ) {
+
+    companion object {
+        private val installationLocks = ConcurrentHashMap<String, Any>()
+    }
 
     private var cachedExecutablePath: String? = null
 
@@ -71,46 +76,70 @@ abstract class AbstractDownloadableProvider(
     }
 
     fun install(): Boolean {
-        if (isAvailable()) {
-            info("$providerName is already installed")
-            return true
-        }
+        // Synchronize installation per provider to prevent concurrent downloads
+        val lockObject = installationLocks.computeIfAbsent(providerName) { Any() }
 
-        try {
-            info("Installing $providerName...")
-
-            if (!directory.exists()) {
-                directory.mkdirs()
+        synchronized(lockObject) {
+            if (isAvailable()) {
+                info("$providerName is already installed")
+                return true
             }
 
-            val downloadUrl = getDownloadUrl()
-            info("Downloading from: $downloadUrl")
-
-            val tempFile = File.createTempFile("${providerName}_download", ".tmp")
             try {
-                downloadFile(downloadUrl, tempFile)
+                info("Installing $providerName...")
 
-                // Extract if it's a zip file
-                if (downloadUrl.endsWith(".zip")) {
-                    extractZip(tempFile, directory)
-                } else {
-                    // Copy directly
-                    val targetFile = File(directory, tempFile.name)
-                    tempFile.copyTo(targetFile, overwrite = true)
-                    targetFile.setExecutable(true)
+                if (!directory.exists()) {
+                    directory.mkdirs()
                 }
 
-                info("$providerName installed successfully")
+                val downloadUrl = getDownloadUrl()
+                info("Downloading from: $downloadUrl")
 
-                // Clear cache and verify
-                cachedExecutablePath = null
-                return isAvailable()
-            } finally {
-                tempFile.delete()
+                val tempFile = File.createTempFile("${providerName}_download", ".tmp")
+                try {
+                    downloadFile(downloadUrl, tempFile)
+
+                    when {
+                        downloadUrl.endsWith(".zip") -> {
+                            extractZip(tempFile, directory)
+                        }
+                        downloadUrl.endsWith(".tar.xz") -> {
+                            // For Linux builds - would need additional handling
+                            extractTarXz(tempFile, directory)
+                        }
+                        else -> {
+                            val exeName = if (System.getProperty("os.name").lowercase().contains("win")) {
+                                "$providerName.exe"
+                            } else {
+                                providerName
+                            }
+                            val targetFile = File(directory, exeName)
+                            tempFile.copyTo(targetFile, overwrite = true)
+                            targetFile.setExecutable(true)
+                        }
+                    }
+
+                    info("$providerName installed successfully")
+
+                    // Clear cache and verify
+                    cachedExecutablePath = null
+                    val available = isAvailable()
+
+                    if (!available) {
+                        err("Installation verification failed for $providerName")
+                    }
+
+                    return available
+                } finally {
+                    if (tempFile.exists()) {
+                        tempFile.delete()
+                    }
+                }
+            } catch (e: Exception) {
+                err("Failed to install $providerName: ${e.message}")
+                e.printStackTrace()
+                return false
             }
-        } catch (e: Exception) {
-            err("Failed to install $providerName")
-            return false
         }
     }
 
@@ -150,5 +179,10 @@ abstract class AbstractDownloadableProvider(
                 entry = zis.nextEntry
             }
         }
+    }
+
+    private fun extractTarXz(tarXzFile: File, destDir: File) {
+        // For now, throw an exception as we'd need additional libraries for tar.xz
+        throw UnsupportedOperationException("tar.xz extraction not implemented yet. Please install $providerName manually.")
     }
 }

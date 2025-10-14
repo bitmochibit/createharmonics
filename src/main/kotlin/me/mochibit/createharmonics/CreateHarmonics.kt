@@ -49,6 +49,7 @@ class CreateHarmonicsMod {
     fun getRegistrate(): CreateRegistrate = _registrate
 
     private fun commonSetup(event: FMLCommonSetupEvent) {
+        // Register network packets for audio streaming
         info("Create: Harmonics is setting up!")
     }
 

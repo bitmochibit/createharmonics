@@ -1,5 +1,4 @@
 buildscript {
-    ext.kotlin_version = '2.2.0'
     repositories {
         // These repositories are only for Gradle plugins, put any other repositories in the repository block further below
         maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
@@ -16,6 +15,8 @@ plugins {
     id 'idea'
     id 'net.minecraftforge.gradle' version '[6.0.16,6.2)'
     id 'org.parchmentmc.librarian.forgegradle' version '1.+'
+    id 'org.jetbrains.kotlin.jvm' version "$kotlin_version"
+    id 'org.jetbrains.kotlin.plugin.serialization' version "$kotlin_version"
 }
 
 apply plugin: 'org.spongepowered.mixin'
@@ -180,6 +181,7 @@ dependencies {
 
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+
     implementation 'thedarkcolour:kotlinforforge:4.10.0'
 
     implementation(fg.deobf("com.simibubi.create:create-${minecraft_version}:${create_version}:slim") { transitive = false })

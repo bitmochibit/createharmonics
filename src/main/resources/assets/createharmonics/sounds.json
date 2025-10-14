@@ -1,0 +1,12 @@
+{
+  "ethereal_sound": {
+    "subtitle": "createharmonics.subtitle.ethereal_sound",
+    "sounds": [
+      {
+        "name": "createharmonics:ethereal_sound",
+        "stream": true
+      }
+    ]
+  }
+}
+
