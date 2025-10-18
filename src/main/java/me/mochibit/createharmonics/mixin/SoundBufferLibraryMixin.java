@@ -2,7 +2,7 @@ package me.mochibit.createharmonics.mixin;
 
 import com.mojang.blaze3d.audio.OggAudioStream;
 import me.mochibit.createharmonics.CreateHarmonicsMod;
-import me.mochibit.createharmonics.audio.YoutubePlayer;
+import me.mochibit.createharmonics.audio.StreamRegistry;
 import net.minecraft.Util;
 import net.minecraft.client.sounds.AudioStream;
 import net.minecraft.client.sounds.LoopingAudioStream;
@@ -25,19 +25,46 @@ public class SoundBufferLibraryMixin {
     public void loadStreamed(@NotNull ResourceLocation pResourceLocation, boolean pIsWrapper, CallbackInfoReturnable<CompletableFuture<AudioStream>> cir) {
         if (!pResourceLocation.getNamespace().equals(CreateHarmonicsMod.MOD_ID)) return;
 
-        InputStream inputStream = YoutubePlayer.INSTANCE.streamAudio(
-                "https://www.youtube.com/watch?v=2lwRKzUVSm8",
-                "ogg",
-                48000,
-                2,
-                65535
+        System.out.println("SoundBufferLibraryMixin: Intercepting sound request for " + pResourceLocation);
+
+        // Normalize the resource location:
+        // Minecraft transforms "youtube_hash" -> "sounds/youtube_hash.ogg"
+        // We need to reverse this to match our registry key
+        String path = pResourceLocation.getPath();
+
+        // Remove "sounds/" prefix if present
+        if (path.startsWith("sounds/")) {
+            path = path.substring("sounds/".length());
+        }
+
+        // Remove ".ogg" extension if present
+        if (path.endsWith(".ogg")) {
+            path = path.substring(0, path.length() - ".ogg".length());
+        }
+
+        ResourceLocation normalizedLocation = ResourceLocation.fromNamespaceAndPath(
+                pResourceLocation.getNamespace(),
+                path
         );
+
+        System.out.println("SoundBufferLibraryMixin: Normalized to " + normalizedLocation);
+
+        // Look up the stream from the registry using the normalized resource location
+        InputStream existingStream = StreamRegistry.INSTANCE.getStream(normalizedLocation);
+        if (existingStream == null) {
+            System.err.println("SoundBufferLibraryMixin: No stream found for " + normalizedLocation);
+            return;
+        }
+
+        System.out.println("SoundBufferLibraryMixin: Found stream in registry for " + normalizedLocation);
 
         cir.setReturnValue(CompletableFuture.supplyAsync(() -> {
             try {
-                return pIsWrapper ? new LoopingAudioStream(OggAudioStream::new, inputStream)
-                        : new OggAudioStream(inputStream);
+                System.out.println("SoundBufferLibraryMixin: Creating OggAudioStream from registry stream");
+                return pIsWrapper ? new LoopingAudioStream(OggAudioStream::new, existingStream)
+                        : new OggAudioStream(existingStream);
             } catch (IOException iOException) {
+                System.err.println("SoundBufferLibraryMixin: Error creating audio stream: " + iOException.getMessage());
                 throw new CompletionException(iOException);
             }
         }, Util.backgroundExecutor()));

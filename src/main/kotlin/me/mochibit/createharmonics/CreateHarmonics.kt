@@ -1,9 +1,11 @@
 package me.mochibit.createharmonics
 
 import com.simibubi.create.foundation.data.CreateRegistrate
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import me.mochibit.createharmonics.Logger.info
-import me.mochibit.createharmonics.audio.provider.FFMPEG
-import me.mochibit.createharmonics.audio.provider.YTDL
+import me.mochibit.createharmonics.audio.YoutubePlayer
+import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import me.mochibit.createharmonics.registry.ModCreativeTabs
 import me.mochibit.createharmonics.registry.ModItemsRegistry
 import net.minecraftforge.api.distmarker.Dist
@@ -40,17 +42,23 @@ class CreateHarmonicsMod {
         MinecraftForge.EVENT_BUS.register(this)
         ModItemsRegistry.register(forgeModEventBus)
         ModCreativeTabs.register(forgeModEventBus)
-        YTDL.install()
-        FFMPEG.install()
         registerConfig(ModConfig.Type.COMMON, Config.SPEC)
+
+
     }
 
     private val _registrate: CreateRegistrate = CreateRegistrate.create(MOD_ID)
     fun getRegistrate(): CreateRegistrate = _registrate
 
     private fun commonSetup(event: FMLCommonSetupEvent) {
-        // Register network packets for audio streaming
+        launchModCoroutine(Dispatchers.IO) {
+            commonSetupCoroutine(event)
+        }
         info("Create: Harmonics is setting up!")
+    }
+
+    private suspend fun commonSetupCoroutine(event: FMLCommonSetupEvent) = coroutineScope {
+        YoutubePlayer.initializeProviders()
     }
 
 

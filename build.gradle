@@ -154,6 +154,11 @@ repositories {
         name = 'Kotlin for Forge'
         url = 'https://thedarkcolour.github.io/KotlinForForge/'
     }
+
+    maven {
+        name = "TarsosDSP repository"
+        url = "https://mvn.0110.be/releases"
+    }
 }
 
 dependencies {
@@ -191,6 +196,12 @@ dependencies {
     implementation(fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}"))
     compileOnly(annotationProcessor("io.github.llamalad7:mixinextras-common:0.4.1"))
     implementation("io.github.llamalad7:mixinextras-forge:0.4.1")
+
+    minecraftLibrary 'be.tarsos.dsp:core:2.5'
+    minecraftLibrary 'be.tarsos.dsp:jvm:2.5'
+    minecraftLibrary 'com.googlecode.soundlibs:jorbis:0.0.17.4'
+    minecraftLibrary 'com.googlecode.soundlibs:vorbisspi:1.0.3.3'
+    minecraftLibrary 'com.googlecode.soundlibs:tritonus-share:0.3.7.4'
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

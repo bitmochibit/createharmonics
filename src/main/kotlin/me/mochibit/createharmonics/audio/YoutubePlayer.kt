@@ -1,301 +1,387 @@
 package me.mochibit.createharmonics.audio
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.*
 import me.mochibit.createharmonics.Logger.err
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.audio.provider.FFMPEG
 import me.mochibit.createharmonics.audio.provider.YTDL
+import me.mochibit.createharmonics.coroutine.ModCoroutineManager
+import net.minecraft.resources.ResourceLocation
 import java.io.InputStream
 import java.io.PipedInputStream
 import java.io.PipedOutputStream
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
-object YoutubePlayer {
+/**
+ * Buffered input stream that pre-buffers audio data before making it available.
+ * Uses Kotlin Flow for efficient streaming.
+ */
+class BufferedYouTubeStream(
+    private val url: String,
+    private val pitchFunction: PitchFunction,
+    private val sampleRate: Int,
+    private val resourceLocation: ResourceLocation
+) : InputStream() {
+    private val channel = Channel<ByteArray>(capacity = Channel.BUFFERED)
+    private var currentChunk: ByteArray? = null
+    private var currentPosition = 0
+    private var streamJob: Job? = null
 
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    @Volatile
+    private var finished = false
 
-    /**
-     * Streams audio from a YouTube URL using yt-dlp and FFmpeg.
-     * Returns immediately with an InputStream that will be populated asynchronously.
-     * This method is Java-compatible and doesn't require coroutine context.
-     *
-     * @param url The YouTube URL to stream from
-     * @param format The audio format to output (default: "wav", can be "mp3", "opus", etc.)
-     * @param sampleRate The audio sample rate (default: 48000)
-     * @param channels Number of audio channels (default: 2 for stereo)
-     * @param bufferSize The size of the pipe buffer (default: 64KB)
-     * @return An InputStream that provides the audio data as it becomes available
-     */
-    fun streamAudio(
-        url: String,
-        format: String = "ogg",
-        sampleRate: Int = 48000,
-        channels: Int = 2,
-        bufferSize: Int = 65536
-    ): InputStream {
-        val pipedInputStream = PipedInputStream(bufferSize)
-        val pipedOutputStream = PipedOutputStream(pipedInputStream)
+    @Volatile
+    private var error: Exception? = null
 
-        // Start the streaming process asynchronously
-        scope.launch {
+    private val preBufferSize = 3
+
+    @Volatile
+    private var preBuffered = false
+
+    init {
+        startPipeline()
+    }
+
+    private fun startPipeline() {
+        streamJob = ModCoroutineManager.launch(Dispatchers.IO) {
             try {
-                streamAudioAsync(url, format, sampleRate, channels, pipedOutputStream)
+                info("Starting buffered pipeline for URL: $url")
+
+                YoutubePlayer.processAudioPipeline(url, pitchFunction, sampleRate)
+                    .onEach { chunk ->
+                        channel.send(chunk)
+                        if (!preBuffered && channel.isEmpty.not()) {
+                            preBuffered = true
+                            info("Pre-buffering completed")
+                        }
+                    }
+                    .catch { e ->
+                        error = e as? Exception ?: Exception(e)
+                        err("Pipeline error: ${e.message}")
+                    }
+                    .onCompletion {
+                        finished = true
+                        channel.close()
+                        // Unregister stream when finished
+                        StreamRegistry.unregisterStream(resourceLocation)
+                        info("Pipeline finished and stream unregistered")
+                    }
+                    .collect()
             } catch (e: Exception) {
-                if (e !is java.io.IOException || e.message != "Pipe closed") {
-                    err("Error in async streaming: ${e.message}")
-                    e.printStackTrace()
-                } else {
-                    info("Stream closed by consumer")
-                }
-            } finally {
-                try {
-                    pipedOutputStream.close()
-                } catch (e: Exception) {
-                    // Ignore close errors
-                }
+                error = e
+                err("Pipeline error: ${e.message}")
+                e.printStackTrace()
+                channel.close(e)
+                StreamRegistry.unregisterStream(resourceLocation)
             }
         }
+    }
 
-        return pipedInputStream
+    override fun read(): Int {
+        val chunk = getCurrentChunk() ?: return -1
+        val byte = chunk[currentPosition++].toInt() and 0xFF
+
+        if (currentPosition >= chunk.size) {
+            currentChunk = null
+            currentPosition = 0
+        }
+
+        return byte
+    }
+
+    override fun read(b: ByteArray, off: Int, len: Int): Int {
+        if (len == 0) return 0
+
+        val chunk = getCurrentChunk() ?: return -1
+
+        val available = chunk.size - currentPosition
+        val toRead = minOf(len, available)
+
+        System.arraycopy(chunk, currentPosition, b, off, toRead)
+        currentPosition += toRead
+
+        if (currentPosition >= chunk.size) {
+            currentChunk = null
+            currentPosition = 0
+        }
+
+        return toRead
+    }
+
+    private fun getCurrentChunk(): ByteArray? {
+        currentChunk?.let { return it }
+
+        error?.let { throw it }
+
+        // Try to receive a chunk (blocking)
+        return runBlocking {
+            try {
+                channel.receiveCatching().getOrNull()?.also {
+                    currentChunk = it
+                    currentPosition = 0
+                }
+            } catch (e: Exception) {
+                err("Error receiving chunk: ${e.message}")
+                null
+            }
+        }
+    }
+
+    override fun available(): Int {
+        return currentChunk?.let { it.size - currentPosition }
+            ?: if (!finished) 1 else 0
+    }
+
+    override fun close() {
+        streamJob?.cancel()
+        channel.close()
+        StreamRegistry.unregisterStream(resourceLocation)
+        super.close()
+    }
+}
+
+/**
+ * Handles streaming and processing of YouTube audio with pitch shifting.
+ * Pipeline: yt-dlp URL -> FFmpeg decode to PCM -> AudioEffectProcessor -> FFmpeg encode to OGG -> output
+ */
+object YoutubePlayer {
+    private val providersReady = AtomicBoolean(false)
+    private val providersInitializing = AtomicBoolean(false)
+
+    private const val DEFAULT_BUFFER_SIZE = 262144 // 256KB
+    private const val DEFAULT_SAMPLE_RATE = 48000
+    private const val CHUNK_SIZE = 16384
+
+    /**
+     * Initialize audio providers (yt-dlp and FFmpeg).
+     */
+    fun initializeProviders() {
+        if (providersReady.get() || !providersInitializing.compareAndSet(false, true)) {
+            return
+        }
+
+        try {
+            info("Initializing audio providers...")
+            val ytdlSuccess = YTDL.isAvailable() || YTDL.install()
+            val ffmpegSuccess = FFMPEG.isAvailable() || FFMPEG.install()
+
+            if (ytdlSuccess && ffmpegSuccess) {
+                providersReady.set(true)
+                info("Audio providers ready")
+            } else {
+                err("Failed to initialize audio providers")
+            }
+        } finally {
+            providersInitializing.set(false)
+        }
     }
 
     /**
-     * Internal coroutine function that performs the actual streaming.
+     * Stream audio from YouTube URL with constant pitch shifting using immediate pipeline.
      */
-    private suspend fun streamAudioAsync(
+    fun streamAudioWithPitchShift(
         url: String,
-        format: String,
-        sampleRate: Int,
-        channels: Int,
-        outputStream: PipedOutputStream
-    ) = withContext(Dispatchers.IO) {
-        try {
-            // Ensure providers are installed
-            if (!ensureProvidersInstalled()) {
-                err("Failed to ensure audio providers are installed")
-                return@withContext
-            }
-
-            // Get audio URL from yt-dlp
-            val audioUrl = getAudioUrl(url) ?: run {
-                err("Failed to get audio URL from: $url")
-                return@withContext
-            }
-
-            info("Got audio URL, starting FFmpeg stream...")
-
-            // Stream audio through FFmpeg
-            streamWithFFmpeg(audioUrl, format, sampleRate, channels, outputStream)
-        } catch (e: Exception) {
-            err("Error streaming audio: ${e.message}")
-            e.printStackTrace()
-        }
+        pitchShiftFactor: Float = 1.0f,
+        sampleRate: Int = DEFAULT_SAMPLE_RATE,
+        resourceLocation: ResourceLocation
+    ): InputStream {
+        return streamAudioWithPitchShift(url, PitchFunction.constant(pitchShiftFactor), sampleRate, resourceLocation)
     }
 
     /**
-     * Ensures that both yt-dlp and FFmpeg are installed and available.
+     * Stream audio from YouTube URL with dynamic pitch function using immediate pipeline.
+     * Returns a stream that starts producing data immediately while processing continues.
+     * Registers the stream in StreamRegistry for lookup by resource location.
      */
-    private suspend fun ensureProvidersInstalled(): Boolean = withContext(Dispatchers.IO) {
-        val ytdlAvailable = async {
-            if (!YTDL.isAvailable()) {
-                info("yt-dlp not found, installing...")
-                YTDL.install()
-            } else {
-                true
-            }
-        }
+    fun streamAudioWithPitchShift(
+        url: String,
+        pitchFunction: PitchFunction,
+        sampleRate: Int = DEFAULT_SAMPLE_RATE,
+        resourceLocation: ResourceLocation
+    ): InputStream {
+        ensureProvidersReady()
+        info("Creating buffered stream for: $url with dynamic pitch function")
+        val stream = BufferedYouTubeStream(url, pitchFunction, sampleRate, resourceLocation)
 
-        val ffmpegAvailable = async {
-            if (!FFMPEG.isAvailable()) {
-                info("FFmpeg not found, installing...")
-                FFMPEG.install()
-            } else {
-                true
-            }
-        }
+        // Register the stream immediately
+        StreamRegistry.registerStream(resourceLocation, stream)
 
-        return@withContext ytdlAvailable.await() && ffmpegAvailable.await()
+        return stream
     }
 
     /**
-     * Uses yt-dlp to extract the direct audio stream URL from a YouTube URL.
+     * Process audio pipeline and return a Flow of audio chunks.
+     * This is the core processing pipeline using Kotlin Flow for better streaming.
      */
-    private suspend fun getAudioUrl(youtubeUrl: String): String? = withContext(Dispatchers.IO) {
-        try {
-            val ytdlPath = YTDL.getExecutablePath() ?: run {
-                err("yt-dlp executable not found")
-                return@withContext null
-            }
+    suspend fun processAudioPipeline(
+        url: String,
+        pitchFunction: PitchFunction,
+        sampleRate: Int
+    ): Flow<ByteArray> = channelFlow {
+        // Step 1: Extract audio URL using cache
+        info("Getting audio URL from cache for: $url")
+        val audioUrl = AudioUrlCache.getAudioUrl(url)
+            ?: throw IllegalStateException("Failed to extract audio URL from: $url")
+        info("Got audio URL successfully")
 
-            info("Extracting audio URL from: $youtubeUrl")
+        info("Starting audio pipeline with dynamic pitch function")
 
-            // Use yt-dlp to get the best audio URL
-            val process = ProcessBuilder(
-                ytdlPath,
-                "-f", "bestaudio",
-                "--get-url",
-                "--no-playlist",
-                youtubeUrl
-            ).apply {
-                redirectErrorStream(true)
-            }.start()
+        // Step 2: Create PCM decode stream
+        val pcmStream = PipedInputStream(DEFAULT_BUFFER_SIZE)
+        val pcmOutput = PipedOutputStream(pcmStream)
 
-            val output = process.inputStream.bufferedReader().use { it.readText() }
-
-            val exitCode = withTimeoutOrNull(30000) {
-                process.waitFor()
-            } ?: run {
-                process.destroyForcibly()
-                err("yt-dlp process timed out")
-                return@withContext null
-            }
-
-            if (exitCode != 0) {
-                err("yt-dlp failed with exit code $exitCode: $output")
-                return@withContext null
-            }
-
-            val audioUrl = output.trim().lines().firstOrNull { it.startsWith("http") }
-
-            if (audioUrl == null) {
-                err("Could not extract audio URL from yt-dlp output")
-                return@withContext null
-            }
-
-            info("Successfully extracted audio URL")
-            return@withContext audioUrl
-        } catch (e: Exception) {
-            err("Error getting audio URL: ${e.message}")
-            e.printStackTrace()
-            return@withContext null
-        }
-    }
-
-    /**
-     * Streams audio through FFmpeg, converting it to the desired format and writing to output stream.
-     */
-    private suspend fun streamWithFFmpeg(
-        audioUrl: String,
-        format: String,
-        sampleRate: Int,
-        channels: Int,
-        outputStream: PipedOutputStream
-    ) = withContext(Dispatchers.IO) {
-        var process: Process? = null
-        try {
-            val ffmpegPath = FFMPEG.getExecutablePath() ?: run {
-                err("FFmpeg executable not found")
-                return@withContext
-            }
-
-            // Build FFmpeg command
-            val command = buildList {
-                add(ffmpegPath)
-                add("-i")
-                add(audioUrl)
-                add("-f")
-                add(format)
-                add("-ar")
-                add(sampleRate.toString())
-                add("-ac")
-                add(channels.toString())
-
-                // Additional quality settings
-                when (format) {
-                    "wav" -> {
-                        add("-acodec")
-                        add("pcm_s16le")
-                    }
-                    "mp3" -> {
-                        add("-acodec")
-                        add("libmp3lame")
-                        add("-b:a")
-                        add("192k")
-                    }
-                    "ogg" -> {
-                        add("-acodec")
-                        add("libvorbis")
-                        add("-q:a")
-                        add("6") // Quality level 6 (good quality, ~192kbps)
-                    }
-                    "opus" -> {
-                        add("-acodec")
-                        add("libopus")
-                        add("-b:a")
-                        add("128k")
-                    }
-                }
-
-                // Hide FFmpeg banner and output to stdout
-                add("-loglevel")
-                add("error")
-                add("pipe:1")
-            }
-
-            info("Starting FFmpeg process...")
-
-            process = ProcessBuilder(command)
-                .redirectError(ProcessBuilder.Redirect.PIPE)
-                .start()
-
-            val currentProcess = process
-
-            // Monitor stderr in a separate coroutine
-            launch {
-                currentProcess.errorStream.bufferedReader().use { reader ->
-                    reader.lineSequence().forEach { line ->
-                        if (line.isNotBlank()) {
-                            err("FFmpeg: $line")
-                        }
-                    }
-                }
-            }
-
-            // Copy data from FFmpeg output to the piped output stream
-            val buffer = ByteArray(16384) // Increased buffer size
-            currentProcess.inputStream.use { input ->
-                var bytesRead: Int
-                while (input.read(buffer).also { bytesRead = it } != -1) {
+        coroutineScope {
+            // Decode job runs concurrently
+            val decodeJob = launch {
+                pcmOutput.use { output ->
                     try {
-                        outputStream.write(buffer, 0, bytesRead)
-                        outputStream.flush()
-                    } catch (e: java.io.IOException) {
-                        if (e.message == "Pipe closed") {
-                            info("Consumer closed the stream, stopping FFmpeg")
-                            currentProcess.destroyForcibly()
-                            return@withContext
-                        }
+                        info("Starting FFmpeg decode to PCM")
+                        ffmpegDecodeToPCM(audioUrl, sampleRate, output)
+                        info("FFmpeg decode completed")
+                    } catch (e: Exception) {
+                        err("Decode error: ${e.message}")
                         throw e
                     }
                 }
             }
 
-            info("FFmpeg streaming completed successfully")
-
-        } catch (e: java.io.IOException) {
-            if (e.message != "Pipe closed") {
-                err("I/O error streaming with FFmpeg: ${e.message}")
-                e.printStackTrace()
+            try {
+                // Step 3 & 4: Process and encode to OGG
+                processAndEncodeToFlow(pcmStream, pitchFunction, sampleRate)
+                    .collect { chunk -> send(chunk) }
+            } finally {
+                decodeJob.cancel()
             }
-        } catch (e: Exception) {
-            err("Error streaming with FFmpeg: ${e.message}")
-            e.printStackTrace()
-        } finally {
-            process?.let {
-                if (it.isAlive) {
-                    if (!it.waitFor(2, TimeUnit.SECONDS)) {
-                        it.destroyForcibly()
-                    }
+        }
+    }.flowOn(Dispatchers.IO)
+
+    /**
+     * Decode audio URL to raw PCM using FFmpeg.
+     */
+    private suspend fun ffmpegDecodeToPCM(
+        audioUrl: String,
+        sampleRate: Int,
+        outputStream: PipedOutputStream
+    ) = withContext(Dispatchers.IO) {
+        val ffmpegPath = FFMPEG.getExecutablePath()
+            ?: throw IllegalStateException("FFmpeg not found")
+
+        val command = listOf(
+            ffmpegPath,
+            "-i", audioUrl,
+            "-f", "s16le",
+            "-ar", sampleRate.toString(),
+            "-ac", "1",
+            "-loglevel", "error",
+            "pipe:1"
+        )
+
+        val process = ProcessBuilder(command).start()
+        try {
+            val buffer = ByteArray(CHUNK_SIZE)
+            var totalBytes = 0L
+
+            process.inputStream.use { input ->
+                while (isActive) {
+                    val bytesRead = input.read(buffer)
+                    if (bytesRead == -1) break
+
+                    outputStream.write(buffer, 0, bytesRead)
+                    outputStream.flush()
+                    totalBytes += bytesRead
                 }
             }
+
+            info("Decoded $totalBytes bytes of PCM")
+        } finally {
+            process.destroy()
         }
     }
 
     /**
-     * Cancels all running coroutines in this player.
-     * Should be called when shutting down.
+     * Process PCM through AudioEffectProcessor and encode to OGG, returning a Flow of chunks.
      */
+    private suspend fun processAndEncodeToFlow(
+        pcmStream: InputStream,
+        pitchFunction: PitchFunction,
+        sampleRate: Int
+    ): Flow<ByteArray> = channelFlow {
+        val ffmpegPath = FFMPEG.getExecutablePath()
+            ?: throw IllegalStateException("FFmpeg not found")
+
+        val command = listOf(
+            ffmpegPath,
+            "-f", "s16le",
+            "-ar", sampleRate.toString(),
+            "-ac", "1",
+            "-i", "pipe:0",
+            "-f", "ogg",
+            "-acodec", "libvorbis",
+            "-q:a", "6",
+            "-loglevel", "warning",
+            "pipe:1"
+        )
+
+        info("Starting FFmpeg encoder process")
+        val process = ProcessBuilder(command).start()
+        try {
+            coroutineScope {
+                // Stream OGG output
+                val streamJob = launch {
+                    val buffer = ByteArray(CHUNK_SIZE)
+                    var totalBytes = 0L
+
+                    process.inputStream.use { input ->
+                        while (isActive) {
+                            val bytesRead = input.read(buffer)
+                            if (bytesRead == -1) break
+
+                            val chunk = buffer.copyOf(bytesRead)
+                            send(chunk)
+                            totalBytes += bytesRead
+                        }
+                    }
+
+                    info("OGG output streaming completed: $totalBytes bytes")
+                }
+
+                // Feed processed PCM to FFmpeg (runs after stream job starts)
+                val feedJob = launch {
+                    process.outputStream.use { ffmpegInput ->
+                        try {
+                            info("Starting audio processing with dynamic pitch")
+                            val effectProcessor = AudioEffectProcessor(sampleRate)
+                            effectProcessor.processPCMStream(pcmStream, ffmpegInput, pitchFunction)
+                            info("Audio processing completed")
+                        } catch (e: Exception) {
+                            err("Processing error: ${e.message}")
+                            throw e
+                        }
+                    }
+                }
+
+                // Wait for both jobs to complete
+                feedJob.join()
+                streamJob.join()
+            }
+        } finally {
+            process.destroy()
+        }
+    }.flowOn(Dispatchers.IO)
+
+    private fun ensureProvidersReady() {
+        if (!providersReady.get()) {
+            initializeProviders()
+            require(providersReady.get()) { "Audio providers not ready" }
+        }
+    }
+
     fun shutdown() {
-        scope.cancel()
+        // Clear caches and streams
+        StreamRegistry.clear()
+        AudioUrlCache.clear()
+        info("YoutubePlayer shutting down")
     }
 }
