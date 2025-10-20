@@ -62,14 +62,14 @@ fun launchDelayed(
 fun launchRepeating(
     context: CoroutineContext = MinecraftClientDispatcher,
     initialDelay: Duration = Duration.ZERO,
-    delay: Duration,
+    delay: kotlin.time.Duration,
     block: suspend CoroutineScope.() -> Unit
 ): Job {
     return ModCoroutineManager.launch(context) {
         if (initialDelay.toMillis() > 0) delay(initialDelay.toMillis())
         while (isActive) {
             block()
-            if (delay.toMillis() > 0) delay(delay.toMillis())
+            if (delay.inWholeMilliseconds > 0) delay(delay.inWholeMilliseconds)
         }
     }
 }

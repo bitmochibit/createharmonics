@@ -1,11 +1,10 @@
 package me.mochibit.createharmonics.mixin;
 
-import com.mojang.blaze3d.audio.OggAudioStream;
 import me.mochibit.createharmonics.CreateHarmonicsMod;
+import me.mochibit.createharmonics.audio.PcmAudioStream;
 import me.mochibit.createharmonics.audio.StreamRegistry;
 import net.minecraft.Util;
 import net.minecraft.client.sounds.AudioStream;
-import net.minecraft.client.sounds.LoopingAudioStream;
 import net.minecraft.client.sounds.SoundBufferLibrary;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
@@ -17,7 +16,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 
 @Mixin(SoundBufferLibrary.class)
 public class SoundBufferLibraryMixin {
@@ -60,12 +58,16 @@ public class SoundBufferLibraryMixin {
 
         cir.setReturnValue(CompletableFuture.supplyAsync(() -> {
             try {
-                System.out.println("SoundBufferLibraryMixin: Creating OggAudioStream from registry stream");
-                return pIsWrapper ? new LoopingAudioStream(OggAudioStream::new, existingStream)
-                        : new OggAudioStream(existingStream);
-            } catch (IOException iOException) {
-                System.err.println("SoundBufferLibraryMixin: Error creating audio stream: " + iOException.getMessage());
-                throw new CompletionException(iOException);
+                System.out.println("SoundBufferLibraryMixin: Creating PcmAudioStream from registry stream");
+                // Create PCM audio stream with 48000 Hz sample rate (matches our processor)
+
+                // Note: LoopingAudioStream is not used for PCM streams
+                // If looping is needed, it would need to be implemented differently
+                return new PcmAudioStream(existingStream, 48000);
+            } catch (Exception e) {
+                System.err.println("SoundBufferLibraryMixin: Error creating audio stream: " + e.getMessage());
+                e.printStackTrace();
+                throw e;
             }
         }, Util.backgroundExecutor()));
 

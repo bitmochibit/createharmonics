@@ -1,28 +1,25 @@
-package me.mochibit.createharmonics.audio.provider
+package me.mochibit.createharmonics.audio.binProvider
 
 
-object YTDL: AbstractDownloadableProvider(
+object YTDL: AbstractDownloadableBinProvider(
     "yt-dlp"
 ) {
     override fun getDownloadUrl(): String {
-        val osName = System.getProperty("os.name").lowercase()
-        val arch = System.getProperty("os.arch").lowercase()
-
         return when {
-            osName.contains("win") -> {
+            isWindows -> {
                 "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
             }
-            osName.contains("mac") || osName.contains("darwin") -> {
+            isMac -> {
                 "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos"
             }
-            osName.contains("linux") -> {
-                if (arch.contains("aarch64") || arch.contains("arm")) {
+            isLinux -> {
+                if (isArm) {
                     "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux_aarch64"
                 } else {
                     "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux"
                 }
             }
-            else -> throw UnsupportedOperationException("Unsupported OS: $osName")
+            else -> throw UnsupportedOperationException("Unsupported OS: ${System.getProperty("os.name")}")
         }
     }
 }

@@ -4,10 +4,11 @@ import com.simibubi.create.foundation.data.CreateRegistrate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import me.mochibit.createharmonics.Logger.info
-import me.mochibit.createharmonics.audio.YoutubePlayer
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import me.mochibit.createharmonics.registry.ModCreativeTabs
 import me.mochibit.createharmonics.registry.ModItemsRegistry
+import me.mochibit.createharmonics.registry.ModBlocksRegistry
+import me.mochibit.createharmonics.registry.ModBlockEntitiesRegistry
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.event.server.ServerStartingEvent
@@ -40,11 +41,11 @@ class CreateHarmonicsMod {
         cRegistrate().registerEventListeners(forgeModEventBus)
         forgeModEventBus.addListener(::commonSetup)
         MinecraftForge.EVENT_BUS.register(this)
+        ModBlocksRegistry.register(forgeModEventBus)
+        ModBlockEntitiesRegistry.register(forgeModEventBus)
         ModItemsRegistry.register(forgeModEventBus)
         ModCreativeTabs.register(forgeModEventBus)
         registerConfig(ModConfig.Type.COMMON, Config.SPEC)
-
-
     }
 
     private val _registrate: CreateRegistrate = CreateRegistrate.create(MOD_ID)
@@ -58,7 +59,7 @@ class CreateHarmonicsMod {
     }
 
     private suspend fun commonSetupCoroutine(event: FMLCommonSetupEvent) = coroutineScope {
-        YoutubePlayer.initializeProviders()
+
     }
 
 

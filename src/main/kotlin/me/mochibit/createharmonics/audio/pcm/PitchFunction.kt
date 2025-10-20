@@ -1,4 +1,6 @@
-package me.mochibit.createharmonics.audio
+package me.mochibit.createharmonics.audio.pcm
+
+import kotlin.math.sin
 
 /**
  * Functional interface for dynamic pitch calculation.
@@ -34,7 +36,7 @@ fun interface PitchFunction {
          */
         fun oscillate(basePitch: Float, amplitude: Float, frequency: Double): PitchFunction =
             PitchFunction { time ->
-                basePitch + amplitude * kotlin.math.sin(2 * Math.PI * frequency * time).toFloat()
+                basePitch + amplitude * sin(2 * Math.PI * frequency * time).toFloat()
             }
 
         /**
