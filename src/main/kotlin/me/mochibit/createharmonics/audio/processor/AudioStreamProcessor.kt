@@ -77,7 +77,7 @@ class AudioStreamProcessor(
     private fun processWithStreaming(
         audioUrl: String
     ): Flow<ByteArray> = flow {
-        val ringBuffer = PCMRingBuffer(capacity = sampleRate * 10) // 10 seconds buffer
+        val ringBuffer = PCMRingBuffer(capacity = (sampleRate * 0.2).toInt()) // 200ms buffer for low latency
 
         coroutineScope {
             // Job 1: FFmpeg decodes URL to PCM and fills ring buffer (fast as possible)
@@ -134,7 +134,7 @@ class AudioStreamProcessor(
             }
 
             // Process from local file
-            val ringBuffer = PCMRingBuffer(capacity = sampleRate * 10)
+            val ringBuffer = PCMRingBuffer(capacity = (sampleRate * 0.2).toInt()) // 200ms buffer for low latency
 
             coroutineScope {
                 // Decode from file to buffer

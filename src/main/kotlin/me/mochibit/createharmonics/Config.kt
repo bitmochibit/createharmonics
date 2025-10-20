@@ -19,8 +19,8 @@ object Config {
         .defineInRange("maxPitch", 2.0, 1.0, 4.0)
 
     val PLAYBACK_BUFFER_SECONDS: ForgeConfigSpec.DoubleValue = BUILDER
-        .comment("Target buffer size in seconds of playback time (default: 5.0). Larger values = more stable but higher memory usage")
-        .defineInRange("playbackBufferSeconds", 5.0, 1.0, 30.0)
+        .comment("Target buffer size in seconds of playback time (default: 0.05). Larger values = more stable but higher latency. Reduce for faster pitch response.")
+        .defineInRange("playbackBufferSeconds", 0.05, 0.01, 30.0)
 
     val SPEC: ForgeConfigSpec = BUILDER.build()
 

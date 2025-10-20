@@ -38,10 +38,11 @@ class AndesiteJukeboxBlockEntity(
     private val MIN_SPEED_THRESHOLD = 16.0f
 
     // Dynamic pitch function that reads the thread-safe currentPitch variable
-    // Wrapped in smoothed() to interpolate between pitch changes over 150ms
-    val pitchFunction = PitchFunction.smoothed(
+    // Wrapped in smoothedRealTime() to interpolate between pitch changes over 100ms
+    // using wall-clock time instead of buffer time for immediate response
+    val pitchFunction = PitchFunction.smoothedRealTime(
         sourcePitchFunction = PitchFunction.custom { time -> currentPitch },
-        transitionTimeSeconds = 0.5 // 150ms transition time for smooth pitch changes
+        transitionTimeSeconds = 0.1 // 100ms transition time for responsive pitch changes
     )
 
     override fun tick() {
@@ -106,7 +107,7 @@ class AndesiteJukeboxBlockEntity(
                             PitchShiftEffect(pitchFunction),
                             VolumeEffect(0.8f), // Reduce volume to 80%
                             LowPassFilterEffect(cutoffFrequency = 3000f), // Slight muffling
-                            ReverbEffect(roomSize = 1.0f, 0.0f, wetMix = 1.0f),
+                            // Removed ReverbEffect - it was causing 3-second delay in pitch response
                         )
                     ),
                     resourceLocation = resourceLocation

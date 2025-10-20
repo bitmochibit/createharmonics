@@ -65,6 +65,18 @@ fun interface PitchFunction {
         fun smoothed(sourcePitchFunction: PitchFunction, transitionTimeSeconds: Double = 0.15): PitchFunction {
             return SmoothedPitchFunction(sourcePitchFunction, transitionTimeSeconds)
         }
+
+        /**
+         * Create a smoothed pitch function using real-time wall-clock for transitions.
+         * This is better for real-time pitch control (e.g., jukebox RPM changes).
+         *
+         * @param sourcePitchFunction The underlying pitch function (can change instantly)
+         * @param transitionTimeSeconds How long to take when transitioning to a new pitch
+         * @return A smoothed version that responds to real-time changes
+         */
+        fun smoothedRealTime(sourcePitchFunction: PitchFunction, transitionTimeSeconds: Double = 0.15): PitchFunction {
+            return RealTimeSmoothedPitchFunction(sourcePitchFunction, transitionTimeSeconds)
+        }
     }
 }
 
@@ -124,6 +136,82 @@ private class SmoothedPitchFunction(
 
         // Linear interpolation from start to target
         currentPitch = transitionStartPitch + (targetPitch - transitionStartPitch) * progress.toFloat()
+
+        return currentPitch
+    }
+}
+
+/**
+ * Real-time smoothed pitch function that uses wall-clock time for transitions.
+ * This is suitable for real-time pitch control where the system clock is the
+ * reference for timing (e.g., jukebox RPM changes).
+ */
+private class RealTimeSmoothedPitchFunction(
+    private val sourcePitchFunction: PitchFunction,
+    private val transitionTimeSeconds: Double
+) : PitchFunction {
+
+    @Volatile
+    private var currentPitch: Float = 1.0f
+
+    @Volatile
+    private var targetPitch: Float = 1.0f
+
+    @Volatile
+    private var transitionStartTimeMillis: Long = 0L
+
+    @Volatile
+    private var transitionStartPitch: Float = 1.0f
+
+    @Volatile
+    private var isFirstCall = true
+
+    private var lastLogTime = 0L
+
+    override fun getPitchAt(timeInSeconds: Double): Float {
+        // Get the target pitch from the source function (ignoring timeInSeconds)
+        // The source function uses real-time state (volatile variables)
+        val newTargetPitch = sourcePitchFunction.getPitchAt(0.0)
+
+        val nowMillis = System.currentTimeMillis()
+
+        // Initialize on first call
+        if (isFirstCall) {
+            currentPitch = newTargetPitch
+            targetPitch = newTargetPitch
+            transitionStartPitch = newTargetPitch
+            transitionStartTimeMillis = nowMillis
+            isFirstCall = false
+            println("[RealTimeSmoothed] Initialized with pitch: $currentPitch")
+            return currentPitch
+        }
+
+        // Check if target has changed (with small epsilon to avoid float precision issues)
+        val epsilon = 0.001f
+        if (kotlin.math.abs(newTargetPitch - targetPitch) > epsilon) {
+            // Start a new transition using wall-clock time
+            transitionStartPitch = currentPitch
+            targetPitch = newTargetPitch
+            transitionStartTimeMillis = nowMillis
+            println("[RealTimeSmoothed] NEW TRANSITION: $transitionStartPitch -> $targetPitch (${transitionTimeSeconds}s)")
+        }
+
+        // Calculate progress through the transition (0.0 to 1.0) using wall-clock time
+        val timeSinceTransitionStartSeconds = (nowMillis - transitionStartTimeMillis) / 1000.0
+        val progress = if (transitionTimeSeconds > 0.0) {
+            (timeSinceTransitionStartSeconds / transitionTimeSeconds).coerceIn(0.0, 1.0)
+        } else {
+            1.0 // Instant transition if transitionTime is 0
+        }
+
+        // Linear interpolation from start to target
+        currentPitch = transitionStartPitch + (targetPitch - transitionStartPitch) * progress.toFloat()
+
+        // Log periodically (every 500ms)
+        if (nowMillis - lastLogTime > 500) {
+            println("[RealTimeSmoothed] Current: $currentPitch, Target: $targetPitch, Progress: ${(progress * 100).toInt()}%")
+            lastLogTime = nowMillis
+        }
 
         return currentPitch
     }

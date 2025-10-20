@@ -20,6 +20,7 @@ import java.nio.ByteOrder;
 public class PcmAudioStream implements AudioStream {
     private final InputStream inputStream;
     private final AudioFormat audioFormat;
+    private final int maxReadSize; // Maximum bytes to return per read (for low latency)
 
     public PcmAudioStream(InputStream inputStream, int sampleRate) {
         this.inputStream = inputStream;
@@ -32,6 +33,10 @@ public class PcmAudioStream implements AudioStream {
                 true,        // signed
                 false        // little-endian
         );
+
+        // Limit read size to 50ms of audio for ultra-low latency pitch response
+        // 50ms * sampleRate samples * 2 bytes/sample = maxReadSize
+        this.maxReadSize = (int) (0.05 * sampleRate * 2);
     }
 
     @Override
@@ -41,11 +46,13 @@ public class PcmAudioStream implements AudioStream {
 
     @Override
     public @NotNull ByteBuffer read(int size) throws IOException {
-        byte[] buffer = new byte[size];
+        // Cap the read size to prevent excessive buffering and reduce latency
+        int actualSize = Math.min(size, maxReadSize);
+        byte[] buffer = new byte[actualSize];
 
         // ALWAYS try to read - available() is just a hint
         // The BufferedAudioStream will block internally if needed
-        int bytesRead = inputStream.read(buffer, 0, size);
+        int bytesRead = inputStream.read(buffer, 0, actualSize);
 
         if (bytesRead == -1) {
             // End of stream
@@ -71,3 +78,4 @@ public class PcmAudioStream implements AudioStream {
         inputStream.close();
     }
 }
+

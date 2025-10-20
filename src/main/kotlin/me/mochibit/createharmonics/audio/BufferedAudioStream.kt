@@ -41,8 +41,9 @@ class BufferedAudioStream(
     // Queue of raw PCM samples (unprocessed)
     private val rawSampleQueue = ConcurrentLinkedQueue<Short>()
 
-    // Maximum queue size - calculated for worst case (slowest pitch = 0.5)
-    private val maxQueueSize: Int get() = (sampleRate * TARGET_PLAYBACK_BUFFER_SECONDS * (1.0 / MIN_PITCH)).toInt()
+    // Maximum queue size - use configured buffer time directly for minimal latency
+    // Note: Removed pitch multiplier to minimize buffering and improve pitch response time
+    private val maxQueueSize: Int get() = (sampleRate * TARGET_PLAYBACK_BUFFER_SECONDS).toInt()
 
     // Output buffer for processed data (pre-processed chunks)
     private var outputBuffer: ByteArray? = null
@@ -64,11 +65,11 @@ class BufferedAudioStream(
     // Track playback time for effects
     private var samplesRead = 0L
 
-    // Minimum samples to keep in buffer before processing
-    private val minBufferSamples: Int get() = (sampleRate * 0.5 * (1.0 / MIN_PITCH)).toInt()
+    // Minimum samples to keep in buffer before processing - reduced to prevent starvation
+    private val minBufferSamples: Int get() = (sampleRate * 0.01 * (1.0 / MIN_PITCH)).toInt() // 10ms minimum for ultra-low latency
 
-    // Process larger chunks to reduce overhead
-    private val processChunkSize = sampleRate // 1 second of raw audio
+    // Process smaller chunks for immediate pitch response
+    private val processChunkSize = sampleRate / 20 // 50ms chunks for ultra-low latency
 
     // Flag to track if we've logged the stream end
     @Volatile
@@ -172,7 +173,7 @@ class BufferedAudioStream(
         var consecutiveFailures = 0
         val maxConsecutiveFailures = 20
         var totalWaitCycles = 0
-        val maxTotalWaitCycles = 50
+        val maxTotalWaitCycles = 200 // 2000ms timeout (increased from 500ms to prevent premature termination)
 
         // BLOCKING: Keep trying until we have data or stream is finished
         while (totalRead < len) {
@@ -226,21 +227,24 @@ class BufferedAudioStream(
                         }
                     }
 
+                    // CRITICAL: Only return partial data if we have SOMETHING to return
+                    // Never return 0 bytes unless stream is truly finished
                     if (totalRead > 0) {
                         return totalRead
                     } else if (finished) {
                         return -1
                     } else {
+                        // Still streaming but no data yet - keep waiting
                         if (totalWaitCycles >= maxTotalWaitCycles) {
-                            Logger.info("Stream cancelled or stuck, ending playback (waited ${totalWaitCycles * 10}ms)")
+                            Logger.warn("Stream stuck after ${totalWaitCycles * 10}ms with no data - ending")
                             finished = true
-                            return if (totalRead > 0) totalRead else -1
+                            return -1 // Return -1 instead of 0 to signal end
                         }
                         consecutiveFailures = 0
                     }
                 }
 
-                Thread.sleep(10)
+                Thread.sleep(5) // Reduced from 10ms for faster response
                 continue
             }
 
@@ -255,16 +259,19 @@ class BufferedAudioStream(
      * Returns true if data was processed, false if no more data available.
      */
     private fun processNextChunk(): Boolean {
-        // Quick check: do we have minimum samples?
-        if (rawSampleQueue.size < minBufferSamples) {
-            if (finished && rawSampleQueue.isNotEmpty()) {
-                val remainingSamples = rawSampleQueue.size
-                return processRemainingData(remainingSamples)
-            }
+        val availableData = rawSampleQueue.size
+
+        // If we have no data at all, bail out
+        if (availableData == 0) {
             return false
         }
 
-        val availableData = rawSampleQueue.size
+        // If below minimum buffer and stream not finished, wait for more data
+        if (availableData < minBufferSamples && !finished) {
+            return false
+        }
+
+        // Process whatever we have available (up to processChunkSize)
         val chunkSize = minOf(processChunkSize, availableData)
 
         if (chunkSize == 0) return false
@@ -332,12 +339,13 @@ class BufferedAudioStream(
         if (!preBuffered) {
             try {
                 Logger.info("Waiting for pre-buffering...")
+                // Block until we have initial data (with timeout)
                 if (!preBufferLatch.await(30, java.util.concurrent.TimeUnit.SECONDS)) {
                     Logger.err("Pre-buffering timeout! No audio data received after 30 seconds")
                     error?.let { throw it }
                     throw java.io.IOException("Pre-buffering timeout - no audio data received")
                 }
-                Logger.info("Pre-buffering wait completed")
+                Logger.info("Pre-buffering completed, starting playback")
             } catch (e: InterruptedException) {
                 Thread.currentThread().interrupt()
                 throw java.io.IOException("Pre-buffering interrupted", e)
