@@ -38,9 +38,11 @@ class AndesiteJukeboxBlockEntity(
     private val MIN_SPEED_THRESHOLD = 16.0f
 
     // Dynamic pitch function that reads the thread-safe currentPitch variable
-    val pitchFunction = PitchFunction.custom { time ->
-        currentPitch
-    }
+    // Wrapped in smoothed() to interpolate between pitch changes over 150ms
+    val pitchFunction = PitchFunction.smoothed(
+        sourcePitchFunction = PitchFunction.custom { time -> currentPitch },
+        transitionTimeSeconds = 0.5 // 150ms transition time for smooth pitch changes
+    )
 
     override fun tick() {
         super.tick()
