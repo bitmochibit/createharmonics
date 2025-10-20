@@ -38,8 +38,8 @@ class AndesiteJukeboxBlockEntity(
     private val MIN_SPEED_THRESHOLD = 16.0f
 
     // Dynamic pitch function that reads the thread-safe currentPitch variable
-    val pitchFunction = PitchFunction.custom { _ ->
-        currentPitch // Reads the volatile field, which is thread-safe
+    val pitchFunction = PitchFunction.custom { time ->
+        currentPitch
     }
 
     override fun tick() {
@@ -101,10 +101,10 @@ class AndesiteJukeboxBlockEntity(
                     url = RICK_ASTLEY_URL,
                     effectChain = EffectChain(
                         listOf(
-                            PitchShiftEffect(PitchFunction.oscillate(1.0f, 0.5f, 0.7)), // Slight oscillation for vibrato
+                            PitchShiftEffect(pitchFunction),
                             VolumeEffect(0.8f), // Reduce volume to 80%
                             LowPassFilterEffect(cutoffFrequency = 3000f), // Slight muffling
-                            ReverbEffect(roomSize = 0.6f, wetMix = 0.2f)
+                            ReverbEffect(roomSize = 1.0f, 0.0f, wetMix = 1.0f),
                         )
                     ),
                     resourceLocation = resourceLocation

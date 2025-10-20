@@ -5,6 +5,7 @@ import me.mochibit.createharmonics.audio.pcm.PitchFunction
 
 /**
  * Pitch shifting effect using a time-varying pitch function.
+ * Uses dynamic pitch shifting to handle smooth, continuous pitch changes within chunks.
  */
 class PitchShiftEffect(
     private val pitchFunction: PitchFunction,
@@ -16,14 +17,15 @@ class PitchShiftEffect(
         : this(PitchFunction.constant(constantPitch), minPitch, maxPitch)
 
     override fun process(samples: ShortArray, timeInSeconds: Double, sampleRate: Int): ShortArray {
-        val pitch = pitchFunction.getPitchAt(timeInSeconds).coerceIn(minPitch, maxPitch)
+        // Create a wrapper function that applies pitch limits and time offset
+        val boundedPitchFunction = PitchFunction { time ->
+            pitchFunction.getPitchAt(timeInSeconds + time).coerceIn(minPitch, maxPitch)
+        }
 
-        // If pitch is 1.0, no processing needed
-        if (pitch == 1.0f) return samples
-
-        return PCMProcessor.pitchShift(samples, pitch)
+        // Use dynamic pitch shifting for smooth, continuous pitch changes
+        // This evaluates the pitch function for each sample, not just once per chunk
+        return PCMProcessor.pitchShiftDynamic(samples, boundedPitchFunction, sampleRate)
     }
 
     override fun getName(): String = "PitchShift"
 }
-
