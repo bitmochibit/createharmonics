@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import me.mochibit.createharmonics.Config
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.pcm.PitchFunction
 import me.mochibit.createharmonics.audio.pcm.PCMProcessor
@@ -29,13 +30,24 @@ class BufferedAudioStream(
     private val resourceLocation: ResourceLocation,
     private val processor: AudioStreamProcessor
 ) : InputStream() {
+    companion object {
+        // Pitch constraints - configurable limits
+        // These are accessed from Config at runtime
+        val MIN_PITCH: Float get() = Config.MIN_PITCH.get().toFloat()
+        val MAX_PITCH: Float get() = Config.MAX_PITCH.get().toFloat()
+
+        // Buffer size calculation based on pitch constraints
+        val TARGET_PLAYBACK_BUFFER_SECONDS: Double get() = Config.PLAYBACK_BUFFER_SECONDS.get()
+    }
+
     // Queue of raw PCM samples (not pitch-shifted)
     private val rawSampleQueue = ConcurrentLinkedQueue<Short>()
 
-    // Maximum queue size (10 seconds of audio) - increased for better buffering
-    private val maxQueueSize = sampleRate * 10
+    // Maximum queue size - calculated for worst case (slowest pitch = 0.5)
+    // At pitch 0.5, 5 seconds of playback requires 10 seconds of raw audio
+    private val maxQueueSize: Int get() = (sampleRate * TARGET_PLAYBACK_BUFFER_SECONDS * (1.0 / MIN_PITCH)).toInt()
 
-    // Output buffer for pitch-shifted data
+    // Output buffer for pitch-shifted data (pre-processed chunks)
     private var outputBuffer: ByteArray? = null
     private var outputPosition = 0
 
@@ -57,7 +69,14 @@ class BufferedAudioStream(
     private var lastPitch = 0f
 
     // Minimum samples to keep in buffer before processing
-    private val minBufferSamples = sampleRate / 20 // 50ms - reduced for faster response
+    // This is calculated for worst-case scenario (highest pitch = 2.0)
+    // At pitch 2.0, we consume samples twice as fast, so we need a bigger safety margin
+    // We want at least 500ms of audio ready in the output buffer
+    private val minBufferSamples: Int get() = (sampleRate * 0.5 * (1.0 / MIN_PITCH)).toInt() // 1 second worth at slowest pitch
+
+    // Process larger chunks to reduce overhead and prevent main thread blocking
+    // Aim for ~1 second of OUTPUT audio per processing call
+    private val processChunkSize = sampleRate // 1 second of raw audio
 
     // Flag to track if we've logged the stream end
     @Volatile
@@ -78,14 +97,18 @@ class BufferedAudioStream(
                         // Convert bytes to samples
                         val samples = PCMUtils.bytesToShorts(chunk)
 
+                        Logger.info("Pipeline received chunk: ${chunk.size} bytes = ${samples.size} samples, queue before: ${rawSampleQueue.size}")
+
                         // Apply backpressure: wait if queue is too full
-                        while (rawSampleQueue.size + samples.size > maxQueueSize && error == null) {
+                        while (rawSampleQueue.size + samples.size > maxQueueSize && error == null && !finished) {
                             kotlinx.coroutines.delay(10)
                         }
 
                         // Add to queue
                         samples.forEach { rawSampleQueue.offer(it) }
                         chunkCount++
+
+                        Logger.info("Pipeline added chunk, queue after: ${rawSampleQueue.size} samples")
 
                         // Mark as pre-buffered after receiving first chunk
                         if (!preBuffered && chunkCount >= 1) {
@@ -100,21 +123,38 @@ class BufferedAudioStream(
                         }
                     }
                     .catch { e ->
-                        error = e as? Exception ?: Exception(e)
-                        Logger.err("Pipeline error: ${e.message}")
-                        e.printStackTrace()
+                        // Don't treat cancellation as an error
+                        if (e !is kotlinx.coroutines.CancellationException) {
+                            error = e as? Exception ?: Exception(e)
+                            Logger.err("Pipeline error: ${e.message}")
+                            e.printStackTrace()
+                        } else {
+                            Logger.info("Pipeline cancelled gracefully")
+                        }
+                        finished = true
                         preBufferLatch.countDown()
                     }
-                    .onCompletion {
+                    .onCompletion { cause ->
                         finished = true
-                        Logger.info("Pipeline finished, final queue size: ${rawSampleQueue.size}")
+                        if (cause == null) {
+                            Logger.info("Pipeline finished normally, final queue size: ${rawSampleQueue.size}")
+                        } else if (cause is kotlinx.coroutines.CancellationException) {
+                            Logger.info("Pipeline cancelled, final queue size: ${rawSampleQueue.size}")
+                        } else {
+                            Logger.err("Pipeline completed with error: ${cause.message}")
+                        }
                         preBufferLatch.countDown()
                     }
                     .collect()
             } catch (e: Exception) {
-                error = e
-                Logger.err("Pipeline error: ${e.message}")
-                e.printStackTrace()
+                // Handle cancellation gracefully
+                if (e is kotlinx.coroutines.CancellationException) {
+                    Logger.info("Pipeline cancelled in catch block")
+                } else {
+                    error = e
+                    Logger.err("Pipeline error: ${e.message}")
+                    e.printStackTrace()
+                }
                 finished = true
                 preBufferLatch.countDown()
             }
@@ -138,12 +178,17 @@ class BufferedAudioStream(
 
         var totalRead = 0
         var consecutiveFailures = 0
-        val maxConsecutiveFailures = 100 // ~1 second timeout (100 * 10ms)
+        val maxConsecutiveFailures = 20 // ~200ms timeout (20 * 10ms) - reduced for faster response
         var totalWaitCycles = 0
-        val maxTotalWaitCycles = 500 // ~5 seconds total timeout before giving up
+        val maxTotalWaitCycles = 50 // ~500ms total timeout before giving up - much shorter
 
         // BLOCKING: Keep trying until we have data or stream is finished
         while (totalRead < len) {
+            // Check if finished/cancelled early to avoid waiting
+            if (finished && rawSampleQueue.isEmpty() && outputBuffer == null) {
+                return if (totalRead > 0) totalRead else -1
+            }
+
             // If we have output buffer, read from it
             if (outputBuffer != null && outputPosition < outputBuffer!!.size) {
                 val available = outputBuffer!!.size - outputPosition
@@ -159,6 +204,7 @@ class BufferedAudioStream(
                 }
 
                 consecutiveFailures = 0 // Reset on success
+                totalWaitCycles = 0 // Reset total wait on success
                 continue
             }
 
@@ -181,12 +227,11 @@ class BufferedAudioStream(
                 totalWaitCycles++
 
                 if (consecutiveFailures >= maxConsecutiveFailures) {
-                    // We've waited 1 second - check if we have ANY data in queue
+                    // We've waited 200ms - check if we have ANY data in queue
                     val queueSize = rawSampleQueue.size
 
                     if (queueSize > 0) {
                         // Force process whatever we have, even if below minimum
-                        Logger.info("Timeout - force processing ${queueSize} samples (below minimum threshold)")
                         if (processRemainingData(queueSize)) {
                             consecutiveFailures = 0
                             continue
@@ -194,30 +239,25 @@ class BufferedAudioStream(
                     }
 
                     if (totalRead > 0) {
-                        // Return partial data to avoid complete hang
-                        Logger.info("Timeout waiting for data, returning ${totalRead} bytes")
+                        // Return partial data immediately to avoid hang
                         return totalRead
                     } else if (finished) {
                         // Pipeline finished but no data - truly done
-                        Logger.info("Stream finished with no remaining data after timeout")
                         return -1
                     } else {
                         // Check if pipeline is stuck (total wait time exceeded)
                         if (totalWaitCycles >= maxTotalWaitCycles) {
-                            Logger.err("Pipeline appears stuck: finished=$finished, queue=${queueSize}, waited ${totalWaitCycles * 10}ms total")
-                            Logger.err("Forcing stream end to prevent infinite hang")
+                            Logger.info("Stream cancelled or stuck, ending playback (waited ${totalWaitCycles * 10}ms)")
                             finished = true
-                            return -1
+                            return if (totalRead > 0) totalRead else -1
                         }
 
-                        // Still waiting for pipeline, log and continue (but don't reset total counter)
-                        Logger.info("Timeout waiting for data: finished=$finished, queue=${queueSize}, totalWait=${totalWaitCycles * 10}ms")
-                        consecutiveFailures = 0 // Reset consecutive but keep total count
+                        // Reset consecutive but keep total count
+                        consecutiveFailures = 0
                     }
                 }
 
                 // Stream not finished, wait for more data
-                // CRITICAL: We must block here, not return 0, or Minecraft stops playback
                 Thread.sleep(10)
                 continue
             }
@@ -241,20 +281,15 @@ class BufferedAudioStream(
             if (finished && rawSampleQueue.isNotEmpty()) {
                 // Process remaining samples
                 val remainingSamples = rawSampleQueue.size
-                if (remainingSamples > 0) {
-                    return processRemainingData(remainingSamples)
-                }
+                return processRemainingData(remainingSamples)
             }
             return false
         }
 
-        // Determine chunk size to process (adaptive based on available data)
+        // Use larger chunk size to reduce processing overhead
+        // Process up to 1 second at a time, or whatever is available
         val availableData = rawSampleQueue.size
-        val chunkSize = when {
-            availableData > sampleRate -> sampleRate / 4 // 0.25s if we have plenty
-            availableData > sampleRate / 2 -> sampleRate / 8 // 0.125s if moderate
-            else -> minOf(sampleRate / 20, availableData) // 50ms minimum
-        }
+        val chunkSize = minOf(processChunkSize, availableData)
 
         if (chunkSize == 0) return false
 
@@ -265,12 +300,13 @@ class BufferedAudioStream(
 
         // Get current pitch for this chunk
         val currentTime = samplesRead.toDouble() / sampleRate
-        val currentPitch = pitchFunction.getPitchAt(currentTime)
+        val currentPitch = pitchFunction.getPitchAt(currentTime).coerceIn(MIN_PITCH, MAX_PITCH)
 
         // Log pitch changes and buffer status
         if (currentPitch != lastPitch) {
             val bufferTimeSeconds = rawSampleQueue.size.toDouble() / sampleRate
-            Logger.info("Applying pitch on-demand: $lastPitch -> $currentPitch at ${String.format("%.2f", currentTime)}s (buffer: ${rawSampleQueue.size} samples = ${String.format("%.1f", bufferTimeSeconds)}s)")
+            val playbackBufferSeconds = bufferTimeSeconds / currentPitch // Account for pitch affecting playback speed
+            Logger.info("Applying pitch on-demand: $lastPitch -> $currentPitch at ${String.format("%.2f", currentTime)}s (raw buffer: ${String.format("%.1f", bufferTimeSeconds)}s, playback buffer: ${String.format("%.1f", playbackBufferSeconds)}s)")
             lastPitch = currentPitch
         }
 
@@ -298,7 +334,7 @@ class BufferedAudioStream(
         }
 
         val currentTime = samplesRead.toDouble() / sampleRate
-        val currentPitch = pitchFunction.getPitchAt(currentTime)
+        val currentPitch = pitchFunction.getPitchAt(currentTime).coerceIn(MIN_PITCH, MAX_PITCH)
 
         Logger.info("Processing final ${sampleCount} samples at pitch $currentPitch")
 
@@ -329,10 +365,49 @@ class BufferedAudioStream(
     }
 
     override fun close() {
+        // Don't cancel the job or unregister here!
+        // The stream might be reused by Minecraft's sound system
+        // Only clean up the local resources
+        Logger.info("BufferedAudioStream.close() called - clearing local buffers only")
+        // Note: We intentionally don't cancel streamJob or unregister
+        // The stream stays active until explicitly stopped by the jukebox
+    }
+
+    /**
+     * Actually stop and clean up the stream.
+     * This should be called when the jukebox is stopped/broken.
+     */
+    fun destroy() {
+        Logger.info("BufferedAudioStream.destroy() called - stopping pipeline")
         streamJob?.cancel()
         rawSampleQueue.clear()
         outputBuffer = null
-        StreamRegistry.unregisterStream(resourceLocation)
-        super.close()
+        // Note: Don't unregister here - the StreamRegistry calls destroy() during unregister
+    }
+
+    override fun available(): Int {
+        // Return the number of bytes immediately available without blocking
+        // This allows PcmAudioStream to be non-blocking
+
+        // If we have data in the output buffer, return that size
+        if (outputBuffer != null && outputPosition < outputBuffer!!.size) {
+            return outputBuffer!!.size - outputPosition
+        }
+
+        // If we have enough raw samples to process, indicate data is available
+        // We return a conservative estimate of output bytes
+        if (rawSampleQueue.size >= minBufferSamples) {
+            // Estimate: raw samples * 2 bytes per sample (16-bit PCM)
+            // Conservative estimate of 1:1 pitch ratio
+            return minOf(rawSampleQueue.size * 2, 8192)
+        }
+
+        // If stream is finished and we have any data left, indicate it's available
+        if (finished && rawSampleQueue.isNotEmpty()) {
+            return rawSampleQueue.size * 2
+        }
+
+        // No data immediately available
+        return 0
     }
 }

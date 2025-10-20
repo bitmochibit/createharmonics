@@ -121,7 +121,7 @@ class AudioStreamProcessor(
     private fun processWithDownload(
         audioUrl: String,
         identifier: String
-    ): Flow<ByteArray> = channelFlow {
+    ): Flow<ByteArray> = flow {
         // Create unique filename with proper audio extension
         val sanitizedName = identifier.replace(Regex("[^a-zA-Z0-9.-]"), "_")
         val audioFile = DOWNLOAD_DIR.resolve("${sanitizedName}.opus").toFile()
@@ -154,19 +154,18 @@ class AudioStreamProcessor(
                     }
                 }
 
-                // Stream raw PCM from buffer (no pitch shifting)
-                val streamJob = launch(Dispatchers.IO) {
-                    try {
-                        streamRawPcmFromBuffer(ringBuffer)
-                            .collect { chunk -> send(chunk) }
-                    } catch (e: Exception) {
-                        err("Streaming error: ${e.message}")
-                        throw e
-                    }
+                // Stream raw PCM from buffer and emit directly
+                try {
+                    streamRawPcmFromBuffer(ringBuffer)
+                        .collect { chunk ->
+                            emit(chunk)
+                        }
+                } catch (e: Exception) {
+                    err("Streaming error: ${e.message}")
+                    throw e
+                } finally {
+                    decodeJob.cancel()
                 }
-
-                streamJob.join()
-                decodeJob.cancel()
             }
         } catch (e: Exception) {
             err("Error processing downloaded audio: ${e.message}")

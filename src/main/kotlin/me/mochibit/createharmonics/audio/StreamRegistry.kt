@@ -29,12 +29,18 @@ object StreamRegistry {
 
     /**
      * Unregister a stream when it's no longer needed.
+     * This actually stops the stream and cleans up resources.
      */
     fun unregisterStream(location: ResourceLocation) {
-        streams.remove(location)?.let {
+        streams.remove(location)?.let { stream ->
             info("StreamRegistry: Unregistered stream for $location")
             try {
-                it.close()
+                // If this is a BufferedAudioStream, call destroy() to properly stop it
+                if (stream is BufferedAudioStream) {
+                    stream.destroy()
+                } else {
+                    stream.close()
+                }
             } catch (e: Exception) {
                 // Ignore close errors
             }
@@ -45,7 +51,6 @@ object StreamRegistry {
      * Clear all registered streams.
      */
     fun clear() {
-        streams.keys.forEach { unregisterStream(it) }
+        streams.keys.toList().forEach { unregisterStream(it) }
     }
 }
-
