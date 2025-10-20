@@ -319,6 +319,9 @@ class AudioStreamProcessor(
 
             val chunkSizeSamples = 16800 // ~350ms of audio at 48kHz
             var totalSamplesStreamed = 0
+            var emptyReadAttempts = 0
+            val maxEmptyAttempts = 50 // Allow 50 * 100ms = 5 seconds of waiting
+            var lastLoggedBuffer = 0
 
             while (true) {
                 val availableInBuffer = ringBuffer.availableCount()
@@ -331,14 +334,31 @@ class AudioStreamProcessor(
 
                 // Wait if buffer is too low (unless we're at the end)
                 if (availableInBuffer < chunkSizeSamples / 2 && !ringBuffer.isComplete) {
-                    ringBuffer.waitForSamples(chunkSizeSamples, timeoutMs = 100)
+                    // Use longer timeout to avoid premature exit
+                    info("Buffer low: ${availableInBuffer} samples, waiting for more (isComplete=${ringBuffer.isComplete})")
+                    val waitSuccess = ringBuffer.waitForSamples(chunkSizeSamples / 4, timeoutMs = 1000)
+                    if (!waitSuccess && !ringBuffer.isComplete) {
+                        // Still waiting for data, continue looping
+                        info("Wait timeout - buffer: ${ringBuffer.availableCount()} samples, isComplete=${ringBuffer.isComplete}")
+                    }
                 }
 
                 // Read what's available
                 val samplesToRead = minOf(chunkSizeSamples, ringBuffer.availableCount())
                 if (samplesToRead == 0) {
-                    if (ringBuffer.isComplete) break
-                    Thread.sleep(10) // Small delay before retry
+                    if (ringBuffer.isComplete) {
+                        info("Ring buffer complete with no remaining samples")
+                        break
+                    }
+                    // No data but not complete - wait before retry
+                    emptyReadAttempts++
+                    info("Empty read attempt ${emptyReadAttempts}/${maxEmptyAttempts}: buffer=${ringBuffer.availableCount()}, isComplete=${ringBuffer.isComplete}")
+                    if (emptyReadAttempts >= maxEmptyAttempts) {
+                        err("Ring buffer stuck: no data for ${maxEmptyAttempts * 100}ms, isComplete=${ringBuffer.isComplete}")
+                        err("Total samples streamed before stuck: ${totalSamplesStreamed} (${totalSamplesStreamed / sampleRate}s)")
+                        break
+                    }
+                    Thread.sleep(100)
                     continue
                 }
 
@@ -346,9 +366,21 @@ class AudioStreamProcessor(
                 val actualRead = ringBuffer.read(samples, 0, samplesToRead)
 
                 if (actualRead == 0) {
-                    if (ringBuffer.isComplete) break
+                    if (ringBuffer.isComplete) {
+                        info("Ring buffer complete, read returned 0")
+                        break
+                    }
+                    emptyReadAttempts++
+                    info("Read returned 0 - attempt ${emptyReadAttempts}/${maxEmptyAttempts}")
+                    if (emptyReadAttempts >= maxEmptyAttempts) {
+                        err("Ring buffer read failed repeatedly, ending stream")
+                        break
+                    }
                     continue
                 }
+
+                // Reset empty attempts on successful read
+                emptyReadAttempts = 0
 
                 // Convert to bytes and emit (no pitch shifting)
                 val bytes = PCMUtils.shortsToBytes(samples.copyOf(actualRead))
@@ -356,14 +388,16 @@ class AudioStreamProcessor(
 
                 totalSamplesStreamed += actualRead
 
-                // Log progress every 5 seconds
-                if (totalSamplesStreamed % (sampleRate * 5) < chunkSizeSamples) {
-                    val bufferSeconds = ringBuffer.availableCount().toDouble() / sampleRate
-                    info("Raw PCM streaming: ${totalSamplesStreamed / sampleRate}s streamed, buffer: ${bufferSeconds.toInt()}s")
+                // Log progress every 5 seconds OR when buffer changes significantly
+                val bufferSeconds = ringBuffer.availableCount().toDouble() / sampleRate
+                if (totalSamplesStreamed % (sampleRate * 5) < chunkSizeSamples ||
+                    Math.abs(ringBuffer.availableCount() - lastLoggedBuffer) > sampleRate * 2) {
+                    info("Raw PCM streaming: ${totalSamplesStreamed / sampleRate}s streamed, buffer: ${String.format("%.1f", bufferSeconds)}s, isComplete=${ringBuffer.isComplete}")
+                    lastLoggedBuffer = ringBuffer.availableCount()
                 }
             }
 
-            info("Raw PCM streaming completed: $totalSamplesStreamed samples")
+            info("Raw PCM streaming completed: $totalSamplesStreamed samples (${totalSamplesStreamed / sampleRate}s)")
         } catch (e: Exception) {
             err("Raw PCM streaming error: ${e.message}")
             e.printStackTrace()

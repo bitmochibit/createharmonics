@@ -17,6 +17,7 @@ class PCMRingBuffer(
     private var available = 0
     private val lock = ReentrantLock()
     private val notEmpty = lock.newCondition()
+    private val notFull = lock.newCondition() // Add condition for when buffer has space
 
     @Volatile
     var isComplete = false
@@ -30,9 +31,13 @@ class PCMRingBuffer(
         if (length == 0) return 0
 
         lock.withLock {
-            // Wait if buffer is full
+            // Wait if buffer is full - use condition variable, not sleep!
             while (available >= capacity && !isComplete) {
-                Thread.sleep(10) // Small delay to avoid busy waiting
+                try {
+                    notFull.await(100, java.util.concurrent.TimeUnit.MILLISECONDS)
+                } catch (e: InterruptedException) {
+                    return 0
+                }
             }
 
             if (isComplete) return 0
@@ -47,7 +52,7 @@ class PCMRingBuffer(
             }
 
             available += written
-            notEmpty.signal()
+            notEmpty.signal() // Wake up readers
             return written
         }
     }
@@ -67,6 +72,7 @@ class PCMRingBuffer(
             }
 
             available -= toRead
+            notFull.signal() // Wake up writers when space becomes available
             return toRead
         }
     }
@@ -119,4 +125,3 @@ class PCMRingBuffer(
         }
     }
 }
-

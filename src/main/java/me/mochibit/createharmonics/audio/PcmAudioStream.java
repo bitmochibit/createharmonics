@@ -39,25 +39,48 @@ public class PcmAudioStream implements AudioStream {
     @Override
     public @NotNull ByteBuffer read(int size) throws IOException {
         byte[] buffer = new byte[size];
+        int bytesRead = 0;
+        int attempts = 0;
+        int maxAttempts = 100; // ~1 second timeout (100 * 10ms)
 
-        // Try to read data, but don't block waiting to fill the entire buffer
-        // Return whatever is available immediately
-        int bytesRead = inputStream.read(buffer, 0, size);
+        // BLOCKING: Keep trying until we get data or reach end of stream
+        // Never return empty buffer unless stream is truly finished
+        while (bytesRead == 0 && attempts < maxAttempts) {
+            bytesRead = inputStream.read(buffer, 0, size);
 
-        if (bytesRead == -1) {
-            // End of stream
-            return ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder());
+            if (bytesRead == -1) {
+                // True end of stream
+                return ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder());
+            }
+
+            if (bytesRead == 0) {
+                // No data available right now, wait and retry
+                // This is critical: we must NOT return empty buffer or Minecraft stops playback
+                attempts++;
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("Interrupted while waiting for audio data", e);
+                }
+            }
         }
 
+        // Check if we timed out
         if (bytesRead == 0) {
-            // No data available right now, return empty buffer
-            return ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder());
+            // Timeout - check one more time if stream is done
+            bytesRead = inputStream.read(buffer, 0, size);
+            if (bytesRead <= 0) {
+                // Truly finished or hung - return empty to signal end
+                System.out.println("PcmAudioStream: Timeout waiting for data, ending stream");
+                return ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder());
+            }
         }
 
-        // Create a direct ByteBuffer for OpenAL compatibility
+        // We have data, return it
         ByteBuffer result = ByteBuffer.allocateDirect(bytesRead).order(ByteOrder.nativeOrder());
         result.put(buffer, 0, bytesRead);
-        result.flip(); // Set position to 0 and limit to bytesRead
+        result.flip();
 
         return result;
     }
