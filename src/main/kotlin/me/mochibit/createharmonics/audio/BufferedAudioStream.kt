@@ -9,8 +9,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import me.mochibit.createharmonics.Config
 import me.mochibit.createharmonics.Logger
-import me.mochibit.createharmonics.audio.pcm.PitchFunction
-import me.mochibit.createharmonics.audio.pcm.PCMProcessor
+import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.pcm.PCMUtils
 import me.mochibit.createharmonics.audio.processor.AudioStreamProcessor
 import me.mochibit.createharmonics.audio.source.AudioSource
@@ -20,34 +19,32 @@ import java.io.InputStream
 import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
- * Buffered input stream that processes audio with real-time on-demand pitch shifting.
- * Raw PCM data is buffered, and pitch shifting is applied when data is read.
+ * Buffered input stream that processes audio with real-time effect chain application.
+ * Raw PCM data is buffered, and effects are applied on-demand when data is read.
  */
 class BufferedAudioStream(
     private val audioSource: AudioSource,
-    private val pitchFunction: PitchFunction,
+    private val effectChain: EffectChain,
     private val sampleRate: Int,
     private val resourceLocation: ResourceLocation,
     private val processor: AudioStreamProcessor
 ) : InputStream() {
     companion object {
-        // Pitch constraints - configurable limits
-        // These are accessed from Config at runtime
+        // Effect constraints - configurable limits (for pitch shifting)
         val MIN_PITCH: Float get() = Config.MIN_PITCH.get().toFloat()
         val MAX_PITCH: Float get() = Config.MAX_PITCH.get().toFloat()
 
-        // Buffer size calculation based on pitch constraints
+        // Buffer size calculation
         val TARGET_PLAYBACK_BUFFER_SECONDS: Double get() = Config.PLAYBACK_BUFFER_SECONDS.get()
     }
 
-    // Queue of raw PCM samples (not pitch-shifted)
+    // Queue of raw PCM samples (unprocessed)
     private val rawSampleQueue = ConcurrentLinkedQueue<Short>()
 
     // Maximum queue size - calculated for worst case (slowest pitch = 0.5)
-    // At pitch 0.5, 5 seconds of playback requires 10 seconds of raw audio
     private val maxQueueSize: Int get() = (sampleRate * TARGET_PLAYBACK_BUFFER_SECONDS * (1.0 / MIN_PITCH)).toInt()
 
-    // Output buffer for pitch-shifted data (pre-processed chunks)
+    // Output buffer for processed data (pre-processed chunks)
     private var outputBuffer: ByteArray? = null
     private var outputPosition = 0
 
@@ -64,18 +61,13 @@ class BufferedAudioStream(
 
     private val preBufferLatch = java.util.concurrent.CountDownLatch(1)
 
-    // Track playback time for pitch function
+    // Track playback time for effects
     private var samplesRead = 0L
-    private var lastPitch = 0f
 
     // Minimum samples to keep in buffer before processing
-    // This is calculated for worst-case scenario (highest pitch = 2.0)
-    // At pitch 2.0, we consume samples twice as fast, so we need a bigger safety margin
-    // We want at least 500ms of audio ready in the output buffer
-    private val minBufferSamples: Int get() = (sampleRate * 0.5 * (1.0 / MIN_PITCH)).toInt() // 1 second worth at slowest pitch
+    private val minBufferSamples: Int get() = (sampleRate * 0.5 * (1.0 / MIN_PITCH)).toInt()
 
-    // Process larger chunks to reduce overhead and prevent main thread blocking
-    // Aim for ~1 second of OUTPUT audio per processing call
+    // Process larger chunks to reduce overhead
     private val processChunkSize = sampleRate // 1 second of raw audio
 
     // Flag to track if we've logged the stream end
@@ -92,7 +84,7 @@ class BufferedAudioStream(
                 Logger.info("Starting audio pipeline for: ${audioSource.getIdentifier()}")
 
                 var chunkCount = 0
-                processor.processAudioStream(audioSource, pitchFunction)
+                processor.processAudioStream(audioSource)
                     .onEach { chunk ->
                         // Convert bytes to samples
                         val samples = PCMUtils.bytesToShorts(chunk)
@@ -178,9 +170,9 @@ class BufferedAudioStream(
 
         var totalRead = 0
         var consecutiveFailures = 0
-        val maxConsecutiveFailures = 20 // ~200ms timeout (20 * 10ms) - reduced for faster response
+        val maxConsecutiveFailures = 20
         var totalWaitCycles = 0
-        val maxTotalWaitCycles = 50 // ~500ms total timeout before giving up - much shorter
+        val maxTotalWaitCycles = 50
 
         // BLOCKING: Keep trying until we have data or stream is finished
         while (totalRead < len) {
@@ -203,8 +195,8 @@ class BufferedAudioStream(
                     outputPosition = 0
                 }
 
-                consecutiveFailures = 0 // Reset on success
-                totalWaitCycles = 0 // Reset total wait on success
+                consecutiveFailures = 0
+                totalWaitCycles = 0
                 continue
             }
 
@@ -218,20 +210,16 @@ class BufferedAudioStream(
                         Logger.info("Stream ended: no more data available (read ${samplesRead} samples total)")
                         hasLoggedEnd = true
                     }
-                    // Return what we have, or -1 if nothing
                     return if (totalRead > 0) totalRead else -1
                 }
 
-                // Not finished yet - check timeout
                 consecutiveFailures++
                 totalWaitCycles++
 
                 if (consecutiveFailures >= maxConsecutiveFailures) {
-                    // We've waited 200ms - check if we have ANY data in queue
                     val queueSize = rawSampleQueue.size
 
                     if (queueSize > 0) {
-                        // Force process whatever we have, even if below minimum
                         if (processRemainingData(queueSize)) {
                             consecutiveFailures = 0
                             continue
@@ -239,30 +227,23 @@ class BufferedAudioStream(
                     }
 
                     if (totalRead > 0) {
-                        // Return partial data immediately to avoid hang
                         return totalRead
                     } else if (finished) {
-                        // Pipeline finished but no data - truly done
                         return -1
                     } else {
-                        // Check if pipeline is stuck (total wait time exceeded)
                         if (totalWaitCycles >= maxTotalWaitCycles) {
                             Logger.info("Stream cancelled or stuck, ending playback (waited ${totalWaitCycles * 10}ms)")
                             finished = true
                             return if (totalRead > 0) totalRead else -1
                         }
-
-                        // Reset consecutive but keep total count
                         consecutiveFailures = 0
                     }
                 }
 
-                // Stream not finished, wait for more data
                 Thread.sleep(10)
                 continue
             }
 
-            // Successfully processed data
             consecutiveFailures = 0
         }
 
@@ -270,24 +251,19 @@ class BufferedAudioStream(
     }
 
     /**
-     * Process a chunk of raw samples with on-demand pitch shifting.
+     * Process a chunk of raw samples with the effect chain.
      * Returns true if data was processed, false if no more data available.
-     * NON-BLOCKING: Returns immediately if insufficient data.
      */
     private fun processNextChunk(): Boolean {
         // Quick check: do we have minimum samples?
         if (rawSampleQueue.size < minBufferSamples) {
-            // If stream is finished, process whatever we have left
             if (finished && rawSampleQueue.isNotEmpty()) {
-                // Process remaining samples
                 val remainingSamples = rawSampleQueue.size
                 return processRemainingData(remainingSamples)
             }
             return false
         }
 
-        // Use larger chunk size to reduce processing overhead
-        // Process up to 1 second at a time, or whatever is available
         val availableData = rawSampleQueue.size
         val chunkSize = minOf(processChunkSize, availableData)
 
@@ -298,20 +274,15 @@ class BufferedAudioStream(
             rawSampleQueue.poll() ?: 0
         }
 
-        // Get current pitch for this chunk
+        // Calculate current time for effect processing
         val currentTime = samplesRead.toDouble() / sampleRate
-        val currentPitch = pitchFunction.getPitchAt(currentTime).coerceIn(MIN_PITCH, MAX_PITCH)
 
-        // Log pitch changes and buffer status
-        if (currentPitch != lastPitch) {
-            val bufferTimeSeconds = rawSampleQueue.size.toDouble() / sampleRate
-            val playbackBufferSeconds = bufferTimeSeconds / currentPitch // Account for pitch affecting playback speed
-            Logger.info("Applying pitch on-demand: $lastPitch -> $currentPitch at ${String.format("%.2f", currentTime)}s (raw buffer: ${String.format("%.1f", bufferTimeSeconds)}s, playback buffer: ${String.format("%.1f", playbackBufferSeconds)}s)")
-            lastPitch = currentPitch
+        // Apply effect chain
+        val outputSamples = if (effectChain.isEmpty()) {
+            inputSamples // No effects, pass through
+        } else {
+            effectChain.process(inputSamples, currentTime, sampleRate)
         }
-
-        // Apply pitch shifting
-        val outputSamples = PCMProcessor.pitchShift(inputSamples, currentPitch)
 
         // Convert to bytes and store in output buffer
         outputBuffer = PCMUtils.shortsToBytes(outputSamples)
@@ -319,6 +290,12 @@ class BufferedAudioStream(
 
         // Update read counter based on INPUT samples consumed
         samplesRead += inputSamples.size
+
+        // Log effect application periodically
+        if (samplesRead % (sampleRate * 5) < chunkSize) { // Every ~5 seconds
+            val bufferTimeSeconds = rawSampleQueue.size.toDouble() / sampleRate
+            Logger.info("Applied effects at ${String.format("%.2f", currentTime)}s (buffer: ${String.format("%.1f", bufferTimeSeconds)}s) - ${effectChain.getName()}")
+        }
 
         return true
     }
@@ -334,11 +311,15 @@ class BufferedAudioStream(
         }
 
         val currentTime = samplesRead.toDouble() / sampleRate
-        val currentPitch = pitchFunction.getPitchAt(currentTime).coerceIn(MIN_PITCH, MAX_PITCH)
 
-        Logger.info("Processing final ${sampleCount} samples at pitch $currentPitch")
+        val outputSamples = if (effectChain.isEmpty()) {
+            inputSamples
+        } else {
+            effectChain.process(inputSamples, currentTime, sampleRate)
+        }
 
-        val outputSamples = PCMProcessor.pitchShift(inputSamples, currentPitch)
+        Logger.info("Processing final ${sampleCount} samples with effect chain")
+
         outputBuffer = PCMUtils.shortsToBytes(outputSamples)
         outputPosition = 0
 
@@ -365,12 +346,8 @@ class BufferedAudioStream(
     }
 
     override fun close() {
-        // Don't cancel the job or unregister here!
-        // The stream might be reused by Minecraft's sound system
-        // Only clean up the local resources
         Logger.info("BufferedAudioStream.close() called - clearing local buffers only")
-        // Note: We intentionally don't cancel streamJob or unregister
-        // The stream stays active until explicitly stopped by the jukebox
+        // Intentionally don't cancel streamJob or unregister
     }
 
     /**
@@ -382,12 +359,11 @@ class BufferedAudioStream(
         streamJob?.cancel()
         rawSampleQueue.clear()
         outputBuffer = null
-        // Note: Don't unregister here - the StreamRegistry calls destroy() during unregister
+        effectChain.reset()
     }
 
     override fun available(): Int {
         // Return the number of bytes immediately available without blocking
-        // This allows PcmAudioStream to be non-blocking
 
         // If we have data in the output buffer, return that size
         if (outputBuffer != null && outputPosition < outputBuffer!!.size) {
@@ -395,19 +371,16 @@ class BufferedAudioStream(
         }
 
         // If we have enough raw samples to process, indicate data is available
-        // We return a conservative estimate of output bytes
         if (rawSampleQueue.size >= minBufferSamples) {
-            // Estimate: raw samples * 2 bytes per sample (16-bit PCM)
-            // Conservative estimate of 1:1 pitch ratio
-            return minOf(rawSampleQueue.size * 2, 8192)
+            // Conservative estimate of output bytes
+            return minBufferSamples * 2 // 2 bytes per sample
         }
 
-        // If stream is finished and we have any data left, indicate it's available
+        // If stream is finished and we have any data left, it's available
         if (finished && rawSampleQueue.isNotEmpty()) {
             return rawSampleQueue.size * 2
         }
 
-        // No data immediately available
         return 0
     }
 }

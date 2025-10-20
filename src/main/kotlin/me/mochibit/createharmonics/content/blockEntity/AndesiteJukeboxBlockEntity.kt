@@ -16,6 +16,11 @@ import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import me.mochibit.createharmonics.audio.effect.EffectChain
+import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
+import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
+import me.mochibit.createharmonics.audio.effect.ReverbEffect
+import me.mochibit.createharmonics.audio.effect.VolumeEffect
 import kotlin.math.abs
 
 class AndesiteJukeboxBlockEntity(
@@ -92,9 +97,16 @@ class AndesiteJukeboxBlockEntity(
 
                 Logger.info("AndesiteJukebox: Resource location created: $resourceLocation")
 
-                val stream = AudioPlayer.fromYoutube(
+                AudioPlayer.fromYoutube(
                     url = RICK_ASTLEY_URL,
-                    pitchFunction = pitchFunction,
+                    effectChain = EffectChain(
+                        listOf(
+                            PitchShiftEffect(PitchFunction.oscillate(1.0f, 0.5f, 0.7)), // Slight oscillation for vibrato
+                            VolumeEffect(0.8f), // Reduce volume to 80%
+                            LowPassFilterEffect(cutoffFrequency = 3000f), // Slight muffling
+                            ReverbEffect(roomSize = 0.6f, wetMix = 0.2f)
+                        )
+                    ),
                     resourceLocation = resourceLocation
                 )
 

@@ -4,7 +4,6 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import me.mochibit.createharmonics.Logger.err
 import me.mochibit.createharmonics.Logger.info
-import me.mochibit.createharmonics.audio.pcm.PitchFunction
 import me.mochibit.createharmonics.audio.binProvider.FFMPEG
 import me.mochibit.createharmonics.audio.pcm.PCMRingBuffer
 import me.mochibit.createharmonics.audio.pcm.PCMUtils
@@ -18,9 +17,8 @@ import java.nio.file.Paths
  * Streamlined audio processor with efficient pipeline:
  * 1. YTDL gets audio URL (with caching)
  * 2. FFmpeg streams or downloads based on duration (>3min = download)
- * 3. Data flows through channels to ring buffer
- * 4. Raw PCM data is streamed without processing
- * 5. Pitch shifting is applied on-demand during playback
+ * 3. Raw PCM data is streamed without processing
+ * 4. Effects are applied on-demand in BufferedAudioStream during playback
  */
 class AudioStreamProcessor(
     private val sampleRate: Int = 48000
@@ -38,11 +36,10 @@ class AudioStreamProcessor(
 
     /**
      * Main entry point: creates an audio stream with raw PCM data.
-     * Pitch shifting will be applied on-demand during playback.
+     * Effects will be applied on-demand during playback via the EffectChain.
      */
     fun processAudioStream(
-        audioSource: AudioSource,
-        pitchFunction: PitchFunction
+        audioSource: AudioSource
     ): Flow<ByteArray> = channelFlow {
         // Ensure FFmpeg is installed before processing
         if (!FFMPEG.isAvailable()) {
@@ -97,7 +94,7 @@ class AudioStreamProcessor(
                 }
             }
 
-            // Job 2: Read raw PCM from buffer and stream it (no pitch shifting here)
+            // Job 2: Read raw PCM from buffer and stream it (no processing here)
             try {
                 info("Starting raw PCM streaming from buffer")
                 streamRawPcmFromBuffer(ringBuffer)
@@ -302,105 +299,22 @@ class AudioStreamProcessor(
     }
 
     /**
-     * Stream raw PCM data from ring buffer without any processing.
-     * Pitch shifting will be applied on-demand during playback.
+     * Stream raw PCM data from ring buffer.
      */
-    private fun streamRawPcmFromBuffer(
-        ringBuffer: PCMRingBuffer
-    ): Flow<ByteArray> = flow {
-        info("Starting raw PCM streaming, sample rate: $sampleRate")
+    private fun streamRawPcmFromBuffer(ringBuffer: PCMRingBuffer): Flow<ByteArray> = flow {
+        val tempBuffer = ShortArray(CHUNK_SIZE / 2)
 
-        try {
-            // Wait for initial buffer to fill (at least 1 second of audio)
-            info("Waiting for initial buffer fill...")
-            ringBuffer.waitForSamples(sampleRate, timeoutMs = 5000)
-            info("Initial buffer ready: ${ringBuffer.availableCount()} samples available")
+        while (true) {
+            val samplesRead = ringBuffer.read(tempBuffer, 0, tempBuffer.size)
 
-            val chunkSizeSamples = 16800 // ~350ms of audio at 48kHz
-            var totalSamplesStreamed = 0
-            var emptyReadAttempts = 0
-            val maxEmptyAttempts = 50 // Allow 50 * 100ms = 5 seconds of waiting
-            var lastLoggedBuffer = 0
-
-            while (true) {
-                val availableInBuffer = ringBuffer.availableCount()
-
-                // If buffer is empty and complete, we're done
-                if (availableInBuffer == 0 && ringBuffer.isComplete) {
-                    info("Buffer exhausted and complete, finishing streaming")
-                    break
-                }
-
-                // Wait if buffer is too low (unless we're at the end)
-                if (availableInBuffer < chunkSizeSamples / 2 && !ringBuffer.isComplete) {
-                    // Use longer timeout to avoid premature exit
-                    info("Buffer low: ${availableInBuffer} samples, waiting for more (isComplete=${ringBuffer.isComplete})")
-                    val waitSuccess = ringBuffer.waitForSamples(chunkSizeSamples / 4, timeoutMs = 1000)
-                    if (!waitSuccess && !ringBuffer.isComplete) {
-                        // Still waiting for data, continue looping
-                        info("Wait timeout - buffer: ${ringBuffer.availableCount()} samples, isComplete=${ringBuffer.isComplete}")
-                    }
-                }
-
-                // Read what's available
-                val samplesToRead = minOf(chunkSizeSamples, ringBuffer.availableCount())
-                if (samplesToRead == 0) {
-                    if (ringBuffer.isComplete) {
-                        info("Ring buffer complete with no remaining samples")
-                        break
-                    }
-                    // No data but not complete - wait before retry
-                    emptyReadAttempts++
-                    info("Empty read attempt ${emptyReadAttempts}/${maxEmptyAttempts}: buffer=${ringBuffer.availableCount()}, isComplete=${ringBuffer.isComplete}")
-                    if (emptyReadAttempts >= maxEmptyAttempts) {
-                        err("Ring buffer stuck: no data for ${maxEmptyAttempts * 100}ms, isComplete=${ringBuffer.isComplete}")
-                        err("Total samples streamed before stuck: ${totalSamplesStreamed} (${totalSamplesStreamed / sampleRate}s)")
-                        break
-                    }
-                    Thread.sleep(100)
-                    continue
-                }
-
-                val samples = ShortArray(samplesToRead)
-                val actualRead = ringBuffer.read(samples, 0, samplesToRead)
-
-                if (actualRead == 0) {
-                    if (ringBuffer.isComplete) {
-                        info("Ring buffer complete, read returned 0")
-                        break
-                    }
-                    emptyReadAttempts++
-                    info("Read returned 0 - attempt ${emptyReadAttempts}/${maxEmptyAttempts}")
-                    if (emptyReadAttempts >= maxEmptyAttempts) {
-                        err("Ring buffer read failed repeatedly, ending stream")
-                        break
-                    }
-                    continue
-                }
-
-                // Reset empty attempts on successful read
-                emptyReadAttempts = 0
-
-                // Convert to bytes and emit (no pitch shifting)
-                val bytes = PCMUtils.shortsToBytes(samples.copyOf(actualRead))
-                emit(bytes)
-
-                totalSamplesStreamed += actualRead
-
-                // Log progress every 5 seconds OR when buffer changes significantly
-                val bufferSeconds = ringBuffer.availableCount().toDouble() / sampleRate
-                if (totalSamplesStreamed % (sampleRate * 5) < chunkSizeSamples ||
-                    Math.abs(ringBuffer.availableCount() - lastLoggedBuffer) > sampleRate * 2) {
-                    info("Raw PCM streaming: ${totalSamplesStreamed / sampleRate}s streamed, buffer: ${String.format("%.1f", bufferSeconds)}s, isComplete=${ringBuffer.isComplete}")
-                    lastLoggedBuffer = ringBuffer.availableCount()
-                }
+            if (samplesRead == 0) {
+                if (ringBuffer.isComplete) break
+                delay(10)
+                continue
             }
 
-            info("Raw PCM streaming completed: $totalSamplesStreamed samples (${totalSamplesStreamed / sampleRate}s)")
-        } catch (e: Exception) {
-            err("Raw PCM streaming error: ${e.message}")
-            e.printStackTrace()
-            throw e
+            val bytes = PCMUtils.shortsToBytes(tempBuffer.copyOf(samplesRead))
+            emit(bytes)
         }
-    }
+    }.flowOn(Dispatchers.IO)
 }

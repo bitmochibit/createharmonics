@@ -1,5 +1,7 @@
 package me.mochibit.createharmonics.audio
 
+import me.mochibit.createharmonics.audio.effect.EffectChain
+import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.pcm.PitchFunction
 import me.mochibit.createharmonics.audio.processor.AudioStreamProcessor
 import me.mochibit.createharmonics.audio.source.AudioSource
@@ -17,18 +19,32 @@ object AudioPlayer {
     private const val DEFAULT_SAMPLE_RATE = 48000
 
     /**
-     * Stream audio from any AudioSource with real-time pitch shifting.
+     * Stream audio from any AudioSource with an effect chain.
      */
     fun streamAudio(
         audioSource: AudioSource,
-        pitchFunction: PitchFunction = PitchFunction.constant(1.0f),
+        effectChain: EffectChain = EffectChain.empty(),
         sampleRate: Int = DEFAULT_SAMPLE_RATE,
         resourceLocation: ResourceLocation
     ): InputStream {
         val processor = AudioStreamProcessor(sampleRate)
-        val stream = BufferedAudioStream(audioSource, pitchFunction, sampleRate, resourceLocation, processor)
+        val stream = BufferedAudioStream(audioSource, effectChain, sampleRate, resourceLocation, processor)
         StreamRegistry.registerStream(resourceLocation, stream)
         return stream
+    }
+
+    /**
+     * Stream audio with a pitch function (backward compatibility).
+     * This creates an EffectChain with a single PitchShiftEffect.
+     */
+    fun streamAudio(
+        audioSource: AudioSource,
+        pitchFunction: PitchFunction,
+        sampleRate: Int = DEFAULT_SAMPLE_RATE,
+        resourceLocation: ResourceLocation
+    ): InputStream {
+        val effectChain = EffectChain(PitchShiftEffect(pitchFunction))
+        return streamAudio(audioSource, effectChain, sampleRate, resourceLocation)
     }
 
     /**
@@ -44,6 +60,18 @@ object AudioPlayer {
     }
 
     /**
+     * Stream audio from a YouTube URL with effect chain.
+     */
+    fun fromYoutube(
+        url: String,
+        effectChain: EffectChain,
+        sampleRate: Int = DEFAULT_SAMPLE_RATE,
+        resourceLocation: ResourceLocation
+    ): InputStream {
+        return streamAudio(YoutubeAudioSource(url), effectChain, sampleRate, resourceLocation)
+    }
+
+    /**
      * Stream audio from a local file (convenience method).
      */
     fun fromFile(
@@ -56,6 +84,18 @@ object AudioPlayer {
     }
 
     /**
+     * Stream audio from a local file with effect chain.
+     */
+    fun fromFile(
+        filePath: String,
+        effectChain: EffectChain,
+        sampleRate: Int = DEFAULT_SAMPLE_RATE,
+        resourceLocation: ResourceLocation
+    ): InputStream {
+        return streamAudio(LocalFileAudioSource(filePath), effectChain, sampleRate, resourceLocation)
+    }
+
+    /**
      * Stream audio from an HTTP URL (convenience method).
      */
     fun fromHttp(
@@ -65,6 +105,18 @@ object AudioPlayer {
         resourceLocation: ResourceLocation
     ): InputStream {
         return streamAudio(HttpAudioSource(url), pitchFunction, sampleRate, resourceLocation)
+    }
+
+    /**
+     * Stream audio from an HTTP URL with effect chain.
+     */
+    fun fromHttp(
+        url: String,
+        effectChain: EffectChain,
+        sampleRate: Int = DEFAULT_SAMPLE_RATE,
+        resourceLocation: ResourceLocation
+    ): InputStream {
+        return streamAudio(HttpAudioSource(url), effectChain, sampleRate, resourceLocation)
     }
 
     /**
