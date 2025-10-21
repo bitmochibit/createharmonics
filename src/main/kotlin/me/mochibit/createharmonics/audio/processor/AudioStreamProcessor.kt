@@ -51,25 +51,66 @@ class AudioStreamProcessor(
             info("FFmpeg installed successfully")
         }
 
-        // Step 1: Resolve audio URL (cached by YTDL)
-        info("Resolving audio URL for: ${audioSource.getIdentifier()}")
-        val audioUrl = audioSource.resolveAudioUrl()
+        // Get the original identifier (YouTube URL or other source)
+        val identifier = audioSource.getIdentifier()
+
+        // Step 1: Get duration to determine streaming strategy
+        info("Getting audio info for: $identifier")
         val duration = audioSource.getDurationSeconds()
-        info("Audio URL resolved, duration: ${duration}s")
+        info("Audio duration: ${duration}s")
 
         // Step 2: Determine if we should stream or download
         // Download SHORT songs (<3min) for caching, stream LONG songs (>3min)
         val shouldDownload = duration <= DURATION_THRESHOLD_SECONDS
 
-        if (shouldDownload) {
-            info("Audio duration <= 3 minutes, downloading for caching")
-            processWithDownload(audioUrl, audioSource.getIdentifier())
-                .collect { chunk -> emit(chunk) }
-        } else {
-            info("Audio duration > 3 minutes, streaming directly")
-            processWithStreaming(audioUrl)
-                .collect { chunk -> emit(chunk) }
+        // Retry logic for expired URLs (common with YouTube)
+        var attempt = 0
+        val maxAttempts = 2
+        var lastError: Exception? = null
+
+        while (attempt < maxAttempts) {
+            try {
+                if (shouldDownload) {
+                    info("Audio duration <= 3 minutes, downloading for caching (attempt ${attempt + 1}/$maxAttempts)")
+                    // Resolve URL just-in-time before download
+                    val audioUrl = audioSource.resolveAudioUrl()
+                    processWithDownload(audioUrl, identifier)
+                        .collect { chunk -> emit(chunk) }
+                } else {
+                    info("Audio duration > 3 minutes, streaming directly (attempt ${attempt + 1}/$maxAttempts)")
+                    // Resolve URL just-in-time before streaming
+                    val audioUrl = audioSource.resolveAudioUrl()
+                    processWithStreaming(audioUrl)
+                        .collect { chunk -> emit(chunk) }
+                }
+                // Success - break out of retry loop
+                return@flow
+            } catch (e: Exception) {
+                lastError = e
+                attempt++
+
+                // Check if it's a 403 error (expired URL)
+                val is403Error = e.message?.contains("403") == true ||
+                                 e.message?.contains("Forbidden") == true ||
+                                 e.message?.contains("HTTP error") == true
+
+                if (is403Error && attempt < maxAttempts) {
+                    err("Detected expired URL (403 error), invalidating cache and retrying...")
+                    // Invalidate the cache for this URL
+                    me.mochibit.createharmonics.audio.AudioUrlCache.invalidate(identifier)
+                    delay(500) // Brief delay before retry
+                } else if (attempt >= maxAttempts) {
+                    err("Max retry attempts reached, giving up")
+                    throw e
+                } else {
+                    // Non-403 error, don't retry
+                    throw e
+                }
+            }
         }
+
+        // If we get here, all retries failed
+        throw lastError ?: IllegalStateException("Failed to process audio after $maxAttempts attempts")
     }.flowOn(Dispatchers.IO)
 
     /**
@@ -183,8 +224,7 @@ class AudioStreamProcessor(
             outputFile.delete()
         }
 
-        // Use stream copy for faster, lossless downloads (no re-encoding)
-        // This prevents partial/truncated downloads from re-encoding issues
+        // Use stream copy for faster downloads (no re-encoding)
         val command = listOf(
             ffmpegPath,
             "-reconnect", "1",

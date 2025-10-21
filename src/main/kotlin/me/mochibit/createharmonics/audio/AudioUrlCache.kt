@@ -19,7 +19,7 @@ object AudioUrlCache {
     )
 
     private val cache = mutableMapOf<String, AudioInfo>()
-    private val CACHE_TTL_MS = TimeUnit.HOURS.toMillis(1) // 1 hour TTL
+    private val CACHE_TTL_MS = TimeUnit.MINUTES.toMillis(2) // 2 minutes TTL (URLs expire quickly)
 
     /**
      * Get audio info from cache or extract it using yt-dlp.
@@ -74,24 +74,34 @@ object AudioUrlCache {
             }
 
             // Get both URL and duration in one call
+            // Use format selector to prefer direct URLs over HLS/DASH manifests
+            // 'ba' = best audio, but we exclude HLS (m3u8) and DASH (mpd) manifests
             val process = ProcessBuilder(
                 ytdlPath,
-                "-f", "ba/b",
+                "-f", "ba[protocol!*=m3u8][protocol!*=dash]/ba/b",
                 "--get-url",
                 "--get-duration",
                 "--no-playlist",
+                "--verbose",
                 youtubeUrl
             ).start()
 
             val output = process.inputStream.bufferedReader().use { it.readText() }
             val errorOutput = process.errorStream.bufferedReader().use { it.readText() }
+
+            // Log yt-dlp output for debugging
+            if (errorOutput.isNotBlank()) {
+                errorOutput.lines().forEach { line ->
+                    if (line.isNotBlank()) {
+                        info("yt-dlp: $line")
+                    }
+                }
+            }
+
             val exitCode = process.waitFor()
 
             if (exitCode != 0) {
                 err("AudioUrlCache: yt-dlp failed with exit code $exitCode")
-                if (errorOutput.isNotBlank()) {
-                    err("AudioUrlCache: yt-dlp error: $errorOutput")
-                }
                 return@withContext null
             }
 
@@ -120,6 +130,17 @@ object AudioUrlCache {
             2 -> parts[0] * 60 + parts[1] // MM:SS
             1 -> parts[0] // SS
             else -> 0
+        }
+    }
+
+    /**
+     * Invalidate a specific cache entry (useful when URL expires/fails).
+     */
+    fun invalidate(youtubeUrl: String) {
+        synchronized(cache) {
+            if (cache.remove(youtubeUrl) != null) {
+                info("AudioUrlCache: Invalidated cache for $youtubeUrl")
+            }
         }
     }
 
