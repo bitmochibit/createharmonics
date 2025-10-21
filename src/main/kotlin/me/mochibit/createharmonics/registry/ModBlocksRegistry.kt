@@ -1,5 +1,7 @@
 package me.mochibit.createharmonics.registry
 
+import com.simibubi.create.AllTags
+import com.simibubi.create.foundation.data.ModelGen.customItemModel
 import com.tterrag.registrate.util.entry.BlockEntry
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger.info
@@ -18,8 +20,9 @@ object ModBlocksRegistry : AbstractModRegistry {
             p.strength(2.0f, 6.0f)
                 .sound(SoundType.WOOD)
         }
+        .tag(AllTags.AllBlockTags.SAFE_NBT.tag)
         .item()
-        .build()
+        .transform(customItemModel())
         .register()
 
     override fun register(eventBus: IEventBus) {
