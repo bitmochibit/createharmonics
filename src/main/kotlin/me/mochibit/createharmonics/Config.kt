@@ -22,6 +22,10 @@ object Config {
         .comment("Target buffer size in seconds of playback time (default: 0.05). Larger values = more stable but higher latency. Reduce for faster pitch response.")
         .defineInRange("playbackBufferSeconds", 0.05, 0.01, 30.0)
 
+    val LIBRARIES_ACCEPTED: ForgeConfigSpec.BooleanValue = BUILDER
+        .comment("Whether the user has accepted the download of external libraries (yt-dlp and FFmpeg)")
+        .define("librariesAccepted", false)
+
     val SPEC: ForgeConfigSpec = BUILDER.build()
 
     @SubscribeEvent

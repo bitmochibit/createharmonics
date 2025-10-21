@@ -46,6 +46,12 @@ class CreateHarmonicsMod {
         ModItemsRegistry.register(forgeModEventBus)
         ModCreativeTabs.register(forgeModEventBus)
         registerConfig(ModConfig.Type.COMMON, Config.SPEC)
+
+        // Register disclaimer handler on client side
+        forgeModEventBus.addListener { event: FMLClientSetupEvent ->
+            MinecraftForge.EVENT_BUS.register(me.mochibit.createharmonics.client.event.MainMenuDisclaimerHandler)
+            info("Registered MainMenuDisclaimerHandler")
+        }
     }
 
     private val _registrate: CreateRegistrate = CreateRegistrate.create(MOD_ID)
@@ -68,7 +74,6 @@ class CreateHarmonicsMod {
     fun onServerStarting(event: ServerStartingEvent) {
         info("Create: Harmonics server is starting!")
     }
-
 
     @EventBusSubscriber(modid = MOD_ID, bus = EventBusSubscriber.Bus.MOD, value = [Dist.CLIENT])
     object ClientModEvents {

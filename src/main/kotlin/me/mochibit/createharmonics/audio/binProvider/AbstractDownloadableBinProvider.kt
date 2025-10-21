@@ -90,17 +90,19 @@ abstract class AbstractDownloadableBinProvider(
         }
     }
 
-    fun install(): Boolean {
+    fun install(progressCallback: ((String, Float, String) -> Unit)? = null): Boolean {
         val lockObject = installationLocks.computeIfAbsent(providerName) { Any() }
 
         synchronized(lockObject) {
             if (isAvailable()) {
                 info("$providerName is already installed")
+                progressCallback?.invoke("already_installed", 1.0f, "")
                 return true
             }
 
             try {
                 info("Installing $providerName...")
+                progressCallback?.invoke("downloading", 0.0f, "")
                 directory.mkdirs()
 
                 val downloadUrl = getDownloadUrl()
@@ -108,21 +110,24 @@ abstract class AbstractDownloadableBinProvider(
 
                 val tempFile = File.createTempFile("${providerName}_download", ".tmp")
                 try {
-                    downloadFile(downloadUrl, tempFile)
+                    downloadFile(downloadUrl, tempFile, progressCallback)
 
                     if (tempFile.length() == 0L) {
                         throw IOException("Downloaded file is empty")
                     }
 
+                    progressCallback?.invoke("extracting", 0.0f, "")
                     extractDownloadedFile(downloadUrl, tempFile)
 
                     info("$providerName installed successfully")
+                    progressCallback?.invoke("completed", 1.0f, "")
 
                     // Clear cache and verify
                     cachedExecutablePath = null
                     return isAvailable().also { available ->
                         if (!available) {
                             err("Installation verification failed for $providerName")
+                            progressCallback?.invoke("failed", 0.0f, "")
                         }
                     }
                 } finally {
@@ -131,6 +136,7 @@ abstract class AbstractDownloadableBinProvider(
             } catch (e: Exception) {
                 err("Failed to install $providerName: ${e.message}")
                 e.printStackTrace()
+                progressCallback?.invoke("failed", 0.0f, "")
                 return false
             }
         }
@@ -153,13 +159,63 @@ abstract class AbstractDownloadableBinProvider(
 
     protected abstract fun getDownloadUrl(): String
 
-    private fun downloadFile(url: String, destination: File) {
-        URL(url).openStream().use { input ->
-            Channels.newChannel(input).use { rbc ->
-                FileOutputStream(destination).use { output ->
-                    output.channel.transferFrom(rbc, 0, Long.MAX_VALUE)
+    private fun downloadFile(url: String, destination: File, progressCallback: ((String, Float, String) -> Unit)? = null) {
+        val connection = URL(url).openConnection()
+        connection.connectTimeout = 30000 // 30 seconds
+        connection.readTimeout = 30000 // 30 seconds
+
+        val contentLength = connection.contentLengthLong
+
+        connection.getInputStream().use { input ->
+            FileOutputStream(destination).use { output ->
+                val buffer = ByteArray(8192)
+                var bytesRead: Int
+                var totalBytes = 0L
+                val startTime = System.currentTimeMillis()
+                var lastUpdateTime = startTime
+                var lastUpdateBytes = 0L
+
+                while (input.read(buffer).also { bytesRead = it } != -1) {
+                    output.write(buffer, 0, bytesRead)
+                    totalBytes += bytesRead
+
+                    val currentTime = System.currentTimeMillis()
+                    val timeSinceLastUpdate = currentTime - lastUpdateTime
+
+                    // Update progress every 100ms
+                    if (timeSinceLastUpdate >= 100) {
+                        val bytesSinceLastUpdate = totalBytes - lastUpdateBytes
+                        val speedBytesPerSec = (bytesSinceLastUpdate * 1000.0 / timeSinceLastUpdate).toLong()
+                        val speedText = formatSpeed(speedBytesPerSec)
+
+                        val progress = if (contentLength > 0) {
+                            totalBytes.toFloat() / contentLength.toFloat()
+                        } else {
+                            0.0f
+                        }
+
+                        progressCallback?.invoke("downloading", progress, speedText)
+
+                        lastUpdateTime = currentTime
+                        lastUpdateBytes = totalBytes
+
+                        // Log progress every 1MB
+                        if (totalBytes % (1024 * 1024) < buffer.size) {
+                            info("Downloaded ${totalBytes / (1024 * 1024)} MB... ($speedText)")
+                        }
+                    }
                 }
+
+                info("Download complete: ${totalBytes / (1024 * 1024)} MB")
             }
+        }
+    }
+
+    private fun formatSpeed(bytesPerSecond: Long): String {
+        return when {
+            bytesPerSecond >= 1024 * 1024 -> "%.2f MB/s".format(bytesPerSecond / (1024.0 * 1024.0))
+            bytesPerSecond >= 1024 -> "%.2f KB/s".format(bytesPerSecond / 1024.0)
+            else -> "$bytesPerSecond B/s"
         }
     }
 
@@ -168,9 +224,17 @@ abstract class AbstractDownloadableBinProvider(
         destDir.mkdirs()
         val destPath = destDir.canonicalFile.toPath()
 
+        info("Extracting zip archive...")
+        var fileCount = 0
+
         ZipInputStream(zipFile.inputStream()).use { zis ->
             generateSequence { zis.nextEntry }
                 .forEach { entry ->
+                    fileCount++
+                    if (fileCount % 10 == 0) {
+                        info("Extracted $fileCount files...")
+                    }
+
                     // Security: Prevent zip slip vulnerability by checking path before creating file
                     val entryPath = File(entry.name).toPath().normalize()
                     val resolvedPath = destPath.resolve(entryPath).normalize()
@@ -198,6 +262,8 @@ abstract class AbstractDownloadableBinProvider(
                     zis.closeEntry()
                 }
         }
+
+        info("Extraction complete: $fileCount files extracted")
     }
 
     private fun shouldBeExecutable(fileName: String): Boolean {
