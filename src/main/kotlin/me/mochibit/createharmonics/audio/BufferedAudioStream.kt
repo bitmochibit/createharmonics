@@ -62,6 +62,13 @@ class BufferedAudioStream(
 
     private val preBufferLatch = java.util.concurrent.CountDownLatch(1)
 
+    // Suspending function to wait for pre-buffering asynchronously
+    suspend fun awaitPreBuffering(timeoutSeconds: Long = 30): Boolean {
+        return kotlinx.coroutines.withContext(Dispatchers.IO) {
+            preBufferLatch.await(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)
+        }
+    }
+
     // Track playback time for effects
     private var samplesRead = 0L
 
@@ -173,7 +180,7 @@ class BufferedAudioStream(
         var consecutiveFailures = 0
         val maxConsecutiveFailures = 20
         var totalWaitCycles = 0
-        val maxTotalWaitCycles = 200 // 2000ms timeout (increased from 500ms to prevent premature termination)
+        val maxTotalWaitCycles = 20 // 2000ms timeout (increased from 500ms to prevent premature termination)
 
         // BLOCKING: Keep trying until we have data or stream is finished
         while (totalRead < len) {
@@ -331,25 +338,14 @@ class BufferedAudioStream(
         outputPosition = 0
 
         samplesRead += inputSamples.size
-
         return true
     }
 
     private fun waitForPreBuffer() {
+        // No longer block here - pre-buffering is now handled before play() is called
+        // If this is still called (by read()), it means pre-buffering should already be done
         if (!preBuffered) {
-            try {
-                Logger.info("Waiting for pre-buffering...")
-                // Block until we have initial data (with timeout)
-                if (!preBufferLatch.await(30, java.util.concurrent.TimeUnit.SECONDS)) {
-                    Logger.err("Pre-buffering timeout! No audio data received after 30 seconds")
-                    error?.let { throw it }
-                    throw java.io.IOException("Pre-buffering timeout - no audio data received")
-                }
-                Logger.info("Pre-buffering completed, starting playback")
-            } catch (e: InterruptedException) {
-                Thread.currentThread().interrupt()
-                throw java.io.IOException("Pre-buffering interrupted", e)
-            }
+            Logger.warn("waitForPreBuffer() called but pre-buffering not complete - this shouldn't happen!")
         }
     }
 

@@ -40,7 +40,7 @@ class AudioStreamProcessor(
      */
     fun processAudioStream(
         audioSource: AudioSource
-    ): Flow<ByteArray> = channelFlow {
+    ): Flow<ByteArray> = flow {
         // Ensure FFmpeg is installed before processing
         if (!FFMPEG.isAvailable()) {
             info("FFmpeg not found, installing...")
@@ -58,16 +58,17 @@ class AudioStreamProcessor(
         info("Audio URL resolved, duration: ${duration}s")
 
         // Step 2: Determine if we should stream or download
-        val shouldDownload = duration > DURATION_THRESHOLD_SECONDS
+        // Download SHORT songs (<3min) for caching, stream LONG songs (>3min)
+        val shouldDownload = duration <= DURATION_THRESHOLD_SECONDS
 
         if (shouldDownload) {
-            info("Audio duration > 3 minutes, downloading to local file")
+            info("Audio duration <= 3 minutes, downloading for caching")
             processWithDownload(audioUrl, audioSource.getIdentifier())
-                .collect { chunk -> send(chunk) }
+                .collect { chunk -> emit(chunk) }
         } else {
-            info("Audio duration <= 3 minutes, streaming directly")
+            info("Audio duration > 3 minutes, streaming directly")
             processWithStreaming(audioUrl)
-                .collect { chunk -> send(chunk) }
+                .collect { chunk -> emit(chunk) }
         }
     }.flowOn(Dispatchers.IO)
 
@@ -177,7 +178,13 @@ class AudioStreamProcessor(
         val ffmpegPath = FFMPEG.getExecutablePath()
             ?: throw IllegalStateException("FFmpeg not found")
 
-        // Use re-encoding instead of copy to ensure compatibility with YouTube URLs
+        // Delete partial downloads if they exist
+        if (outputFile.exists()) {
+            outputFile.delete()
+        }
+
+        // Use stream copy for faster, lossless downloads (no re-encoding)
+        // This prevents partial/truncated downloads from re-encoding issues
         val command = listOf(
             ffmpegPath,
             "-reconnect", "1",
@@ -185,8 +192,7 @@ class AudioStreamProcessor(
             "-reconnect_delay_max", "5",
             "-i", audioUrl,
             "-vn", // No video
-            "-acodec", "libopus", // Use Opus codec for better compression
-            "-b:a", "128k", // Audio bitrate
+            "-c:a", "copy", // Copy audio stream without re-encoding
             "-y", // Overwrite output file without asking
             "-loglevel", "warning",
             outputFile.absolutePath
@@ -197,16 +203,36 @@ class AudioStreamProcessor(
             .redirectErrorStream(true)
             .start()
 
-        // Capture output for debugging
-        val output = process.inputStream.bufferedReader().use { it.readText() }
-        val exitCode = process.waitFor()
-
-        if (exitCode != 0) {
-            err("FFmpeg download error output: $output")
-            throw IllegalStateException("FFmpeg download failed with exit code: $exitCode. Output: $output")
+        // Monitor output asynchronously
+        val outputJob = launch {
+            process.inputStream.bufferedReader().use { reader ->
+                reader.lineSequence().forEach { line ->
+                    if (line.isNotBlank()) {
+                        info("FFmpeg: $line")
+                    }
+                }
+            }
         }
 
-        info("FFmpeg download completed successfully")
+        val exitCode = process.waitFor()
+        outputJob.cancel()
+
+        if (exitCode != 0) {
+            // Clean up failed download
+            if (outputFile.exists()) {
+                outputFile.delete()
+            }
+            err("FFmpeg download failed with exit code: $exitCode")
+            throw IllegalStateException("FFmpeg download failed with exit code: $exitCode")
+        }
+
+        // Validate the downloaded file
+        if (!outputFile.exists() || outputFile.length() == 0L) {
+            err("Downloaded file is missing or empty")
+            throw IllegalStateException("Downloaded file validation failed")
+        }
+
+        info("FFmpeg download completed successfully: ${outputFile.length()} bytes")
     }
 
     /**
@@ -221,18 +247,41 @@ class AudioStreamProcessor(
 
         val command = listOf(
             ffmpegPath,
+            "-reconnect", "1",
+            "-reconnect_streamed", "1",
+            "-reconnect_delay_max", "5",
             "-i", audioUrl,
             "-f", "s16le",
             "-ar", sampleRate.toString(),
             "-ac", "1",
-            "-loglevel", "error",
+            "-loglevel", "warning",
             "pipe:1"
         )
 
-        val process = ProcessBuilder(command).start()
+        info("Starting FFmpeg stream: ${command.joinToString(" ")}")
+        val process = ProcessBuilder(command)
+            .redirectErrorStream(false)
+            .start()
+
+        // Monitor stderr for errors
+        val errorJob = launch {
+            process.errorStream.bufferedReader().use { reader ->
+                reader.lineSequence().forEach { line ->
+                    if (line.isNotBlank()) {
+                        err("FFmpeg: $line")
+                    }
+                }
+            }
+        }
+
         try {
             streamPcmToBuffer(process.inputStream, ringBuffer)
+            val exitCode = process.waitFor()
+            if (exitCode != 0) {
+                err("FFmpeg process exited with code: $exitCode")
+            }
         } finally {
+            errorJob.cancel()
             process.destroy()
         }
     }

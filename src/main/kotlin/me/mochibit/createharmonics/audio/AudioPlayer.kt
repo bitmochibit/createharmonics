@@ -61,14 +61,19 @@ object AudioPlayer {
 
     /**
      * Stream audio from a YouTube URL with effect chain.
+     * Returns the BufferedAudioStream so caller can await pre-buffering before playing.
      */
-    fun fromYoutube(
+    suspend fun fromYoutube(
         url: String,
         effectChain: EffectChain,
         sampleRate: Int = DEFAULT_SAMPLE_RATE,
         resourceLocation: ResourceLocation
-    ): InputStream {
-        return streamAudio(YoutubeAudioSource(url), effectChain, sampleRate, resourceLocation)
+    ): BufferedAudioStream {
+        val audioSource = YoutubeAudioSource(url)
+        val processor = AudioStreamProcessor(sampleRate)
+        val stream = BufferedAudioStream(audioSource, effectChain, sampleRate, resourceLocation, processor)
+        StreamRegistry.registerStream(resourceLocation, stream)
+        return stream
     }
 
     /**

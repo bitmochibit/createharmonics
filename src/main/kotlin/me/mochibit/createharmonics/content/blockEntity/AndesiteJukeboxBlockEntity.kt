@@ -34,15 +34,12 @@ class AndesiteJukeboxBlockEntity(
     private var playbackJob: Job? = null
     @Volatile
     private var currentPitch: Float = 1.0f // Thread-safe pitch value
-    private val RICK_ASTLEY_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    private val RICK_ASTLEY_URL = "https://www.youtube.com/watch?v=NLj6k85SEBk"
     private val MIN_SPEED_THRESHOLD = 16.0f
 
-    // Dynamic pitch function that reads the thread-safe currentPitch variable
-    // Wrapped in smoothedRealTime() to interpolate between pitch changes over 100ms
-    // using wall-clock time instead of buffer time for immediate response
     val pitchFunction = PitchFunction.smoothedRealTime(
         sourcePitchFunction = PitchFunction.custom { time -> currentPitch },
-        transitionTimeSeconds = 0.1 // 100ms transition time for responsive pitch changes
+        transitionTimeSeconds = 0.5
     )
 
     override fun tick() {
@@ -100,28 +97,39 @@ class AndesiteJukeboxBlockEntity(
 
                 Logger.info("AndesiteJukebox: Resource location created: $resourceLocation")
 
-                AudioPlayer.fromYoutube(
+                val stream = AudioPlayer.fromYoutube(
                     url = RICK_ASTLEY_URL,
                     effectChain = EffectChain(
                         listOf(
                             PitchShiftEffect(pitchFunction),
                             VolumeEffect(0.8f), // Reduce volume to 80%
                             LowPassFilterEffect(cutoffFrequency = 3000f), // Slight muffling
-                            // Removed ReverbEffect - it was causing 3-second delay in pitch response
+                            ReverbEffect(roomSize = 0.5f, damping = 0.2f, wetMix = 0.8f)
                         )
                     ),
                     resourceLocation = resourceLocation
                 )
 
-                withClientContext {
-                    val soundInstance = StaticSoundInstance(
-                        resourceLocation = resourceLocation,
-                        position = blockPos,
-                        radius = 64,
-                        pitch = 1.0f
-                    )
-                    Logger.info("AndesiteJukebox: Playing sound instance with real-time effects")
-                    Minecraft.getInstance().soundManager.play(soundInstance)
+                // Wait for pre-buffering to complete asynchronously (doesn't block game thread)
+                Logger.info("AndesiteJukebox: Waiting for pre-buffering to complete...")
+                val preBuffered = stream.awaitPreBuffering(timeoutSeconds = 30)
+
+                if (!preBuffered) {
+                    Logger.err("AndesiteJukebox: Pre-buffering timeout!")
+                    isPlaying = false
+                } else {
+                    Logger.info("AndesiteJukebox: Pre-buffering complete, starting playback")
+
+                    withClientContext {
+                        val soundInstance = StaticSoundInstance(
+                            resourceLocation = resourceLocation,
+                            position = blockPos,
+                            radius = 64,
+                            pitch = 1.0f
+                        )
+                        Logger.info("AndesiteJukebox: Playing sound instance with real-time effects")
+                        Minecraft.getInstance().soundManager.play(soundInstance)
+                    }
                 }
             } catch (e: Exception) {
                 if (e !is kotlinx.coroutines.CancellationException) {
