@@ -9,6 +9,44 @@ import net.minecraftforge.fml.event.config.ModConfigEvent
 object Config {
     private val BUILDER = ForgeConfigSpec.Builder()
 
+    enum class DiscType {
+        STONE, GOLD, EMERALD, DIAMOND, NETHERITE, ETERNAL
+    }
+
+    // Defaults used for registration
+    val variants: List<Pair<DiscType, Int?>> = listOf(
+        DiscType.STONE to 2,
+        DiscType.GOLD to 4,
+        DiscType.EMERALD to 8,
+        DiscType.DIAMOND to 32,
+        DiscType.NETHERITE to 64,
+        DiscType.ETERNAL to null
+    )
+
+    private val discs: ForgeConfigSpec.ConfigValue<List<String>>
+
+    init {
+        BUILDER.push("ethereal_disc_durabilities")
+        discs = BUILDER
+            .comment("List of disc durability. Use durability 0 for unbreakable.")
+            .defineList(
+                "discs",
+                variants.map { "${it.first}=${it.second}" }
+            ) { it is String && (it as String).matches(Regex("^[A-Z_]+=(null|[0-9]+)$")) }
+        BUILDER.pop()
+    }
+
+    fun getConfiguredVariants(): List<Pair<DiscType, Int?>> {
+        return discs.get().mapNotNull { entry ->
+            val (name, value) = entry.split("=")
+            try {
+                val type = DiscType.valueOf(name)
+                type to value.toIntOrNull()
+            } catch (e: IllegalArgumentException) {
+                null
+            }
+        }
+    }
     // Audio buffering and pitch constraints
     val MIN_PITCH: ForgeConfigSpec.DoubleValue = BUILDER
         .comment("Minimum pitch value for audio playback (default: 0.5 = half speed)")

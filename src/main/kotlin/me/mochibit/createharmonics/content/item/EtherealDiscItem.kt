@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.content.item
 
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.audio.pcm.PitchFunction
+import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResultHolder
@@ -10,7 +11,7 @@ import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 
-class EtherealDiscItem : Item(Properties().stacksTo(1)) {
+class EtherealDiscItem(b: Boolean, props: Properties) : Item(Properties().stacksTo(1)) {
 
     override fun use(pLevel: Level, pPlayer: Player, pUsedHand: InteractionHand): InteractionResultHolder<ItemStack> {
         if (!pLevel.isClientSide) return InteractionResultHolder.pass(pPlayer.getItemInHand(pUsedHand))
@@ -20,7 +21,7 @@ class EtherealDiscItem : Item(Properties().stacksTo(1)) {
     }
 
     override fun getDescriptionId(): String {
-        return "item.createharmonics.ethereal_disc"
+        return "item.${BuiltInRegistries.ITEM.getKey(this).namespace}.${BuiltInRegistries.ITEM.getKey(this).path}"
     }
 
     companion object {
