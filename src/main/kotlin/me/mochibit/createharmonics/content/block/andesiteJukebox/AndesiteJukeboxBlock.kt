@@ -23,33 +23,10 @@ import net.minecraft.world.phys.shapes.VoxelShape
 class AndesiteJukeboxBlock(properties: Properties) : DirectionalKineticBlock(properties),
     IBE<AndesiteJukeboxBlockEntity> {
 
-    companion object {
-        val HAS_DISC: BooleanProperty = BooleanProperty.create("has_disc")
-    }
-
-    init {
-        registerDefaultState(
-            stateDefinition.any()
-                .setValue(HAS_DISC, false)
-        )
-    }
-
-    override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block, BlockState>) {
-        builder.add(HAS_DISC)
-        super.createBlockStateDefinition(builder)
-    }
 
     @Deprecated("Deprecated in Java")
     override fun getShape(state: BlockState, level: BlockGetter, pos: BlockPos, context: CollisionContext): VoxelShape {
         return AllShapes.CASING_14PX[Direction.DOWN]
-    }
-
-    override fun getStateForPlacement(context: BlockPlaceContext): BlockState? {
-        val preferred = getPreferredFacing(context)
-        if ((context.player != null && context.player!!
-                .isShiftKeyDown) || preferred == null
-        ) return super.getStateForPlacement(context)
-        return defaultBlockState().setValue(FACING, preferred)
     }
 
     override fun onRemove(state: BlockState, level: Level, pos: BlockPos, newState: BlockState, isMoving: Boolean) {

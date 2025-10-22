@@ -31,6 +31,7 @@ class AndesiteJukeboxBlockEntity(
 ) : KineticBlockEntity(type, pos, state) {
 
     private var isPlaying = false
+    private var hasDisc = false // Internal disc state, separate from visual animation
     private var currentResourceLocation: ResourceLocation? = null
     private var playbackJob: Job? = null
     @Volatile
@@ -70,6 +71,7 @@ class AndesiteJukeboxBlockEntity(
     }
 
     fun insertDisc() {
+        hasDisc = true
         // Disc inserted, will start playing when rotation is sufficient
         if (level?.isClientSide == true && abs(this.speed) >= MIN_SPEED_THRESHOLD) {
             startPlaying()
@@ -77,11 +79,12 @@ class AndesiteJukeboxBlockEntity(
     }
 
     fun ejectDisc() {
+        hasDisc = false
         stopPlaying()
     }
 
     private fun hasDisc(): Boolean {
-        return blockState.getValue(AndesiteJukeboxBlock.HAS_DISC)
+        return hasDisc
     }
 
     private fun startPlaying() {

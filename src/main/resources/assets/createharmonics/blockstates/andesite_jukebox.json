@@ -1,5 +1,30 @@
 {
   "variants": {
-    "": { "model": "createharmonics:block/andesite_jukebox" }
+    "facing=down": {
+      "model": "createharmonics:block/andesite_jukebox"
+    },
+    "facing=up": {
+      "model": "createharmonics:block/andesite_jukebox",
+      "x": 180
+    },
+    "facing=north": {
+      "model": "createharmonics:block/andesite_jukebox",
+      "x": 90,
+      "y": 180
+    },
+    "facing=south": {
+      "model": "createharmonics:block/andesite_jukebox",
+      "x": 90
+    },
+    "facing=west": {
+      "model": "createharmonics:block/andesite_jukebox",
+      "x": 90,
+      "y": 90
+    },
+    "facing=east": {
+      "model": "createharmonics:block/andesite_jukebox",
+      "x": 90,
+      "y": 270
+    }
   }
 }
