@@ -20,8 +20,7 @@ object ModItemsRegistry : AbstractModRegistry {
 
     fun registerEtherealDiscVariant(suffix: Config.DiscType, maxUses: Int?): ItemEntry<EtherealDiscItem> {
         val name = "ethereal_disc_${suffix.name.lowercase()}"
-        
-        return cRegistrate().item(name) { EtherealDiscItem(maxUses == null, props) }
+        return cRegistrate().item(name) { EtherealDiscItem(maxUses == null, Item.Properties()) }
             .properties { prop: Item.Properties -> prop.stacksTo(1) }
             .model { ctx, prov ->
                 prov.generated(ctx, prov.modLoc("item/$name"))
