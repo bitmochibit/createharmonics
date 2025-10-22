@@ -6,7 +6,8 @@ import com.tterrag.registrate.util.entry.BlockEntityEntry
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.cRegistrate
-import me.mochibit.createharmonics.content.blockEntity.AndesiteJukeboxBlockEntity
+import me.mochibit.createharmonics.content.block.andesiteJukebox.AndesiteJukeboxBlockEntity
+import me.mochibit.createharmonics.content.block.andesiteJukebox.AndesiteJukeboxRenderer
 import net.minecraftforge.eventbus.api.IEventBus
 
 object ModBlockEntitiesRegistry : AbstractModRegistry {
@@ -17,7 +18,6 @@ object ModBlockEntitiesRegistry : AbstractModRegistry {
             OrientedRotatingVisual.of(AllPartialModels.SHAFT_HALF)
         }
         .validBlocks(ModBlocksRegistry.ANDESITE_JUKEBOX)
-//        .renderer {  }
         .register()
 
     override fun register(eventBus: IEventBus) {

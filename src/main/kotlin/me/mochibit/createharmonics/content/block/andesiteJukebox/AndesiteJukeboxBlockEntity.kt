@@ -1,9 +1,17 @@
-package me.mochibit.createharmonics.content.blockEntity
+package me.mochibit.createharmonics.content.block.andesiteJukebox
 
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.StreamRegistry
+import me.mochibit.createharmonics.audio.effect.EffectChain
+import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
+import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
+import me.mochibit.createharmonics.audio.effect.ReverbEffect
+import me.mochibit.createharmonics.audio.effect.VolumeEffect
 import me.mochibit.createharmonics.audio.instance.StaticSoundInstance
 import me.mochibit.createharmonics.audio.pcm.PitchFunction
 import me.mochibit.createharmonics.content.item.EtherealDiscItem
@@ -14,13 +22,6 @@ import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
-import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
-import me.mochibit.createharmonics.audio.effect.ReverbEffect
-import me.mochibit.createharmonics.audio.effect.VolumeEffect
 import kotlin.math.abs
 
 class AndesiteJukeboxBlockEntity(
@@ -37,8 +38,8 @@ class AndesiteJukeboxBlockEntity(
     private val RICK_ASTLEY_URL = "https://www.youtube.com/watch?v=NLj6k85SEBk"
     private val MIN_SPEED_THRESHOLD = 16.0f
 
-    val pitchFunction = PitchFunction.smoothedRealTime(
-        sourcePitchFunction = PitchFunction.custom { time -> currentPitch },
+    val pitchFunction = PitchFunction.Companion.smoothedRealTime(
+        sourcePitchFunction = PitchFunction.Companion.custom { time -> currentPitch },
         transitionTimeSeconds = 0.5
     )
 
@@ -80,7 +81,7 @@ class AndesiteJukeboxBlockEntity(
     }
 
     private fun hasDisc(): Boolean {
-        return blockState.getValue(me.mochibit.createharmonics.content.block.AndesiteJukeboxBlock.HAS_DISC)
+        return blockState.getValue(AndesiteJukeboxBlock.HAS_DISC)
     }
 
     private fun startPlaying() {
@@ -92,7 +93,7 @@ class AndesiteJukeboxBlockEntity(
         playbackJob = launchModCoroutine(Dispatchers.IO) {
             try {
                 // Use real-time effects for dynamic pitch
-                val resourceLocation = EtherealDiscItem.createResourceLocation(RICK_ASTLEY_URL, pitchFunction)
+                val resourceLocation = EtherealDiscItem.Companion.createResourceLocation(RICK_ASTLEY_URL, pitchFunction)
                 currentResourceLocation = resourceLocation
 
                 Logger.info("AndesiteJukebox: Resource location created: $resourceLocation")
@@ -132,7 +133,7 @@ class AndesiteJukeboxBlockEntity(
                     }
                 }
             } catch (e: Exception) {
-                if (e !is kotlinx.coroutines.CancellationException) {
+                if (e !is CancellationException) {
                     isPlaying = false
                     Logger.err("AndesiteJukebox: Error starting playback: ${e.message}")
                     e.printStackTrace()
