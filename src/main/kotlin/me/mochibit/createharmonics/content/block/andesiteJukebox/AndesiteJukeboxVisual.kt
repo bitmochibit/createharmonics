@@ -31,9 +31,9 @@ class AndesiteJukeboxVisual(
         ).createInstance().apply {
                 setPosition(visualPosition)
                     .nudge(
-                        discFacing.normal.x * 1f,
-                        discFacing.normal.y * 1f,
-                        discFacing.normal.z * 1f
+                        discFacing.normal.x * .9f,
+                        discFacing.normal.y * .9f,
+                        discFacing.normal.z * .9f
                     )
                 setRotationAxis(shaftFacing.axis)
                 rotateToFace(discFacing)
