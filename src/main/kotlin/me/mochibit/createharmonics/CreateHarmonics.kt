@@ -5,15 +5,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
-import me.mochibit.createharmonics.registry.ModCreativeTabs
-import me.mochibit.createharmonics.registry.ModItemsRegistry
-import me.mochibit.createharmonics.registry.ModBlocksRegistry
-import me.mochibit.createharmonics.registry.ModBlockEntitiesRegistry
+import me.mochibit.createharmonics.registry.*
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.event.server.ServerStartingEvent
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.eventbus.api.SubscribeEvent
+import net.minecraftforge.fml.DistExecutor
 import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber
 import net.minecraftforge.fml.config.ModConfig
@@ -34,6 +32,11 @@ class CreateHarmonicsMod {
 
     init {
         instance = this
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT) {
+            Runnable {
+                ModPartialModels.init()
+            }
+        }
     }
 
     constructor(context: FMLJavaModLoadingContext) {
@@ -69,7 +72,6 @@ class CreateHarmonicsMod {
     }
 
 
-    // You can use SubscribeEvent and let the Event Bus discover methods to call
     @SubscribeEvent
     fun onServerStarting(event: ServerStartingEvent) {
         info("Create: Harmonics server is starting!")
@@ -80,6 +82,7 @@ class CreateHarmonicsMod {
         @SubscribeEvent
         fun onClientSetup(event: FMLClientSetupEvent) {
             info("Create: Harmonics client is setting up!")
+
         }
     }
 }

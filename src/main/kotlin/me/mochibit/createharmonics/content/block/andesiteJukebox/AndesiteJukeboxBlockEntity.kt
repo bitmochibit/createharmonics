@@ -39,8 +39,8 @@ class AndesiteJukeboxBlockEntity(
     private val RICK_ASTLEY_URL = "https://www.youtube.com/watch?v=NLj6k85SEBk"
     private val MIN_SPEED_THRESHOLD = 16.0f
 
-    val pitchFunction = PitchFunction.Companion.smoothedRealTime(
-        sourcePitchFunction = PitchFunction.Companion.custom { time -> currentPitch },
+    val pitchFunction = PitchFunction.smoothedRealTime(
+        sourcePitchFunction = PitchFunction.custom { time -> currentPitch },
         transitionTimeSeconds = 0.5
     )
 
