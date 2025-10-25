@@ -16,11 +16,10 @@ object ModItemsRegistry : AbstractModRegistry {
             registerEtherealDiscVariant(type, maxUses)
         }
     }
-    
     fun registerEtherealDiscVariant(discType: Config.DiscType, maxUses: Int?): ItemEntry<EtherealDiscItem> {
         val name = "ethereal_disc_${discType.name.lowercase()}"
         return cRegistrate().item(name) {  
-            val properties = Item.Properties()
+            val properties = Item.Properties().stacksTo(1)
             // If maxUses is not null, set durability. Otherwise, item is unbreakable.
             if (maxUses != null) {
                 properties.durability(maxUses)
