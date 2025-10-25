@@ -4,39 +4,55 @@ import com.simibubi.create.content.kinetics.base.KineticBlockEntity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.StreamRegistry
-import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
-import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
-import me.mochibit.createharmonics.audio.effect.ReverbEffect
-import me.mochibit.createharmonics.audio.effect.VolumeEffect
+import me.mochibit.createharmonics.audio.effect.*
 import me.mochibit.createharmonics.audio.instance.StaticSoundInstance
 import me.mochibit.createharmonics.audio.pcm.PitchFunction
-import me.mochibit.createharmonics.content.item.EtherealDiscItem
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import me.mochibit.createharmonics.coroutine.withClientContext
+import me.mochibit.createharmonics.registry.ModItemsRegistry
 import net.minecraft.client.Minecraft
 import net.minecraft.core.BlockPos
+import net.minecraft.core.HolderLookup
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.network.chat.Component
 import net.minecraft.resources.ResourceLocation
+import net.minecraft.world.MenuProvider
+import net.minecraft.world.entity.player.Inventory
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
+import net.minecraftforge.items.ItemStackHandler
 import kotlin.math.abs
 
 class AndesiteJukeboxBlockEntity(
     type: BlockEntityType<*>,
     pos: BlockPos,
     state: BlockState
-) : KineticBlockEntity(type, pos, state) {
+) : KineticBlockEntity(type, pos, state), MenuProvider {
+
+    val inventory = object : ItemStackHandler(1) {
+        override fun onContentsChanged(slot: Int) {
+            setChanged()
+            onInventoryChanged()
+        }
+
+        override fun isItemValid(slot: Int, stack: ItemStack): Boolean {
+            return stack.item == ModItemsRegistry.etherealDisc.get()
+        }
+    }
 
     private var isPlaying = false
-    private var hasDisc = false // Internal disc state, separate from visual animation
     private var currentResourceLocation: ResourceLocation? = null
     private var playbackJob: Job? = null
+
     @Volatile
     private var currentPitch: Float = 1.0f // Thread-safe pitch value
-    private val RICK_ASTLEY_URL = "https://www.youtube.com/watch?v=NLj6k85SEBk"
     private val MIN_SPEED_THRESHOLD = 16.0f
 
     val pitchFunction = PitchFunction.smoothedRealTime(
@@ -51,16 +67,7 @@ class AndesiteJukeboxBlockEntity(
 
         val speed = abs(this.speed)
 
-        // Store old pitch for comparison
-        val oldPitch = currentPitch
-
-        // Update the thread-safe pitch value every tick
         currentPitch = calculatePitchFromSpeed(speed)
-
-        // Log pitch changes for debugging
-        if (oldPitch != currentPitch && isPlaying) {
-            Logger.info("AndesiteJukebox: Pitch updated from $oldPitch to $currentPitch (speed: $speed)")
-        }
 
         if (speed >= MIN_SPEED_THRESHOLD && !isPlaying && hasDisc()) {
             startPlaying()
@@ -70,24 +77,20 @@ class AndesiteJukeboxBlockEntity(
         // Real-time effects automatically read the updated currentPitch value
     }
 
-    fun insertDisc() {
-        hasDisc = true
-        // Disc inserted, will start playing when rotation is sufficient
-        if (level?.isClientSide == true && abs(this.speed) >= MIN_SPEED_THRESHOLD) {
+    private fun hasDisc(): Boolean {
+        return !inventory.getStackInSlot(0).isEmpty
+    }
+
+    private fun onInventoryChanged() {
+        if (hasDisc() && level?.isClientSide == true && abs(this.speed) >= MIN_SPEED_THRESHOLD) {
             startPlaying()
+        } else if (!hasDisc()) {
+            stopPlaying()
         }
     }
 
-    fun ejectDisc() {
-        hasDisc = false
-        stopPlaying()
-    }
 
-    private fun hasDisc(): Boolean {
-        return hasDisc
-    }
-
-    private fun startPlaying() {
+    fun startPlaying() {
         if (isPlaying || !level!!.isClientSide) return
 
         isPlaying = true
@@ -95,14 +98,11 @@ class AndesiteJukeboxBlockEntity(
 
         playbackJob = launchModCoroutine(Dispatchers.IO) {
             try {
-                // Use real-time effects for dynamic pitch
-                val resourceLocation = EtherealDiscItem.Companion.createResourceLocation(RICK_ASTLEY_URL, pitchFunction)
+                val resourceLocation = generateResourceLocation("https://youtu.be/TkgDHsvxhlo?si=Qpat9rp9XbLsLx-2")
                 currentResourceLocation = resourceLocation
 
-                Logger.info("AndesiteJukebox: Resource location created: $resourceLocation")
-
                 val stream = AudioPlayer.fromYoutube(
-                    url = RICK_ASTLEY_URL,
+                    url = "https://youtu.be/TkgDHsvxhlo?si=Qpat9rp9XbLsLx-2",
                     effectChain = EffectChain(
                         listOf(
                             PitchShiftEffect(pitchFunction),
@@ -114,25 +114,22 @@ class AndesiteJukeboxBlockEntity(
                     resourceLocation = resourceLocation
                 )
 
-                // Wait for pre-buffering to complete asynchronously (doesn't block game thread)
-                Logger.info("AndesiteJukebox: Waiting for pre-buffering to complete...")
+
                 val preBuffered = stream.awaitPreBuffering(timeoutSeconds = 30)
 
                 if (!preBuffered) {
                     Logger.err("AndesiteJukebox: Pre-buffering timeout!")
                     isPlaying = false
                 } else {
-                    Logger.info("AndesiteJukebox: Pre-buffering complete, starting playback")
-
                     withClientContext {
-                        val soundInstance = StaticSoundInstance(
-                            resourceLocation = resourceLocation,
-                            position = blockPos,
-                            radius = 64,
-                            pitch = 1.0f
+                        Minecraft.getInstance().soundManager.play(
+                            StaticSoundInstance(
+                                resourceLocation = resourceLocation,
+                                position = blockPos,
+                                radius = 64,
+                                pitch = 1.0f
+                            )
                         )
-                        Logger.info("AndesiteJukebox: Playing sound instance with real-time effects")
-                        Minecraft.getInstance().soundManager.play(soundInstance)
                     }
                 }
             } catch (e: Exception) {
@@ -155,6 +152,14 @@ class AndesiteJukeboxBlockEntity(
         val clampedSpeed = speed.coerceIn(16.0f, 256.0f)
         val pitch = 0.5f + (clampedSpeed - 16.0f) / (256.0f - 16.0f) * (2.0f - 0.5f)
         return pitch.coerceIn(0.5f, 2.0f)
+    }
+
+    private fun generateResourceLocation(url: String): ResourceLocation {
+        val hash = url.hashCode().toString(16)
+        return ResourceLocation.fromNamespaceAndPath(
+            CreateHarmonicsMod.MOD_ID,
+            "urlaudio_$hash"
+        )
     }
 
     fun stopPlaying() {
@@ -181,4 +186,26 @@ class AndesiteJukeboxBlockEntity(
         stopPlaying()
         super.destroy()
     }
+
+    override fun write(compound: CompoundTag?, clientPacket: Boolean) {
+        super.write(compound, clientPacket)
+        compound?.put("inventory", inventory.serializeNBT())
+    }
+
+    override fun read(compound: CompoundTag?, clientPacket: Boolean) {
+        super.read(compound, clientPacket)
+        if (compound?.contains("inventory") == true) {
+            inventory.deserializeNBT(compound.getCompound("inventory"))
+        }
+    }
+
+    override fun createMenu(id: Int, playerInventory: Inventory, player: Player): AbstractContainerMenu {
+        return AndesiteJukeboxMenu(id, playerInventory, this)
+    }
+
+    override fun getDisplayName(): Component {
+        return Component.translatable("block.createharmonics.andesite_jukebox")
+    }
+
+
 }

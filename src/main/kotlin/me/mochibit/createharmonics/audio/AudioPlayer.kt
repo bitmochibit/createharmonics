@@ -34,32 +34,6 @@ object AudioPlayer {
     }
 
     /**
-     * Stream audio with a pitch function (backward compatibility).
-     * This creates an EffectChain with a single PitchShiftEffect.
-     */
-    fun streamAudio(
-        audioSource: AudioSource,
-        pitchFunction: PitchFunction,
-        sampleRate: Int = DEFAULT_SAMPLE_RATE,
-        resourceLocation: ResourceLocation
-    ): InputStream {
-        val effectChain = EffectChain(PitchShiftEffect(pitchFunction))
-        return streamAudio(audioSource, effectChain, sampleRate, resourceLocation)
-    }
-
-    /**
-     * Stream audio from a YouTube URL (convenience method).
-     */
-    fun fromYoutube(
-        url: String,
-        pitchFunction: PitchFunction = PitchFunction.constant(1.0f),
-        sampleRate: Int = DEFAULT_SAMPLE_RATE,
-        resourceLocation: ResourceLocation
-    ): InputStream {
-        return streamAudio(YoutubeAudioSource(url), pitchFunction, sampleRate, resourceLocation)
-    }
-
-    /**
      * Stream audio from a YouTube URL with effect chain.
      * Returns the BufferedAudioStream so caller can await pre-buffering before playing.
      */
@@ -77,18 +51,6 @@ object AudioPlayer {
     }
 
     /**
-     * Stream audio from a local file (convenience method).
-     */
-    fun fromFile(
-        filePath: String,
-        pitchFunction: PitchFunction = PitchFunction.constant(1.0f),
-        sampleRate: Int = DEFAULT_SAMPLE_RATE,
-        resourceLocation: ResourceLocation
-    ): InputStream {
-        return streamAudio(LocalFileAudioSource(filePath), pitchFunction, sampleRate, resourceLocation)
-    }
-
-    /**
      * Stream audio from a local file with effect chain.
      */
     fun fromFile(
@@ -98,18 +60,6 @@ object AudioPlayer {
         resourceLocation: ResourceLocation
     ): InputStream {
         return streamAudio(LocalFileAudioSource(filePath), effectChain, sampleRate, resourceLocation)
-    }
-
-    /**
-     * Stream audio from an HTTP URL (convenience method).
-     */
-    fun fromHttp(
-        url: String,
-        pitchFunction: PitchFunction = PitchFunction.constant(1.0f),
-        sampleRate: Int = DEFAULT_SAMPLE_RATE,
-        resourceLocation: ResourceLocation
-    ): InputStream {
-        return streamAudio(HttpAudioSource(url), pitchFunction, sampleRate, resourceLocation)
     }
 
     /**

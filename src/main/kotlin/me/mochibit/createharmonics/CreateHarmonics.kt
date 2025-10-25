@@ -4,8 +4,10 @@ import com.simibubi.create.foundation.data.CreateRegistrate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import me.mochibit.createharmonics.Logger.info
+import me.mochibit.createharmonics.content.block.andesiteJukebox.AndesiteJukeboxScreen
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import me.mochibit.createharmonics.registry.*
+import net.minecraft.client.gui.screens.MenuScreens
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.event.server.ServerStartingEvent
@@ -48,6 +50,7 @@ class CreateHarmonicsMod {
         ModBlockEntitiesRegistry.register(forgeModEventBus)
         ModItemsRegistry.register(forgeModEventBus)
         ModCreativeTabs.register(forgeModEventBus)
+        ModMenuTypesRegistry.register(forgeModEventBus)
         registerConfig(ModConfig.Type.COMMON, Config.SPEC)
 
         // Register disclaimer handler on client side
@@ -82,7 +85,9 @@ class CreateHarmonicsMod {
         @SubscribeEvent
         fun onClientSetup(event: FMLClientSetupEvent) {
             info("Create: Harmonics client is setting up!")
-
+            MenuScreens.register(ModMenuTypesRegistry.ANDESITE_JUKEBOX.get()) { menu, inv, title ->
+                AndesiteJukeboxScreen(menu, inv, title)
+            }
         }
     }
 }

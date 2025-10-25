@@ -17,6 +17,7 @@ import me.mochibit.createharmonics.coroutine.ModCoroutineManager
 import net.minecraft.resources.ResourceLocation
 import java.io.InputStream
 import java.util.concurrent.ConcurrentLinkedQueue
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Buffered input stream that processes audio with real-time effect chain application.
@@ -124,7 +125,7 @@ class BufferedAudioStream(
                     }
                     .catch { e ->
                         // Don't treat cancellation as an error
-                        if (e !is kotlinx.coroutines.CancellationException) {
+                        if (e !is CancellationException) {
                             error = e as? Exception ?: Exception(e)
                             Logger.err("Pipeline error: ${e.message}")
                             e.printStackTrace()

@@ -43,6 +43,14 @@
             </PendingDiffInfo>
           </value>
         </entry>
+        <entry key="$PROJECT_DIR$/src/main/resources/assets/createharmonics/textures/gui/README.md">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/src/main/resources/assets/createharmonics/textures/gui/README.md" />
+              <option name="updatedContent" value="# Andesite Jukebox GUI Texture&#10;&#10;This file should be a PNG image with the following specifications:&#10;- Filename: andesite_jukebox.png&#10;- Size: 256x256 pixels (texture atlas size)&#10;- Image content: A standard Minecraft GUI background (176x166 pixels)&#10;  - Main container: 176x166 pixels&#10;  - Single item slot at coordinates (80, 35) - centered horizontally&#10;  - Player inventory slots below (standard layout)&#10;  - Hotbar slots at the bottom (standard layout)&#10;&#10;The GUI should have:&#10;- A gray background similar to other Minecraft GUIs&#10;- One centered slot for the Ethereal Disc (18x18 pixels)&#10;- Standard player inventory rendering below (9x3 slots)&#10;- Standard hotbar rendering at bottom (9x1 slots)&#10;&#10;You can use any Minecraft GUI texture as a template (like chest.png or furnace.png)&#10;and modify it to have a single centered slot instead of multiple slots.&#10;&#10;For now, you can use the default Minecraft inventory texture, or copy another GUI texture&#10;from Minecraft or Create mod as a base.&#10;" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
       </map>
     </option>
   </component>

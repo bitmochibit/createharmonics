@@ -22,19 +22,5 @@ class EtherealDiscItem : Item(Properties().stacksTo(1)) {
     override fun getDescriptionId(): String {
         return "item.createharmonics.ethereal_disc"
     }
-
-    companion object {
-        /**
-         * Create a unique ResourceLocation based on YouTube URL and pitch function.
-         * This allows the same URL with different pitch to be played simultaneously.
-         */
-        fun createResourceLocation(youtubeUrl: String, pitchFunction: PitchFunction): ResourceLocation {
-            val hash = youtubeUrl.hashCode().toString(16)
-            return ResourceLocation.fromNamespaceAndPath(
-                CreateHarmonicsMod.MOD_ID,
-                "youtube_$hash"
-            )
-        }
-    }
 }
 
