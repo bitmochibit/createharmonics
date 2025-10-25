@@ -17,23 +17,26 @@ class EtherealDiscItem(private val discType: Config.DiscType, props: Properties)
     
     override fun use(pLevel: Level, pPlayer: Player, pUsedHand: InteractionHand): InteractionResultHolder<ItemStack> {
         val itemStack = pPlayer.getItemInHand(pUsedHand)
-        // logs for debugging
-        info("=== Ethereal Disc Properties ===")
-        info("Disc Type: ${discType.name}")
-        info("Item: ${BuiltInRegistries.ITEM.getKey(this)}")
-        info("Is Damageable: ${itemStack.isDamageableItem}")
-        info("Max Damage: ${getMaxDamage(itemStack)}")
-        info("Current Damage: ${itemStack.damageValue}")
-        info("Remaining Uses: ${if (itemStack.isDamageableItem) getMaxDamage(itemStack) - itemStack.damageValue else "Infinite"}")
-        info("Config Durability: ${Config.getDiscDurability(discType) ?: "Unbreakable"}")
-        info("================================")
         
-        if (!pLevel.isClientSide) return InteractionResultHolder.pass(itemStack)
+        // Debug logs
+        if (pLevel.isClientSide) {
+            info("=== Ethereal Disc Properties ===")
+            info("Disc Type: ${discType.name}")
+            info("Item: ${BuiltInRegistries.ITEM.getKey(this)}")
+            info("Is Damageable: ${itemStack.isDamageableItem}")
+            info("Max Damage: ${getMaxDamage(itemStack)}")
+            info("Current Damage: ${itemStack.damageValue}")
+            info("Remaining Uses: ${if (itemStack.isDamageableItem) getMaxDamage(itemStack) - itemStack.damageValue else "Infinite"}")
+            info("Config Durability: ${Config.getDiscDurability(discType) ?: "Unbreakable"}")
+            info("================================")
+        }
         
-        if (itemStack.isDamageableItem && !pLevel.isClientSide) {
+        // Only apply damage on server side
+        if (!pLevel.isClientSide && itemStack.isDamageableItem) {
             itemStack.hurtAndBreak(1, pPlayer) { player ->
                 player.broadcastBreakEvent(pUsedHand)
             }
+            return InteractionResultHolder.success(itemStack)
         }
 
         return InteractionResultHolder.sidedSuccess(itemStack, pLevel.isClientSide)
