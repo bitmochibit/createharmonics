@@ -17,7 +17,6 @@ import me.mochibit.createharmonics.coroutine.ModCoroutineManager
 import net.minecraft.resources.ResourceLocation
 import java.io.InputStream
 import java.util.concurrent.ConcurrentLinkedQueue
-import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Buffered input stream that processes audio with real-time effect chain application.
@@ -44,7 +43,8 @@ class BufferedAudioStream(
 
     // Maximum queue size - use configured buffer time directly for minimal latency
     // Note: Removed pitch multiplier to minimize buffering and improve pitch response time
-    private val maxQueueSize: Int get() = (sampleRate * TARGET_PLAYBACK_BUFFER_SECONDS).toInt()
+    // Ensure it's at least large enough to hold a single chunk (4096 samples minimum)
+    private val maxQueueSize: Int get() = maxOf(4096, (sampleRate * TARGET_PLAYBACK_BUFFER_SECONDS).toInt())
 
     // Output buffer for processed data (pre-processed chunks)
     private var outputBuffer: ByteArray? = null
@@ -125,7 +125,7 @@ class BufferedAudioStream(
                     }
                     .catch { e ->
                         // Don't treat cancellation as an error
-                        if (e !is CancellationException) {
+                        if (e !is kotlinx.coroutines.CancellationException) {
                             error = e as? Exception ?: Exception(e)
                             Logger.err("Pipeline error: ${e.message}")
                             e.printStackTrace()

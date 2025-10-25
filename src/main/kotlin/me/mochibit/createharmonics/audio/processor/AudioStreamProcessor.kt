@@ -91,8 +91,8 @@ class AudioStreamProcessor(
 
                 // Check if it's a 403 error (expired URL)
                 val is403Error = e.message?.contains("403") == true ||
-                                 e.message?.contains("Forbidden") == true ||
-                                 e.message?.contains("HTTP error") == true
+                        e.message?.contains("Forbidden") == true ||
+                        e.message?.contains("HTTP error") == true
 
                 if (is403Error && attempt < maxAttempts) {
                     err("Detected expired URL (403 error), invalidating cache and retrying...")
@@ -175,9 +175,8 @@ class AudioStreamProcessor(
                 info("Using cached audio file: ${audioFile.absolutePath}")
             }
 
-            // Process from local file - use much larger buffer since we're reading from disk
-            // Use 10 seconds of buffer to prevent FFmpeg from blocking
-            val ringBuffer = PCMRingBuffer(capacity = (sampleRate * 10.0).toInt()) // 10 second buffer
+            // Process from local file
+            val ringBuffer = PCMRingBuffer(capacity = (sampleRate * 0.2).toInt()) // 200ms buffer for low latency
 
             coroutineScope {
                 // Decode from file to buffer
@@ -364,30 +363,17 @@ class AudioStreamProcessor(
     ) = withContext(Dispatchers.IO) {
         val buffer = ByteArray(CHUNK_SIZE)
         var totalBytes = 0L
-        var writeCount = 0
-
-        info("Starting PCM stream to ring buffer")
 
         inputStream.use { input ->
             while (isActive) {
                 val bytesRead = input.read(buffer)
-                if (bytesRead == -1) {
-                    info("FFmpeg stream ended (EOF)")
-                    break
-                }
+                if (bytesRead == -1) break
 
                 // Convert bytes to samples and write to ring buffer
                 val samples = PCMUtils.bytesToShorts(buffer.copyOf(bytesRead))
                 var offset = 0
                 while (offset < samples.size && isActive) {
-                    val beforeWrite = System.currentTimeMillis()
                     val written = ringBuffer.write(samples, offset, samples.size - offset)
-                    val writeTime = System.currentTimeMillis() - beforeWrite
-
-                    if (writeTime > 100) {
-                        info("Ring buffer write blocked for ${writeTime}ms (available: ${ringBuffer.availableCount()}/${(sampleRate * 10.0).toInt()})")
-                    }
-
                     offset += written
                     if (written == 0) {
                         delay(10) // Small delay if buffer is full
@@ -395,16 +381,10 @@ class AudioStreamProcessor(
                 }
 
                 totalBytes += bytesRead
-                writeCount++
-
-                // Log progress every 50 writes
-                if (writeCount % 50 == 0) {
-                    info("FFmpeg decode progress: $writeCount writes, $totalBytes bytes, buffer: ${ringBuffer.availableCount()} samples")
-                }
             }
         }
 
-        info("Decoded $totalBytes bytes ($writeCount writes) of PCM to buffer")
+        info("Decoded $totalBytes bytes of PCM to buffer")
     }
 
     /**
@@ -412,31 +392,18 @@ class AudioStreamProcessor(
      */
     private fun streamRawPcmFromBuffer(ringBuffer: PCMRingBuffer): Flow<ByteArray> = flow {
         val tempBuffer = ShortArray(CHUNK_SIZE / 2)
-        var totalEmitted = 0L
-        var emitCount = 0
 
         while (true) {
             val samplesRead = ringBuffer.read(tempBuffer, 0, tempBuffer.size)
 
             if (samplesRead == 0) {
-                if (ringBuffer.isComplete) {
-                    info("Ring buffer streaming complete: emitted $emitCount chunks ($totalEmitted samples)")
-                    break
-                }
+                if (ringBuffer.isComplete) break
                 delay(10)
                 continue
             }
 
             val bytes = PCMUtils.shortsToBytes(tempBuffer.copyOf(samplesRead))
             emit(bytes)
-
-            totalEmitted += samplesRead
-            emitCount++
-
-            // Log progress every 10 chunks
-            if (emitCount % 10 == 0) {
-                info("Ring buffer progress: emitted $emitCount chunks ($totalEmitted samples, ${totalEmitted.toDouble() / 48000}s), buffer available: ${ringBuffer.availableCount()}")
-            }
         }
     }.flowOn(Dispatchers.IO)
 }
