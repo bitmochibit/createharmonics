@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.content.block.andesiteJukebox
+package me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox
 
 import com.mojang.blaze3d.systems.RenderSystem
 import net.minecraft.client.gui.GuiGraphics
@@ -11,7 +11,7 @@ class AndesiteJukeboxScreen(
     menu: AndesiteJukeboxMenu,
     playerInventory: Inventory,
     title: Component
-) : AbstractContainerScreen<AndesiteJukeboxMenu>(menu, playerInventory, title) {
+) : net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<AndesiteJukeboxMenu>(menu, playerInventory, title) {
 
     companion object {
         private val TEXTURE = ResourceLocation.fromNamespaceAndPath(

@@ -4,8 +4,9 @@ import com.simibubi.create.foundation.data.CreateRegistrate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import me.mochibit.createharmonics.Logger.info
-import me.mochibit.createharmonics.content.block.andesiteJukebox.AndesiteJukeboxScreen
+import me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox.AndesiteJukeboxScreen
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
+import me.mochibit.createharmonics.network.ModNetworkHandler
 import me.mochibit.createharmonics.registry.*
 import net.minecraft.client.gui.screens.MenuScreens
 import net.minecraftforge.api.distmarker.Dist
@@ -51,13 +52,8 @@ class CreateHarmonicsMod {
         ModItemsRegistry.register(forgeModEventBus)
         ModCreativeTabs.register(forgeModEventBus)
         ModMenuTypesRegistry.register(forgeModEventBus)
+        ModNetworkHandler.register()
         registerConfig(ModConfig.Type.COMMON, Config.SPEC)
-
-        // Register disclaimer handler on client side
-        forgeModEventBus.addListener { event: FMLClientSetupEvent ->
-            MinecraftForge.EVENT_BUS.register(me.mochibit.createharmonics.client.event.MainMenuDisclaimerHandler)
-            info("Registered MainMenuDisclaimerHandler")
-        }
     }
 
     private val _registrate: CreateRegistrate = CreateRegistrate.create(MOD_ID)
@@ -85,6 +81,7 @@ class CreateHarmonicsMod {
         @SubscribeEvent
         fun onClientSetup(event: FMLClientSetupEvent) {
             info("Create: Harmonics client is setting up!")
+            MinecraftForge.EVENT_BUS.register(me.mochibit.createharmonics.client.event.MainMenuDisclaimerHandler)
             MenuScreens.register(ModMenuTypesRegistry.ANDESITE_JUKEBOX.get()) { menu, inv, title ->
                 AndesiteJukeboxScreen(menu, inv, title)
             }

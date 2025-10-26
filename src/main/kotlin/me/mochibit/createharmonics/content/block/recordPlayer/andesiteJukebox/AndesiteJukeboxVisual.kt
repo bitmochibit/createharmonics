@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.content.block.andesiteJukebox
+package me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox
 
 import com.simibubi.create.AllPartialModels
 import com.simibubi.create.content.kinetics.base.KineticBlockEntityVisual
@@ -19,7 +19,7 @@ class AndesiteJukeboxVisual(
     context: VisualizationContext,
     blockEntity: AndesiteJukeboxBlockEntity,
     partialTick: Float
-) : KineticBlockEntityVisual<AndesiteJukeboxBlockEntity>(context, blockEntity, partialTick), SimpleDynamicVisual {
+) : com.simibubi.create.content.kinetics.base.KineticBlockEntityVisual<AndesiteJukeboxBlockEntity>(context, blockEntity, partialTick), SimpleDynamicVisual {
 
     private val shaftFacing = blockState.getValue(BlockStateProperties.FACING)
     private val discFacing = shaftFacing.opposite

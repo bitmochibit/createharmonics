@@ -2,7 +2,7 @@ package me.mochibit.createharmonics.registry
 
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger
-import me.mochibit.createharmonics.content.block.andesiteJukebox.AndesiteJukeboxMenu
+import me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox.AndesiteJukeboxMenu
 import net.minecraft.core.registries.Registries
 import net.minecraft.world.inventory.MenuType
 import net.minecraftforge.common.extensions.IForgeMenuType

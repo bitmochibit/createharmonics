@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.content.block.andesiteJukebox
+package me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox
 
 import me.mochibit.createharmonics.registry.ModMenuTypesRegistry
 import net.minecraft.network.FriendlyByteBuf
@@ -20,7 +20,7 @@ class AndesiteJukeboxMenu : AbstractContainerMenu {
         this.blockEntity = blockEntity
 
         // Add the disc slot (centered)
-        addSlot(SlotItemHandler(blockEntity.inventory, 0, 80, 35))
+        addSlot(SlotItemHandler(blockEntity.inventoryHandler, 0, 80, 35))
 
         // Add player inventory
         for (row in 0..2) {

@@ -35,14 +35,12 @@ object StreamRegistry {
         streams.remove(location)?.let { stream ->
             info("StreamRegistry: Unregistered stream for $location")
             try {
-                // If this is a BufferedAudioStream, call destroy() to properly stop it
                 if (stream is BufferedAudioStream) {
                     stream.destroy()
                 } else {
                     stream.close()
                 }
             } catch (e: Exception) {
-                // Ignore close errors
             }
         }
     }
