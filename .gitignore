@@ -3,12 +3,4 @@
 /build/
 /run-data/
 /run/
-.idea/workspace.xml
-.idea/usage.statistics.xml
-.idea/dictionaries
-.idea/shelf
-.idea/caches
-.idea/assetWizardSettings.xml
-.idea/pluginState
-.idea/tasks.xml
-.idea/gradle.xml
+/.idea/
