@@ -1,7 +1,6 @@
 package me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox
 
 import com.simibubi.create.AllPartialModels
-import com.simibubi.create.content.kinetics.base.KineticBlockEntityVisual
 import com.simibubi.create.content.kinetics.base.RotatingInstance
 import com.simibubi.create.foundation.render.AllInstanceTypes
 import dev.engine_room.flywheel.api.instance.Instance
@@ -12,14 +11,17 @@ import dev.engine_room.flywheel.lib.visual.SimpleDynamicVisual
 import me.mochibit.createharmonics.registry.ModPartialModels
 import net.minecraft.core.Direction
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
-import net.minecraft.util.Mth
 import java.util.function.Consumer
 
 class AndesiteJukeboxVisual(
     context: VisualizationContext,
     blockEntity: AndesiteJukeboxBlockEntity,
     partialTick: Float
-) : com.simibubi.create.content.kinetics.base.KineticBlockEntityVisual<AndesiteJukeboxBlockEntity>(context, blockEntity, partialTick), SimpleDynamicVisual {
+) : com.simibubi.create.content.kinetics.base.KineticBlockEntityVisual<AndesiteJukeboxBlockEntity>(
+    context,
+    blockEntity,
+    partialTick
+), SimpleDynamicVisual {
 
     private val shaftFacing = blockState.getValue(BlockStateProperties.FACING)
     private val discFacing = shaftFacing.opposite
@@ -29,16 +31,17 @@ class AndesiteJukeboxVisual(
             AllInstanceTypes.ROTATING,
             Models.partial(ModPartialModels.ETHEREAL_DISC)
         ).createInstance().apply {
-                setPosition(visualPosition)
-                    .nudge(
-                        discFacing.normal.x * .9f,
-                        discFacing.normal.y * .9f,
-                        discFacing.normal.z * .9f
-                    )
-                setRotationAxis(shaftFacing.axis)
-                rotateToFace(discFacing)
-                setChanged()
-            }
+            setPosition(visualPosition)
+                .nudge(
+                    discFacing.normal.x * .9f,
+                    discFacing.normal.y * .9f,
+                    discFacing.normal.z * .9f
+                )
+            setRotationAxis(shaftFacing.axis)
+            rotateToFace(discFacing)
+            setVisible(false)
+            setChanged()
+        }
 
     private val shaft: RotatingInstance = instancerProvider().instancer(
         AllInstanceTypes.ROTATING,
@@ -60,10 +63,15 @@ class AndesiteJukeboxVisual(
 
     val discSpeed: Float
         get() {
-            return blockEntity.speed/4
+            return blockEntity.speed / 4
         }
 
     private fun animateDisc(partialTick: Float) {
+        if (!blockEntity.hasDisc()) {
+            disc.setVisible(false)
+        } else {
+            disc.setVisible(true)
+        }
         disc.setup(blockEntity, discSpeed).setChanged()
     }
 

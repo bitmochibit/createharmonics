@@ -72,7 +72,7 @@ open class RecordPlayerBlockEntity(
         transitionTimeSeconds = 0.5
     )
 
-    fun calculatePitch(): Float {
+    private fun calculatePitch(): Float {
         val currSpeed = abs(this.speed)
         if (currSpeed == storedSpeed) return currentPitch
         return currSpeed.remapTo(16.0f, 256.0f, MIN_PITCH, MAX_PITCH)
@@ -198,10 +198,10 @@ open class RecordPlayerBlockEntity(
 
         if (compound?.contains("playbackState") == true) {
             playbackState = PlaybackState.fromOrdinal(compound.getInt("playbackState"))
-
-            // If we're on client side and should be playing, start playback
-            if (level?.isClientSide == true && playbackState == PlaybackState.PLAYING && hasDisc()) {
-                startClientPlayer()
+            level?.onClient {
+                if (playbackState == PlaybackState.PLAYING && hasDisc()) {
+                    startClientPlayer()
+                }
             }
         }
     }

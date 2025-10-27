@@ -57,7 +57,7 @@ class AndesiteJukeboxBlock(properties: Properties) : DirectionalKineticBlock(pro
             pLevel.onServer {
                 val disc = blockEntity.popDisc() ?: return@onServer
                 pPlayer.addItem(ItemStack(disc))
-                blockEntity.setChanged()
+                blockEntity.notifyUpdate()
             }
             return InteractionResult.SUCCESS
         }
@@ -65,11 +65,11 @@ class AndesiteJukeboxBlock(properties: Properties) : DirectionalKineticBlock(pro
 
         // |-> INSERT RECORD
         if (clickItem.item is EtherealDiscItem && !blockEntity.hasDisc()) {
-            val item = clickItem.item as EtherealDiscItem
-            blockEntity.insertDisc(item)
             pLevel.onServer {
+                val item = clickItem.item as EtherealDiscItem
+                blockEntity.insertDisc(item)
                 clickItem.shrink(1)
-                blockEntity.setChanged()
+                blockEntity.notifyUpdate()
             }
             return InteractionResult.SUCCESS
         }
