@@ -1,8 +1,8 @@
 package me.mochibit.createharmonics.content.block.recordPlayer
 
 enum class PlaybackState {
-    STOPPED,
     PLAYING,
+    STOPPED,
     PAUSED;
 
     companion object {

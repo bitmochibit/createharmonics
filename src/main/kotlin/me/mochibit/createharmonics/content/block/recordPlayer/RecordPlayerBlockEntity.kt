@@ -1,41 +1,31 @@
 package me.mochibit.createharmonics.content.block.recordPlayer
 
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.AudioPlayer
-import me.mochibit.createharmonics.audio.StreamRegistry
 import me.mochibit.createharmonics.audio.effect.*
-import me.mochibit.createharmonics.audio.instance.StaticSoundInstance
 import me.mochibit.createharmonics.audio.pcm.PitchFunction
 import me.mochibit.createharmonics.content.item.EtherealDiscItem
-import me.mochibit.createharmonics.coroutine.launchModCoroutine
-import me.mochibit.createharmonics.coroutine.withClientContext
+import me.mochibit.createharmonics.event.recordPlayer.RecordPlayerPlayEvent
 import me.mochibit.createharmonics.extension.onClient
-import me.mochibit.createharmonics.network.ModNetworkHandler
-import me.mochibit.createharmonics.network.RemoveModAudioPlayerPacket
+import me.mochibit.createharmonics.extension.remapTo
 import me.mochibit.createharmonics.registry.ModItemsRegistry
-import net.minecraft.client.Minecraft
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.resources.ResourceLocation
+import net.minecraft.world.Containers
+import net.minecraft.world.SimpleContainer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
+import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.common.capabilities.Capability
 import net.minecraftforge.common.capabilities.ForgeCapabilities
 import net.minecraftforge.common.util.LazyOptional
 import net.minecraftforge.items.IItemHandler
 import net.minecraftforge.items.ItemStackHandler
-import java.util.UUID
+import java.util.*
 import kotlin.concurrent.Volatile
 import kotlin.math.abs
-
-fun Float.remapTo(inMin: Float, inMax: Float, outMin: Float, outMax: Float): Float {
-    return outMin + (this - inMin) / (inMax - inMin) * (outMax - outMin)
-}
 
 open class RecordPlayerBlockEntity(
     type: BlockEntityType<*>,
@@ -88,7 +78,16 @@ open class RecordPlayerBlockEntity(
 
 
         playbackState = PlaybackState.PLAYING
-        audioResourceLocation = AudioPlayer.generateResourceLocation("https://www.youtube.com/watch?v=ZlHRhzXezAc", playerUUID.toString())
+        audioResourceLocation =
+            AudioPlayer.generateResourceLocation("https://www.youtube.com/watch?v=ZlHRhzXezAc", playerUUID.toString())
+                .let {
+                    MinecraftForge.EVENT_BUS.post(
+                        RecordPlayerPlayEvent(this, it)
+                    )
+                    it
+                }
+
+
         onClient {
             this.startClientPlayer()
         }
@@ -138,16 +137,33 @@ open class RecordPlayerBlockEntity(
         }
     }
 
-    override fun destroy() {
-        audioResourceLocation?.let { resLoc ->
-            ModNetworkHandler.sendToAll(
-                RemoveModAudioPlayerPacket(resLoc)
-            )
+    /**
+     * Both client and server side handling
+     */
+    override fun remove() {
+        onClient {
+            stopClientPlayer()
         }
-        super.destroy()
-        // Drops
+        super.remove()
     }
 
+    /**
+     * Pure server side handling
+     */
+    override fun destroy() {
+        dropContent()
+        super.destroy()
+    }
+
+    fun dropContent() {
+        val currLevel = this.level ?: return
+        val inv = SimpleContainer(inventoryHandler.slots)
+        for (i in 0 until inventoryHandler.slots) {
+            inv.setItem(i, inventoryHandler.getStackInSlot(i))
+        }
+
+        Containers.dropContents(currLevel, this.worldPosition, inv)
+    }
 
     fun insertDisc(discItem: EtherealDiscItem): Boolean {
         if (hasDisc()) return false
@@ -174,8 +190,12 @@ open class RecordPlayerBlockEntity(
 
     override fun tick() {
         super.tick()
-        if (!level!!.isClientSide) return
         currentPitch = calculatePitch()
+
+        when {
+            abs(this.speed) > .0f && playbackState == PlaybackState.PAUSED -> startPlayer()
+            abs(this.speed) == .0f && playbackState == PlaybackState.PLAYING -> pausePlayer()
+        }
     }
 
     override fun write(compound: CompoundTag?, clientPacket: Boolean) {
