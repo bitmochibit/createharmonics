@@ -69,17 +69,21 @@ open class RecordPlayerBlockEntity(
     }
 
     fun startPlayer() {
-        if (!hasDisc()) return
+        val currentDisc = getDisc()
+        if (currentDisc.isEmpty || currentDisc.item !is EtherealDiscItem) return
 
         if (playbackState == PlaybackState.PLAYING) {
             pausePlayer()
             return
         }
 
+        val audioUrl = EtherealDiscItem.getAudioUrl(currentDisc)
+        if (audioUrl == null || audioUrl.isEmpty()) return
+
 
         playbackState = PlaybackState.PLAYING
         audioResourceLocation =
-            AudioPlayer.generateResourceLocation("https://www.youtube.com/watch?v=ZlHRhzXezAc", playerUUID.toString())
+            AudioPlayer.generateResourceLocation(audioUrl, playerUUID.toString())
                 .let {
                     MinecraftForge.EVENT_BUS.post(
                         RecordPlayerPlayEvent(this, it)
@@ -89,7 +93,7 @@ open class RecordPlayerBlockEntity(
 
 
         onClient {
-            this.startClientPlayer()
+            this.startClientPlayer(audioUrl)
         }
     }
 
@@ -107,11 +111,11 @@ open class RecordPlayerBlockEntity(
         }
     }
 
-    protected fun startClientPlayer() {
+    protected fun startClientPlayer(audioUrl: String) {
         audioResourceLocation?.let { resLoc ->
             AudioPlayer.fromYoutube(
                 blockPos,
-                url = "https://www.youtube.com/watch?v=ZlHRhzXezAc",
+                url = audioUrl,
                 effectChain = EffectChain(
                     listOf(
                         PitchShiftEffect(speedBasedPitchFunction),
@@ -165,16 +169,20 @@ open class RecordPlayerBlockEntity(
         Containers.dropContents(currLevel, this.worldPosition, inv)
     }
 
-    fun insertDisc(discItem: EtherealDiscItem): Boolean {
+    fun insertDisc(discItem: ItemStack): Boolean {
         if (hasDisc()) return false
-        inventoryHandler.insertItem(RECORD_SLOT, ItemStack(discItem), false)
+        inventoryHandler.insertItem(RECORD_SLOT, discItem.copy(), false)
         return true
     }
 
-    fun popDisc(): EtherealDiscItem? {
+    fun popDisc(): ItemStack? {
         if (!hasDisc()) return null
         val item = inventoryHandler.extractItem(RECORD_SLOT, 1, false)
-        return item.item as? EtherealDiscItem
+        return item
+    }
+
+    fun getDisc(): ItemStack {
+        return inventoryHandler.getStackInSlot(RECORD_SLOT).copy()
     }
 
     fun hasDisc(): Boolean {
@@ -219,8 +227,10 @@ open class RecordPlayerBlockEntity(
         if (compound?.contains("playbackState") == true) {
             playbackState = PlaybackState.fromOrdinal(compound.getInt("playbackState"))
             level?.onClient {
-                if (playbackState == PlaybackState.PLAYING && hasDisc()) {
-                    startClientPlayer()
+                val currentDisc = getDisc()
+                val audioUrl = EtherealDiscItem.getAudioUrl(currentDisc)
+                if (playbackState == PlaybackState.PLAYING && !audioUrl.isNullOrEmpty()) {
+                    startClientPlayer(audioUrl)
                 }
             }
         }
