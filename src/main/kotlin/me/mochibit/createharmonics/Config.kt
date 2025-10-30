@@ -8,55 +8,55 @@ import net.minecraftforge.fml.event.config.ModConfigEvent
 object Config {
     private val BUILDER = ForgeConfigSpec.Builder()
     
-    enum class DiscType {
+    enum class RecordType {
         STONE, GOLD, EMERALD, DIAMOND, NETHERITE, ETERNAL
     }
 
     /**
-     * Default disc variants with their durability values.
-     * null durability = unbreakable disc
+     * Default record variants with their durability values.
+     * null durability = unbreakable record
      */
-    val diskVariants: List<Pair<DiscType, Int?>> = listOf(
-        DiscType.STONE to 2,
-        DiscType.GOLD to 4,
-        DiscType.EMERALD to 8,
-        DiscType.DIAMOND to 32,
-        DiscType.NETHERITE to 64,
-        DiscType.ETERNAL to null
+    val recordVariants: List<Pair<RecordType, Int?>> = listOf(
+        RecordType.STONE to 2,
+        RecordType.GOLD to 4,
+        RecordType.EMERALD to 8,
+        RecordType.DIAMOND to 32,
+        RecordType.NETHERITE to 64,
+        RecordType.ETERNAL to null
     )
     
-    private val discDurabilities: ForgeConfigSpec.ConfigValue<List<String>>
+    private val recordDurabilities: ForgeConfigSpec.ConfigValue<List<String>>
 
     init {
-        BUILDER.push("ethereal_discs")
-        discDurabilities = BUILDER
+        BUILDER.push("ethereal_records")
+        recordDurabilities = BUILDER
             .comment(
-                "Customize disc durability. Format: DISC_TYPE=uses",
-                "Use 0 or 'null' for unbreakable discs.",
+                "Customize record durability. Format: RECORD_TYPE=uses",
+                "Use 0 or 'null' for unbreakable records.",
                 "Examples: STONE=5, ETERNAL=0"
             )
             .defineList(
                 "durabilities",
-                diskVariants.map { "${it.first.name}=${it.second ?: 0}" }
+                recordVariants.map { "${it.first.name}=${it.second ?: 0}" }
             ) { it is String && it.matches(Regex("^[A-Z_]+=(null|[0-9]+)$")) }
         BUILDER.pop()
     }
 
     /**
-     * Get the configured durability for a disc type.
+     * Get the configured durability for a record type.
      * Returns null if unbreakable, or the number of uses.
      */
-    fun getDiscDurability(discType: DiscType): Int? {
-        val configMap = discDurabilities.get().mapNotNull { entry ->
+    fun getRecordDurability(recordType: RecordType): Int? {
+        val configMap = recordDurabilities.get().mapNotNull { entry ->
             val parts = entry.split("=")
             try {
-                DiscType.valueOf(parts[0]) to parts[1]
+                RecordType.valueOf(parts[0]) to parts[1]
             } catch (e: Exception) {
                 null
             }
         }.toMap()
 
-        val value = configMap[discType] ?: return diskVariants.find { it.first == discType }?.second
+        val value = configMap[recordType] ?: return recordVariants.find { it.first == recordType }?.second
         return if (value == "null" || value == "0") null else value.toIntOrNull()
     }
 

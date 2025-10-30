@@ -4,7 +4,7 @@ import com.simibubi.create.AllShapes
 import com.simibubi.create.content.kinetics.base.DirectionalKineticBlock
 import com.simibubi.create.foundation.block.IBE
 import me.mochibit.createharmonics.content.block.recordPlayer.PlaybackState
-import me.mochibit.createharmonics.content.item.EtherealDiscItem
+import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.registry.ModBlockEntitiesRegistry
 import net.minecraft.core.BlockPos
@@ -46,14 +46,14 @@ class AndesiteJukeboxBlock(properties: Properties) : DirectionalKineticBlock(pro
 
         // |-> SNEAK TO REMOVE RECORD
         if (pPlayer.isShiftKeyDown) {
-            if (!blockEntity.hasDisc()) {
+            if (!blockEntity.hasRecord()) {
                 return InteractionResult.PASS
             }
 
             blockEntity.stopPlayer()
 
             pLevel.onServer {
-                val disc = blockEntity.popDisc() ?: return@onServer
+                val disc = blockEntity.popRecord() ?: return@onServer
                 pPlayer.addItem(disc)
                 blockEntity.notifyUpdate()
             }
@@ -62,9 +62,9 @@ class AndesiteJukeboxBlock(properties: Properties) : DirectionalKineticBlock(pro
 
 
         // |-> INSERT RECORD
-        if (clickItem.item is EtherealDiscItem && !blockEntity.hasDisc()) {
+        if (clickItem.item is EtherealRecordItem && !blockEntity.hasRecord()) {
             pLevel.onServer {
-                blockEntity.insertDisc(clickItem)
+                blockEntity.insertRecord(clickItem)
                 clickItem.shrink(1)
                 blockEntity.notifyUpdate()
             }

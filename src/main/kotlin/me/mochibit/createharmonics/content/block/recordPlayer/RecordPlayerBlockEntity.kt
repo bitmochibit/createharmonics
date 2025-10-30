@@ -5,7 +5,8 @@ import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.effect.*
 import me.mochibit.createharmonics.audio.instance.StaticSoundInstance
 import me.mochibit.createharmonics.audio.pcm.PitchFunction
-import me.mochibit.createharmonics.content.item.EtherealDiscItem
+import me.mochibit.createharmonics.content.item.EtherealRecordItem
+import me.mochibit.createharmonics.event.recordPlayer.RecordPlayerPlayEvent
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.remapTo
 import net.minecraft.core.BlockPos
@@ -48,7 +49,7 @@ open class RecordPlayerBlockEntity(
 
     val inventoryHandler = object : ItemStackHandler(1) {
         override fun isItemValid(slot: Int, stack: ItemStack): Boolean {
-            return stack.item is EtherealDiscItem
+            return stack.item is EtherealRecordItem
         }
     }
     protected val lazyInventoryHandler: LazyOptional<IItemHandler> = LazyOptional.of { inventoryHandler }
@@ -65,15 +66,15 @@ open class RecordPlayerBlockEntity(
     }
 
     fun startPlayer() {
-        val currentDisc = getDisc()
-        if (currentDisc.isEmpty || currentDisc.item !is EtherealDiscItem) return
+        val currentRecord = getRecord()
+        if (currentRecord.isEmpty || currentRecord.item !is EtherealRecordItem) return
 
         if (playbackState == PlaybackState.PLAYING) {
             pausePlayer()
             return
         }
 
-        val audioUrl = EtherealDiscItem.getAudioUrl(currentDisc)
+        val audioUrl = EtherealRecordItem.getAudioUrl(currentRecord)
         if (audioUrl == null || audioUrl.isEmpty()) return
 
 
@@ -158,23 +159,23 @@ open class RecordPlayerBlockEntity(
         Containers.dropContents(currLevel, this.worldPosition, inv)
     }
 
-    fun insertDisc(discItem: ItemStack): Boolean {
-        if (hasDisc()) return false
+    fun insertRecord(discItem: ItemStack): Boolean {
+        if (hasRecord()) return false
         inventoryHandler.insertItem(RECORD_SLOT, discItem.copy(), false)
         return true
     }
 
-    fun popDisc(): ItemStack? {
-        if (!hasDisc()) return null
+    fun popRecord(): ItemStack? {
+        if (!hasRecord()) return null
         val item = inventoryHandler.extractItem(RECORD_SLOT, 1, false)
         return item
     }
 
-    fun getDisc(): ItemStack {
+    fun getRecord(): ItemStack {
         return inventoryHandler.getStackInSlot(RECORD_SLOT).copy()
     }
 
-    fun hasDisc(): Boolean {
+    fun hasRecord(): Boolean {
         return !inventoryHandler.getStackInSlot(RECORD_SLOT).isEmpty
     }
 
@@ -216,8 +217,8 @@ open class RecordPlayerBlockEntity(
         if (compound?.contains("playbackState") == true) {
             playbackState = PlaybackState.fromOrdinal(compound.getInt("playbackState"))
             level?.onClient {
-                val currentDisc = getDisc()
-                val audioUrl = EtherealDiscItem.getAudioUrl(currentDisc)
+                val currentRecord = getRecord()
+                val audioUrl = EtherealRecordItem.getAudioUrl(currentRecord)
                 if (playbackState == PlaybackState.PLAYING && !audioUrl.isNullOrEmpty()) {
                     startClientPlayer(audioUrl)
                 }

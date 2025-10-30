@@ -3,7 +3,7 @@ package me.mochibit.createharmonics.command
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
-import me.mochibit.createharmonics.content.item.EtherealDiscItem
+import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.network.chat.Component
@@ -27,7 +27,7 @@ object SetRecordUrlCommand : Registrable<CommandDispatcher<CommandSourceStack>> 
     }
 
     /**
-     * If the player is holding an Ethereal Disc, set its audio URL to the provided URL.
+     * If the player is holding an Ethereal Record, set its audio URL to the provided URL.
      */
     private fun execute(ctx: CommandContext<CommandSourceStack>): Int {
         val audioUrl = StringArgumentType.getString(ctx, "url")
@@ -45,17 +45,17 @@ object SetRecordUrlCommand : Registrable<CommandDispatcher<CommandSourceStack>> 
         }
 
         val mainHandItem = player.mainHandItem
-        if (mainHandItem.item !is EtherealDiscItem) {
-            source.sendFailure(Component.literal("You must be holding an Ethereal Disc (main hand) to use this command."))
+        if (mainHandItem.item !is EtherealRecordItem) {
+            source.sendFailure(Component.literal("You must be holding an Ethereal Record (main hand) to use this command."))
             return 0
         }
 
 
-        EtherealDiscItem.setAudioUrl(mainHandItem, audioUrl)
+        EtherealRecordItem.setAudioUrl(mainHandItem, audioUrl)
 
         source.sendSuccess(
             {
-                Component.literal("Set Ethereal Disc audio URL to: $audioUrl")
+                Component.literal("Set Ethereal Record audio URL to: $audioUrl")
             },
             false
         )

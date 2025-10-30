@@ -1,9 +1,9 @@
 {
-  "item.createharmonics.ethereal_disc_stone": "Ethereal Stone Disc ",
-  "item.createharmonics.ethereal_disc_gold": "Ethereal Gold Disc",
-  "item.createharmonics.ethereal_disc_emerald": "Ethereal Emerald Disc",
-  "item.createharmonics.ethereal_disc_diamond": "Ethereal Diamond Disc",
-  "item.createharmonics.ethereal_disc_netherite": "Ethereal Netherite Disc",
-  "item.createharmonics.ethereal_disc_eternal": "Ethereal Eternal Disc",
-  "item.createharmonics.base_disc": "Base Disc"
+  "item.createharmonics.ethereal_record_stone": "Ethereal Stone Record",
+  "item.createharmonics.ethereal_record_gold": "Ethereal Gold Record",
+  "item.createharmonics.ethereal_record_emerald": "Ethereal Emerald Record",
+  "item.createharmonics.ethereal_record_diamond": "Ethereal Diamond Record",
+  "item.createharmonics.ethereal_record_netherite": "Ethereal Netherite Record",
+  "item.createharmonics.ethereal_record_eternal": "Ethereal Eternal Record",
+  "item.createharmonics.ethereal_record_base": "Primastic Record"
 }
