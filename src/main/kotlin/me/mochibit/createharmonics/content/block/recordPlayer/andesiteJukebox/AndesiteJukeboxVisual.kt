@@ -29,7 +29,7 @@ class AndesiteJukeboxVisual(
     private val disc: RotatingInstance =
         instancerProvider().instancer(
             AllInstanceTypes.ROTATING,
-            Models.partial(ModPartialModels.ETHEREAL_DISC)
+            Models.partial(ModPartialModels.ETHEREAL_RECORD)
         ).createInstance().apply {
             setPosition(visualPosition)
                 .nudge(
@@ -67,7 +67,7 @@ class AndesiteJukeboxVisual(
         }
 
     private fun animateDisc(partialTick: Float) {
-        if (!blockEntity.hasDisc()) {
+        if (!blockEntity.hasRecord()) {
             disc.setVisible(false)
         } else {
             disc.setVisible(true)
