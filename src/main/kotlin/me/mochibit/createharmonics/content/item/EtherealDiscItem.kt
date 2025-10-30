@@ -1,11 +1,8 @@
 package me.mochibit.createharmonics.content.item
 
 import me.mochibit.createharmonics.Config
-import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger.info
-import me.mochibit.createharmonics.audio.pcm.PitchFunction
 import net.minecraft.core.registries.BuiltInRegistries
-import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResultHolder
 import net.minecraft.world.entity.player.Player

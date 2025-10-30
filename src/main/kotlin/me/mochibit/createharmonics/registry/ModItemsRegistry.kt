@@ -13,10 +13,10 @@ import java.util.EnumMap
 
 object ModItemsRegistry : AbstractModRegistry {
     
-    val BASE_DISC: ItemEntry<Item> = cRegistrate()
-        .item("base_disc") { Item(Item.Properties().stacksTo(1)) }
+    val BASE_RECORD: ItemEntry<Item> = cRegistrate()
+        .item("ethereal_disc_base") { Item(Item.Properties().stacksTo(1)) }
         .model { ctx, prov ->
-            prov.generated(ctx, prov.mcLoc("item/music_disc_13"))
+            prov.generated(ctx, prov.mcLoc("item/ethereal_disc_base"))
         }
         .register()
 
