@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "AQA",
+    "IDI",
+    "aIa"
+  ],
+  "key": {
+    "A": { "item": "minecraft:amethyst_shard" },
+    "D": { "tag": "minecraft:music_discs" },
+    "I": { "item": "create:iron_sheet"},
+    "a": { "item": "create:andesite_alloy"},
+    "Q": { "item": "create:polished_rose_quartz"}
+  },
+  "result": {
+    "item": "createharmonics:base_disc"
+  }
+}

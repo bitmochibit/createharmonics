@@ -12,6 +12,13 @@ import net.minecraftforge.eventbus.api.IEventBus
 import java.util.EnumMap
 
 object ModItemsRegistry : AbstractModRegistry {
+    
+    val BASE_DISC: ItemEntry<Item> = cRegistrate()
+        .item("base_disc") { Item(Item.Properties().stacksTo(1)) }
+        .model { ctx, prov ->
+            prov.generated(ctx, prov.mcLoc("item/music_disc_13"))
+        }
+        .register()
 
     val ETHEREAL_RECORDS = EnumMap<DiscType, ItemEntry<EtherealDiscItem>>(DiscType::class.java).apply {
         Config.diskVariants.forEach { (type, maxUses) ->
