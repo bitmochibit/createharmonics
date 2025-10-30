@@ -20,6 +20,10 @@ object StreamRegistry {
         info("StreamRegistry: Registered stream for $location")
     }
 
+    fun containsStream(location: ResourceLocation): Boolean {
+        return streams.containsKey(location)
+    }
+
     /**
      * Get a stream for a given resource location.
      */

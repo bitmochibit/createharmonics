@@ -3,21 +3,18 @@ package me.mochibit.createharmonics.content.block.recordPlayer
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.effect.*
+import me.mochibit.createharmonics.audio.instance.StaticSoundInstance
 import me.mochibit.createharmonics.audio.pcm.PitchFunction
 import me.mochibit.createharmonics.content.item.EtherealDiscItem
-import me.mochibit.createharmonics.event.recordPlayer.RecordPlayerPlayEvent
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.remapTo
-import me.mochibit.createharmonics.registry.ModItemsRegistry
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
-import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
-import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.common.capabilities.Capability
 import net.minecraftforge.common.capabilities.ForgeCapabilities
 import net.minecraftforge.common.util.LazyOptional
@@ -31,8 +28,10 @@ open class RecordPlayerBlockEntity(
     type: BlockEntityType<*>,
     pos: BlockPos,
     state: BlockState,
-    var playerUUID: UUID = UUID.randomUUID()
 ) : KineticBlockEntity(type, pos, state) {
+    var playerUUID: UUID = UUID.randomUUID()
+        private set;
+
     private var storedSpeed: Float = .0f
 
     @Volatile
@@ -40,9 +39,6 @@ open class RecordPlayerBlockEntity(
 
     @Volatile
     var playbackState: PlaybackState = PlaybackState.STOPPED
-
-    @Volatile
-    var audioResourceLocation: ResourceLocation? = null
 
     companion object {
         const val RECORD_SLOT = 0
@@ -82,14 +78,6 @@ open class RecordPlayerBlockEntity(
 
 
         playbackState = PlaybackState.PLAYING
-        audioResourceLocation =
-            AudioPlayer.generateResourceLocation(audioUrl, playerUUID.toString())
-                .let {
-                    MinecraftForge.EVENT_BUS.post(
-                        RecordPlayerPlayEvent(this, it)
-                    )
-                    it
-                }
 
 
         onClient {
@@ -112,33 +100,34 @@ open class RecordPlayerBlockEntity(
     }
 
     protected fun startClientPlayer(audioUrl: String) {
-        audioResourceLocation?.let { resLoc ->
-            AudioPlayer.fromYoutube(
-                blockPos,
-                url = audioUrl,
-                effectChain = EffectChain(
-                    listOf(
-                        PitchShiftEffect(speedBasedPitchFunction),
-                        VolumeEffect(0.8f), // Reduce volume to 80%
-                        LowPassFilterEffect(cutoffFrequency = 3000f), // Slight muffling
-                        ReverbEffect(roomSize = 0.5f, damping = 0.2f, wetMix = 0.8f)
-                    )
-                ),
-                resourceLocation = resLoc
-            )
-        }
+        AudioPlayer.play(
+            audioUrl,
+            soundInstanceProvider = { resLoc ->
+                StaticSoundInstance(
+                    resLoc,
+                    this.worldPosition,
+                    64,
+                    1.0f
+                )
+            },
+            EffectChain(
+                listOf(
+                    PitchShiftEffect(speedBasedPitchFunction),
+                    VolumeEffect(0.8f), // Reduce volume to 80%
+                    LowPassFilterEffect(cutoffFrequency = 3000f), // Slight muffling
+                    ReverbEffect(roomSize = 0.5f, damping = 0.2f, wetMix = 0.8f)
+                )
+            ),
+            streamId = playerUUID.toString()
+        )
     }
 
     protected fun pauseClientPlayer() {
-        audioResourceLocation?.let { resLoc ->
-            AudioPlayer.stopStream(resLoc)
-        }
+        AudioPlayer.stopStream(playerUUID.toString())
     }
 
     protected fun stopClientPlayer() {
-        audioResourceLocation?.let { resLoc ->
-            AudioPlayer.stopStream(resLoc)
-        }
+        AudioPlayer.stopStream(playerUUID.toString())
     }
 
     /**

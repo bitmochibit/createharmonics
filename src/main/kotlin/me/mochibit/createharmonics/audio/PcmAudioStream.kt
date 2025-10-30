@@ -11,7 +11,9 @@ import kotlin.math.min
 /**
  * Minecraft audio stream implementation for working correctly with PCM audio data.
  */
-class PcmAudioStream(private val inputStream: InputStream, sampleRate: Int) : AudioStream {
+class PcmAudioStream(private val inputStream: InputStream) : AudioStream {
+    val sampleRate: Int = 48000  // Standard sample rate for high-quality audio
+
     // Create PCM audio format: 16-bit, mono, signed, little-endian
     private val audioFormat: AudioFormat = AudioFormat(
         sampleRate.toFloat(),  // sample rate
@@ -23,7 +25,7 @@ class PcmAudioStream(private val inputStream: InputStream, sampleRate: Int) : Au
 
     // Limit read size to 50ms of audio for ultra-low latency pitch response
     // 50ms * sampleRate samples * 2 bytes/sample = maxReadSize
-    private val maxReadSize: Int = (0.05 * sampleRate * 2).toInt() // Maximum bytes to return per read (for low latency)
+    private val maxReadSize: Int = (sampleRate/15).toInt() // Maximum bytes to return per read (for low latency)
 
     override fun getFormat(): AudioFormat {
         return audioFormat
@@ -35,19 +37,16 @@ class PcmAudioStream(private val inputStream: InputStream, sampleRate: Int) : Au
         val actualSize = min(size, maxReadSize)
         val buffer = ByteArray(actualSize)
 
-        // ALWAYS try to read - available() is just a hint
-        // The BufferedAudioStream will block internally if needed
         val bytesRead = inputStream.read(buffer, 0, actualSize)
 
         if (bytesRead == -1) {
-            // End of stream
             return ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
         }
 
         if (bytesRead == 0) {
             // No data available right now - return empty buffer
             // Minecraft's sound engine will call us again
-            return ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
+            return ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder()).put(buffer, 0, 0)
         }
 
         // We have data, return it

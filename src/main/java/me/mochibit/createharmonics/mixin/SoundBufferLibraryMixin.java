@@ -59,11 +59,7 @@ public class SoundBufferLibraryMixin {
         cir.setReturnValue(CompletableFuture.supplyAsync(() -> {
             try {
                 System.out.println("SoundBufferLibraryMixin: Creating PcmAudioStream from registry stream");
-                // Create PCM audio stream with 48000 Hz sample rate (matches our processor)
-
-                // Note: LoopingAudioStream is not used for PCM streams
-                // If looping is needed, it would need to be implemented differently
-                return new PcmAudioStream(existingStream, 48000);
+                return new PcmAudioStream(existingStream);
             } catch (Exception e) {
                 System.err.println("SoundBufferLibraryMixin: Error creating audio stream: " + e.getMessage());
                 e.printStackTrace();

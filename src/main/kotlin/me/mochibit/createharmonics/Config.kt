@@ -77,6 +77,17 @@ object Config {
         .comment("Whether the user has accepted the download of external libraries (yt-dlp and FFmpeg)")
         .define("librariesAccepted", false)
 
+    val ACCEPTED_HTTP_DOMAINS: ForgeConfigSpec.ConfigValue<List<String>> = BUILDER
+        .comment(
+            "List of accepted HTTP domains for streaming audio.",
+            "Only domains in this list will be allowed for audio playback.",
+            "Examples: example.com, anotherdomain.org"
+        )
+        .defineList(
+            "acceptedHttpDomains",
+            listOf("youtube.com", "soundcloud.com")
+        ) { it is String && it.matches(Regex("^[a-zA-Z0-9.-]+$")) }
+
     val SPEC: ForgeConfigSpec = BUILDER.build()
 
     @SubscribeEvent

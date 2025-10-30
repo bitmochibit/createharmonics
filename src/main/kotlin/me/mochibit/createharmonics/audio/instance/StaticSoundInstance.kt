@@ -1,11 +1,13 @@
 package me.mochibit.createharmonics.audio.instance
 
+import me.mochibit.createharmonics.CreateHarmonicsMod
 import net.minecraft.client.resources.sounds.Sound
 import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.client.sounds.SoundManager
 import net.minecraft.client.sounds.WeighedSoundEvents
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
+import net.minecraft.resources.ResourceLocation.*
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.valueproviders.ConstantFloat
 
@@ -16,21 +18,15 @@ class StaticSoundInstance(
     private val pitch: Float = 1.0f
 ) : SoundInstance {
 
-    init {
-        println("YouTubeSoundInstance: Created with resource location: $resourceLocation")
-    }
-
     override fun getLocation(): ResourceLocation {
         return resourceLocation
     }
 
     override fun resolve(soundManager: SoundManager): WeighedSoundEvents {
-        println("YouTubeSoundInstance: resolve() called for $resourceLocation")
         return WeighedSoundEvents(this.location, null)
     }
 
     override fun getSound(): Sound {
-        println("YouTubeSoundInstance: getSound() called for $resourceLocation")
         return Sound(
             this.location.toString(),
             ConstantFloat.of(this.volume),

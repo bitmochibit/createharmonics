@@ -5,11 +5,8 @@ import kotlinx.coroutines.flow.*
 import me.mochibit.createharmonics.Logger.err
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.audio.binProvider.FFMPEG
-import me.mochibit.createharmonics.audio.pcm.PCMRingBuffer
-import me.mochibit.createharmonics.audio.pcm.PCMUtils
 import me.mochibit.createharmonics.audio.source.AudioSource
 import java.io.File
-import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.Paths
 
@@ -26,7 +23,7 @@ class AudioStreamProcessor(
     companion object {
         private const val DURATION_THRESHOLD_SECONDS = 180 // 3 minutes
         private const val CHUNK_SIZE = 8192
-        private val DOWNLOAD_DIR = Paths.get("run", "downloaded_audio")
+        private val DOWNLOAD_DIR = Paths.get("downloaded_audio")
     }
 
     init {
@@ -114,43 +111,21 @@ class AudioStreamProcessor(
     }.flowOn(Dispatchers.IO)
 
     /**
-     * Stream audio directly from URL through buffer to output.
+     * Stream audio directly from URL to output.
      */
     private fun processWithStreaming(
         audioUrl: String
     ): Flow<ByteArray> = flow {
-        val ringBuffer = PCMRingBuffer(capacity = (sampleRate * 0.2).toInt()) // 200ms buffer for low latency
-
-        coroutineScope {
-            // Job 1: FFmpeg decodes URL to PCM and fills ring buffer (fast as possible)
-            val decodeJob = launch(Dispatchers.IO) {
-                try {
-                    info("Starting FFmpeg decode to buffer (streaming)")
-                    decodeUrlToBuffer(audioUrl, ringBuffer)
-                    ringBuffer.markComplete()
-                    info("FFmpeg decode completed")
-                } catch (e: Exception) {
-                    err("Decode error: ${e.message}")
-                    ringBuffer.markComplete()
-                    throw e
+        info("Starting FFmpeg decode (streaming)")
+        try {
+            decodeToStream(audioUrl)
+                .collect { chunk ->
+                    emit(chunk)
                 }
-            }
-
-            // Job 2: Read raw PCM from buffer and stream it (no processing here)
-            try {
-                info("Starting raw PCM streaming from buffer")
-                streamRawPcmFromBuffer(ringBuffer)
-                    .collect { chunk ->
-                        emit(chunk)
-                    }
-                info("Raw PCM streaming completed")
-            } catch (e: Exception) {
-                err("Streaming error: ${e.message}")
-                e.printStackTrace()
-                throw e
-            } finally {
-                decodeJob.cancel()
-            }
+            info("FFmpeg decode completed")
+        } catch (e: Exception) {
+            err("Decode error: ${e.message}")
+            throw e
         }
     }.flowOn(Dispatchers.IO)
 
@@ -175,37 +150,12 @@ class AudioStreamProcessor(
                 info("Using cached audio file: ${audioFile.absolutePath}")
             }
 
-            // Process from local file
-            val ringBuffer = PCMRingBuffer(capacity = (sampleRate * 0.2).toInt()) // 200ms buffer for low latency
-
-            coroutineScope {
-                // Decode from file to buffer
-                val decodeJob = launch(Dispatchers.IO) {
-                    try {
-                        info("Starting FFmpeg decode from file to buffer")
-                        decodeFileToBuffer(audioFile, ringBuffer)
-                        ringBuffer.markComplete()
-                        info("FFmpeg decode completed")
-                    } catch (e: Exception) {
-                        err("Decode error: ${e.message}")
-                        ringBuffer.markComplete()
-                        throw e
-                    }
+            // Process from local file - stream directly
+            info("Starting FFmpeg decode from file")
+            decodeFileToStream(audioFile)
+                .collect { chunk ->
+                    emit(chunk)
                 }
-
-                // Stream raw PCM from buffer and emit directly
-                try {
-                    streamRawPcmFromBuffer(ringBuffer)
-                        .collect { chunk ->
-                            emit(chunk)
-                        }
-                } catch (e: Exception) {
-                    err("Streaming error: ${e.message}")
-                    throw e
-                } finally {
-                    decodeJob.cancel()
-                }
-            }
         } catch (e: Exception) {
             err("Error processing downloaded audio: ${e.message}")
             throw e
@@ -276,12 +226,9 @@ class AudioStreamProcessor(
     }
 
     /**
-     * Decode audio URL to PCM samples and write to ring buffer.
+     * Decode audio URL directly to PCM stream.
      */
-    private suspend fun decodeUrlToBuffer(
-        audioUrl: String,
-        ringBuffer: PCMRingBuffer
-    ) = withContext(Dispatchers.IO) {
+    private fun decodeToStream(audioUrl: String): Flow<ByteArray> = flow {
         val ffmpegPath = FFMPEG.getExecutablePath()
             ?: throw IllegalStateException("FFmpeg not found")
 
@@ -304,7 +251,7 @@ class AudioStreamProcessor(
             .start()
 
         // Monitor stderr for errors
-        val errorJob = launch {
+        val errorJob = CoroutineScope(Dispatchers.IO).launch {
             process.errorStream.bufferedReader().use { reader ->
                 reader.lineSequence().forEach { line ->
                     if (line.isNotBlank()) {
@@ -315,24 +262,34 @@ class AudioStreamProcessor(
         }
 
         try {
-            streamPcmToBuffer(process.inputStream, ringBuffer)
+            val buffer = ByteArray(CHUNK_SIZE)
+            var totalBytes = 0L
+
+            process.inputStream.use { input ->
+                while (true) {
+                    val bytesRead = input.read(buffer)
+                    if (bytesRead == -1) break
+
+                    emit(buffer.copyOf(bytesRead))
+                    totalBytes += bytesRead
+                }
+            }
+
             val exitCode = process.waitFor()
             if (exitCode != 0) {
                 err("FFmpeg process exited with code: $exitCode")
             }
+            info("Decoded $totalBytes bytes of PCM")
         } finally {
             errorJob.cancel()
             process.destroy()
         }
-    }
+    }.flowOn(Dispatchers.IO)
 
     /**
-     * Decode audio file to PCM samples and write to ring buffer.
+     * Decode audio file directly to PCM stream.
      */
-    private suspend fun decodeFileToBuffer(
-        audioFile: File,
-        ringBuffer: PCMRingBuffer
-    ) = withContext(Dispatchers.IO) {
+    private fun decodeFileToStream(audioFile: File): Flow<ByteArray> = flow {
         val ffmpegPath = FFMPEG.getExecutablePath()
             ?: throw IllegalStateException("FFmpeg not found")
 
@@ -348,62 +305,22 @@ class AudioStreamProcessor(
 
         val process = ProcessBuilder(command).start()
         try {
-            streamPcmToBuffer(process.inputStream, ringBuffer)
+            val buffer = ByteArray(CHUNK_SIZE)
+            var totalBytes = 0L
+
+            process.inputStream.use { input ->
+                while (true) {
+                    val bytesRead = input.read(buffer)
+                    if (bytesRead == -1) break
+
+                    emit(buffer.copyOf(bytesRead))
+                    totalBytes += bytesRead
+                }
+            }
+
+            info("Decoded $totalBytes bytes of PCM from file")
         } finally {
             process.destroy()
-        }
-    }
-
-    /**
-     * Stream PCM data from input to ring buffer.
-     */
-    private suspend fun streamPcmToBuffer(
-        inputStream: InputStream,
-        ringBuffer: PCMRingBuffer
-    ) = withContext(Dispatchers.IO) {
-        val buffer = ByteArray(CHUNK_SIZE)
-        var totalBytes = 0L
-
-        inputStream.use { input ->
-            while (isActive) {
-                val bytesRead = input.read(buffer)
-                if (bytesRead == -1) break
-
-                // Convert bytes to samples and write to ring buffer
-                val samples = PCMUtils.bytesToShorts(buffer.copyOf(bytesRead))
-                var offset = 0
-                while (offset < samples.size && isActive) {
-                    val written = ringBuffer.write(samples, offset, samples.size - offset)
-                    offset += written
-                    if (written == 0) {
-                        delay(10) // Small delay if buffer is full
-                    }
-                }
-
-                totalBytes += bytesRead
-            }
-        }
-
-        info("Decoded $totalBytes bytes of PCM to buffer")
-    }
-
-    /**
-     * Stream raw PCM data from ring buffer.
-     */
-    private fun streamRawPcmFromBuffer(ringBuffer: PCMRingBuffer): Flow<ByteArray> = flow {
-        val tempBuffer = ShortArray(CHUNK_SIZE / 2)
-
-        while (true) {
-            val samplesRead = ringBuffer.read(tempBuffer, 0, tempBuffer.size)
-
-            if (samplesRead == 0) {
-                if (ringBuffer.isComplete) break
-                delay(10)
-                continue
-            }
-
-            val bytes = PCMUtils.shortsToBytes(tempBuffer.copyOf(samplesRead))
-            emit(bytes)
         }
     }.flowOn(Dispatchers.IO)
 }
