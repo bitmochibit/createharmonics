@@ -12,10 +12,27 @@ import net.minecraft.world.level.Level
 import net.minecraftforge.registries.ForgeRegistries
 
 class EtherealDiscItem(private val discType: Config.DiscType, props: Properties) : Item(props) {
-    
+    companion object {
+        const val AUDIO_URL_TAG_KEY = "audio_url"
+
+        fun getAudioUrl(stack: ItemStack): String? {
+            if (stack.item !is EtherealDiscItem) return null
+            return stack.tag?.getString(AUDIO_URL_TAG_KEY)
+        }
+
+        fun setAudioUrl(stack: ItemStack, url: String) {
+            if (stack.item !is EtherealDiscItem) return
+
+            if (stack.tag == null) {
+                stack.tag = net.minecraft.nbt.CompoundTag()
+            }
+            stack.tag?.putString(AUDIO_URL_TAG_KEY, url)
+        }
+    }
+
     override fun use(pLevel: Level, pPlayer: Player, pUsedHand: InteractionHand): InteractionResultHolder<ItemStack> {
         val itemStack = pPlayer.getItemInHand(pUsedHand)
-        
+
         // Debug logs
         if (pLevel.isClientSide) {
             info("=== Ethereal Disc Properties ===")
@@ -28,7 +45,7 @@ class EtherealDiscItem(private val discType: Config.DiscType, props: Properties)
             info("Config Durability: ${Config.getDiscDurability(discType) ?: "Unbreakable"}")
             info("================================")
         }
-        
+
         // Only apply damage on server side
         if (!pLevel.isClientSide && itemStack.isDamageableItem) {
             itemStack.hurtAndBreak(1, pPlayer) { player ->
