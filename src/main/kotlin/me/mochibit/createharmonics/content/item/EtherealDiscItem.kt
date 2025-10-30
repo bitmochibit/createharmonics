@@ -12,6 +12,7 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import net.minecraftforge.registries.ForgeRegistries
 
 class EtherealDiscItem(private val discType: Config.DiscType, props: Properties) : Item(props) {
     
@@ -53,7 +54,7 @@ class EtherealDiscItem(private val discType: Config.DiscType, props: Properties)
     }
 
     override fun getDescriptionId(): String {
-        return "item.${BuiltInRegistries.ITEM.getKey(this).namespace}.${BuiltInRegistries.ITEM.getKey(this).path}"
+        return "item.${ForgeRegistries.ITEMS.getKey(this)?.namespace}.${ForgeRegistries.ITEMS.getKey(this)?.path}"
     }
 }
 

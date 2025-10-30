@@ -52,7 +52,7 @@ open class RecordPlayerBlockEntity(
 
     val inventoryHandler = object : ItemStackHandler(1) {
         override fun isItemValid(slot: Int, stack: ItemStack): Boolean {
-            return stack.item == ModItemsRegistry.etherealDisc.get()
+            return stack.item is EtherealDiscItem
         }
     }
     protected val lazyInventoryHandler: LazyOptional<IItemHandler> = LazyOptional.of { inventoryHandler }
