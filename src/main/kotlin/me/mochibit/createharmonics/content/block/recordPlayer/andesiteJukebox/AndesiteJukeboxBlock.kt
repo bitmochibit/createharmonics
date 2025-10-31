@@ -50,13 +50,13 @@ class AndesiteJukeboxBlock(properties: Properties) : DirectionalKineticBlock(pro
                 return InteractionResult.PASS
             }
 
-            blockEntity.stopPlayer()
-
             pLevel.onServer {
                 val disc = blockEntity.popRecord() ?: return@onServer
                 pPlayer.addItem(disc)
-                blockEntity.notifyUpdate()
             }
+
+            blockEntity.stopPlayer()
+
             return InteractionResult.SUCCESS
         }
 
@@ -66,7 +66,6 @@ class AndesiteJukeboxBlock(properties: Properties) : DirectionalKineticBlock(pro
             pLevel.onServer {
                 blockEntity.insertRecord(clickItem)
                 clickItem.shrink(1)
-                blockEntity.notifyUpdate()
             }
             return InteractionResult.SUCCESS
         }
@@ -74,9 +73,7 @@ class AndesiteJukeboxBlock(properties: Properties) : DirectionalKineticBlock(pro
         // |-> BEHAVIOURS
 
         when (blockEntity.playbackState) {
-            PlaybackState.PAUSED -> {
-                // Don't do nu cazz
-            }
+            PlaybackState.PAUSED -> {}
 
             PlaybackState.PLAYING -> {
                 blockEntity.stopPlayer()

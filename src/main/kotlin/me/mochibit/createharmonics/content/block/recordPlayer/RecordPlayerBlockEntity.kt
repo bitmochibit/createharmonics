@@ -66,19 +66,21 @@ open class RecordPlayerBlockEntity(
     }
 
     fun startPlayer() {
+        if (playbackState == PlaybackState.PLAYING) {
+            return
+        }
+
         val currentRecord = getRecord()
         if (currentRecord.isEmpty || currentRecord.item !is EtherealRecordItem) return
 
-        if (playbackState == PlaybackState.PLAYING) {
-            pausePlayer()
-            return
-        }
 
         val audioUrl = EtherealRecordItem.getAudioUrl(currentRecord)
         if (audioUrl == null || audioUrl.isEmpty()) return
 
 
         playbackState = PlaybackState.PLAYING
+
+        this.notifyUpdate()
 
 
         onClient {
@@ -88,6 +90,8 @@ open class RecordPlayerBlockEntity(
 
     fun stopPlayer() {
         playbackState = PlaybackState.STOPPED
+        this.notifyUpdate()
+
         onClient {
             this.stopClientPlayer()
         }
@@ -95,6 +99,7 @@ open class RecordPlayerBlockEntity(
 
     fun pausePlayer() {
         playbackState = PlaybackState.PAUSED
+        this.notifyUpdate()
         onClient {
             this.pauseClientPlayer()
         }
@@ -162,12 +167,14 @@ open class RecordPlayerBlockEntity(
     fun insertRecord(discItem: ItemStack): Boolean {
         if (hasRecord()) return false
         inventoryHandler.insertItem(RECORD_SLOT, discItem.copy(), false)
+        notifyUpdate()
         return true
     }
 
     fun popRecord(): ItemStack? {
         if (!hasRecord()) return null
         val item = inventoryHandler.extractItem(RECORD_SLOT, 1, false)
+        notifyUpdate()
         return item
     }
 
@@ -215,12 +222,30 @@ open class RecordPlayerBlockEntity(
         }
 
         if (compound?.contains("playbackState") == true) {
-            playbackState = PlaybackState.fromOrdinal(compound.getInt("playbackState"))
+            val newPlaybackState = PlaybackState.fromOrdinal(compound.getInt("playbackState"))
+            val previousState = playbackState
+            playbackState = newPlaybackState
+
             level?.onClient {
                 val currentRecord = getRecord()
                 val audioUrl = EtherealRecordItem.getAudioUrl(currentRecord)
-                if (playbackState == PlaybackState.PLAYING && !audioUrl.isNullOrEmpty()) {
-                    startClientPlayer(audioUrl)
+
+                when (playbackState) {
+                    PlaybackState.PLAYING -> {
+                        if (!audioUrl.isNullOrEmpty() && previousState != PlaybackState.PLAYING) {
+                            startClientPlayer(audioUrl)
+                        }
+                    }
+                    PlaybackState.PAUSED -> {
+                        if (previousState == PlaybackState.PLAYING) {
+                            pauseClientPlayer()
+                        }
+                    }
+                    PlaybackState.STOPPED -> {
+                        if (previousState != PlaybackState.STOPPED) {
+                            stopClientPlayer()
+                        }
+                    }
                 }
             }
         }
