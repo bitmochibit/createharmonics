@@ -40,6 +40,7 @@ object ModItemsRegistry : AbstractModRegistry {
             .model { ctx , prov ->
                 prov.generated(ctx, prov.modLoc("item/$name"))
             }
+
             .register()
     }
 

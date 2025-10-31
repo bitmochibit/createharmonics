@@ -104,6 +104,12 @@ minecraft {
             property 'forge.enabledGameTestNamespaces', mod_id
         }
 
+        clientDummy {
+            parent runs.client
+            args = []  // Clear inherited args
+            args '--username', 'Dummy'
+        }
+
         server {
             property 'forge.enabledGameTestNamespaces', mod_id
             args '--nogui'
