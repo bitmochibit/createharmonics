@@ -10,7 +10,6 @@ import kotlinx.coroutines.launch
 import me.mochibit.createharmonics.Config
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.audio.pcm.PCMUtils
 import me.mochibit.createharmonics.audio.processor.AudioStreamProcessor
 import me.mochibit.createharmonics.audio.source.AudioSource
 import me.mochibit.createharmonics.coroutine.ModCoroutineManager
@@ -21,6 +20,28 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * Buffered input stream that processes audio with real-time effect chain application.
  * Raw PCM data is buffered, and effects are applied on-demand when data is read.
  */
+
+
+fun ByteArray.toShortArray(): ShortArray {
+    val shorts = ShortArray(this.size / 2)
+    for (i in shorts.indices) {
+        val offset = i * 2
+        shorts[i] = ((this[offset + 1].toInt() and 0xFF) shl 8 or
+                (this[offset].toInt() and 0xFF)).toShort()
+    }
+    return shorts
+}
+
+fun ShortArray.toByteArray(): ByteArray {
+    val bytes = ByteArray(this.size * 2)
+    for (i in this.indices) {
+        val offset = i * 2
+        bytes[offset] = (this[i].toInt() and 0xFF).toByte()
+        bytes[offset + 1] = ((this[i].toInt() shr 8) and 0xFF).toByte()
+    }
+    return bytes
+}
+
 class BufferedAudioStream(
     private val audioSource: AudioSource,
     private val effectChain: EffectChain,
@@ -98,7 +119,7 @@ class BufferedAudioStream(
 
                 processor.processAudioStream(audioSource)
                     .onEach { chunk ->
-                        val samples = PCMUtils.bytesToShorts(chunk)
+                        val samples = chunk.toShortArray()
 
                         // Apply backpressure if queue is full
                         while (rawSampleQueue.size + samples.size > maxQueueSize && !finished) {
@@ -236,7 +257,7 @@ class BufferedAudioStream(
         }
 
         // Convert to bytes and store in output buffer
-        outputBuffer = PCMUtils.shortsToBytes(outputSamples)
+        outputBuffer = outputSamples.toByteArray()
         outputPosition = 0
 
         // Update read counter based on INPUT samples consumed
@@ -271,7 +292,7 @@ class BufferedAudioStream(
 
         Logger.info("Processing final ${sampleCount} samples with effect chain")
 
-        outputBuffer = PCMUtils.shortsToBytes(outputSamples)
+        outputBuffer = outputSamples.toByteArray()
         outputPosition = 0
 
         samplesRead += inputSamples.size

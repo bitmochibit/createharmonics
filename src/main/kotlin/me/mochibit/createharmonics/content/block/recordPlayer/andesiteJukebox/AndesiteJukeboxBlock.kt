@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox
 
+import com.simibubi.create.AllItems
 import com.simibubi.create.AllShapes
 import com.simibubi.create.content.kinetics.base.DirectionalKineticBlock
 import com.simibubi.create.foundation.block.IBE
@@ -43,6 +44,9 @@ class AndesiteJukeboxBlock(properties: Properties) : DirectionalKineticBlock(pro
     ): InteractionResult {
         val blockEntity = pLevel.getBlockEntity(pPos) as? AndesiteJukeboxBlockEntity ?: return InteractionResult.PASS
         val clickItem = pPlayer.getItemInHand(pHand)
+
+        if (AllItems.WRENCH.isIn(clickItem))
+            return InteractionResult.PASS;
 
         // |-> SNEAK TO REMOVE RECORD
         if (pPlayer.isShiftKeyDown) {

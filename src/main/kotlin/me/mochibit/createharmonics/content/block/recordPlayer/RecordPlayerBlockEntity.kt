@@ -4,9 +4,9 @@ import com.simibubi.create.content.kinetics.base.KineticBlockEntity
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.effect.*
 import me.mochibit.createharmonics.audio.instance.StaticSoundInstance
-import me.mochibit.createharmonics.audio.pcm.PitchFunction
+import me.mochibit.createharmonics.audio.effect.pitchShift.PitchFunction
+import me.mochibit.createharmonics.audio.effect.pitchShift.PitchShiftEffect
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
-import me.mochibit.createharmonics.event.recordPlayer.RecordPlayerPlayEvent
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.remapTo
 import net.minecraft.core.BlockPos

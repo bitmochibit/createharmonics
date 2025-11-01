@@ -2,17 +2,10 @@ package me.mochibit.createharmonics.audio
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import me.mochibit.createharmonics.Config
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
-import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
-import me.mochibit.createharmonics.audio.effect.ReverbEffect
-import me.mochibit.createharmonics.audio.effect.VolumeEffect
-import me.mochibit.createharmonics.audio.instance.StaticSoundInstance
-import me.mochibit.createharmonics.audio.pcm.PitchFunction
 import me.mochibit.createharmonics.audio.processor.AudioStreamProcessor
 import me.mochibit.createharmonics.audio.source.AudioSource
 import me.mochibit.createharmonics.audio.source.HttpAudioSource
@@ -20,11 +13,8 @@ import me.mochibit.createharmonics.audio.source.YoutubeAudioSource
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import me.mochibit.createharmonics.coroutine.withClientContext
 import net.minecraft.client.Minecraft
-import net.minecraft.client.resources.sounds.BiomeAmbientSoundsHandler
 import net.minecraft.client.resources.sounds.SoundInstance
-import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
-import java.io.InputStream
 import java.util.UUID
 
 

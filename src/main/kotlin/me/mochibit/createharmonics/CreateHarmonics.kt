@@ -4,6 +4,7 @@ import com.simibubi.create.foundation.data.CreateRegistrate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import me.mochibit.createharmonics.Logger.info
+import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
 import me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox.AndesiteJukeboxScreen
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import me.mochibit.createharmonics.network.ModNetworkHandler
@@ -12,6 +13,7 @@ import net.minecraft.client.gui.screens.MenuScreens
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.event.server.ServerStartingEvent
+import net.minecraftforge.event.server.ServerStoppingEvent
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.eventbus.api.SubscribeEvent
 import net.minecraftforge.fml.DistExecutor
@@ -40,6 +42,12 @@ class CreateHarmonicsMod {
                 ModPartialModels.init()
             }
         }
+
+        // Register shutdown hook to clean up processes when Minecraft exits
+        Runtime.getRuntime().addShutdownHook(Thread {
+            info("Minecraft shutting down, cleaning up managed processes...")
+            ProcessLifecycleManager.shutdownAll()
+        })
     }
 
     constructor(context: FMLJavaModLoadingContext) {
@@ -74,6 +82,12 @@ class CreateHarmonicsMod {
     @SubscribeEvent
     fun onServerStarting(event: ServerStartingEvent) {
         info("Create: Harmonics server is starting!")
+    }
+
+    @SubscribeEvent
+    fun onServerStopping(event: ServerStoppingEvent) {
+        info("Create: Harmonics server is stopping, cleaning up processes...")
+        ProcessLifecycleManager.shutdownAll()
     }
 
     @EventBusSubscriber(modid = MOD_ID, bus = EventBusSubscriber.Bus.MOD, value = [Dist.CLIENT])

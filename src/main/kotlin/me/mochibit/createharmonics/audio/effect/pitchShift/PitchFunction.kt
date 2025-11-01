@@ -1,5 +1,6 @@
-package me.mochibit.createharmonics.audio.pcm
+package me.mochibit.createharmonics.audio.effect.pitchShift
 
+import kotlin.math.abs
 import kotlin.math.sin
 
 /**
@@ -188,7 +189,7 @@ private class RealTimeSmoothedPitchFunction(
 
         // Check if target has changed (with small epsilon to avoid float precision issues)
         val epsilon = 0.001f
-        if (kotlin.math.abs(newTargetPitch - targetPitch) > epsilon) {
+        if (abs(newTargetPitch - targetPitch) > epsilon) {
             // Start a new transition using wall-clock time
             transitionStartPitch = currentPitch
             targetPitch = newTargetPitch

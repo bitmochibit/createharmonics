@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics.audio.binProvider
 
 
-object YTDL: AbstractDownloadableBinProvider(
+object YTDLBin: AbstractDownloadableBinProvider(
     "yt-dlp"
 ) {
     override fun getDownloadUrl(): String {
