@@ -35,70 +35,23 @@ class AudioStreamProcessor(
     ): Flow<ByteArray> = flow {
         // Ensure FFmpeg is installed before processing
         if (!ffmpegWrapper.ensureInstalled()) {
-            err("Failed to ensure FFmpeg installation")
             throw IllegalStateException("FFMPEG installation failed")
         }
 
-        // Get the original identifier (YouTube URL or other source)
         val identifier = audioSource.getIdentifier()
-
-        // Step 1: Get duration to determine streaming strategy
-        info("Getting audio info for: $identifier")
         val duration = audioSource.getDurationSeconds()
-        info("Audio duration: ${duration}s")
 
-        // Step 2: Determine if we should stream or download
-        // Download SHORT songs (<3min) for caching, stream LONG songs (>3min)
         val shouldDownload = duration <= DURATION_THRESHOLD_SECONDS
 
-        // Retry logic for expired URLs (common with YouTube)
-        var attempt = 0
-        val maxAttempts = 2
-        var lastError: Exception? = null
-
-        while (attempt < maxAttempts) {
-            try {
-                if (shouldDownload) {
-                    info("Audio duration <= 3 minutes, downloading for caching (attempt ${attempt + 1}/$maxAttempts)")
-                    // Resolve URL just-in-time before download
-                    val audioUrl = audioSource.resolveAudioUrl()
-                    processWithDownload(audioUrl, identifier)
-                        .collect { chunk -> emit(chunk) }
-                } else {
-                    info("Audio duration > 3 minutes, streaming directly (attempt ${attempt + 1}/$maxAttempts)")
-                    // Resolve URL just-in-time before streaming
-                    val audioUrl = audioSource.resolveAudioUrl()
-                    processWithStreaming(audioUrl)
-                        .collect { chunk -> emit(chunk) }
-                }
-                // Success - break out of retry loop
-                return@flow
-            } catch (e: Exception) {
-                lastError = e
-                attempt++
-
-                // Check if it's a 403 error (expired URL)
-                val is403Error = e.message?.contains("403") == true ||
-                        e.message?.contains("Forbidden") == true ||
-                        e.message?.contains("HTTP error") == true
-
-                if (is403Error && attempt < maxAttempts) {
-                    err("Detected expired URL (403 error), invalidating cache and retrying...")
-                    // Invalidate the cache for this URL (YouTube-specific)
-                    YoutubeCache.invalidate(identifier)
-                    delay(500) // Brief delay before retry
-                } else if (attempt >= maxAttempts) {
-                    err("Max retry attempts reached, giving up")
-                    throw e
-                } else {
-                    // Non-403 error, don't retry
-                    throw e
-                }
-            }
+        val audioUrl = audioSource.resolveAudioUrl()
+        if (shouldDownload) {
+            processWithDownload(audioUrl, identifier)
+                .collect { chunk -> emit(chunk) }
+        } else {
+            processWithStreaming(audioUrl)
+                .collect { chunk -> emit(chunk) }
         }
 
-        // If we get here, all retries failed
-        throw lastError ?: IllegalStateException("Failed to process audio after $maxAttempts attempts")
     }.flowOn(Dispatchers.IO)
 
     /**
