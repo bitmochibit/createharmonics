@@ -3,6 +3,7 @@ package me.mochibit.createharmonics.registry
 import com.simibubi.create.AllTags
 import com.simibubi.create.api.behaviour.interaction.MovingInteractionBehaviour.interactionBehaviour
 import com.simibubi.create.api.behaviour.movement.MovementBehaviour.movementBehaviour
+import com.simibubi.create.foundation.data.BlockStateGen
 import com.simibubi.create.foundation.data.ModelGen.customItemModel
 import com.tterrag.registrate.util.entry.BlockEntry
 import me.mochibit.createharmonics.CreateHarmonicsMod
@@ -24,9 +25,11 @@ object ModBlocksRegistry : AbstractModRegistry {
             p.strength(2.0f, 6.0f)
                 .sound(SoundType.WOOD)
         }
+        .blockstate(BlockStateGen.directionalBlockProvider(true))
         .onRegister (movementBehaviour(RecordPlayerMovementBehaviour()))
         .tag(AllTags.AllBlockTags.SAFE_NBT.tag)
         .item()
+        .tag(AllTags.AllItemTags.CONTRAPTION_CONTROLLED.tag)
         .transform(customItemModel())
         .register()
 

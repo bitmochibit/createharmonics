@@ -2,10 +2,16 @@ package me.mochibit.createharmonics.content.block.recordPlayer
 
 import com.simibubi.create.api.behaviour.movement.MovementBehaviour
 import com.simibubi.create.content.contraptions.behaviour.MovementContext
+import com.simibubi.create.content.contraptions.render.ActorVisual
+import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
+import dev.engine_room.flywheel.api.visualization.VisualizationContext
 import me.mochibit.createharmonics.audio.AudioPlayer
-import me.mochibit.createharmonics.audio.StreamRegistry
-import me.mochibit.createharmonics.audio.effect.*
+import me.mochibit.createharmonics.audio.effect.EffectChain
+import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
+import me.mochibit.createharmonics.audio.effect.ReverbEffect
+import me.mochibit.createharmonics.audio.effect.VolumeEffect
 import me.mochibit.createharmonics.audio.instance.MovingSoundInstance
+import me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox.RecordPlayerActorVisual
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.extension.onClient
 import net.minecraft.core.BlockPos
@@ -145,4 +151,11 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         AudioPlayer.stopStream(playerUUID.toString())
     }
 
+    override fun createVisual(
+        visualizationContext: VisualizationContext,
+        simulationWorld: VirtualRenderWorld,
+        movementContext: MovementContext
+    ): ActorVisual {
+        return RecordPlayerActorVisual(visualizationContext, simulationWorld, movementContext)
+    }
 }
