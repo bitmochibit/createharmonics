@@ -3,35 +3,53 @@ package me.mochibit.createharmonics.content.block.recordPlayer
 import com.simibubi.create.api.behaviour.movement.MovementBehaviour
 import com.simibubi.create.content.contraptions.behaviour.MovementContext
 import me.mochibit.createharmonics.audio.AudioPlayer
-import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
-import me.mochibit.createharmonics.audio.effect.ReverbEffect
-import me.mochibit.createharmonics.audio.effect.VolumeEffect
-import me.mochibit.createharmonics.audio.effect.pitchShift.PitchFunction
-import me.mochibit.createharmonics.audio.effect.pitchShift.PitchShiftEffect
-import me.mochibit.createharmonics.audio.instance.StaticSoundInstance
-import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBlockEntity.Companion.MAX_PITCH
-import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBlockEntity.Companion.MIN_PITCH
-import me.mochibit.createharmonics.extension.remapTo
+import me.mochibit.createharmonics.audio.StreamRegistry
+import me.mochibit.createharmonics.audio.effect.*
+import me.mochibit.createharmonics.audio.instance.MovingSoundInstance
+import me.mochibit.createharmonics.content.item.EtherealRecordItem
+import me.mochibit.createharmonics.extension.onClient
 import net.minecraft.core.BlockPos
-import net.minecraft.world.phys.Vec3
 import net.minecraftforge.items.ItemStackHandler
-import java.util.UUID
-import kotlin.math.abs
+import java.util.*
 
-class RecordPlayerMovementBehaviour: MovementBehaviour {
-    data class PlayerTemporaryData(
-        var currentPitch : Float = MIN_PITCH,
-        val speedBasedPitchFunction: PitchFunction = PitchFunction.smoothedRealTime(
-            sourcePitchFunction = PitchFunction.custom { _ -> currentPitch },
-            transitionTimeSeconds = 0.5
-        ),
-        val playerUUID: UUID = UUID.randomUUID(),
-        val playerPosition: Vec3 = Vec3.ZERO
-    )
+/**
+ * Handles Record Player behavior when attached to a moving contraption.
+ * Uses block entity data (synced from server) to determine playback state.
+ * Audio streams are managed by AudioPlayer's internal registry using the player block's UUID.
+ */
+class RecordPlayerMovementBehaviour : MovementBehaviour {
 
 
-    fun getInventoryHandler(context: MovementContext): ItemStackHandler {
+    /**
+     * Get the player UUID from the block entity data (server-side)
+     */
+    private fun getPlayerUUID(context: MovementContext): UUID? {
+        val blockEntityData = context.blockEntityData ?: return null
+        return if (blockEntityData.contains("playerUUID")) {
+            UUID.fromString(blockEntityData.getString("playerUUID"))
+        } else {
+            null
+        }
+    }
+
+    /**
+     * Get the audio URL from the record in the inventory (server-side data)
+     */
+    private fun getAudioUrl(context: MovementContext): String? {
+        val inventory = getInventoryHandler(context)
+        val record = inventory.getStackInSlot(RecordPlayerBlockEntity.RECORD_SLOT)
+
+        if (record.isEmpty || record.item !is EtherealRecordItem) {
+            return null
+        }
+
+        return EtherealRecordItem.getAudioUrl(record)?.takeIf { it.isNotEmpty() }
+    }
+
+    /**
+     * Get the inventory handler from the block entity data (server-side)
+     */
+    private fun getInventoryHandler(context: MovementContext): ItemStackHandler {
         val blockEntityData = context.blockEntityData
         return blockEntityData?.getCompound("inventory")?.let { nbt ->
             val handler = ItemStackHandler(1)
@@ -40,66 +58,91 @@ class RecordPlayerMovementBehaviour: MovementBehaviour {
         } ?: ItemStackHandler(1)
     }
 
+    /**
+     * Called when the contraption starts moving
+     */
     override fun startMoving(context: MovementContext) {
         super.startMoving(context)
-        if (context.temporaryData == null)
-            context.temporaryData = PlayerTemporaryData()
 
-        val tempData = context.temporaryData as PlayerTemporaryData
+        // Start playing on client if there's a disc
+        context.world.onClient {
+            val audioUrl = getAudioUrl(context)
+            val playerUUID = getPlayerUUID(context)
 
-        tempData.playerPosition.apply {
-            x = context.position.x
-            y = context.position.y
-            z = context.position.z
+            if (audioUrl != null && playerUUID != null) {
+                startClientPlayer(playerUUID, context, audioUrl)
+            }
         }
+    }
+
+    /**
+     * Called when contraption stops - cleanup audio
+     */
+    override fun stopMoving(context: MovementContext) {
+        super.stopMoving(context)
+
+        context.world.onClient {
+            val playerUUID = getPlayerUUID(context)
+            if (playerUUID != null) {
+                stopClientPlayer(playerUUID)
+            }
+        }
+    }
+
+    /**
+     * Called every tick - ensure audio is playing if there's a disc
+     */
+    override fun tick(context: MovementContext) {
+        super.tick(context)
+
+        context.world.onClient {
+            val playerUUID = getPlayerUUID(context) ?: return@onClient
+            val audioUrl = getAudioUrl(context)
+            val streamId = playerUUID.toString()
+
+            if (audioUrl == null) return@onClient
+
+            if (!AudioPlayer.isPlaying(streamId)) {
+                startClientPlayer(playerUUID, context, audioUrl)
+            } else {
+                stopClientPlayer(playerUUID)
+            }
+        }
+    }
+
+    /**
+     * Start playing audio on client side
+     */
+    private fun startClientPlayer(playerUUID: UUID, context: MovementContext, audioUrl: String) {
+        val streamId = playerUUID.toString()
 
         AudioPlayer.play(
-            "https://www.youtube.com/watch?v=rLeA7eQVIXk",
+            audioUrl,
             soundInstanceProvider = { resLoc ->
-                StaticSoundInstance(
-                    resLoc,
-                    this.worldPosition,
-                    64,
-                    1.0f
+                MovingSoundInstance(
+                    resourceLocation = resLoc,
+                    posSupplier = {
+                        BlockPos.containing(context.position)
+                    },
+                    radius = 64
                 )
             },
-            EffectChain(
+            effectChain = EffectChain(
                 listOf(
-                    PitchShiftEffect(tempData.speedBasedPitchFunction),
+                    VolumeEffect(0.8f),
+                    LowPassFilterEffect(cutoffFrequency = 3000f),
+                    ReverbEffect(roomSize = 0.5f, damping = 0.2f, wetMix = 0.8f)
                 )
             ),
-            streamId = tempData.playerUUID.toString()
+            streamId = streamId
         )
     }
 
-    override fun visitNewPosition(
-        context: MovementContext?,
-        pos: BlockPos?
-    ) {
-        super.visitNewPosition(context, pos)
-    }
-
-    override fun onSpeedChanged(
-        context: MovementContext?,
-        oldMotion: Vec3?,
-        motion: Vec3?
-    ) {
-        super.onSpeedChanged(context, oldMotion, motion)
-        if (context == null || motion == null) return
-        val tempData = context.temporaryData as? PlayerTemporaryData ?: return
-
-        val speed = motion.length().toFloat()
-        val newPitch = calculatePitch(speed)
-        tempData.currentPitch = newPitch
-    }
-
-    override fun stopMoving(context: MovementContext?) {
-        super.stopMoving(context)
-    }
-
-    private fun calculatePitch(speed: Float): Float {
-        val currSpeed = abs(speed)
-        return currSpeed.remapTo(16.0f, 256.0f, MIN_PITCH, MAX_PITCH)
+    /**
+     * Stop playing audio on client side
+     */
+    private fun stopClientPlayer(playerUUID: UUID) {
+        AudioPlayer.stopStream(playerUUID.toString())
     }
 
 }

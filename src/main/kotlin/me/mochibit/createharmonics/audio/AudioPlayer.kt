@@ -95,6 +95,10 @@ object AudioPlayer {
         }
     }
 
+    fun isPlaying(streamId: String): Boolean {
+        val resLoc = generateResourceLocation(streamId)
+        return StreamRegistry.containsStream(resLoc)
+    }
 
     fun stopStream(streamId: String) {
         launchModCoroutine {

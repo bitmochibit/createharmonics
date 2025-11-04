@@ -4,6 +4,7 @@ import com.simibubi.create.AllItems
 import com.simibubi.create.AllShapes
 import com.simibubi.create.content.kinetics.base.DirectionalKineticBlock
 import com.simibubi.create.foundation.block.IBE
+import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.content.block.recordPlayer.PlaybackState
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.extension.onServer
@@ -13,10 +14,10 @@ import net.minecraft.core.Direction
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.entity.player.Player
-import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelReader
+import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.BlockHitResult
@@ -98,6 +99,14 @@ class AndesiteJukeboxBlock(properties: Properties) : DirectionalKineticBlock(pro
         pNewState: BlockState,
         pIsMoving: Boolean
     ) {
+
+//        if (!pIsMoving && pLevel.isClientSide) {
+//            val blockEntity = pLevel.getBlockEntity(pPos) as? AndesiteJukeboxBlockEntity
+//            blockEntity?.let {
+//                AudioPlayer.stopStream(it.playerUUID.toString())
+//            }
+//        }
+
         super.onRemove(pState, pLevel, pPos, pNewState, pIsMoving)
     }
 

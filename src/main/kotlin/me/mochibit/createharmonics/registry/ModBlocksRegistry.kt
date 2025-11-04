@@ -11,7 +11,6 @@ import me.mochibit.createharmonics.cRegistrate
 import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerMovementBehaviour
 import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerMovingInteraction
 import me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox.AndesiteJukeboxBlock
-import me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox.AndesiteJukeboxMovement
 import net.minecraft.world.level.block.SoundType
 import net.minecraftforge.eventbus.api.IEventBus
 
@@ -25,12 +24,7 @@ object ModBlocksRegistry : AbstractModRegistry {
             p.strength(2.0f, 6.0f)
                 .sound(SoundType.WOOD)
         }
-        .onRegister {
-            interactionBehaviour<AndesiteJukeboxBlock>(RecordPlayerMovingInteraction())
-        }
-        .onRegister {
-            movementBehaviour<AndesiteJukeboxBlock>(RecordPlayerMovementBehaviour())
-        }
+        .onRegister (movementBehaviour(RecordPlayerMovementBehaviour()))
         .tag(AllTags.AllBlockTags.SAFE_NBT.tag)
         .item()
         .transform(customItemModel())
