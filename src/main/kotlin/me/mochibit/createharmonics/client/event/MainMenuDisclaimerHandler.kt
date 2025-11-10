@@ -1,8 +1,8 @@
 package me.mochibit.createharmonics.client.event
 
 import me.mochibit.createharmonics.Logger
-import me.mochibit.createharmonics.audio.binProvider.FFMPEGBin
-import me.mochibit.createharmonics.audio.binProvider.YTDLBin
+import me.mochibit.createharmonics.audio.binProvider.FFMPEGProvider
+import me.mochibit.createharmonics.audio.binProvider.YTDLProvider
 import me.mochibit.createharmonics.client.gui.LibraryDisclaimerScreen
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.TitleScreen
@@ -33,8 +33,8 @@ object MainMenuDisclaimerHandler {
             }
             
             // Check if libraries are already installed
-            val ytdlInstalled = YTDLBin.isAvailable()
-            val ffmpegInstalled = FFMPEGBin.isAvailable()
+            val ytdlInstalled = YTDLProvider.isAvailable()
+            val ffmpegInstalled = FFMPEGProvider.isAvailable()
             
             if (ytdlInstalled && ffmpegInstalled) {
                 Logger.info("All libraries are installed, skipping disclaimer screen")

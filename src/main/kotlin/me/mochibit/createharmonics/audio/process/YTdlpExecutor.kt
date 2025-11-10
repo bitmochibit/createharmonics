@@ -4,7 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.mochibit.createharmonics.Logger.err
 import me.mochibit.createharmonics.Logger.info
-import me.mochibit.createharmonics.audio.binProvider.YTDLBin
+import me.mochibit.createharmonics.audio.binProvider.YTDLProvider
 
 /**
  * Wrapper for yt-dlp operations with managed process lifecycle.
@@ -24,9 +24,9 @@ class YTdlpExecutor {
      * Ensure yt-dlp is installed and available.
      */
     suspend fun ensureInstalled(): Boolean = withContext(Dispatchers.IO) {
-        if (!YTDLBin.isAvailable()) {
+        if (!YTDLProvider.isAvailable()) {
             info("yt-dlp not found, installing...")
-            if (!YTDLBin.install()) {
+            if (!YTDLProvider.install()) {
                 err("Failed to install yt-dlp")
                 return@withContext false
             }
@@ -44,7 +44,7 @@ class YTdlpExecutor {
                 return@withContext null
             }
 
-            val ytdlPath = YTDLBin.getExecutablePath()
+            val ytdlPath = YTDLProvider.getExecutablePath()
                 ?: return@withContext null
 
             // Use format selector to prefer direct URLs over HLS/DASH manifests

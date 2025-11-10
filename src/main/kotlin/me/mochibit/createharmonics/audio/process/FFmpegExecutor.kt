@@ -8,7 +8,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.mochibit.createharmonics.Logger.err
 import me.mochibit.createharmonics.Logger.info
-import me.mochibit.createharmonics.audio.binProvider.FFMPEGBin
+import me.mochibit.createharmonics.audio.binProvider.FFMPEGProvider
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 
@@ -33,9 +33,9 @@ class FFmpegExecutor {
      * Ensure FFmpeg is installed and available.
      */
     suspend fun ensureInstalled(): Boolean = withContext(Dispatchers.IO) {
-        if (!FFMPEGBin.isAvailable()) {
+        if (!FFMPEGProvider.isAvailable()) {
             info("FFmpeg not found, installing...")
-            if (!FFMPEGBin.install()) {
+            if (!FFMPEGProvider.install()) {
                 err("Failed to install FFmpeg")
                 return@withContext false
             }
@@ -48,7 +48,7 @@ class FFmpegExecutor {
      * Download audio from URL to file using FFmpeg.
      */
     suspend fun downloadAudio(audioUrl: String, outputFile: File): FFmpegResult = withContext(Dispatchers.IO) {
-        val ffmpegPath = FFMPEGBin.getExecutablePath()
+        val ffmpegPath = FFMPEGProvider.getExecutablePath()
             ?: return@withContext FFmpegResult.Error(-1, "FFmpeg not found")
 
         // Delete partial downloads if they exist
@@ -120,7 +120,7 @@ class FFmpegExecutor {
      * Decode audio URL directly to PCM stream.
      */
     fun decodeUrlToStream(audioUrl: String, sampleRate: Int): Flow<ByteArray> = flow {
-        val ffmpegPath = FFMPEGBin.getExecutablePath()
+        val ffmpegPath = FFMPEGProvider.getExecutablePath()
             ?: throw IllegalStateException("FFmpeg not found")
 
         val command = listOf(
@@ -189,7 +189,7 @@ class FFmpegExecutor {
      * Decode audio file directly to PCM stream.
      */
     fun decodeFileToStream(audioFile: File, sampleRate: Int): Flow<ByteArray> = flow {
-        val ffmpegPath = FFMPEGBin.getExecutablePath()
+        val ffmpegPath = FFMPEGProvider.getExecutablePath()
             ?: throw IllegalStateException("FFmpeg not found")
 
         val command = listOf(

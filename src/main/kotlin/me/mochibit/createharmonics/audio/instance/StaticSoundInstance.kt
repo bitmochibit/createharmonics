@@ -14,8 +14,7 @@ import net.minecraft.util.valueproviders.ConstantFloat
 class StaticSoundInstance(
     private val resourceLocation: ResourceLocation,
     private val position: BlockPos,
-    private val radius: Int,
-    private val pitch: Float = 1.0f
+    private val radius: Int = 16,
 ) : SoundInstance {
 
     override fun getLocation(): ResourceLocation {
@@ -60,7 +59,7 @@ class StaticSoundInstance(
     }
 
     override fun getPitch(): Float {
-        return pitch
+        return 1.0f
     }
 
     override fun getX(): Double {

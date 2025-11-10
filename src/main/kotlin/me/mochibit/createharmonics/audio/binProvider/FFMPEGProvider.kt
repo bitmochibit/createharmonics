@@ -1,6 +1,6 @@
 package me.mochibit.createharmonics.audio.binProvider
 
-object FFMPEGBin: AbstractDownloadableBinProvider(
+object FFMPEGProvider: DownloadableBinProvider(
     "ffmpeg"
 ) {
     override fun getDownloadUrl(): String {

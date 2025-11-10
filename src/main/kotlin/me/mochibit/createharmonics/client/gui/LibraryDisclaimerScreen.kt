@@ -2,8 +2,8 @@ package me.mochibit.createharmonics.client.gui
 
 import kotlinx.coroutines.Dispatchers
 import me.mochibit.createharmonics.Logger
-import me.mochibit.createharmonics.audio.binProvider.FFMPEGBin
-import me.mochibit.createharmonics.audio.binProvider.YTDLBin
+import me.mochibit.createharmonics.audio.binProvider.FFMPEGProvider
+import me.mochibit.createharmonics.audio.binProvider.YTDLProvider
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft
@@ -97,7 +97,7 @@ class LibraryDisclaimerScreen(private val parent: Screen?) : Screen(Component.li
             try {
                 Logger.info("Installing yt-dlp...")
                 ytdlpStatus = "downloading"
-                val ytdlSuccess = YTDLBin.install { status, progress, speed ->
+                val ytdlSuccess = YTDLProvider.install { status, progress, speed ->
                     ytdlpStatus = status
                     ytdlpProgress = progress
                     ytdlpSpeed = speed
@@ -105,7 +105,7 @@ class LibraryDisclaimerScreen(private val parent: Screen?) : Screen(Component.li
 
                 Logger.info("Installing FFmpeg...")
                 ffmpegStatus = "downloading"
-                val ffmpegSuccess = FFMPEGBin.install { status, progress, speed ->
+                val ffmpegSuccess = FFMPEGProvider.install { status, progress, speed ->
                     ffmpegStatus = status
                     ffmpegProgress = progress
                     ffmpegSpeed = speed
