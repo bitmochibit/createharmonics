@@ -7,11 +7,10 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.net.URL
-import java.nio.channels.Channels
 import java.util.zip.ZipInputStream
 import java.util.concurrent.ConcurrentHashMap
 
-abstract class AbstractDownloadableBinProvider(
+abstract class DownloadableBinProvider(
     private val providerName: String,
     val directory: File = Minecraft.getInstance().gameDirectory.toPath()
         .resolve("audio_providers/$providerName").toFile(),

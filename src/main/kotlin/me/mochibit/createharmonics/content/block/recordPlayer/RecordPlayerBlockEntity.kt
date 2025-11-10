@@ -3,21 +3,19 @@ package me.mochibit.createharmonics.content.block.recordPlayer
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.effect.*
-import me.mochibit.createharmonics.audio.pcm.PitchFunction
-import me.mochibit.createharmonics.content.item.EtherealDiscItem
-import me.mochibit.createharmonics.event.recordPlayer.RecordPlayerPlayEvent
+import me.mochibit.createharmonics.audio.instance.StaticSoundInstance
+import me.mochibit.createharmonics.audio.effect.pitchShift.PitchFunction
+import me.mochibit.createharmonics.audio.effect.pitchShift.PitchShiftEffect
+import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.remapTo
-import me.mochibit.createharmonics.registry.ModItemsRegistry
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
-import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
-import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.common.capabilities.Capability
 import net.minecraftforge.common.capabilities.ForgeCapabilities
 import net.minecraftforge.common.util.LazyOptional
@@ -31,8 +29,10 @@ open class RecordPlayerBlockEntity(
     type: BlockEntityType<*>,
     pos: BlockPos,
     state: BlockState,
-    var playerUUID: UUID = UUID.randomUUID()
 ) : KineticBlockEntity(type, pos, state) {
+    var playerUUID: UUID = UUID.randomUUID()
+        private set;
+
     private var storedSpeed: Float = .0f
 
     @Volatile
@@ -40,9 +40,6 @@ open class RecordPlayerBlockEntity(
 
     @Volatile
     var playbackState: PlaybackState = PlaybackState.STOPPED
-
-    @Volatile
-    var audioResourceLocation: ResourceLocation? = null
 
     companion object {
         const val RECORD_SLOT = 0
@@ -52,7 +49,7 @@ open class RecordPlayerBlockEntity(
 
     val inventoryHandler = object : ItemStackHandler(1) {
         override fun isItemValid(slot: Int, stack: ItemStack): Boolean {
-            return stack.item == ModItemsRegistry.etherealDisc.get()
+            return stack.item is EtherealRecordItem
         }
     }
     protected val lazyInventoryHandler: LazyOptional<IItemHandler> = LazyOptional.of { inventoryHandler }
@@ -69,32 +66,32 @@ open class RecordPlayerBlockEntity(
     }
 
     fun startPlayer() {
-        if (!hasDisc()) return
-
         if (playbackState == PlaybackState.PLAYING) {
-            pausePlayer()
             return
         }
 
+        val currentRecord = getRecord()
+        if (currentRecord.isEmpty || currentRecord.item !is EtherealRecordItem) return
+
+
+        val audioUrl = EtherealRecordItem.getAudioUrl(currentRecord)
+        if (audioUrl == null || audioUrl.isEmpty()) return
+
 
         playbackState = PlaybackState.PLAYING
-        audioResourceLocation =
-            AudioPlayer.generateResourceLocation("https://www.youtube.com/watch?v=ZlHRhzXezAc", playerUUID.toString())
-                .let {
-                    MinecraftForge.EVENT_BUS.post(
-                        RecordPlayerPlayEvent(this, it)
-                    )
-                    it
-                }
+
+        this.notifyUpdate()
 
 
         onClient {
-            this.startClientPlayer()
+            this.startClientPlayer(audioUrl)
         }
     }
 
     fun stopPlayer() {
         playbackState = PlaybackState.STOPPED
+        this.notifyUpdate()
+
         onClient {
             this.stopClientPlayer()
         }
@@ -102,39 +99,41 @@ open class RecordPlayerBlockEntity(
 
     fun pausePlayer() {
         playbackState = PlaybackState.PAUSED
+        this.notifyUpdate()
         onClient {
             this.pauseClientPlayer()
         }
     }
 
-    protected fun startClientPlayer() {
-        audioResourceLocation?.let { resLoc ->
-            AudioPlayer.fromYoutube(
-                blockPos,
-                url = "https://www.youtube.com/watch?v=ZlHRhzXezAc",
-                effectChain = EffectChain(
-                    listOf(
-                        PitchShiftEffect(speedBasedPitchFunction),
-                        VolumeEffect(0.8f), // Reduce volume to 80%
-                        LowPassFilterEffect(cutoffFrequency = 3000f), // Slight muffling
-                        ReverbEffect(roomSize = 0.5f, damping = 0.2f, wetMix = 0.8f)
-                    )
-                ),
-                resourceLocation = resLoc
-            )
-        }
+    protected fun startClientPlayer(audioUrl: String) {
+        AudioPlayer.play(
+            audioUrl,
+            soundInstanceProvider = { resLoc ->
+                StaticSoundInstance(
+                    resLoc,
+                    this.worldPosition,
+                    64,
+                    1.0f
+                )
+            },
+            EffectChain(
+                listOf(
+                    PitchShiftEffect(speedBasedPitchFunction),
+                    VolumeEffect(0.8f), // Reduce volume to 80%
+                    LowPassFilterEffect(cutoffFrequency = 3000f), // Slight muffling
+                    ReverbEffect(roomSize = 0.5f, damping = 0.2f, wetMix = 0.8f)
+                )
+            ),
+            streamId = playerUUID.toString()
+        )
     }
 
     protected fun pauseClientPlayer() {
-        audioResourceLocation?.let { resLoc ->
-            AudioPlayer.stopStream(resLoc)
-        }
+        AudioPlayer.stopStream(playerUUID.toString())
     }
 
     protected fun stopClientPlayer() {
-        audioResourceLocation?.let { resLoc ->
-            AudioPlayer.stopStream(resLoc)
-        }
+        AudioPlayer.stopStream(playerUUID.toString())
     }
 
     /**
@@ -165,19 +164,25 @@ open class RecordPlayerBlockEntity(
         Containers.dropContents(currLevel, this.worldPosition, inv)
     }
 
-    fun insertDisc(discItem: EtherealDiscItem): Boolean {
-        if (hasDisc()) return false
-        inventoryHandler.insertItem(RECORD_SLOT, ItemStack(discItem), false)
+    fun insertRecord(discItem: ItemStack): Boolean {
+        if (hasRecord()) return false
+        inventoryHandler.insertItem(RECORD_SLOT, discItem.copy(), false)
+        notifyUpdate()
         return true
     }
 
-    fun popDisc(): EtherealDiscItem? {
-        if (!hasDisc()) return null
+    fun popRecord(): ItemStack? {
+        if (!hasRecord()) return null
         val item = inventoryHandler.extractItem(RECORD_SLOT, 1, false)
-        return item.item as? EtherealDiscItem
+        notifyUpdate()
+        return item
     }
 
-    fun hasDisc(): Boolean {
+    fun getRecord(): ItemStack {
+        return inventoryHandler.getStackInSlot(RECORD_SLOT).copy()
+    }
+
+    fun hasRecord(): Boolean {
         return !inventoryHandler.getStackInSlot(RECORD_SLOT).isEmpty
     }
 
@@ -217,10 +222,30 @@ open class RecordPlayerBlockEntity(
         }
 
         if (compound?.contains("playbackState") == true) {
-            playbackState = PlaybackState.fromOrdinal(compound.getInt("playbackState"))
+            val newPlaybackState = PlaybackState.fromOrdinal(compound.getInt("playbackState"))
+            val previousState = playbackState
+            playbackState = newPlaybackState
+
             level?.onClient {
-                if (playbackState == PlaybackState.PLAYING && hasDisc()) {
-                    startClientPlayer()
+                val currentRecord = getRecord()
+                val audioUrl = EtherealRecordItem.getAudioUrl(currentRecord)
+
+                when (playbackState) {
+                    PlaybackState.PLAYING -> {
+                        if (!audioUrl.isNullOrEmpty() && previousState != PlaybackState.PLAYING) {
+                            startClientPlayer(audioUrl)
+                        }
+                    }
+                    PlaybackState.PAUSED -> {
+                        if (previousState == PlaybackState.PLAYING) {
+                            pauseClientPlayer()
+                        }
+                    }
+                    PlaybackState.STOPPED -> {
+                        if (previousState != PlaybackState.STOPPED) {
+                            stopClientPlayer()
+                        }
+                    }
                 }
             }
         }

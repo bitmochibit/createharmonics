@@ -6,10 +6,10 @@ import net.minecraft.resources.ResourceLocation
 
 object ModPartialModels {
 
-    val ETHEREAL_DISC: PartialModel = block("ethereal_disc_block")
+    val ETHEREAL_RECORD: PartialModel = block("ethereal_record_visual")
 
     fun init() {
-        ETHEREAL_DISC.toString()
+        ETHEREAL_RECORD.toString()
     }
 
     private fun block(path: String): PartialModel {

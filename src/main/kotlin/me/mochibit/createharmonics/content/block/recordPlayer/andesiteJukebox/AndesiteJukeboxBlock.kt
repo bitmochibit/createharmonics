@@ -1,10 +1,12 @@
 package me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox
 
+import com.simibubi.create.AllItems
 import com.simibubi.create.AllShapes
 import com.simibubi.create.content.kinetics.base.DirectionalKineticBlock
 import com.simibubi.create.foundation.block.IBE
+import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.content.block.recordPlayer.PlaybackState
-import me.mochibit.createharmonics.content.item.EtherealDiscItem
+import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.registry.ModBlockEntitiesRegistry
 import net.minecraft.core.BlockPos
@@ -12,10 +14,10 @@ import net.minecraft.core.Direction
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.entity.player.Player
-import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelReader
+import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.BlockHitResult
@@ -44,30 +46,31 @@ class AndesiteJukeboxBlock(properties: Properties) : DirectionalKineticBlock(pro
         val blockEntity = pLevel.getBlockEntity(pPos) as? AndesiteJukeboxBlockEntity ?: return InteractionResult.PASS
         val clickItem = pPlayer.getItemInHand(pHand)
 
+        if (AllItems.WRENCH.isIn(clickItem))
+            return InteractionResult.PASS;
+
         // |-> SNEAK TO REMOVE RECORD
         if (pPlayer.isShiftKeyDown) {
-            if (!blockEntity.hasDisc()) {
+            if (!blockEntity.hasRecord()) {
                 return InteractionResult.PASS
+            }
+
+            pLevel.onServer {
+                val disc = blockEntity.popRecord() ?: return@onServer
+                pPlayer.addItem(disc)
             }
 
             blockEntity.stopPlayer()
 
-            pLevel.onServer {
-                val disc = blockEntity.popDisc() ?: return@onServer
-                pPlayer.addItem(ItemStack(disc))
-                blockEntity.notifyUpdate()
-            }
             return InteractionResult.SUCCESS
         }
 
 
         // |-> INSERT RECORD
-        if (clickItem.item is EtherealDiscItem && !blockEntity.hasDisc()) {
+        if (clickItem.item is EtherealRecordItem && !blockEntity.hasRecord()) {
             pLevel.onServer {
-                val item = clickItem.item as EtherealDiscItem
-                blockEntity.insertDisc(item)
+                blockEntity.insertRecord(clickItem)
                 clickItem.shrink(1)
-                blockEntity.notifyUpdate()
             }
             return InteractionResult.SUCCESS
         }
@@ -75,9 +78,7 @@ class AndesiteJukeboxBlock(properties: Properties) : DirectionalKineticBlock(pro
         // |-> BEHAVIOURS
 
         when (blockEntity.playbackState) {
-            PlaybackState.PAUSED -> {
-                // Don't do nu cazz
-            }
+            PlaybackState.PAUSED -> {}
 
             PlaybackState.PLAYING -> {
                 blockEntity.stopPlayer()
@@ -98,6 +99,14 @@ class AndesiteJukeboxBlock(properties: Properties) : DirectionalKineticBlock(pro
         pNewState: BlockState,
         pIsMoving: Boolean
     ) {
+
+//        if (!pIsMoving && pLevel.isClientSide) {
+//            val blockEntity = pLevel.getBlockEntity(pPos) as? AndesiteJukeboxBlockEntity
+//            blockEntity?.let {
+//                AudioPlayer.stopStream(it.playerUUID.toString())
+//            }
+//        }
+
         super.onRemove(pState, pLevel, pPos, pNewState, pIsMoving)
     }
 

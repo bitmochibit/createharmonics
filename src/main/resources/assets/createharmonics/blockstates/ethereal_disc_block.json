@@ -1,7 +1,0 @@
-{
-  "variants": {
-    "facing=down": {
-      "model": "createharmonics:block/ethereal_disc_block"
-    }
-  }
-}

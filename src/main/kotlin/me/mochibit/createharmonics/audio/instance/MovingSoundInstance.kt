@@ -1,27 +1,38 @@
 package me.mochibit.createharmonics.audio.instance
 
-import me.mochibit.createharmonics.CreateHarmonicsMod
 import net.minecraft.client.resources.sounds.Sound
 import net.minecraft.client.resources.sounds.SoundInstance
+import net.minecraft.client.resources.sounds.TickableSoundInstance
 import net.minecraft.client.sounds.SoundManager
 import net.minecraft.client.sounds.WeighedSoundEvents
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
-import net.minecraft.resources.ResourceLocation.*
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.valueproviders.ConstantFloat
 
-class StaticSoundInstance(
+class MovingSoundInstance(
     private val resourceLocation: ResourceLocation,
-    private val position: BlockPos,
+    private val posSupplier: () -> BlockPos = { BlockPos.ZERO },
     private val radius: Int = 16,
-) : SoundInstance {
+): TickableSoundInstance {
+    private var currentPosition: BlockPos = posSupplier()
+    private var stopped = false
+
+    override fun tick() {
+        // Update position every tick
+        currentPosition = posSupplier()
+    }
+
+    override fun isStopped(): Boolean {
+        return stopped
+    }
+
 
     override fun getLocation(): ResourceLocation {
         return resourceLocation
     }
 
-    override fun resolve(soundManager: SoundManager): WeighedSoundEvents {
+    override fun resolve(pManager: SoundManager): WeighedSoundEvents {
         return WeighedSoundEvents(this.location, null)
     }
 
@@ -63,18 +74,19 @@ class StaticSoundInstance(
     }
 
     override fun getX(): Double {
-        return position.x.toDouble()
+        return currentPosition.x.toDouble()
     }
 
     override fun getY(): Double {
-        return position.y.toDouble()
+        return currentPosition.y.toDouble()
     }
 
     override fun getZ(): Double {
-        return position.z.toDouble()
+        return currentPosition.z.toDouble()
     }
 
     override fun getAttenuation(): SoundInstance.Attenuation {
         return SoundInstance.Attenuation.LINEAR
     }
+
 }

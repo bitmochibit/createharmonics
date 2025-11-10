@@ -10,11 +10,9 @@ import kotlinx.coroutines.launch
 import me.mochibit.createharmonics.Config
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.audio.pcm.PCMUtils
 import me.mochibit.createharmonics.audio.processor.AudioStreamProcessor
 import me.mochibit.createharmonics.audio.source.AudioSource
 import me.mochibit.createharmonics.coroutine.ModCoroutineManager
-import net.minecraft.resources.ResourceLocation
 import java.io.InputStream
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -22,11 +20,32 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * Buffered input stream that processes audio with real-time effect chain application.
  * Raw PCM data is buffered, and effects are applied on-demand when data is read.
  */
+
+
+fun ByteArray.toShortArray(): ShortArray {
+    val shorts = ShortArray(this.size / 2)
+    for (i in shorts.indices) {
+        val offset = i * 2
+        shorts[i] = ((this[offset + 1].toInt() and 0xFF) shl 8 or
+                (this[offset].toInt() and 0xFF)).toShort()
+    }
+    return shorts
+}
+
+fun ShortArray.toByteArray(): ByteArray {
+    val bytes = ByteArray(this.size * 2)
+    for (i in this.indices) {
+        val offset = i * 2
+        bytes[offset] = (this[i].toInt() and 0xFF).toByte()
+        bytes[offset + 1] = ((this[i].toInt() shr 8) and 0xFF).toByte()
+    }
+    return bytes
+}
+
 class BufferedAudioStream(
     private val audioSource: AudioSource,
     private val effectChain: EffectChain,
     private val sampleRate: Int,
-    private val resourceLocation: ResourceLocation,
     private val processor: AudioStreamProcessor
 ) : InputStream() {
     companion object {
@@ -41,10 +60,13 @@ class BufferedAudioStream(
     // Queue of raw PCM samples (unprocessed)
     private val rawSampleQueue = ConcurrentLinkedQueue<Short>()
 
-    // Maximum queue size - use configured buffer time directly for minimal latency
-    // Note: Removed pitch multiplier to minimize buffering and improve pitch response time
-    // Ensure it's at least large enough to hold a single chunk (4096 samples minimum)
-    private val maxQueueSize: Int get() = maxOf(4096, (sampleRate * TARGET_PLAYBACK_BUFFER_SECONDS).toInt())
+    // Maximum queue size - adjusted for worst-case pitch to prevent buffer starvation
+    // At MAX_PITCH (2.0), we consume input 2x faster, so we need more buffer headroom
+    // Ensure it's at least large enough to hold several chunks
+    private val maxQueueSize: Int get() = maxOf(
+        processChunkSize * 4,  // At least 4 chunks worth
+        (sampleRate * TARGET_PLAYBACK_BUFFER_SECONDS * MAX_PITCH).toInt()
+    )
 
     // Output buffer for processed data (pre-processed chunks)
     private var outputBuffer: ByteArray? = null
@@ -73,15 +95,18 @@ class BufferedAudioStream(
     // Track playback time for effects
     private var samplesRead = 0L
 
-    // Minimum samples to keep in buffer before processing - reduced to prevent starvation
-    private val minBufferSamples: Int get() = (sampleRate * 0.01 * (1.0 / MIN_PITCH)).toInt() // 10ms minimum for ultra-low latency
+    // Minimum buffer before processing (50ms adjusted for worst-case pitch)
+    // At MIN_PITCH (0.5), we need more input samples to produce the same output duration
+    private val minBufferSamples: Int get() = (sampleRate * 0.05 * (1.0 / MIN_PITCH)).toInt()
 
-    // Process smaller chunks for immediate pitch response
-    private val processChunkSize = sampleRate / 20 // 50ms chunks for ultra-low latency
-
-    // Flag to track if we've logged the stream end
-    @Volatile
-    private var hasLoggedEnd = false
+    // Process chunk size: adjust for pitch to maintain consistent output duration
+    // With time-stretching pitch shift, higher pitch = faster consumption of input
+    // Target ~0.25 seconds of OUTPUT audio duration
+    // At pitch 2.0: need 0.25 * 48000 * 2.0 = 24000 input samples -> ~12000 output samples (0.25s)
+    // At pitch 1.0: need 0.25 * 48000 * 1.0 = 12000 input samples -> ~12000 output samples (0.25s)
+    // At pitch 0.5: need 0.25 * 48000 * 0.5 = 6000 input samples -> ~12000 output samples (0.25s)
+    // Use MAX_PITCH as worst case to avoid draining buffer too fast
+    private val processChunkSize: Int get() = (sampleRate /15 * MAX_PITCH).toInt()
 
     init {
         startPipeline()
@@ -92,69 +117,45 @@ class BufferedAudioStream(
             try {
                 Logger.info("Starting audio pipeline for: ${audioSource.getIdentifier()}")
 
-                var chunkCount = 0
                 processor.processAudioStream(audioSource)
                     .onEach { chunk ->
-                        // Convert bytes to samples
-                        val samples = PCMUtils.bytesToShorts(chunk)
+                        val samples = chunk.toShortArray()
 
-                        Logger.info("Pipeline received chunk: ${chunk.size} bytes = ${samples.size} samples, queue before: ${rawSampleQueue.size}")
-
-                        // Apply backpressure: wait if queue is too full
-                        while (rawSampleQueue.size + samples.size > maxQueueSize && error == null && !finished) {
+                        // Apply backpressure if queue is full
+                        while (rawSampleQueue.size + samples.size > maxQueueSize && !finished) {
                             kotlinx.coroutines.delay(10)
                         }
 
-                        // Add to queue
                         samples.forEach { rawSampleQueue.offer(it) }
-                        chunkCount++
 
-                        Logger.info("Pipeline added chunk, queue after: ${rawSampleQueue.size} samples")
-
-                        // Mark as pre-buffered after receiving first chunk
-                        if (!preBuffered && chunkCount >= 1) {
+                        // Mark as pre-buffered after first chunk
+                        if (!preBuffered) {
                             preBuffered = true
                             preBufferLatch.countDown()
-                            Logger.info("Pre-buffering completed: $chunkCount chunk(s) received, ${rawSampleQueue.size} samples buffered")
-                        }
-
-                        // Log queue size periodically
-                        if (chunkCount % 10 == 0) {
-                            Logger.info("Raw queue status: ${rawSampleQueue.size} samples (${rawSampleQueue.size.toDouble() / sampleRate}s)")
+                            Logger.info("Pre-buffering completed, ${rawSampleQueue.size} samples ready")
                         }
                     }
                     .catch { e ->
-                        // Don't treat cancellation as an error
                         if (e !is kotlinx.coroutines.CancellationException) {
                             error = e as? Exception ?: Exception(e)
                             Logger.err("Pipeline error: ${e.message}")
-                            e.printStackTrace()
-                        } else {
-                            Logger.info("Pipeline cancelled gracefully")
                         }
-                        finished = true
-                        preBufferLatch.countDown()
                     }
                     .onCompletion { cause ->
                         finished = true
-                        if (cause == null) {
-                            Logger.info("Pipeline finished normally, final queue size: ${rawSampleQueue.size}")
-                        } else if (cause is kotlinx.coroutines.CancellationException) {
-                            Logger.info("Pipeline cancelled, final queue size: ${rawSampleQueue.size}")
-                        } else {
-                            Logger.err("Pipeline completed with error: ${cause.message}")
-                        }
                         preBufferLatch.countDown()
+
+                        when (cause) {
+                            null -> Logger.info("Pipeline finished normally")
+                            is kotlinx.coroutines.CancellationException -> Logger.info("Pipeline cancelled")
+                            else -> Logger.err("Pipeline error: ${cause.message}")
+                        }
                     }
                     .collect()
             } catch (e: Exception) {
-                // Handle cancellation gracefully
-                if (e is kotlinx.coroutines.CancellationException) {
-                    Logger.info("Pipeline cancelled in catch block")
-                } else {
+                if (e !is kotlinx.coroutines.CancellationException) {
                     error = e
                     Logger.err("Pipeline error: ${e.message}")
-                    e.printStackTrace()
                 }
                 finished = true
                 preBufferLatch.countDown()
@@ -171,92 +172,48 @@ class BufferedAudioStream(
     override fun read(b: ByteArray, off: Int, len: Int): Int {
         if (len == 0) return 0
 
-        // Wait for pre-buffering on first read
-        waitForPreBuffer()
 
         // Check for errors
         error?.let { throw it }
 
         var totalRead = 0
-        var consecutiveFailures = 0
-        val maxConsecutiveFailures = 20
-        var totalWaitCycles = 0
-        val maxTotalWaitCycles = 20 // 2000ms timeout (increased from 500ms to prevent premature termination)
 
-        // BLOCKING: Keep trying until we have data or stream is finished
+        // Try to read data without blocking - return whatever is available
         while (totalRead < len) {
-            // Check if finished/cancelled early to avoid waiting
+            // Stream is done
             if (finished && rawSampleQueue.isEmpty() && outputBuffer == null) {
                 return if (totalRead > 0) totalRead else -1
             }
 
-            // If we have output buffer, read from it
-            if (outputBuffer != null && outputPosition < outputBuffer!!.size) {
-                val available = outputBuffer!!.size - outputPosition
+            // Read from output buffer if available
+            val buffer = outputBuffer
+            if (buffer != null && outputPosition < buffer.size) {
+                val available = buffer.size - outputPosition
                 val toRead = minOf(len - totalRead, available)
 
-                System.arraycopy(outputBuffer!!, outputPosition, b, off + totalRead, toRead)
+                System.arraycopy(buffer, outputPosition, b, off + totalRead, toRead)
                 outputPosition += toRead
                 totalRead += toRead
 
-                if (outputPosition >= outputBuffer!!.size) {
+                if (outputPosition >= buffer.size) {
                     outputBuffer = null
                     outputPosition = 0
                 }
-
-                consecutiveFailures = 0
-                totalWaitCycles = 0
-                continue
+            } else if (processNextChunk()) {
+                // Successfully processed a chunk, continue reading
+            } else if (finished && rawSampleQueue.isEmpty()) {
+                // No data available and stream is finished
+                Logger.info("Stream ended (read ${samplesRead} samples total)")
+                return if (totalRead > 0) totalRead else -1
+            } else if (finished && rawSampleQueue.isNotEmpty()) {
+                // Process any remaining data if stream is finishing
+                processRemainingData(rawSampleQueue.size)
+            } else {
+                // No data available right now
+                // Return what we have so far (non-blocking behavior)
+                // If we haven't read anything yet, return 0 to signal no data available
+                return totalRead
             }
-
-            // Try to process more data
-            val processed = processNextChunk()
-
-            if (!processed) {
-                // Check if stream is truly done
-                if (finished && rawSampleQueue.isEmpty()) {
-                    if (!hasLoggedEnd) {
-                        Logger.info("Stream ended: no more data available (read ${samplesRead} samples total)")
-                        hasLoggedEnd = true
-                    }
-                    return if (totalRead > 0) totalRead else -1
-                }
-
-                consecutiveFailures++
-                totalWaitCycles++
-
-                if (consecutiveFailures >= maxConsecutiveFailures) {
-                    val queueSize = rawSampleQueue.size
-
-                    if (queueSize > 0) {
-                        if (processRemainingData(queueSize)) {
-                            consecutiveFailures = 0
-                            continue
-                        }
-                    }
-
-                    // CRITICAL: Only return partial data if we have SOMETHING to return
-                    // Never return 0 bytes unless stream is truly finished
-                    if (totalRead > 0) {
-                        return totalRead
-                    } else if (finished) {
-                        return -1
-                    } else {
-                        // Still streaming but no data yet - keep waiting
-                        if (totalWaitCycles >= maxTotalWaitCycles) {
-                            Logger.warn("Stream stuck after ${totalWaitCycles * 10}ms with no data - ending")
-                            finished = true
-                            return -1 // Return -1 instead of 0 to signal end
-                        }
-                        consecutiveFailures = 0
-                    }
-                }
-
-                Thread.sleep(5) // Reduced from 10ms for faster response
-                continue
-            }
-
-            consecutiveFailures = 0
         }
 
         return totalRead
@@ -300,7 +257,7 @@ class BufferedAudioStream(
         }
 
         // Convert to bytes and store in output buffer
-        outputBuffer = PCMUtils.shortsToBytes(outputSamples)
+        outputBuffer = outputSamples.toByteArray()
         outputPosition = 0
 
         // Update read counter based on INPUT samples consumed
@@ -335,24 +292,15 @@ class BufferedAudioStream(
 
         Logger.info("Processing final ${sampleCount} samples with effect chain")
 
-        outputBuffer = PCMUtils.shortsToBytes(outputSamples)
+        outputBuffer = outputSamples.toByteArray()
         outputPosition = 0
 
         samplesRead += inputSamples.size
         return true
     }
 
-    private fun waitForPreBuffer() {
-        // No longer block here - pre-buffering is now handled before play() is called
-        // If this is still called (by read()), it means pre-buffering should already be done
-        if (!preBuffered) {
-            Logger.warn("waitForPreBuffer() called but pre-buffering not complete - this shouldn't happen!")
-        }
-    }
-
     override fun close() {
-        Logger.info("BufferedAudioStream.close() called - clearing local buffers only")
-        // Intentionally don't cancel streamJob or unregister
+        Logger.info("BufferedAudioStream.close() called")
     }
 
     /**
@@ -368,22 +316,16 @@ class BufferedAudioStream(
     }
 
     override fun available(): Int {
-        // Return the number of bytes immediately available without blocking
-
-        // If we have data in the output buffer, return that size
-        if (outputBuffer != null && outputPosition < outputBuffer!!.size) {
-            return outputBuffer!!.size - outputPosition
+        // Return bytes in output buffer
+        outputBuffer?.let { buffer ->
+            val remaining = buffer.size - outputPosition
+            if (remaining > 0) return remaining
         }
 
-        // If we have enough raw samples to process, indicate data is available
-        if (rawSampleQueue.size >= minBufferSamples) {
-            // Conservative estimate of output bytes
-            return minBufferSamples * 2 // 2 bytes per sample
-        }
-
-        // If stream is finished and we have any data left, it's available
-        if (finished && rawSampleQueue.isNotEmpty()) {
-            return rawSampleQueue.size * 2
+        // Return estimate of bytes from raw samples
+        val sampleCount = rawSampleQueue.size
+        if (sampleCount >= minBufferSamples || (finished && sampleCount > 0)) {
+            return sampleCount * 2 // 2 bytes per sample
         }
 
         return 0
