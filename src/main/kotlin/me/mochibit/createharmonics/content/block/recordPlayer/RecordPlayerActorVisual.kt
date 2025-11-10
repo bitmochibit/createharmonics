@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox
+package me.mochibit.createharmonics.content.block.recordPlayer
 
 import com.simibubi.create.content.contraptions.behaviour.MovementContext
 import com.simibubi.create.content.contraptions.render.ActorVisual
@@ -13,7 +13,6 @@ import me.mochibit.createharmonics.registry.ModPartialModels
 import net.createmod.catnip.animation.AnimationTickHolder
 import net.createmod.catnip.math.AngleHelper
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraftforge.items.ItemStackHandler
 
 class RecordPlayerActorVisual(
@@ -76,11 +75,11 @@ class RecordPlayerActorVisual(
         disc
             .setIdentityTransform()
             .translate(context.localPos)
-//            .translate(
-//                facing.opposite.normal.x * .9f,
-//                facing.opposite.normal.y * .9f,
-//                facing.opposite.normal.z * .9f
-//            )
+            .translate(
+                facing.opposite.normal.x * .9f,
+                facing.opposite.normal.y * .9f,
+                facing.opposite.normal.z * .9f
+            )
             .center()
             .rotateToFace(facing.opposite)
             .rotateZDegrees(getRotation())

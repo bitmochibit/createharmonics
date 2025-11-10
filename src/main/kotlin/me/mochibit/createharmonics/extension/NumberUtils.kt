@@ -15,3 +15,7 @@ fun Int.remapTo(inMin: Int, inMax: Int, outMin: Int, outMax: Int): Int {
 fun Long.remapTo(inMin: Long, inMax: Long, outMin: Long, outMax: Long): Long {
     return outMin + (this - inMin) * (outMax - outMin) / (inMax - inMin)
 }
+
+fun Float.lerpTo(target: Float, t: Float): Float {
+    return this + (target - this) * t
+}

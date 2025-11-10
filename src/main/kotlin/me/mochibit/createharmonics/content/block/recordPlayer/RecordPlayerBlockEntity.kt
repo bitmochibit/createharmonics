@@ -1,14 +1,17 @@
 package me.mochibit.createharmonics.content.block.recordPlayer
 
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
+import com.simibubi.create.content.kinetics.deployer.DeployerBlockEntity
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.effect.*
-import me.mochibit.createharmonics.audio.instance.StaticSoundInstance
 import me.mochibit.createharmonics.audio.effect.pitchShift.PitchFunction
 import me.mochibit.createharmonics.audio.effect.pitchShift.PitchShiftEffect
+import me.mochibit.createharmonics.audio.instance.StaticSoundInstance
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.extension.onClient
+import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.extension.remapTo
+import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.Containers
@@ -30,16 +33,25 @@ open class RecordPlayerBlockEntity(
     pos: BlockPos,
     state: BlockState,
 ) : KineticBlockEntity(type, pos, state) {
+
+    enum class PlaybackState {
+        PLAYING,
+        STOPPED,
+        PAUSED;
+    }
+
     var playerUUID: UUID = UUID.randomUUID()
-        private set;
+        private set
 
-    private var storedSpeed: Float = .0f
-
-    @Volatile
-    protected var currentPitch: Float = MIN_PITCH
+    protected val currentPitch: Float
+        get() {
+            val currSpeed = abs(this.speed)
+            return currSpeed.remapTo(16.0f, 256.0f, MIN_PITCH, MAX_PITCH)
+        }
 
     @Volatile
     var playbackState: PlaybackState = PlaybackState.STOPPED
+        private set
 
     companion object {
         const val RECORD_SLOT = 0
@@ -59,49 +71,49 @@ open class RecordPlayerBlockEntity(
         transitionTimeSeconds = 0.5
     )
 
-    private fun calculatePitch(): Float {
-        val currSpeed = abs(this.speed)
-        if (currSpeed == storedSpeed) return currentPitch
-        return currSpeed.remapTo(16.0f, 256.0f, MIN_PITCH, MAX_PITCH)
-    }
-
     fun startPlayer() {
-        if (playbackState == PlaybackState.PLAYING) {
-            return
-        }
+        onServer {
+            // Only proceed if we have a record
+            if (!hasRecord()) {
+                if (playbackState != PlaybackState.STOPPED) {
+                    playbackState = PlaybackState.STOPPED
+                    notifyUpdate()
+                }
+                return@onServer
+            }
 
-        val currentRecord = getRecord()
-        if (currentRecord.isEmpty || currentRecord.item !is EtherealRecordItem) return
+            // Only proceed if speed is sufficient
+            if (abs(this.speed) <= 0.0f) {
+                if (playbackState != PlaybackState.PAUSED) {
+                    playbackState = PlaybackState.PAUSED
+                    notifyUpdate()
+                }
+                return@onServer
+            }
 
-
-        val audioUrl = EtherealRecordItem.getAudioUrl(currentRecord)
-        if (audioUrl == null || audioUrl.isEmpty()) return
-
-
-        playbackState = PlaybackState.PLAYING
-
-        this.notifyUpdate()
-
-
-        onClient {
-            this.startClientPlayer(audioUrl)
+            // Only update if state actually changed
+            if (playbackState != PlaybackState.PLAYING) {
+                playbackState = PlaybackState.PLAYING
+                notifyUpdate()
+            }
         }
     }
 
     fun stopPlayer() {
-        playbackState = PlaybackState.STOPPED
-        this.notifyUpdate()
-
-        onClient {
-            this.stopClientPlayer()
+        onServer {
+            if (playbackState != PlaybackState.STOPPED) {
+                playbackState = PlaybackState.STOPPED
+                notifyUpdate()
+            }
         }
     }
 
     fun pausePlayer() {
-        playbackState = PlaybackState.PAUSED
-        this.notifyUpdate()
-        onClient {
-            this.pauseClientPlayer()
+        onServer {
+            if (playbackState != PlaybackState.PAUSED) {
+                playbackState = PlaybackState.PAUSED
+                notifyUpdate()
+            }
         }
     }
 
@@ -112,8 +124,7 @@ open class RecordPlayerBlockEntity(
                 StaticSoundInstance(
                     resLoc,
                     this.worldPosition,
-                    64,
-                    1.0f
+                    64
                 )
             },
             EffectChain(
@@ -168,12 +179,29 @@ open class RecordPlayerBlockEntity(
         if (hasRecord()) return false
         inventoryHandler.insertItem(RECORD_SLOT, discItem.copy(), false)
         notifyUpdate()
+
+        // If machine is spinning, start playing
+        onServer {
+            if (abs(this.speed) > 0.0f && playbackState != PlaybackState.PLAYING) {
+                playbackState = PlaybackState.PLAYING
+                notifyUpdate()
+            }
+        }
         return true
     }
 
     fun popRecord(): ItemStack? {
         if (!hasRecord()) return null
         val item = inventoryHandler.extractItem(RECORD_SLOT, 1, false)
+
+        // Stop playback when record is removed
+        onServer {
+            if (playbackState != PlaybackState.STOPPED) {
+                playbackState = PlaybackState.STOPPED
+                notifyUpdate()
+            }
+        }
+
         notifyUpdate()
         return item
     }
@@ -195,56 +223,61 @@ open class RecordPlayerBlockEntity(
 
     override fun tick() {
         super.tick()
-        currentPitch = calculatePitch()
 
-        when {
-            abs(this.speed) > .0f && playbackState == PlaybackState.PAUSED -> startPlayer()
-            abs(this.speed) == .0f && playbackState == PlaybackState.PLAYING -> pausePlayer()
+        onServer {
+            val currentSpeed = abs(this.speed)
+            val hasDisc = hasRecord()
+
+            val desiredState = when {
+                !hasDisc -> PlaybackState.STOPPED
+                currentSpeed == 0.0f -> PlaybackState.PAUSED
+                currentSpeed > 0.0f -> PlaybackState.PLAYING
+                else -> PlaybackState.STOPPED
+            }
+
+            if (playbackState != desiredState) {
+                playbackState = desiredState
+                notifyUpdate()
+            }
         }
     }
 
-    override fun write(compound: CompoundTag?, clientPacket: Boolean) {
+    override fun write(compound: CompoundTag, clientPacket: Boolean) {
         super.write(compound, clientPacket)
-        compound?.put("inventory", inventoryHandler.serializeNBT())
-        compound?.putInt("playbackState", playbackState.ordinal)
-        compound?.putString("playerUUID", playerUUID.toString())
+        compound.put("inventory", inventoryHandler.serializeNBT())
+        NBTHelper.writeEnum(compound, "playbackState", playbackState)
+        compound.putString("playerUUID", playerUUID.toString())
     }
 
-    override fun read(compound: CompoundTag?, clientPacket: Boolean) {
+    override fun read(compound: CompoundTag, clientPacket: Boolean) {
         super.read(compound, clientPacket)
-        if (compound?.contains("inventory") == true) {
+        if (compound.contains("inventory")) {
             inventoryHandler.deserializeNBT(compound.getCompound("inventory"))
         }
 
-        if (compound?.contains("playerUUID") == true) {
+        if (compound.contains("playerUUID")) {
             val uuidString = compound.getString("playerUUID")
             playerUUID = UUID.fromString(uuidString)
         }
 
-        if (compound?.contains("playbackState") == true) {
-            val newPlaybackState = PlaybackState.fromOrdinal(compound.getInt("playbackState"))
-            val previousState = playbackState
-            playbackState = newPlaybackState
-
-            level?.onClient {
-                val currentRecord = getRecord()
-                val audioUrl = EtherealRecordItem.getAudioUrl(currentRecord)
-
-                when (playbackState) {
+        if (compound.contains("playbackState")) {
+            val newPlaybackState = NBTHelper.readEnum(compound, "playbackState", PlaybackState::class.java)
+            onClient {
+                when (newPlaybackState) {
                     PlaybackState.PLAYING -> {
-                        if (!audioUrl.isNullOrEmpty() && previousState != PlaybackState.PLAYING) {
-                            startClientPlayer(audioUrl)
+                        val currentRecord = getRecord()
+                        if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
+                            val audioUrl = EtherealRecordItem.getAudioUrl(currentRecord)
+                            if (!audioUrl.isNullOrEmpty()) {
+                                startClientPlayer(audioUrl)
+                            }
                         }
                     }
                     PlaybackState.PAUSED -> {
-                        if (previousState == PlaybackState.PLAYING) {
-                            pauseClientPlayer()
-                        }
+                        pauseClientPlayer()
                     }
                     PlaybackState.STOPPED -> {
-                        if (previousState != PlaybackState.STOPPED) {
-                            stopClientPlayer()
-                        }
+                        stopClientPlayer()
                     }
                 }
             }

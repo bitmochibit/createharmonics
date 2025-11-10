@@ -4,8 +4,7 @@ import com.simibubi.create.AllItems
 import com.simibubi.create.AllShapes
 import com.simibubi.create.content.kinetics.base.DirectionalKineticBlock
 import com.simibubi.create.foundation.block.IBE
-import me.mochibit.createharmonics.audio.AudioPlayer
-import me.mochibit.createharmonics.content.block.recordPlayer.PlaybackState
+import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.registry.ModBlockEntitiesRegistry
@@ -17,7 +16,6 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelReader
-import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.BlockHitResult
@@ -78,13 +76,13 @@ class AndesiteJukeboxBlock(properties: Properties) : DirectionalKineticBlock(pro
         // |-> BEHAVIOURS
 
         when (blockEntity.playbackState) {
-            PlaybackState.PAUSED -> {}
+            RecordPlayerBlockEntity.PlaybackState.PAUSED -> {}
 
-            PlaybackState.PLAYING -> {
+            RecordPlayerBlockEntity.PlaybackState.PLAYING -> {
                 blockEntity.stopPlayer()
             }
 
-            PlaybackState.STOPPED -> {
+            RecordPlayerBlockEntity.PlaybackState.STOPPED -> {
                 blockEntity.startPlayer()
             }
         }
@@ -111,7 +109,7 @@ class AndesiteJukeboxBlock(properties: Properties) : DirectionalKineticBlock(pro
     }
 
     override fun hasShaftTowards(world: LevelReader?, pos: BlockPos?, state: BlockState, face: Direction?): Boolean {
-        return face == state.getValue(FACING)
+        return face == state.getValue(FACING).opposite
     }
 
     override fun getRotationAxis(state: BlockState): Direction.Axis {

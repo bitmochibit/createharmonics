@@ -11,7 +11,7 @@ import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
 import me.mochibit.createharmonics.audio.effect.ReverbEffect
 import me.mochibit.createharmonics.audio.effect.VolumeEffect
 import me.mochibit.createharmonics.audio.instance.MovingSoundInstance
-import me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox.RecordPlayerActorVisual
+import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerActorVisual
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.extension.onClient
 import net.minecraft.core.BlockPos
