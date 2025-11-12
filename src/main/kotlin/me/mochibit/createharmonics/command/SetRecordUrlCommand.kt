@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
+import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.setAudioUrl
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.network.chat.Component
@@ -51,7 +52,7 @@ object SetRecordUrlCommand : Registrable<CommandDispatcher<CommandSourceStack>> 
         }
 
 
-        EtherealRecordItem.setAudioUrl(mainHandItem, audioUrl)
+        mainHandItem.setAudioUrl(audioUrl)
 
         source.sendSuccess(
             {

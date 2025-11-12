@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.mixin;
 
 import me.mochibit.createharmonics.CreateHarmonicsMod;
+import me.mochibit.createharmonics.Logger;
 import me.mochibit.createharmonics.audio.PcmAudioStream;
 import me.mochibit.createharmonics.audio.StreamRegistry;
 import net.minecraft.Util;
@@ -15,7 +16,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.stream.Stream;
 
 @Mixin(SoundBufferLibrary.class)
 public class SoundBufferLibraryMixin {
@@ -23,47 +27,19 @@ public class SoundBufferLibraryMixin {
     public void loadStreamed(@NotNull ResourceLocation pResourceLocation, boolean pIsWrapper, CallbackInfoReturnable<CompletableFuture<AudioStream>> cir) {
         if (!pResourceLocation.getNamespace().equals(CreateHarmonicsMod.MOD_ID)) return;
 
-        System.out.println("SoundBufferLibraryMixin: Intercepting sound request for " + pResourceLocation);
+        String streamId = pResourceLocation.getPath().replaceAll("^sounds/", "").replaceAll("\\.ogg$", "");
 
-        // Normalize the resource location:
-        // Minecraft transforms "youtube_hash" -> "sounds/youtube_hash.ogg"
-        // We need to reverse this to match our registry key
-        String path = pResourceLocation.getPath();
-
-        // Remove "sounds/" prefix if present
-        if (path.startsWith("sounds/")) {
-            path = path.substring("sounds/".length());
-        }
-
-        // Remove ".ogg" extension if present
-        if (path.endsWith(".ogg")) {
-            path = path.substring(0, path.length() - ".ogg".length());
-        }
-
-        ResourceLocation normalizedLocation = ResourceLocation.fromNamespaceAndPath(
-                pResourceLocation.getNamespace(),
-                path
-        );
-
-        System.out.println("SoundBufferLibraryMixin: Normalized to " + normalizedLocation);
-
-        // Look up the stream from the registry using the normalized resource location
-        InputStream existingStream = StreamRegistry.INSTANCE.getStream(normalizedLocation);
+        InputStream existingStream = StreamRegistry.INSTANCE.getStream(streamId);
         if (existingStream == null) {
-            System.err.println("SoundBufferLibraryMixin: No stream found for " + normalizedLocation);
             return;
         }
 
-        System.out.println("SoundBufferLibraryMixin: Found stream in registry for " + normalizedLocation);
-
         cir.setReturnValue(CompletableFuture.supplyAsync(() -> {
             try {
-                System.out.println("SoundBufferLibraryMixin: Creating PcmAudioStream from registry stream");
                 return new PcmAudioStream(existingStream);
             } catch (Exception e) {
-                System.err.println("SoundBufferLibraryMixin: Error creating audio stream: " + e.getMessage());
-                e.printStackTrace();
-                throw e;
+                Logger.INSTANCE.err("SoundBufferLibraryMixin: Error creating audio stream: " + e.getMessage());
+                throw new CompletionException(e);
             }
         }, Util.backgroundExecutor()));
 

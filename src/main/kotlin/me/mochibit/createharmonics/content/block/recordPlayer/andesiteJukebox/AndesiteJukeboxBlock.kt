@@ -47,43 +47,36 @@ class AndesiteJukeboxBlock(properties: Properties) : DirectionalKineticBlock(pro
         if (AllItems.WRENCH.isIn(clickItem))
             return InteractionResult.PASS;
 
-        // |-> SNEAK TO REMOVE RECORD
-        if (pPlayer.isShiftKeyDown) {
-            if (!blockEntity.hasRecord()) {
-                return InteractionResult.PASS
-            }
+        pLevel.onServer {
+            if (pPlayer.isShiftKeyDown) {
+                if (!blockEntity.hasRecord()) {
+                    return InteractionResult.PASS
+                }
 
-            pLevel.onServer {
                 val disc = blockEntity.popRecord() ?: return@onServer
                 pPlayer.addItem(disc)
+
+                blockEntity.stopPlayer()
+
+                return InteractionResult.SUCCESS
             }
 
-            blockEntity.stopPlayer()
-
-            return InteractionResult.SUCCESS
-        }
-
-
-        // |-> INSERT RECORD
-        if (clickItem.item is EtherealRecordItem && !blockEntity.hasRecord()) {
-            pLevel.onServer {
+            if (clickItem.item is EtherealRecordItem && !blockEntity.hasRecord()) {
                 blockEntity.insertRecord(clickItem)
                 clickItem.shrink(1)
-            }
-            return InteractionResult.SUCCESS
-        }
-
-        // |-> BEHAVIOURS
-
-        when (blockEntity.playbackState) {
-            RecordPlayerBlockEntity.PlaybackState.PAUSED -> {}
-
-            RecordPlayerBlockEntity.PlaybackState.PLAYING -> {
-                blockEntity.stopPlayer()
+                return InteractionResult.SUCCESS
             }
 
-            RecordPlayerBlockEntity.PlaybackState.STOPPED -> {
-                blockEntity.startPlayer()
+            when (blockEntity.playbackState) {
+                RecordPlayerBlockEntity.PlaybackState.PAUSED -> {}
+
+                RecordPlayerBlockEntity.PlaybackState.PLAYING -> {
+                    blockEntity.stopPlayer()
+                }
+
+                RecordPlayerBlockEntity.PlaybackState.STOPPED -> {
+                    blockEntity.startPlayer()
+                }
             }
         }
 
@@ -97,14 +90,6 @@ class AndesiteJukeboxBlock(properties: Properties) : DirectionalKineticBlock(pro
         pNewState: BlockState,
         pIsMoving: Boolean
     ) {
-
-//        if (!pIsMoving && pLevel.isClientSide) {
-//            val blockEntity = pLevel.getBlockEntity(pPos) as? AndesiteJukeboxBlockEntity
-//            blockEntity?.let {
-//                AudioPlayer.stopStream(it.playerUUID.toString())
-//            }
-//        }
-
         super.onRemove(pState, pLevel, pPos, pNewState, pIsMoving)
     }
 

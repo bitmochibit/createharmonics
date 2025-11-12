@@ -19,37 +19,34 @@ import java.util.UUID
 
 
 typealias SoundInstanceProvider = (ResourceLocation) -> SoundInstance
+typealias StreamId = String
 
 object AudioPlayer {
     private const val DEFAULT_SAMPLE_RATE = 48000
 
-    /**
-     * Stream audio from any AudioSource with an effect chain.
-     */
     fun createAudioStream(
         audioSource: AudioSource,
         effectChain: EffectChain = EffectChain.empty(),
         sampleRate: Int = DEFAULT_SAMPLE_RATE,
-        streamResLoc: ResourceLocation
+        streamId: String
     ): BufferedAudioStream {
         val processor = AudioStreamProcessor(sampleRate)
         val stream = BufferedAudioStream(audioSource, effectChain, sampleRate, processor)
-        StreamRegistry.registerStream(streamResLoc, stream)
+        StreamRegistry.registerStream(streamId, stream)
         return stream
     }
 
     fun play(
         url: String,
+        listenerId: String = UUID.randomUUID().toString(),
         soundInstanceProvider: SoundInstanceProvider,
         effectChain: EffectChain = EffectChain.empty(),
         sampleRate: Int = DEFAULT_SAMPLE_RATE,
-        streamId: String = UUID.randomUUID().toString()
-    ) {
-        val audioSource = resolveAudioSource(url) ?: return
-        val resourceLoc = generateResourceLocation(streamId)
-        if (StreamRegistry.containsStream(resourceLoc)) return
-        val stream = createAudioStream(audioSource, effectChain, sampleRate, resourceLoc)
-        val soundInstance = soundInstanceProvider(resourceLoc)
+    ): StreamId? {
+        if (StreamRegistry.containsStream(listenerId)) return null
+        val audioSource = resolveAudioSource(url) ?: return null
+        val stream = createAudioStream(audioSource, effectChain, sampleRate, listenerId)
+        val soundInstance = soundInstanceProvider(listenerId.toStreamResLocation())
         launchModCoroutine(Dispatchers.IO) {
             try {
                 val preBuffered = stream.awaitPreBuffering(timeoutSeconds = 30)
@@ -68,6 +65,8 @@ object AudioPlayer {
                 }
             }
         }
+
+        return listenerId
     }
 
     /**
@@ -96,22 +95,20 @@ object AudioPlayer {
     }
 
     fun isPlaying(streamId: String): Boolean {
-        val resLoc = generateResourceLocation(streamId)
-        return StreamRegistry.containsStream(resLoc)
+        return StreamRegistry.containsStream(streamId)
     }
 
     fun stopStream(streamId: String) {
         launchModCoroutine {
-            val resLoc = generateResourceLocation(streamId)
-            Minecraft.getInstance().soundManager.stop(resLoc, null)
-            StreamRegistry.unregisterStream(resLoc)
+            Minecraft.getInstance().soundManager.stop(streamId.toStreamResLocation(), null)
+            StreamRegistry.unregisterStream(streamId)
         }
     }
 
-    fun generateResourceLocation(streamId: String): ResourceLocation {
+    private fun String.toStreamResLocation(): ResourceLocation {
         return ResourceLocation.fromNamespaceAndPath(
             CreateHarmonicsMod.MOD_ID,
-            "harmonics-audio-$streamId"
+            this
         )
     }
 }

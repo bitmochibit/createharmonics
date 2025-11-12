@@ -263,12 +263,6 @@ class BufferedAudioStream(
         // Update read counter based on INPUT samples consumed
         samplesRead += inputSamples.size
 
-        // Log effect application periodically
-        if (samplesRead % (sampleRate * 5) < chunkSize) { // Every ~5 seconds
-            val bufferTimeSeconds = rawSampleQueue.size.toDouble() / sampleRate
-            Logger.info("Applied effects at ${String.format("%.2f", currentTime)}s (buffer: ${String.format("%.1f", bufferTimeSeconds)}s) - ${effectChain.getName()}")
-        }
-
         return true
     }
 

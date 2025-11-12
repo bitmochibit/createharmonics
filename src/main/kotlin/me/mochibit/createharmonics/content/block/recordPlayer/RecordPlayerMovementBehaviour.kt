@@ -10,13 +10,21 @@ import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
 import me.mochibit.createharmonics.audio.effect.ReverbEffect
 import me.mochibit.createharmonics.audio.effect.VolumeEffect
+import me.mochibit.createharmonics.audio.effect.pitchShift.PitchFunction
+import me.mochibit.createharmonics.audio.effect.pitchShift.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.MovingSoundInstance
-import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerActorVisual
+import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBlockEntity.Companion.MAX_PITCH
+import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBlockEntity.Companion.MIN_PITCH
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
+import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.getAudioUrl
 import me.mochibit.createharmonics.extension.onClient
+import me.mochibit.createharmonics.extension.onServer
+import me.mochibit.createharmonics.extension.remapTo
 import net.minecraft.core.BlockPos
+import net.minecraft.world.phys.Vec3
 import net.minecraftforge.items.ItemStackHandler
 import java.util.*
+
 
 /**
  * Handles Record Player behavior when attached to a moving contraption.
@@ -25,17 +33,8 @@ import java.util.*
  */
 class RecordPlayerMovementBehaviour : MovementBehaviour {
 
-
-    /**
-     * Get the player UUID from the block entity data (server-side)
-     */
-    private fun getPlayerUUID(context: MovementContext): UUID? {
-        val blockEntityData = context.blockEntityData ?: return null
-        return if (blockEntityData.contains("playerUUID")) {
-            UUID.fromString(blockEntityData.getString("playerUUID"))
-        } else {
-            null
-        }
+    private fun getPlayerUUID(context: MovementContext): UUID {
+        return context.blockEntityData.getUUID("playerUUID")
     }
 
     /**
@@ -49,34 +48,28 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             return null
         }
 
-        return EtherealRecordItem.getAudioUrl(record)?.takeIf { it.isNotEmpty() }
+        return record.getAudioUrl()?.takeIf { it.isNotEmpty() }
     }
 
-    /**
-     * Get the inventory handler from the block entity data (server-side)
-     */
     private fun getInventoryHandler(context: MovementContext): ItemStackHandler {
-        val blockEntityData = context.blockEntityData
-        return blockEntityData?.getCompound("inventory")?.let { nbt ->
+        return context.blockEntityData?.getCompound("inventory")?.let { nbt ->
             val handler = ItemStackHandler(1)
             handler.deserializeNBT(nbt)
             handler
         } ?: ItemStackHandler(1)
     }
 
-    /**
-     * Called when the contraption starts moving
-     */
+
     override fun startMoving(context: MovementContext) {
         super.startMoving(context)
+        context.world.onServer {
+            context.data.putFloat("currentSpeed", 0f)
+        }
 
-        // Start playing on client if there's a disc
         context.world.onClient {
             val audioUrl = getAudioUrl(context)
-            val playerUUID = getPlayerUUID(context)
-
-            if (audioUrl != null && playerUUID != null) {
-                startClientPlayer(playerUUID, context, audioUrl)
+            if (audioUrl != null) {
+                startClientPlayer(context, audioUrl)
             }
         }
     }
@@ -88,42 +81,43 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         super.stopMoving(context)
 
         context.world.onClient {
-            val playerUUID = getPlayerUUID(context)
-            if (playerUUID != null) {
-                stopClientPlayer(playerUUID)
-            }
+            stopClientPlayer(context)
         }
     }
 
-    /**
-     * Called every tick - ensure audio is playing if there's a disc
-     */
+
     override fun tick(context: MovementContext) {
         super.tick(context)
 
+        // Use animationSpeed which is smoother than raw motion
+        // animationSpeed is already smoothed by Create mod
+        context.data?.putFloat("currentSpeed", context.animationSpeed)
+
         context.world.onClient {
-            val playerUUID = getPlayerUUID(context) ?: return@onClient
-            val audioUrl = getAudioUrl(context)
-            val streamId = playerUUID.toString()
-
-            if (audioUrl == null) return@onClient
-
-            if (!AudioPlayer.isPlaying(streamId)) {
-                startClientPlayer(playerUUID, context, audioUrl)
-            } else {
-                stopClientPlayer(playerUUID)
+            val audioUrl = getAudioUrl(context) ?: run {
+                stopClientPlayer(context)
+                return@onClient
             }
+            // Only start if not already playing - play() will return null if already started
+            startClientPlayer(context, audioUrl)
         }
     }
 
-    /**
-     * Start playing audio on client side
-     */
-    private fun startClientPlayer(playerUUID: UUID, context: MovementContext, audioUrl: String) {
-        val streamId = playerUUID.toString()
+    override fun onSpeedChanged(
+        context: MovementContext,
+        oldMotion: Vec3,
+        motion: Vec3
+    ) {
+        super.onSpeedChanged(context, oldMotion, motion)
+        context.world.onServer {
+            context.data.putFloat("currentSpeed", context.animationSpeed)
+        }
+    }
 
+    private fun startClientPlayer(context: MovementContext, audioUrl: String) {
         AudioPlayer.play(
             audioUrl,
+            listenerId = getPlayerUUID(context).toString(),
             soundInstanceProvider = { resLoc ->
                 MovingSoundInstance(
                     resourceLocation = resLoc,
@@ -135,20 +129,31 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             },
             effectChain = EffectChain(
                 listOf(
+                    PitchShiftEffect(
+                        PitchFunction.smoothedRealTime(
+                            sourcePitchFunction = PitchFunction.custom { _ ->
+                                val speed = context.data?.getFloat("currentSpeed") ?: 0f
+                                val pitch = speed.remapTo(
+                                    0f,
+                                    900f,
+                                    MIN_PITCH,
+                                    MAX_PITCH
+                                )
+                                pitch
+                            },
+                            transitionTimeSeconds = 0.5
+                        )
+                    ),
                     VolumeEffect(0.8f),
                     LowPassFilterEffect(cutoffFrequency = 3000f),
                     ReverbEffect(roomSize = 0.5f, damping = 0.2f, wetMix = 0.8f)
                 )
             ),
-            streamId = streamId
         )
     }
 
-    /**
-     * Stop playing audio on client side
-     */
-    private fun stopClientPlayer(playerUUID: UUID) {
-        AudioPlayer.stopStream(playerUUID.toString())
+    private fun stopClientPlayer(context: MovementContext) {
+        AudioPlayer.stopStream(getPlayerUUID(context).toString())
     }
 
     override fun createVisual(
@@ -158,4 +163,10 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
     ): ActorVisual {
         return RecordPlayerActorVisual(visualizationContext, simulationWorld, movementContext)
     }
+
+    override fun disableBlockEntityRendering(): Boolean {
+        return true
+    }
+
+
 }

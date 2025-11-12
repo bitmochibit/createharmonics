@@ -2,7 +2,9 @@ package me.mochibit.createharmonics.content.block.recordPlayer
 
 import com.simibubi.create.AllPartialModels
 import com.simibubi.create.content.kinetics.base.KineticBlockEntityVisual
+import com.simibubi.create.content.kinetics.base.OrientedRotatingVisual
 import com.simibubi.create.content.kinetics.base.RotatingInstance
+import com.simibubi.create.content.kinetics.base.ShaftVisual
 import com.simibubi.create.foundation.render.AllInstanceTypes
 import dev.engine_room.flywheel.api.instance.Instance
 import dev.engine_room.flywheel.api.visual.DynamicVisual
@@ -24,14 +26,16 @@ class RecordPlayerVisual(
     context: VisualizationContext,
     blockEntity: RecordPlayerBlockEntity,
     partialTick: Float
-) : KineticBlockEntityVisual<RecordPlayerBlockEntity>(
+) : OrientedRotatingVisual<RecordPlayerBlockEntity>(
     context,
     blockEntity,
-    partialTick
+    partialTick,
+    Direction.SOUTH,
+    blockEntity.blockState.getValue(BlockStateProperties.FACING).opposite,
+    Models.partial(AllPartialModels.SHAFT_HALF)
 ), SimpleTickableVisual, SimpleDynamicVisual {
 
     private val discFacing = blockState.getValue(BlockStateProperties.FACING)
-    private val shaftFacing = blockState.getValue(BlockStateProperties.FACING).opposite
 
     private var rotation = 0.0
     private var previousRotation = 0.0
@@ -45,23 +49,9 @@ class RecordPlayerVisual(
             Models.partial(ModPartialModels.ETHEREAL_RECORD)
         ).createInstance()
 
-    private val shaft: RotatingInstance = instancerProvider().instancer(
-        AllInstanceTypes.ROTATING,
-        Models.partial(AllPartialModels.SHAFT_HALF)
-    ).createInstance().apply {
-        setPosition(visualPosition)
-        rotateToFace(Direction.SOUTH, shaftFacing)
-        setup(blockEntity)
-        setChanged()
-    }
-
-    override fun update(partialTick: Float) {
-        shaft.setup(blockEntity).setChanged()
-    }
-
     override fun _delete() {
+        super._delete()
         disc.delete()
-        shaft.delete()
     }
 
     private fun getRotation(partialTick: Double): Float {
@@ -69,16 +59,13 @@ class RecordPlayerVisual(
     }
 
     override fun collectCrumblingInstances(consumer: Consumer<Instance?>) {
+        super.collectCrumblingInstances(consumer)
         consumer.accept(disc)
-        consumer.accept(shaft)
     }
 
     override fun updateLight(p0: Float) {
-        val behind = pos.relative(shaftFacing)
-        relight(behind, shaft)
-
-        val inFront = pos.relative(discFacing)
-        relight(inFront, disc)
+        super.updateLight(p0)
+        relight(disc)
     }
 
 
@@ -115,4 +102,6 @@ class RecordPlayerVisual(
             .uncenter()
             .setChanged()
     }
+
+
 }
