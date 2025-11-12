@@ -68,7 +68,7 @@ class CreateHarmonicsMod {
     fun getRegistrate(): CreateRegistrate = _registrate
 
     private fun commonSetup(event: FMLCommonSetupEvent) {
-        launchModCoroutine(Dispatchers.IO) {
+        launchModCoroutine(Dispatchers.IO, isWorldSpecific = false) {
             commonSetupCoroutine(event)
         }
         info("Create: Harmonics is setting up!")
@@ -88,6 +88,15 @@ class CreateHarmonicsMod {
     fun onServerStopping(event: ServerStoppingEvent) {
         info("Create: Harmonics server is stopping, cleaning up processes...")
         ProcessLifecycleManager.shutdownAll()
+    }
+
+    @EventBusSubscriber(modid = MOD_ID, bus = EventBusSubscriber.Bus.FORGE, value = [Dist.CLIENT])
+    object ClientForgeEvents {
+        @SubscribeEvent
+        fun onClientDisconnect(event: net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut) {
+            info("Client disconnecting from world, cleaning up processes...")
+            ProcessLifecycleManager.shutdownAll()
+        }
     }
 
     @EventBusSubscriber(modid = MOD_ID, bus = EventBusSubscriber.Bus.MOD, value = [Dist.CLIENT])

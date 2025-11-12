@@ -18,12 +18,11 @@ import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBlockE
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.getAudioUrl
 import me.mochibit.createharmonics.extension.onClient
-import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.extension.remapTo
 import net.minecraft.core.BlockPos
-import net.minecraft.world.phys.Vec3
 import net.minecraftforge.items.ItemStackHandler
 import java.util.*
+import kotlin.math.abs
 
 
 /**
@@ -59,97 +58,67 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         } ?: ItemStackHandler(1)
     }
 
-
-    override fun startMoving(context: MovementContext) {
-        super.startMoving(context)
-        context.world.onServer {
-            context.data.putFloat("currentSpeed", 0f)
-        }
-
-        context.world.onClient {
-            val audioUrl = getAudioUrl(context)
-            if (audioUrl != null) {
-                startClientPlayer(context, audioUrl)
-            }
-        }
-    }
-
-    /**
-     * Called when contraption stops - cleanup audio
-     */
     override fun stopMoving(context: MovementContext) {
         super.stopMoving(context)
 
         context.world.onClient {
+            context.temporaryData = null
             stopClientPlayer(context)
         }
     }
 
-
     override fun tick(context: MovementContext) {
         super.tick(context)
 
-        // Use animationSpeed which is smoother than raw motion
-        // animationSpeed is already smoothed by Create mod
-        context.data?.putFloat("currentSpeed", context.animationSpeed)
-
         context.world.onClient {
-            val audioUrl = getAudioUrl(context) ?: run {
+            val audioUrl = getAudioUrl(context)
+
+            if (audioUrl == null) {
                 stopClientPlayer(context)
                 return@onClient
             }
-            // Only start if not already playing - play() will return null if already started
-            startClientPlayer(context, audioUrl)
+
+            if (abs(context.animationSpeed) == 0f) {
+                pauseClientPlayer(context)
+                return@onClient
+            }
+
+            startClientPlayer(
+                context, audioUrl, PitchFunction.smoothedRealTime(
+                    sourcePitchFunction = PitchFunction.custom { _ ->
+                        val currSpeed = abs(context.animationSpeed) / 10.0f
+                        currSpeed.remapTo(0.0f, 700.0f, MIN_PITCH, MAX_PITCH)
+                    },
+                    transitionTimeSeconds = 0.5
+                )
+            )
         }
     }
 
-    override fun onSpeedChanged(
-        context: MovementContext,
-        oldMotion: Vec3,
-        motion: Vec3
-    ) {
-        super.onSpeedChanged(context, oldMotion, motion)
-        context.world.onServer {
-            context.data.putFloat("currentSpeed", context.animationSpeed)
-        }
-    }
-
-    private fun startClientPlayer(context: MovementContext, audioUrl: String) {
+    private fun startClientPlayer(context: MovementContext, audioUrl: String, pitchFunction: PitchFunction) {
         AudioPlayer.play(
             audioUrl,
             listenerId = getPlayerUUID(context).toString(),
             soundInstanceProvider = { resLoc ->
                 MovingSoundInstance(
-                    resourceLocation = resLoc,
-                    posSupplier = {
+                    resourceLocation = resLoc, posSupplier = {
                         BlockPos.containing(context.position)
-                    },
-                    radius = 64
+                    }, radius = 64
                 )
             },
             effectChain = EffectChain(
                 listOf(
-                    PitchShiftEffect(
-                        PitchFunction.smoothedRealTime(
-                            sourcePitchFunction = PitchFunction.custom { _ ->
-                                val speed = context.data?.getFloat("currentSpeed") ?: 0f
-                                val pitch = speed.remapTo(
-                                    0f,
-                                    900f,
-                                    MIN_PITCH,
-                                    MAX_PITCH
-                                )
-                                pitch
-                            },
-                            transitionTimeSeconds = 0.5
-                        )
-                    ),
+                    PitchShiftEffect(pitchFunction),
                     VolumeEffect(0.8f),
                     LowPassFilterEffect(cutoffFrequency = 3000f),
                     ReverbEffect(roomSize = 0.5f, damping = 0.2f, wetMix = 0.8f)
                 )
             ),
         )
+    }
+
+    private fun pauseClientPlayer(context: MovementContext) {
+        AudioPlayer.stopStream(getPlayerUUID(context).toString())
     }
 
     private fun stopClientPlayer(context: MovementContext) {

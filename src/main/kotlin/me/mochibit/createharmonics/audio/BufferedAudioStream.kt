@@ -161,6 +161,8 @@ class BufferedAudioStream(
                 preBufferLatch.countDown()
             }
         }
+        // Register as world-specific job so it gets cancelled when leaving world
+        ModCoroutineManager.registerWorldJob(streamJob!!)
     }
 
     override fun read(): Int {
