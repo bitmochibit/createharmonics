@@ -20,7 +20,6 @@ import net.minecraft.core.Direction
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
-import net.minecraftforge.items.ItemStackHandler
 
 class RecordPlayerActorVisual(
     context: VisualizationContext,
@@ -42,23 +41,12 @@ class RecordPlayerActorVisual(
     private var currentSpeed = 0.0f
     private val speedSmoothingFactor = 0.1f
 
-    val inventoryHandler = object : ItemStackHandler(1) {
-        override fun isItemValid(slot: Int, stack: ItemStack): Boolean {
-            return stack.item is EtherealRecordItem
-        }
-    }.apply {
-        movementContext.blockEntityData.contains("inventory").let { hasInventory ->
-            if (hasInventory) {
-                val nbt = movementContext.blockEntityData.getCompound("inventory")
-                this.deserializeNBT(nbt)
-            }
-        }
-    }
 
     val disc: TransformedInstance =
         instancerProvider.instancer(InstanceTypes.TRANSFORMED, Models.partial(ModPartialModels.ETHEREAL_RECORD)).createInstance()
             .apply {
                 light(localBlockLight(), 0)
+                setVisible(false)
                 setChanged()
             }
 
@@ -73,8 +61,16 @@ class RecordPlayerActorVisual(
                 setChanged()
             }
 
+
+    private fun getInventoryHandler(): RecordPlayerMountedStorage? {
+        val storageManager = context.contraption.storage
+        val rpInventory = storageManager.allItemStorages.get(context.localPos) as? RecordPlayerMountedStorage
+        return rpInventory
+    }
+
     private fun hasRecord(): Boolean {
-        val record = inventoryHandler.getStackInSlot(0)
+        val handler = getInventoryHandler() ?: return false
+        val record: ItemStack = handler.getStackInSlot(0)
         return !record.isEmpty && record.item is EtherealRecordItem
     }
 

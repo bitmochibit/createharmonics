@@ -1,11 +1,7 @@
 package me.mochibit.createharmonics.content.block.recordPlayer
 
 import com.simibubi.create.AllPartialModels
-import com.simibubi.create.content.kinetics.base.KineticBlockEntityVisual
 import com.simibubi.create.content.kinetics.base.OrientedRotatingVisual
-import com.simibubi.create.content.kinetics.base.RotatingInstance
-import com.simibubi.create.content.kinetics.base.ShaftVisual
-import com.simibubi.create.foundation.render.AllInstanceTypes
 import dev.engine_room.flywheel.api.instance.Instance
 import dev.engine_room.flywheel.api.visual.DynamicVisual
 import dev.engine_room.flywheel.api.visual.TickableVisual
@@ -47,7 +43,10 @@ class RecordPlayerVisual(
         instancerProvider().instancer(
             InstanceTypes.TRANSFORMED,
             Models.partial(ModPartialModels.ETHEREAL_RECORD)
-        ).createInstance()
+        ).createInstance().apply {
+            setVisible(false)
+            setChanged()
+        }
 
     override fun _delete() {
         super._delete()

@@ -20,7 +20,6 @@ import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.get
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.remapTo
 import net.minecraft.core.BlockPos
-import net.minecraftforge.items.ItemStackHandler
 import java.util.*
 import kotlin.math.abs
 
@@ -40,7 +39,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
      * Get the audio URL from the record in the inventory (server-side data)
      */
     private fun getAudioUrl(context: MovementContext): String? {
-        val inventory = getInventoryHandler(context)
+        val inventory = getInventoryHandler(context) ?: return null
         val record = inventory.getStackInSlot(RecordPlayerBlockEntity.RECORD_SLOT)
 
         if (record.isEmpty || record.item !is EtherealRecordItem) {
@@ -50,12 +49,10 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         return record.getAudioUrl()?.takeIf { it.isNotEmpty() }
     }
 
-    private fun getInventoryHandler(context: MovementContext): ItemStackHandler {
-        return context.blockEntityData?.getCompound("inventory")?.let { nbt ->
-            val handler = ItemStackHandler(1)
-            handler.deserializeNBT(nbt)
-            handler
-        } ?: ItemStackHandler(1)
+    private fun getInventoryHandler(context: MovementContext): RecordPlayerMountedStorage? {
+        val storageManager = context.contraption.storage
+        val rpInventory = storageManager.allItemStorages.get(context.localPos) as? RecordPlayerMountedStorage
+        return rpInventory
     }
 
     override fun stopMoving(context: MovementContext) {
@@ -71,6 +68,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         super.tick(context)
 
         context.world.onClient {
+
             val audioUrl = getAudioUrl(context)
 
             if (audioUrl == null) {
@@ -138,4 +136,10 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
     }
 
 
+    override fun writeExtraData(context: MovementContext) {
+        // Ensure inventory is synced from data to blockEntityData when structure is saved/synced
+        if (context.data.contains("inventory")) {
+            context.blockEntityData.put("inventory", context.data.getCompound("inventory"))
+        }
+    }
 }

@@ -2,7 +2,10 @@ package me.mochibit.createharmonics.content.block.recordPlayer
 
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
 import me.mochibit.createharmonics.audio.AudioPlayer
-import me.mochibit.createharmonics.audio.effect.*
+import me.mochibit.createharmonics.audio.effect.EffectChain
+import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
+import me.mochibit.createharmonics.audio.effect.ReverbEffect
+import me.mochibit.createharmonics.audio.effect.VolumeEffect
 import me.mochibit.createharmonics.audio.effect.pitchShift.PitchFunction
 import me.mochibit.createharmonics.audio.effect.pitchShift.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.StaticSoundInstance
@@ -13,6 +16,7 @@ import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.extension.remapTo
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
@@ -183,11 +187,14 @@ open class RecordPlayerBlockEntity(
         return !inventoryHandler.getStackInSlot(RECORD_SLOT).isEmpty
     }
 
-    override fun <T : Any?> getCapability(cap: Capability<T?>): LazyOptional<T?> {
+    override fun <T : Any?> getCapability(
+        cap: Capability<T?>,
+        side: Direction?
+    ): LazyOptional<T?> {
         if (cap == ForgeCapabilities.ITEM_HANDLER) {
             return lazyInventoryHandler.cast()
         }
-        return super.getCapability(cap)
+        return super.getCapability(cap, side)
     }
 
     override fun tick() {
@@ -213,15 +220,15 @@ open class RecordPlayerBlockEntity(
 
     override fun write(compound: CompoundTag, clientPacket: Boolean) {
         super.write(compound, clientPacket)
-        compound.put("inventory", inventoryHandler.serializeNBT())
+        compound.put("Inventory", inventoryHandler.serializeNBT())
         NBTHelper.writeEnum(compound, "playbackState", playbackState)
         compound.putUUID("playerUUID", playerUUID)
     }
 
     override fun read(compound: CompoundTag, clientPacket: Boolean) {
         super.read(compound, clientPacket)
-        if (compound.contains("inventory")) {
-            inventoryHandler.deserializeNBT(compound.getCompound("inventory"))
+        if (compound.contains("Inventory")) {
+            inventoryHandler.deserializeNBT(compound.getCompound("Inventory"))
         }
 
         if (compound.contains("playerUUID")) {
