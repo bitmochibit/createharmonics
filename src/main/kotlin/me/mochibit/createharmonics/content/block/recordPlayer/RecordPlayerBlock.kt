@@ -14,12 +14,22 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelReader
+import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.JukeboxBlock
 import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.block.state.StateDefinition
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.shapes.CollisionContext
 import net.minecraft.world.phys.shapes.VoxelShape
 
 abstract class RecordPlayerBlock(properties: Properties) : DirectionalKineticBlock(properties) {
+
+    init {
+        registerDefaultState(
+            stateDefinition.any()
+                .setValue(JukeboxBlock.HAS_RECORD, false)
+        )
+    }
 
     @Deprecated("Deprecated in Java")
     override fun getShape(state: BlockState, level: BlockGetter, pos: BlockPos, context: CollisionContext): VoxelShape {
@@ -99,5 +109,10 @@ abstract class RecordPlayerBlock(properties: Properties) : DirectionalKineticBlo
 
     override fun getRotationAxis(state: BlockState): Direction.Axis {
         return state.getValue(FACING).axis
+    }
+
+    override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block?, BlockState?>) {
+        super.createBlockStateDefinition(builder)
+        builder.add(JukeboxBlock.HAS_RECORD)
     }
 }

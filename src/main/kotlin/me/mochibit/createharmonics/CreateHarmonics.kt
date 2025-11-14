@@ -3,12 +3,14 @@ package me.mochibit.createharmonics
 import com.simibubi.create.foundation.data.CreateRegistrate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
+import me.mochibit.createharmonics.CreateHarmonicsMod.Companion.MOD_ID
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
 import me.mochibit.createharmonics.client.event.MainMenuDisclaimerHandler
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import me.mochibit.createharmonics.network.ModNetworkHandler
 import me.mochibit.createharmonics.registry.*
+import net.minecraft.resources.ResourceLocation
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.event.server.ServerStartingEvent
@@ -59,6 +61,7 @@ class CreateHarmonicsMod {
         ModItemsRegistry.register(forgeModEventBus)
         ModCreativeTabs.register(forgeModEventBus)
         ModMenuTypesRegistry.register(forgeModEventBus)
+        ModArmInteractionPointRegistry.register(forgeModEventBus)
         ModNetworkHandler.register()
         registerConfig(ModConfig.Type.COMMON, Config.SPEC)
     }
@@ -106,9 +109,11 @@ class CreateHarmonicsMod {
             MinecraftForge.EVENT_BUS.register(MainMenuDisclaimerHandler)
         }
     }
+
 }
 
 val CreateHarmonics: CreateHarmonicsMod
     get() = CreateHarmonicsMod.instance
 
+internal fun String.asResource() = ResourceLocation.fromNamespaceAndPath(MOD_ID, this)
 internal fun cRegistrate() = CreateHarmonics.getRegistrate()

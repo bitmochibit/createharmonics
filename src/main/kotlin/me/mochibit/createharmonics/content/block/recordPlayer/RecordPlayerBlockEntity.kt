@@ -21,6 +21,7 @@ import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.block.JukeboxBlock
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraftforge.common.capabilities.Capability
@@ -168,6 +169,11 @@ open class RecordPlayerBlockEntity(
     fun insertRecord(discItem: ItemStack): Boolean {
         if (hasRecord()) return false
         inventoryHandler.insertItem(RECORD_SLOT, discItem.copy(), false)
+        // Update block state to HAS_RECORD = true
+        this.level?.setBlockAndUpdate(
+            this.worldPosition,
+            this.blockState.setValue(JukeboxBlock.HAS_RECORD, true)
+        )
         notifyUpdate()
         return true
     }
@@ -175,6 +181,10 @@ open class RecordPlayerBlockEntity(
     fun popRecord(): ItemStack? {
         if (!hasRecord()) return null
         val item = inventoryHandler.extractItem(RECORD_SLOT, 1, false)
+        this.level?.setBlockAndUpdate(
+            this.worldPosition,
+            this.blockState.setValue(JukeboxBlock.HAS_RECORD, false)
+        )
         notifyUpdate()
         return item
     }
