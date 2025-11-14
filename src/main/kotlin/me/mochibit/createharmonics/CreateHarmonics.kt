@@ -5,11 +5,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
-import me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox.AndesiteJukeboxScreen
+import me.mochibit.createharmonics.client.event.MainMenuDisclaimerHandler
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import me.mochibit.createharmonics.network.ModNetworkHandler
 import me.mochibit.createharmonics.registry.*
-import net.minecraft.client.gui.screens.MenuScreens
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.event.server.ServerStartingEvent
@@ -104,10 +103,7 @@ class CreateHarmonicsMod {
         @SubscribeEvent
         fun onClientSetup(event: FMLClientSetupEvent) {
             info("Create: Harmonics client is setting up!")
-            MinecraftForge.EVENT_BUS.register(me.mochibit.createharmonics.client.event.MainMenuDisclaimerHandler)
-            MenuScreens.register(ModMenuTypesRegistry.ANDESITE_JUKEBOX.get()) { menu, inv, title ->
-                AndesiteJukeboxScreen(menu, inv, title)
-            }
+            MinecraftForge.EVENT_BUS.register(MainMenuDisclaimerHandler)
         }
     }
 }
