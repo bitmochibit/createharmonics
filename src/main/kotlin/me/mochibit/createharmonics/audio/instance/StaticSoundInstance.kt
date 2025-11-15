@@ -1,24 +1,24 @@
 package me.mochibit.createharmonics.audio.instance
 
-import me.mochibit.createharmonics.CreateHarmonicsMod
+import me.mochibit.createharmonics.asResource
 import net.minecraft.client.resources.sounds.Sound
 import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.client.sounds.SoundManager
 import net.minecraft.client.sounds.WeighedSoundEvents
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
-import net.minecraft.resources.ResourceLocation.*
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.valueproviders.ConstantFloat
+import java.io.InputStream
 
 class StaticSoundInstance(
-    private val resourceLocation: ResourceLocation,
+    inStream: InputStream,
     private val position: BlockPos,
     private val radius: Int = 16,
-) : SoundInstance {
+) : StreamingSoundInstance(inStream) {
 
     override fun getLocation(): ResourceLocation {
-        return resourceLocation
+        return "static_sound_instance".asResource()
     }
 
     override fun resolve(soundManager: SoundManager): WeighedSoundEvents {

@@ -15,10 +15,11 @@ import me.mochibit.createharmonics.coroutine.withClientContext
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.resources.ResourceLocation
-import java.util.UUID
+import java.io.InputStream
+import java.util.*
 
 
-typealias SoundInstanceProvider = (ResourceLocation) -> SoundInstance
+typealias StreamingSoundInstanceProvider = (stream: InputStream) -> SoundInstance
 typealias StreamId = String
 
 object AudioPlayer {
@@ -39,14 +40,14 @@ object AudioPlayer {
     fun play(
         url: String,
         listenerId: String = UUID.randomUUID().toString(),
-        soundInstanceProvider: SoundInstanceProvider,
+        soundInstanceProvider: StreamingSoundInstanceProvider,
         effectChain: EffectChain = EffectChain.empty(),
         sampleRate: Int = DEFAULT_SAMPLE_RATE,
     ): StreamId? {
         if (StreamRegistry.containsStream(listenerId)) return null
         val audioSource = resolveAudioSource(url) ?: return null
         val stream = createAudioStream(audioSource, effectChain, sampleRate, listenerId)
-        val soundInstance = soundInstanceProvider(listenerId.toStreamResLocation())
+        val soundInstance = soundInstanceProvider(stream)
         launchModCoroutine(Dispatchers.IO) {
             try {
                 val preBuffered = stream.awaitPreBuffering(timeoutSeconds = 30)

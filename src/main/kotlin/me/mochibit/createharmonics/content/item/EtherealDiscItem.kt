@@ -15,18 +15,18 @@ class EtherealRecordItem(private val recordType: Config.RecordType, props: Prope
     companion object {
         const val AUDIO_URL_TAG_KEY = "audio_url"
 
-        fun ItemStack.getAudioUrl(): String? {
-            if (this.item !is EtherealRecordItem) return null
-            return this.tag?.getString(AUDIO_URL_TAG_KEY)
+        fun getAudioUrl(stack: ItemStack): String? {
+            if (stack.item !is EtherealRecordItem) return null
+            return stack.tag?.getString(AUDIO_URL_TAG_KEY)
         }
 
-        fun ItemStack.setAudioUrl(url: String) {
-            if (this.item !is EtherealRecordItem) return
+        fun setAudioUrl(stack: ItemStack, url: String) {
+            if (stack.item !is EtherealRecordItem) return
 
-            if (this.tag == null) {
-                this.tag = net.minecraft.nbt.CompoundTag()
+            if (stack.tag == null) {
+                stack.tag = net.minecraft.nbt.CompoundTag()
             }
-            this.tag?.putString(AUDIO_URL_TAG_KEY, url)
+            stack.tag?.putString(AUDIO_URL_TAG_KEY, url)
         }
     }
 

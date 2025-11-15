@@ -9,7 +9,6 @@ import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.player.Player
-import java.util.function.Supplier
 
 /**
  * Debug command to get a record item with urls and stuff
@@ -52,7 +51,7 @@ object SetRecordUrlCommand : Registrable<CommandDispatcher<CommandSourceStack>> 
         }
 
 
-        mainHandItem.setAudioUrl(audioUrl)
+        setAudioUrl(mainHandItem, audioUrl)
 
         source.sendSuccess(
             {

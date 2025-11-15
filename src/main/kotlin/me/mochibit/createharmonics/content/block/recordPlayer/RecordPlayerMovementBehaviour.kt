@@ -46,7 +46,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             return null
         }
 
-        return record.getAudioUrl()?.takeIf { it.isNotEmpty() }
+        return getAudioUrl(record)?.takeIf { it.isNotEmpty() }
     }
 
     private fun getInventoryHandler(context: MovementContext): RecordPlayerMountedStorage? {
@@ -97,11 +97,12 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         AudioPlayer.play(
             audioUrl,
             listenerId = getPlayerUUID(context).toString(),
-            soundInstanceProvider = { resLoc ->
+            soundInstanceProvider = { stream ->
                 MovingSoundInstance(
-                    resourceLocation = resLoc, posSupplier = {
+                    stream,
+                    posSupplier = {
                         BlockPos.containing(context.position)
-                    }, radius = 64
+                    },
                 )
             },
             effectChain = EffectChain(

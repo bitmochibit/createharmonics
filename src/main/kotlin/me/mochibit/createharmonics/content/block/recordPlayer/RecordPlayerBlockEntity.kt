@@ -120,11 +120,11 @@ open class RecordPlayerBlockEntity(
         AudioPlayer.play(
             audioUrl,
             listenerId = playerUUID.toString(),
-            soundInstanceProvider = { resLoc ->
+            soundInstanceProvider = { stream ->
                 StaticSoundInstance(
-                    resLoc,
+                    stream,
                     this.worldPosition,
-                    64
+                    64,
                 )
             },
             EffectChain(
@@ -252,7 +252,7 @@ open class RecordPlayerBlockEntity(
                     PlaybackState.PLAYING -> {
                         val currentRecord = getRecord()
                         if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
-                            val audioUrl = currentRecord.getAudioUrl()
+                            val audioUrl = getAudioUrl(currentRecord)
                             if (!audioUrl.isNullOrEmpty()) {
                                 startClientPlayer(audioUrl)
                             }
