@@ -11,131 +11,122 @@ import net.minecraftforge.event.server.ServerStoppingEvent
 import net.minecraftforge.eventbus.api.SubscribeEvent
 import net.minecraftforge.fml.common.Mod
 import java.time.Duration
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.CoroutineContext
 
+/**
+ * Manages coroutines for the mod with proper lifecycle handling.
+ * All coroutines launched through this manager will be cancelled when the world is unloaded or server stops.
+ */
 @Mod.EventBusSubscriber(modid = CreateHarmonicsMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 object ModCoroutineManager : CoroutineScope {
     private val supervisor = SupervisorJob()
-
-    // Track world-specific jobs separately from global jobs
-    private val worldJobs = ConcurrentHashMap<Job, Boolean>()
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        Logger.err("Uncaught exception in coroutine: $throwable")
+        throwable.printStackTrace()
+    }
 
     override val coroutineContext: CoroutineContext
-        get() = Dispatchers.Default + supervisor + CoroutineExceptionHandler { _, throwable ->
-            Logger.err("Error while executing coroutine! + $throwable")
-        }
+        get() = Dispatchers.Default + supervisor + exceptionHandler
 
     @SubscribeEvent
     fun onServerStopping(event: ServerStoppingEvent) {
-        Logger.info("Server stopping - cancelling all active coroutines...")
-        cancelAllWorldCoroutines()
-        supervisor.cancelChildren()
+        Logger.info("Server stopping - cancelling all coroutines...")
+        cancelAll()
     }
 
     @SubscribeEvent
     @OnlyIn(Dist.CLIENT)
     fun onClientDisconnect(event: ClientPlayerNetworkEvent.LoggingOut) {
-        Logger.info("Client disconnecting from world - cancelling world coroutines...")
-        cancelAllWorldCoroutines()
-    }
-
-    fun shutdown() {
-        Logger.info("Shutting down Coroutine Manager...")
-        cancelAllWorldCoroutines()
-        supervisor.cancel()
+        Logger.info("Client disconnecting - cancelling all coroutines...")
+        cancelAll()
     }
 
     /**
-     * Cancel all world-specific coroutines.
-     * This is called when leaving a world (back to main menu) or when server stops.
+     * Cancel all active coroutines and clean up resources.
      */
-    fun cancelAllWorldCoroutines() {
-        val jobsToCancel = worldJobs.keys.toList()
-        if (jobsToCancel.isNotEmpty()) {
-            Logger.info("Cancelling ${jobsToCancel.size} world-specific coroutines...")
-            jobsToCancel.forEach { job ->
-                job.cancel()
-                worldJobs.remove(job)
-            }
-        }
-        // Also clear all audio streams
+    fun cancelAll() {
+        supervisor.cancelChildren()
         StreamRegistry.clear()
     }
 
     /**
-     * Register a job as world-specific so it can be cancelled when leaving the world.
+     * Shutdown the coroutine manager completely.
+     * This should only be called on mod unload.
      */
-    internal fun registerWorldJob(job: Job) {
-        worldJobs[job] = true
-        // Clean up completed jobs
-        job.invokeOnCompletion {
-            worldJobs.remove(job)
-        }
+    fun shutdown() {
+        Logger.info("Shutting down coroutine manager...")
+        supervisor.cancel()
+        StreamRegistry.clear()
     }
-
-    /**
-     * Get the number of active world-specific jobs.
-     * Useful for debugging memory leaks.
-     */
-    fun getActiveWorldJobCount(): Int = worldJobs.size
 }
 
+
+/**
+ * Launch a coroutine in the mod's coroutine scope.
+ * The coroutine will be automatically cancelled when the world is unloaded.
+ *
+ * @param context The coroutine context to use (defaults to MinecraftClientDispatcher)
+ * @param start The coroutine start mode
+ * @param block The coroutine code block
+ * @return The launched Job
+ */
 fun launchModCoroutine(
     context: CoroutineContext = MinecraftClientDispatcher,
     start: CoroutineStart = CoroutineStart.DEFAULT,
-    isWorldSpecific: Boolean = true,
     block: suspend CoroutineScope.() -> Unit
-): Job {
-    val job = ModCoroutineManager.launch(context, start, block)
-    if (isWorldSpecific) {
-        ModCoroutineManager.registerWorldJob(job)
-    }
-    return job
-}
+): Job = ModCoroutineManager.launch(context, start, block)
 
+/**
+ * Launch a coroutine with an initial delay.
+ *
+ * @param context The coroutine context to use
+ * @param delay The initial delay before execution
+ * @param block The coroutine code block
+ * @return The launched Job
+ */
 fun launchDelayed(
     context: CoroutineContext = MinecraftClientDispatcher,
     delay: Duration,
-    isWorldSpecific: Boolean = true,
     block: suspend CoroutineScope.() -> Unit
-): Job {
-    val job = ModCoroutineManager.launch(context) {
-        delay(delay.toMillis())
-        block()
-    }
-    if (isWorldSpecific) {
-        ModCoroutineManager.registerWorldJob(job)
-    }
-    return job
+): Job = ModCoroutineManager.launch(context) {
+    delay(delay.toMillis())
+    block()
 }
 
+/**
+ * Launch a repeating coroutine that executes periodically.
+ *
+ * @param context The coroutine context to use
+ * @param initialDelay Delay before the first execution
+ * @param delay Delay between subsequent executions
+ * @param block The coroutine code block to repeat
+ * @return The launched Job
+ */
 fun launchRepeating(
     context: CoroutineContext = MinecraftClientDispatcher,
     initialDelay: Duration = Duration.ZERO,
     delay: kotlin.time.Duration,
-    isWorldSpecific: Boolean = true,
     block: suspend CoroutineScope.() -> Unit
-): Job {
-    val job = ModCoroutineManager.launch(context) {
-        if (initialDelay.toMillis() > 0) delay(initialDelay.toMillis())
-        while (isActive) {
-            block()
-            if (delay.inWholeMilliseconds > 0) delay(delay.inWholeMilliseconds)
+): Job = ModCoroutineManager.launch(context) {
+    if (initialDelay.toMillis() > 0) {
+        delay(initialDelay.toMillis())
+    }
+    while (isActive) {
+        block()
+        if (delay.inWholeMilliseconds > 0) {
+            delay(delay.inWholeMilliseconds)
         }
     }
-    if (isWorldSpecific) {
-        ModCoroutineManager.registerWorldJob(job)
-    }
-    return job
 }
 
-suspend fun <T> withServerContext(block: suspend CoroutineScope.() -> T): T {
-    return withContext(MinecraftServerDispatcher, block)
-}
+/**
+ * Execute a suspend block in the server dispatcher context.
+ */
+suspend fun <T> withServerContext(block: suspend CoroutineScope.() -> T): T =
+    withContext(MinecraftServerDispatcher, block)
 
-
-suspend fun <T> withClientContext(block: suspend CoroutineScope.() -> T): T {
-    return withContext(MinecraftClientDispatcher, block)
-}
-
+/**
+ * Execute a suspend block in the client dispatcher context.
+ */
+suspend fun <T> withClientContext(block: suspend CoroutineScope.() -> T): T =
+    withContext(MinecraftClientDispatcher, block)

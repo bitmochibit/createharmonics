@@ -16,6 +16,7 @@ import me.mochibit.createharmonics.audio.source.AudioSource
 import me.mochibit.createharmonics.coroutine.ModCoroutineManager
 import java.io.InputStream
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -23,28 +24,7 @@ import kotlin.coroutines.cancellation.CancellationException
  * Raw PCM data is buffered, and effects are applied on-demand when data is read.
  */
 
-
-fun ByteArray.toShortArray(): ShortArray {
-    val shorts = ShortArray(this.size / 2)
-    for (i in shorts.indices) {
-        val offset = i * 2
-        shorts[i] = ((this[offset + 1].toInt() and 0xFF) shl 8 or
-                (this[offset].toInt() and 0xFF)).toShort()
-    }
-    return shorts
-}
-
-fun ShortArray.toByteArray(): ByteArray {
-    val bytes = ByteArray(this.size * 2)
-    for (i in this.indices) {
-        val offset = i * 2
-        bytes[offset] = (this[i].toInt() and 0xFF).toByte()
-        bytes[offset + 1] = ((this[i].toInt() shr 8) and 0xFF).toByte()
-    }
-    return bytes
-}
-
-class BufferedAudioStream(
+class ProcessedAudioInputStream(
     private val audioSource: AudioSource,
     private val effectChain: EffectChain,
     private val sampleRate: Int,
@@ -55,9 +35,33 @@ class BufferedAudioStream(
         val MAX_PITCH: Float get() = Config.MAX_PITCH.get().toFloat()
 
         val TARGET_PLAYBACK_BUFFER_SECONDS: Double get() = Config.PLAYBACK_BUFFER_SECONDS.get()
+
+        fun ByteArray.toShortArray(): ShortArray {
+            // Interpret as little-endian 16-bit PCM; ignore trailing odd byte if present
+            val shorts = ShortArray(this.size / 2)
+            for (i in shorts.indices) {
+                val offset = i * 2
+                shorts[i] = (((this[offset + 1].toInt() and 0xFF) shl 8) or
+                        (this[offset].toInt() and 0xFF)).toShort()
+            }
+            return shorts
+        }
+
+        fun ShortArray.toByteArray(): ByteArray {
+            val bytes = ByteArray(this.size * 2)
+            for (i in this.indices) {
+                val offset = i * 2
+                bytes[offset] = (this[i].toInt() and 0xFF).toByte()
+                bytes[offset + 1] = ((this[i].toInt() shr 8) and 0xFF).toByte()
+            }
+            return bytes
+        }
     }
 
     private val rawSampleQueue = ConcurrentLinkedQueue<Short>()
+
+    // Maintain an atomic size counter to avoid expensive ConcurrentLinkedQueue.size calls
+    private val queueSizeSamples = AtomicInteger(0)
 
     private val maxQueueSize: Int get() = maxOf(
         processChunkSize * 4,
@@ -95,7 +99,10 @@ class BufferedAudioStream(
     // At MIN_PITCH (0.5), we need more input samples to produce the same output duration
     private val minBufferSamples: Int get() = (sampleRate * 0.05 * (1.0 / MIN_PITCH)).toInt()
 
-    private val processChunkSize: Int get() = (sampleRate /15 * MAX_PITCH).toInt()
+    private val processChunkSize: Int get() = (sampleRate / 15 * MAX_PITCH).toInt()
+
+    // Reusable single-byte buffer to avoid tiny allocations in read()
+    private val singleByte = ByteArray(1)
 
     init {
         startPipeline()
@@ -108,17 +115,21 @@ class BufferedAudioStream(
                     .onEach { chunk ->
                         val samples = chunk.toShortArray()
 
-                        while (rawSampleQueue.size + samples.size > maxQueueSize && !finished) {
+                        while ((queueSizeSamples.get() + samples.size > maxQueueSize) && !finished) {
                             delay(10)
                         }
 
-                        samples.forEach { rawSampleQueue.offer(it) }
+                        if (paused && !finished) {
+                            return@onEach
+                        }
 
-                        // Mark as pre-buffered after first chunk
+                        samples.forEach { rawSampleQueue.offer(it) }
+                        queueSizeSamples.addAndGet(samples.size)
+
                         if (!preBuffered) {
                             preBuffered = true
                             preBufferLatch.countDown()
-                            Logger.info("Pre-buffering completed, ${rawSampleQueue.size} samples ready")
+                            Logger.info("Pre-buffering completed, ${queueSizeSamples.get()} samples ready")
                         }
                     }
                     .catch { e ->
@@ -168,13 +179,15 @@ class BufferedAudioStream(
     fun currentPositionSamples(): Long = samplesRead.toLong()
 
     override fun read(): Int {
-        val b = ByteArray(1)
-        val result = read(b, 0, 1)
-        return if (result == -1) -1 else b[0].toInt() and 0xFF
+        val result = read(singleByte, 0, 1)
+        return if (result == -1) -1 else singleByte[0].toInt() and 0xFF
     }
 
     override fun read(b: ByteArray, off: Int, len: Int): Int {
         if (len == 0) return 0
+
+        // If paused, return 0 to signal no data available (keeps playback position frozen)
+        if (paused) return 0
 
         // Check for errors
         error?.let { throw it }
@@ -184,7 +197,7 @@ class BufferedAudioStream(
         // Try to read data without blocking - return whatever is available
         while (totalRead < len) {
             // Stream is done
-            if (finished && rawSampleQueue.isEmpty() && outputBuffer == null) {
+            if (finished && queueSizeSamples.get() == 0 && outputBuffer == null) {
                 return if (totalRead > 0) totalRead else -1
             }
 
@@ -204,13 +217,13 @@ class BufferedAudioStream(
                 }
             } else if (processNextChunk()) {
                 // Successfully processed a chunk, continue reading
-            } else if (finished && rawSampleQueue.isEmpty()) {
+            } else if (finished && queueSizeSamples.get() == 0) {
                 // No data available and stream is finished
                 Logger.info("Stream ended (read ${samplesRead} samples total)")
                 return if (totalRead > 0) totalRead else -1
-            } else if (finished && rawSampleQueue.isNotEmpty()) {
+            } else if (finished && queueSizeSamples.get() > 0) {
                 // Process any remaining data if stream is finishing
-                processRemainingData(rawSampleQueue.size)
+                processRemainingData(queueSizeSamples.get())
             } else {
                 // No data available right now
                 // Return what we have so far (non-blocking behavior)
@@ -227,7 +240,7 @@ class BufferedAudioStream(
      * Returns true if data was processed, false if no more data available.
      */
     private fun processNextChunk(): Boolean {
-        val availableData = rawSampleQueue.size
+        val availableData = queueSizeSamples.get()
 
         // If we have no data at all, bail out
         if (availableData == 0) {
@@ -248,6 +261,7 @@ class BufferedAudioStream(
         val inputSamples = ShortArray(chunkSize) {
             rawSampleQueue.poll() ?: 0
         }
+        queueSizeSamples.addAndGet(-chunkSize)
 
         // Calculate current time for effect processing
         val currentTime = samplesRead.toDouble() / sampleRate
@@ -278,6 +292,7 @@ class BufferedAudioStream(
         val inputSamples = ShortArray(sampleCount) {
             rawSampleQueue.poll() ?: 0
         }
+        queueSizeSamples.addAndGet(-sampleCount)
 
         val currentTime = samplesRead.toDouble() / sampleRate
 
@@ -298,8 +313,13 @@ class BufferedAudioStream(
 
     override fun close() {
         Logger.info("BufferedAudioStream.destroy() called - stopping pipeline")
+        // Mark finished and release any waiters early
+        finished = true
+        preBufferLatch.countDown()
+        // Cancel upstream job
         streamJob?.cancel()
         rawSampleQueue.clear()
+        queueSizeSamples.set(0)
         outputBuffer = null
         effectChain.reset()
     }
@@ -314,7 +334,7 @@ class BufferedAudioStream(
         }
 
         // Return estimate of bytes from raw samples
-        val sampleCount = rawSampleQueue.size
+        val sampleCount = queueSizeSamples.get()
         if (sampleCount >= minBufferSamples || (finished && sampleCount > 0)) {
             return sampleCount * 2 // 2 bytes per sample
         }

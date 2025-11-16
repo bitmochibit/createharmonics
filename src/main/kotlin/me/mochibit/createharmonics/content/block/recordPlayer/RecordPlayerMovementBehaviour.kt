@@ -94,6 +94,10 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
     }
 
     private fun startClientPlayer(context: MovementContext, audioUrl: String, pitchFunction: PitchFunction) {
+        if (AudioPlayer.isPlaying(getPlayerUUID(context).toString())) {
+            resumeClientPlayer(context)
+            return
+        }
         AudioPlayer.play(
             audioUrl,
             listenerId = getPlayerUUID(context).toString(),
@@ -118,7 +122,11 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
     }
 
     private fun pauseClientPlayer(context: MovementContext) {
-        AudioPlayer.stopStream(getPlayerUUID(context).toString())
+        AudioPlayer.pauseStream(getPlayerUUID(context).toString())
+    }
+
+    private fun resumeClientPlayer(context: MovementContext) {
+        AudioPlayer.resumeStream(getPlayerUUID(context).toString())
     }
 
     private fun stopClientPlayer(context: MovementContext) {

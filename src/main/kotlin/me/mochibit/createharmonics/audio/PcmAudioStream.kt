@@ -39,7 +39,7 @@ class PcmAudioStream(private val inputStream: InputStream) : AudioStream {
 
         val bytesRead = inputStream.read(buffer, 0, actualSize)
 
-        if (inputStream is BufferedAudioStream) {
+        if (inputStream is ProcessedAudioInputStream) {
             if (inputStream.isPaused()) {
                 val silentBuffer = ByteArray(actualSize) { 0 }
                 return ByteBuffer.allocateDirect(actualSize).order(ByteOrder.nativeOrder())

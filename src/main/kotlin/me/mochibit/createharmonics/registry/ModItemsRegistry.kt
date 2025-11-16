@@ -9,7 +9,8 @@ import me.mochibit.createharmonics.cRegistrate
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import net.minecraft.world.item.Item
 import net.minecraftforge.eventbus.api.IEventBus
-import java.util.EnumMap
+import java.util.*
+
 
 object ModItemsRegistry : AbstractModRegistry {
     

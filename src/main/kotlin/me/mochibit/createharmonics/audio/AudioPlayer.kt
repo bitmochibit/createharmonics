@@ -30,9 +30,9 @@ object AudioPlayer {
         effectChain: EffectChain = EffectChain.empty(),
         sampleRate: Int = DEFAULT_SAMPLE_RATE,
         streamId: String
-    ): BufferedAudioStream {
+    ): ProcessedAudioInputStream {
         val processor = AudioStreamProcessor(sampleRate)
-        val stream = BufferedAudioStream(audioSource, effectChain, sampleRate, processor)
+        val stream = ProcessedAudioInputStream(audioSource, effectChain, sampleRate, processor)
         StreamRegistry.registerStream(streamId, stream)
         return stream
     }
@@ -102,13 +102,15 @@ object AudioPlayer {
     }
 
     fun pauseStream(streamId: String) {
-        Logger.info("Pausing stream: $streamId")
-        (StreamRegistry.getStream(streamId) as? BufferedAudioStream)?.pause()
+        val stream = StreamRegistry.getStream(streamId) as? ProcessedAudioInputStream ?: return
+        if (stream.isPaused()) return
+        stream.pause()
     }
 
     fun resumeStream(streamId: String) {
-        Logger.info("Resuming stream: $streamId")
-        (StreamRegistry.getStream(streamId) as? BufferedAudioStream)?.resume()
+        val stream = StreamRegistry.getStream(streamId) as? ProcessedAudioInputStream ?: return
+        if (!stream.isPaused()) return
+        stream.resume()
     }
 
     fun stopStream(streamId: String) {

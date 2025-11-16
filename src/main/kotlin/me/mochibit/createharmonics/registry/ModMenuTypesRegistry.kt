@@ -10,6 +10,7 @@ import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.registries.DeferredRegister
 import net.minecraftforge.registries.RegistryObject
 
+
 object ModMenuTypesRegistry : AbstractModRegistry {
     private val MENUS = DeferredRegister.create(Registries.MENU, CreateHarmonicsMod.MOD_ID)
 

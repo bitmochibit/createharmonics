@@ -16,6 +16,7 @@ import me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox.An
 import net.minecraft.world.level.block.SoundType
 import net.minecraftforge.eventbus.api.IEventBus
 
+
 object ModBlocksRegistry : AbstractModRegistry {
 
     val ANDESITE_JUKEBOX: BlockEntry<AndesiteJukeboxBlock> = cRegistrate()

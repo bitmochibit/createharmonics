@@ -10,6 +10,7 @@ import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerMounte
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.items.IItemHandler
 
+
 object ModMountedStorageRegistry : AbstractModRegistry {
     val SIMPLE_RECORD_PLAYER_STORAGE: RegistryEntry<RecordPlayerMountedStorageType> = cRegistrate()
         .mountedItemStorage("simple_record_player_storage") {
