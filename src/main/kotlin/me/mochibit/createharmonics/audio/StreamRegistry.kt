@@ -29,11 +29,7 @@ object StreamRegistry {
     fun unregisterStream(id: String) {
         streams.remove(id)?.let { stream ->
             try {
-                if (stream is BufferedAudioStream) {
-                    stream.destroy()
-                } else {
-                    stream.close()
-                }
+                stream.close()
             } catch (e: Exception) {
             }
         }

@@ -108,10 +108,6 @@ class BufferedAudioStream(
                     .onEach { chunk ->
                         val samples = chunk.toShortArray()
 
-                        if (paused) {
-                            delay(10)
-                        }
-
                         while (rawSampleQueue.size + samples.size > maxQueueSize && !finished) {
                             delay(10)
                         }
