@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.audio
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onCompletion
@@ -15,6 +16,7 @@ import me.mochibit.createharmonics.audio.source.AudioSource
 import me.mochibit.createharmonics.coroutine.ModCoroutineManager
 import java.io.InputStream
 import java.util.concurrent.ConcurrentLinkedQueue
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Buffered input stream that processes audio with real-time effect chain application.
@@ -49,26 +51,19 @@ class BufferedAudioStream(
     private val processor: AudioStreamProcessor
 ) : InputStream() {
     companion object {
-        // Effect constraints - configurable limits (for pitch shifting)
         val MIN_PITCH: Float get() = Config.MIN_PITCH.get().toFloat()
         val MAX_PITCH: Float get() = Config.MAX_PITCH.get().toFloat()
 
-        // Buffer size calculation
         val TARGET_PLAYBACK_BUFFER_SECONDS: Double get() = Config.PLAYBACK_BUFFER_SECONDS.get()
     }
 
-    // Queue of raw PCM samples (unprocessed)
     private val rawSampleQueue = ConcurrentLinkedQueue<Short>()
 
-    // Maximum queue size - adjusted for worst-case pitch to prevent buffer starvation
-    // At MAX_PITCH (2.0), we consume input 2x faster, so we need more buffer headroom
-    // Ensure it's at least large enough to hold several chunks
     private val maxQueueSize: Int get() = maxOf(
-        processChunkSize * 4,  // At least 4 chunks worth
+        processChunkSize * 4,
         (sampleRate * TARGET_PLAYBACK_BUFFER_SECONDS * MAX_PITCH).toInt()
     )
 
-    // Output buffer for processed data (pre-processed chunks)
     private var outputBuffer: ByteArray? = null
     private var outputPosition = 0
 
@@ -83,29 +78,23 @@ class BufferedAudioStream(
     @Volatile
     private var preBuffered = false
 
+    @Volatile
+    private var paused = false
+
     private val preBufferLatch = java.util.concurrent.CountDownLatch(1)
 
-    // Suspending function to wait for pre-buffering asynchronously
     suspend fun awaitPreBuffering(timeoutSeconds: Long = 30): Boolean {
         return kotlinx.coroutines.withContext(Dispatchers.IO) {
             preBufferLatch.await(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)
         }
     }
 
-    // Track playback time for effects
     private var samplesRead = 0L
 
     // Minimum buffer before processing (50ms adjusted for worst-case pitch)
     // At MIN_PITCH (0.5), we need more input samples to produce the same output duration
     private val minBufferSamples: Int get() = (sampleRate * 0.05 * (1.0 / MIN_PITCH)).toInt()
 
-    // Process chunk size: adjust for pitch to maintain consistent output duration
-    // With time-stretching pitch shift, higher pitch = faster consumption of input
-    // Target ~0.25 seconds of OUTPUT audio duration
-    // At pitch 2.0: need 0.25 * 48000 * 2.0 = 24000 input samples -> ~12000 output samples (0.25s)
-    // At pitch 1.0: need 0.25 * 48000 * 1.0 = 12000 input samples -> ~12000 output samples (0.25s)
-    // At pitch 0.5: need 0.25 * 48000 * 0.5 = 6000 input samples -> ~12000 output samples (0.25s)
-    // Use MAX_PITCH as worst case to avoid draining buffer too fast
     private val processChunkSize: Int get() = (sampleRate /15 * MAX_PITCH).toInt()
 
     init {
@@ -115,15 +104,16 @@ class BufferedAudioStream(
     private fun startPipeline() {
         streamJob = ModCoroutineManager.launch(Dispatchers.IO) {
             try {
-                Logger.info("Starting audio pipeline for: ${audioSource.getIdentifier()}")
-
                 processor.processAudioStream(audioSource)
                     .onEach { chunk ->
                         val samples = chunk.toShortArray()
 
-                        // Apply backpressure if queue is full
+                        if (paused) {
+                            delay(10)
+                        }
+
                         while (rawSampleQueue.size + samples.size > maxQueueSize && !finished) {
-                            kotlinx.coroutines.delay(10)
+                            delay(10)
                         }
 
                         samples.forEach { rawSampleQueue.offer(it) }
@@ -136,7 +126,7 @@ class BufferedAudioStream(
                         }
                     }
                     .catch { e ->
-                        if (e !is kotlinx.coroutines.CancellationException) {
+                        if (e !is CancellationException) {
                             error = e as? Exception ?: Exception(e)
                             Logger.err("Pipeline error: ${e.message}")
                         }
@@ -146,8 +136,8 @@ class BufferedAudioStream(
                         preBufferLatch.countDown()
 
                         when (cause) {
-                            null -> Logger.info("Pipeline finished normally")
-                            is kotlinx.coroutines.CancellationException -> Logger.info("Pipeline cancelled")
+                            null -> {}
+                            is CancellationException -> {}
                             else -> Logger.err("Pipeline error: ${cause.message}")
                         }
                     }
@@ -161,9 +151,25 @@ class BufferedAudioStream(
                 preBufferLatch.countDown()
             }
         }
-        // Register as world-specific job so it gets cancelled when leaving world
-        ModCoroutineManager.registerWorldJob(streamJob!!)
     }
+
+    // Public pause/resume API
+    fun pause() {
+        paused = true
+        Logger.info("BufferedAudioStream paused")
+    }
+
+    fun resume() {
+        paused = false
+        Logger.info("BufferedAudioStream resumed")
+    }
+
+    fun isPaused(): Boolean = paused
+
+    /**
+     * Current position in source samples (input domain, pre-effects).
+     */
+    fun currentPositionSamples(): Long = samplesRead.toLong()
 
     override fun read(): Int {
         val b = ByteArray(1)
@@ -173,7 +179,6 @@ class BufferedAudioStream(
 
     override fun read(b: ByteArray, off: Int, len: Int): Int {
         if (len == 0) return 0
-
 
         // Check for errors
         error?.let { throw it }
@@ -296,14 +301,6 @@ class BufferedAudioStream(
     }
 
     override fun close() {
-        Logger.info("BufferedAudioStream.close() called")
-    }
-
-    /**
-     * Actually stop and clean up the stream.
-     * This should be called when the jukebox is stopped/broken.
-     */
-    fun destroy() {
         Logger.info("BufferedAudioStream.destroy() called - stopping pipeline")
         streamJob?.cancel()
         rawSampleQueue.clear()
@@ -312,6 +309,8 @@ class BufferedAudioStream(
     }
 
     override fun available(): Int {
+        if (paused) return 99999999
+
         // Return bytes in output buffer
         outputBuffer?.let { buffer ->
             val remaining = buffer.size - outputPosition

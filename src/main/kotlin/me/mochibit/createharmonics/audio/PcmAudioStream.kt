@@ -39,13 +39,20 @@ class PcmAudioStream(private val inputStream: InputStream) : AudioStream {
 
         val bytesRead = inputStream.read(buffer, 0, actualSize)
 
+        if (inputStream is BufferedAudioStream) {
+            if (inputStream.isPaused()) {
+                val silentBuffer = ByteArray(actualSize) { 0 }
+                return ByteBuffer.allocateDirect(actualSize).order(ByteOrder.nativeOrder())
+                    .put(silentBuffer)
+                    .flip()
+            }
+        }
+
         if (bytesRead == -1) {
             return ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
         }
 
         if (bytesRead == 0) {
-            // No data available right now - return empty buffer
-            // Minecraft's sound engine will call us again
             return ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder()).put(buffer, 0, 0)
         }
 

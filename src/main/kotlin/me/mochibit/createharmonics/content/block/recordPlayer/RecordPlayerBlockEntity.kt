@@ -42,7 +42,8 @@ open class RecordPlayerBlockEntity(
     enum class PlaybackState {
         PLAYING,
         STOPPED,
-        PAUSED;
+        PAUSED,           // Automatic pause due to no RPM
+        MANUALLY_PAUSED;  // Manual pause by user clicking
     }
 
     var playerUUID: UUID = UUID.randomUUID()
@@ -110,8 +111,8 @@ open class RecordPlayerBlockEntity(
     }
 
     fun pausePlayer() {
-        if (playbackState != PlaybackState.PAUSED) {
-            playbackState = PlaybackState.PAUSED
+        if (playbackState != PlaybackState.MANUALLY_PAUSED) {
+            playbackState = PlaybackState.MANUALLY_PAUSED
             notifyUpdate()
         }
     }
@@ -120,9 +121,10 @@ open class RecordPlayerBlockEntity(
         AudioPlayer.play(
             audioUrl,
             listenerId = playerUUID.toString(),
-            soundInstanceProvider = { stream ->
+            soundInstanceProvider = { streamId, stream ->
                 StaticSoundInstance(
                     stream,
+                    streamId,
                     this.worldPosition,
                     64,
                 )
@@ -138,8 +140,12 @@ open class RecordPlayerBlockEntity(
         )
     }
 
+    protected fun resumeClientPlayer() {
+        AudioPlayer.resumeStream(playerUUID.toString())
+    }
+
     protected fun pauseClientPlayer() {
-        AudioPlayer.stopStream(playerUUID.toString())
+        AudioPlayer.pauseStream(playerUUID.toString())
     }
 
     protected fun stopClientPlayer() {
@@ -214,16 +220,34 @@ open class RecordPlayerBlockEntity(
             val currentSpeed = abs(this.speed)
             val hasDisc = hasRecord()
 
-            val desiredState = when {
-                !hasDisc -> PlaybackState.STOPPED
-                currentSpeed == 0.0f -> PlaybackState.PAUSED
-                currentSpeed > 0.0f -> PlaybackState.PLAYING
-                else -> PlaybackState.STOPPED
-            }
+            // Determine what state we should be in based on conditions
+            when {
+                !hasDisc -> {
+                    // No disc - must stop
+                    if (playbackState != PlaybackState.STOPPED) {
+                        playbackState = PlaybackState.STOPPED
+                        notifyUpdate()
+                    }
+                }
 
-            if (playbackState != desiredState) {
-                playbackState = desiredState
-                notifyUpdate()
+                currentSpeed == 0.0f -> {
+                    // No speed - pause automatically (not manual)
+                    if (playbackState == PlaybackState.PLAYING) {
+                        playbackState = PlaybackState.PAUSED
+                        notifyUpdate()
+                    }
+                    // If MANUALLY_PAUSED, keep it that way
+                }
+
+                currentSpeed > 0.0f -> {
+                    // Has speed - can play, but only if not manually paused
+                    if (playbackState == PlaybackState.PAUSED) {
+                        // Auto-resume from automatic pause
+                        playbackState = PlaybackState.PLAYING
+                        notifyUpdate()
+                    }
+                    // If MANUALLY_PAUSED, keep it that way
+                }
             }
         }
     }
@@ -247,6 +271,7 @@ open class RecordPlayerBlockEntity(
 
         if (compound.contains("playbackState")) {
             val newPlaybackState = NBTHelper.readEnum(compound, "playbackState", PlaybackState::class.java)
+            val oldPlaybackState = playbackState
             onClient {
                 when (newPlaybackState) {
                     PlaybackState.PLAYING -> {
@@ -254,11 +279,19 @@ open class RecordPlayerBlockEntity(
                         if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
                             val audioUrl = getAudioUrl(currentRecord)
                             if (!audioUrl.isNullOrEmpty()) {
-                                startClientPlayer(audioUrl)
+                                // Check if we're resuming from pause or starting fresh
+                                if ((oldPlaybackState == PlaybackState.PAUSED || oldPlaybackState == PlaybackState.MANUALLY_PAUSED)
+                                    && AudioPlayer.isPlaying(playerUUID.toString())
+                                ) {
+                                    resumeClientPlayer()
+                                } else {
+                                    startClientPlayer(audioUrl)
+                                }
                             }
                         }
                     }
-                    PlaybackState.PAUSED -> {
+
+                    PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
                         pauseClientPlayer()
                     }
                     PlaybackState.STOPPED -> {
@@ -266,6 +299,7 @@ open class RecordPlayerBlockEntity(
                     }
                 }
             }
+            playbackState = newPlaybackState
         }
     }
 

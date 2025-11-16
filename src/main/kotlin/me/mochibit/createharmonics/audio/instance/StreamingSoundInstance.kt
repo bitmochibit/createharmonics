@@ -11,7 +11,8 @@ import java.io.InputStream
 import java.util.concurrent.CompletableFuture
 
 abstract class StreamingSoundInstance(
-    val sourceStream: InputStream
+    val sourceStream: InputStream,
+    val streamId: String
 ) : SoundInstance {
     override fun getLocation(): ResourceLocation {
         return "streaming_sound_instance".asResource()

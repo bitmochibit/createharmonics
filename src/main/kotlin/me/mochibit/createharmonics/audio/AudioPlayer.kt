@@ -19,7 +19,7 @@ import java.io.InputStream
 import java.util.*
 
 
-typealias StreamingSoundInstanceProvider = (stream: InputStream) -> SoundInstance
+typealias StreamingSoundInstanceProvider = (streamId: StreamId, stream: InputStream) -> SoundInstance
 typealias StreamId = String
 
 object AudioPlayer {
@@ -47,7 +47,7 @@ object AudioPlayer {
         if (StreamRegistry.containsStream(listenerId)) return null
         val audioSource = resolveAudioSource(url) ?: return null
         val stream = createAudioStream(audioSource, effectChain, sampleRate, listenerId)
-        val soundInstance = soundInstanceProvider(stream)
+        val soundInstance = soundInstanceProvider(listenerId, stream)
         launchModCoroutine(Dispatchers.IO) {
             try {
                 val preBuffered = stream.awaitPreBuffering(timeoutSeconds = 30)
@@ -80,6 +80,7 @@ object AudioPlayer {
             url.contains("youtube.com") || url.contains("youtu.be") -> {
                 YoutubeAudioSource(url)
             }
+
             url.startsWith("http://") || url.startsWith("https://") -> {
                 val acceptedDomainList = Config.ACCEPTED_HTTP_DOMAINS.get()
                 if (acceptedDomainList.any { domain -> url.contains(domain) }) {
@@ -89,6 +90,7 @@ object AudioPlayer {
                     null
                 }
             }
+
             else -> {
                 null
             }
@@ -97,6 +99,16 @@ object AudioPlayer {
 
     fun isPlaying(streamId: String): Boolean {
         return StreamRegistry.containsStream(streamId)
+    }
+
+    fun pauseStream(streamId: String) {
+        Logger.info("Pausing stream: $streamId")
+        (StreamRegistry.getStream(streamId) as? BufferedAudioStream)?.pause()
+    }
+
+    fun resumeStream(streamId: String) {
+        Logger.info("Resuming stream: $streamId")
+        (StreamRegistry.getStream(streamId) as? BufferedAudioStream)?.resume()
     }
 
     fun stopStream(streamId: String) {

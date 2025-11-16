@@ -78,10 +78,13 @@ abstract class RecordPlayerBlock(properties: Properties) : DirectionalKineticBlo
             }
 
             when (blockEntity.playbackState) {
-                RecordPlayerBlockEntity.PlaybackState.PAUSED -> {}
+                RecordPlayerBlockEntity.PlaybackState.PAUSED,
+                RecordPlayerBlockEntity.PlaybackState.MANUALLY_PAUSED -> {
+                    blockEntity.startPlayer()
+                }
 
                 RecordPlayerBlockEntity.PlaybackState.PLAYING -> {
-                    blockEntity.stopPlayer()
+                    blockEntity.pausePlayer()
                 }
 
                 RecordPlayerBlockEntity.PlaybackState.STOPPED -> {

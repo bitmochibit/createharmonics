@@ -97,9 +97,10 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         AudioPlayer.play(
             audioUrl,
             listenerId = getPlayerUUID(context).toString(),
-            soundInstanceProvider = { stream ->
+            soundInstanceProvider = { streamId, stream ->
                 MovingSoundInstance(
                     stream,
+                    streamId,
                     posSupplier = {
                         BlockPos.containing(context.position)
                     },
