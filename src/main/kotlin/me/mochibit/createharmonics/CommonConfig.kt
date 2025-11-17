@@ -8,11 +8,17 @@ import net.minecraftforge.fml.common.Mod.EventBusSubscriber
 @EventBusSubscriber(modid = CreateHarmonicsMod.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
 object CommonConfig : ConfigBase() {
 
-
     lateinit var minPitch: ConfigFloat
+        private set
+
     lateinit var maxPitch: ConfigFloat
+        private set
+
     lateinit var playbackBufferSeconds: ConfigFloat
+        private set
+
     lateinit var acceptedHttpDomains: CValue<String, ForgeConfigSpec.ConfigValue<String>>
+        private set
 
     private val recordDurabilities: MutableMap<RecordType, ConfigInt> = mutableMapOf()
 
