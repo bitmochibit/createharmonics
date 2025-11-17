@@ -2,7 +2,7 @@ package me.mochibit.createharmonics.audio
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import me.mochibit.createharmonics.Config
+import me.mochibit.createharmonics.CommonConfig
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.effect.EffectChain
@@ -82,7 +82,7 @@ object AudioPlayer {
             }
 
             url.startsWith("http://") || url.startsWith("https://") -> {
-                val acceptedDomainList = Config.ACCEPTED_HTTP_DOMAINS.get()
+                val acceptedDomainList = CommonConfig.getAcceptedHttpDomains()
                 if (acceptedDomainList.any { domain -> url.contains(domain) }) {
                     HttpAudioSource(url)
                 } else {

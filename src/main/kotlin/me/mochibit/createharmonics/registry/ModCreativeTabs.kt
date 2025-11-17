@@ -8,6 +8,7 @@ import net.minecraft.world.item.CreativeModeTab
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraftforge.eventbus.api.IEventBus
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 import net.minecraftforge.registries.DeferredRegister
 import net.minecraftforge.registries.RegistryObject
 
@@ -27,7 +28,7 @@ object ModCreativeTabs : AbstractModRegistry {
             .build()
     }
 
-    override fun register(eventBus: IEventBus) {
+    override fun register(eventBus: IEventBus, context: FMLJavaModLoadingContext) {
         CREATIVE_MODE_TABS.register(eventBus)
     }
 }

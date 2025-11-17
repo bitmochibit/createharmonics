@@ -3,19 +3,25 @@ package me.mochibit.createharmonics.init
 import com.simibubi.create.foundation.data.CreateRegistrate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
-import me.mochibit.createharmonics.Config
+import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import me.mochibit.createharmonics.network.ModNetworkHandler
+import me.mochibit.createharmonics.registry.ModConfigRegistry
 import me.mochibit.createharmonics.registry.ModPartialModels
 import me.mochibit.createharmonics.registry.RegistryManager
+import net.createmod.catnip.config.ui.BaseConfigScreen
+import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.screens.Screen
 import net.minecraftforge.api.distmarker.Dist
+import net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.DistExecutor
-import net.minecraftforge.fml.config.ModConfig
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent
-import thedarkcolour.kotlinforforge.forge.registerConfig
+import net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
 /**
  * Handles all mod initialization logic, including registry setup, event bus registration,
@@ -24,7 +30,8 @@ import thedarkcolour.kotlinforforge.forge.registerConfig
 class ModInitializer(
     private val registrate: CreateRegistrate,
     private val forgeEventBus: IEventBus,
-    private val modEventBus: IEventBus
+    private val modEventBus: IEventBus,
+    private val context: FMLJavaModLoadingContext
 ) {
 
     fun initialize() {
@@ -33,14 +40,16 @@ class ModInitializer(
         registrate.registerEventListeners(modEventBus)
 
         modEventBus.addListener(this::onCommonSetup)
+        modEventBus.addListener(this::onClientSetup)
+        modEventBus.addListener(this::onLoadComplete)
 
         forgeEventBus.register(this)
 
-        RegistryManager.registerAll(modEventBus)
+        RegistryManager.registerAll(modEventBus, context)
 
-        ModNetworkHandler.register(modEventBus)
+        ModNetworkHandler.register(modEventBus, context)
 
-        registerConfig(ModConfig.Type.COMMON, Config.SPEC)
+        ModConfigRegistry.register(modEventBus, context)
 
         setupShutdownHooks()
 
@@ -50,7 +59,26 @@ class ModInitializer(
     private fun initializeClientSide() {
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT) {
             Runnable {
-                ModPartialModels.register(modEventBus)
+                ModPartialModels.register(modEventBus, context)
+            }
+        }
+    }
+
+    private fun onClientSetup(event: FMLClientSetupEvent) {
+        BaseConfigScreen.setDefaultActionFor(CreateHarmonicsMod.MOD_ID) { base ->
+            base.withSpecs(null, ModConfigRegistry.common.specification, null)
+        }
+    }
+
+    fun onLoadComplete(event: FMLLoadCompleteEvent) {
+        context.registerExtensionPoint(
+            ConfigScreenFactory::class.java
+        ) {
+            ConfigScreenFactory { mc: Minecraft?, previousScreen: Screen? ->
+                BaseConfigScreen(
+                    previousScreen,
+                    CreateHarmonicsMod.MOD_ID
+                )
             }
         }
     }
@@ -64,7 +92,6 @@ class ModInitializer(
 
 
     private suspend fun commonSetupCoroutine(event: FMLCommonSetupEvent) = coroutineScope {
-
     }
 
     /**

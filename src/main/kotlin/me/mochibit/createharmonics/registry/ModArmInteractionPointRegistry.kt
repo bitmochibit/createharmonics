@@ -11,6 +11,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraftforge.eventbus.api.IEventBus
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
 object ModArmInteractionPointRegistry : AbstractModRegistry {
     val RECORD_PLAYER_TYPE: RegistryEntry<RecordPlayerType> =
@@ -18,7 +19,7 @@ object ModArmInteractionPointRegistry : AbstractModRegistry {
             RecordPlayerType()
         }.register()
 
-    override fun register(eventBus: IEventBus) {
+    override fun register(eventBus: IEventBus, context: FMLJavaModLoadingContext) {
         Logger.info("Registering Arm Interaction Points...")
     }
 

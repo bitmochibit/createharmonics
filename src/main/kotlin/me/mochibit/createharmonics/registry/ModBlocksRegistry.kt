@@ -15,6 +15,7 @@ import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerMoving
 import me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox.AndesiteJukeboxBlock
 import net.minecraft.world.level.block.SoundType
 import net.minecraftforge.eventbus.api.IEventBus
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
 
 object ModBlocksRegistry : AbstractModRegistry {
@@ -38,7 +39,7 @@ object ModBlocksRegistry : AbstractModRegistry {
         .transform(customItemModel())
         .register()
 
-    override fun register(eventBus: IEventBus) {
+    override fun register(eventBus: IEventBus, context: FMLJavaModLoadingContext) {
         info("Registering blocks for ${CreateHarmonicsMod.MOD_ID}")
     }
 }

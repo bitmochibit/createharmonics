@@ -28,7 +28,7 @@ class CreateHarmonicsMod {
         val forgeEventBus = MinecraftForge.EVENT_BUS
         val modEventBus = context.modEventBus
 
-        val initializer = ModInitializer(registrate, forgeEventBus, modEventBus)
+        val initializer = ModInitializer(registrate, forgeEventBus, modEventBus, context)
         initializer.initialize()
     }
 

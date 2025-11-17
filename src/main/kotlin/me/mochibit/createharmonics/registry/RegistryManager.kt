@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.registry
 
 import net.minecraftforge.eventbus.api.IEventBus
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
 /**
  * Manages automatic discovery and registration of mod registries.
@@ -23,9 +24,9 @@ object RegistryManager {
      * Registers all mod registries
      * @param eventBus The Forge mod event bus to register to
      */
-    fun registerAll(eventBus: IEventBus) {
+    fun registerAll(eventBus: IEventBus, context: FMLJavaModLoadingContext) {
         for (registry in registries) {
-            registry.register(eventBus)
+            registry.register(eventBus, context)
         }
 
     }

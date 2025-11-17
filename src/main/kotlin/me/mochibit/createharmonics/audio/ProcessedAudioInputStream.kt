@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import me.mochibit.createharmonics.Config
+import me.mochibit.createharmonics.CommonConfig
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.processor.AudioStreamProcessor
@@ -31,10 +31,8 @@ class ProcessedAudioInputStream(
     private val processor: AudioStreamProcessor
 ) : InputStream() {
     companion object {
-        val MIN_PITCH: Float get() = Config.MIN_PITCH.get().toFloat()
-        val MAX_PITCH: Float get() = Config.MAX_PITCH.get().toFloat()
-
-        val TARGET_PLAYBACK_BUFFER_SECONDS: Double get() = Config.PLAYBACK_BUFFER_SECONDS.get()
+        val MIN_PITCH: Float get() = CommonConfig.minPitch.get().toFloat()
+        val MAX_PITCH: Float get() = CommonConfig.maxPitch.get().toFloat()
 
         fun ByteArray.toShortArray(): ShortArray {
             // Interpret as little-endian 16-bit PCM; ignore trailing odd byte if present
@@ -65,7 +63,7 @@ class ProcessedAudioInputStream(
 
     private val maxQueueSize: Int get() = maxOf(
         processChunkSize * 4,
-        (sampleRate * TARGET_PLAYBACK_BUFFER_SECONDS * MAX_PITCH).toInt()
+        (sampleRate * MAX_PITCH).toInt()
     )
 
     private var outputBuffer: ByteArray? = null

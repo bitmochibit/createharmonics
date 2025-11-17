@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics.content.item
 
-import me.mochibit.createharmonics.Config
 import me.mochibit.createharmonics.Logger.info
+import me.mochibit.createharmonics.content.item.record.RecordType
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResultHolder
@@ -11,7 +11,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraftforge.registries.ForgeRegistries
 
-class EtherealRecordItem(private val recordType: Config.RecordType, props: Properties) : Item(props) {
+class EtherealRecordItem(private val recordType: RecordType, props: Properties) : Item(props) {
     companion object {
         const val AUDIO_URL_TAG_KEY = "audio_url"
 
@@ -42,7 +42,6 @@ class EtherealRecordItem(private val recordType: Config.RecordType, props: Prope
             info("Max Damage: ${getMaxDamage(itemStack)}")
             info("Current Damage: ${itemStack.damageValue}")
             info("Remaining Uses: ${if (itemStack.isDamageableItem) getMaxDamage(itemStack) - itemStack.damageValue else "Infinite"}")
-            info("Config Durability: ${Config.getRecordDurability(recordType) ?: "Unbreakable"}")
             info("================================")
         }
 
@@ -60,7 +59,7 @@ class EtherealRecordItem(private val recordType: Config.RecordType, props: Prope
     override fun getMaxDamage(stack: ItemStack): Int {
         // Use config value if available, otherwise fall back to item properties
         val configDurability = try {
-            Config.getRecordDurability(recordType)
+            1
         } catch (e: Exception) {
             null
         }

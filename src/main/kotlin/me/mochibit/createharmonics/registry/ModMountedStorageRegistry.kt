@@ -8,6 +8,7 @@ import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.cRegistrate
 import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerMountedStorage
 import net.minecraftforge.eventbus.api.IEventBus
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 import net.minecraftforge.items.IItemHandler
 
 
@@ -17,7 +18,7 @@ object ModMountedStorageRegistry : AbstractModRegistry {
             RecordPlayerMountedStorageType()
         }.register()
 
-    override fun register(eventBus: IEventBus) {
+    override fun register(eventBus: IEventBus, context: FMLJavaModLoadingContext) {
         Logger.info("Registering mounted storages for ${CreateHarmonicsMod.MOD_ID}")
     }
 

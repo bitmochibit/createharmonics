@@ -1,14 +1,15 @@
 package me.mochibit.createharmonics.registry
 
 import com.tterrag.registrate.util.entry.ItemEntry
-import me.mochibit.createharmonics.Config
-import me.mochibit.createharmonics.Config.RecordType
+import me.mochibit.createharmonics.CommonConfig
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.cRegistrate
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
+import me.mochibit.createharmonics.content.item.record.RecordType
 import net.minecraft.world.item.Item
 import net.minecraftforge.eventbus.api.IEventBus
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 import java.util.*
 
 
@@ -22,8 +23,8 @@ object ModItemsRegistry : AbstractModRegistry {
         .register()
 
     val ETHEREAL_RECORDS = EnumMap<RecordType, ItemEntry<EtherealRecordItem>>(RecordType::class.java).apply {
-        Config.recordVariants.forEach { (type, maxUses) ->
-            val entry = registerEtherealRecordVariant(type, maxUses)
+        RecordType.entries.forEach { type ->
+            val entry = registerEtherealRecordVariant(type, CommonConfig.getRecordDurability(type))
             this[type] = entry
         }
     }
@@ -49,7 +50,7 @@ object ModItemsRegistry : AbstractModRegistry {
         return ETHEREAL_RECORDS[recordType]
     }
 
-    override fun register(eventBus: IEventBus) {
+    override fun register(eventBus: IEventBus, context: FMLJavaModLoadingContext) {
         info("Registering items for ${CreateHarmonicsMod.MOD_ID}")
     }
 }

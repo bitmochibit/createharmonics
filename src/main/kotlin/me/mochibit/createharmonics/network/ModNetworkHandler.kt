@@ -5,6 +5,7 @@ import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.registry.AbstractModRegistry
 import net.minecraft.resources.ResourceLocation
 import net.minecraftforge.eventbus.api.IEventBus
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 import net.minecraftforge.network.NetworkRegistry
 import net.minecraftforge.network.simple.SimpleChannel
 
@@ -19,7 +20,7 @@ object ModNetworkHandler : AbstractModRegistry {
         { it == PROTOCOL_VERSION }
     )
 
-    override fun register(eventBus: IEventBus) {
+    override fun register(eventBus: IEventBus, context: FMLJavaModLoadingContext) {
         Logger.info("Registering Mod Network Channel")
     }
 }
