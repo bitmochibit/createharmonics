@@ -69,6 +69,16 @@ open class RecordPlayerBlockEntity(
         override fun isItemValid(slot: Int, stack: ItemStack): Boolean {
             return stack.item is EtherealRecordItem
         }
+
+        override fun onContentsChanged(slot: Int) {
+            super.onContentsChanged(slot)
+            val hasDisc = !getStackInSlot(RECORD_SLOT).isEmpty
+            level?.setBlockAndUpdate(
+                worldPosition,
+                blockState.setValue(JukeboxBlock.HAS_RECORD, hasDisc)
+            )
+            notifyUpdate()
+        }
     }
     protected val lazyInventoryHandler: LazyOptional<IItemHandler> = LazyOptional.of { inventoryHandler }
 
@@ -175,28 +185,18 @@ open class RecordPlayerBlockEntity(
     fun insertRecord(discItem: ItemStack, autoPlay: Boolean = false): Boolean {
         if (hasRecord()) return false
         inventoryHandler.insertItem(RECORD_SLOT, discItem.copy(), false)
-        // Update block state to HAS_RECORD = true
-        this.level?.setBlockAndUpdate(
-            this.worldPosition,
-            this.blockState.setValue(JukeboxBlock.HAS_RECORD, true)
-        )
 
         if (autoPlay && abs(this.speed) > 0.0f) {
             playbackState = PlaybackState.PLAYING
+            notifyUpdate()
         }
 
-        notifyUpdate()
         return true
     }
 
     fun popRecord(): ItemStack? {
         if (!hasRecord()) return null
         val item = inventoryHandler.extractItem(RECORD_SLOT, 1, false)
-        this.level?.setBlockAndUpdate(
-            this.worldPosition,
-            this.blockState.setValue(JukeboxBlock.HAS_RECORD, false)
-        )
-        notifyUpdate()
         return item
     }
 
