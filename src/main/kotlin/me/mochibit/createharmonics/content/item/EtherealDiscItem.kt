@@ -11,7 +11,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraftforge.registries.ForgeRegistries
 
-class EtherealRecordItem(private val recordType: RecordType, props: Properties) : Item(props) {
+class EtherealRecordItem(val recordType: RecordType, props: Properties) : Item(props) {
     companion object {
         const val AUDIO_URL_TAG_KEY = "audio_url"
 

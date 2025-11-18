@@ -26,8 +26,9 @@ class RecordPlayerArmPoint(
 
         val remainder = stack.copy()
         val toInsert = remainder.split(1)
+        val isPowered = level.hasNeighborSignal(pos)
         if (!simulate) {
-            be.insertRecord(toInsert)
+            be.insertRecord(toInsert, isPowered)
         }
 
         return remainder

@@ -58,6 +58,8 @@ abstract class RecordPlayerBlock(properties: Properties) : DirectionalKineticBlo
 
 
         pLevel.onServer {
+            val isPowered = pLevel.hasNeighborSignal(pPos)
+
             if (pPlayer.isShiftKeyDown) {
                 if (!blockEntity.hasRecord()) {
                     return InteractionResult.PASS
@@ -77,18 +79,24 @@ abstract class RecordPlayerBlock(properties: Properties) : DirectionalKineticBlo
                 return InteractionResult.SUCCESS
             }
 
-            when (blockEntity.playbackState) {
-                RecordPlayerBlockEntity.PlaybackState.PAUSED,
-                RecordPlayerBlockEntity.PlaybackState.MANUALLY_PAUSED -> {
-                    blockEntity.startPlayer()
-                }
 
-                RecordPlayerBlockEntity.PlaybackState.PLAYING -> {
-                    blockEntity.pausePlayer()
-                }
+            if (blockEntity.hasRecord() && !isPowered) {
+                when (blockEntity.playbackState) {
+                    RecordPlayerBlockEntity.PlaybackState.PAUSED -> {
+                        blockEntity.startPlayer()
+                    }
 
-                RecordPlayerBlockEntity.PlaybackState.STOPPED -> {
-                    blockEntity.startPlayer()
+                    RecordPlayerBlockEntity.PlaybackState.MANUALLY_PAUSED -> {
+                        blockEntity.startPlayer()
+                    }
+
+                    RecordPlayerBlockEntity.PlaybackState.PLAYING -> {
+                        blockEntity.pausePlayer()
+                    }
+
+                    RecordPlayerBlockEntity.PlaybackState.STOPPED -> {
+                        blockEntity.startPlayer()
+                    }
                 }
             }
         }

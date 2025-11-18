@@ -172,7 +172,7 @@ open class RecordPlayerBlockEntity(
         Containers.dropContents(currLevel, this.worldPosition, inv)
     }
 
-    fun insertRecord(discItem: ItemStack): Boolean {
+    fun insertRecord(discItem: ItemStack, autoPlay: Boolean = false): Boolean {
         if (hasRecord()) return false
         inventoryHandler.insertItem(RECORD_SLOT, discItem.copy(), false)
         // Update block state to HAS_RECORD = true
@@ -180,6 +180,11 @@ open class RecordPlayerBlockEntity(
             this.worldPosition,
             this.blockState.setValue(JukeboxBlock.HAS_RECORD, true)
         )
+
+        if (autoPlay && abs(this.speed) > 0.0f) {
+            playbackState = PlaybackState.PLAYING
+        }
+
         notifyUpdate()
         return true
     }
@@ -197,6 +202,12 @@ open class RecordPlayerBlockEntity(
 
     fun getRecord(): ItemStack {
         return inventoryHandler.getStackInSlot(RECORD_SLOT).copy()
+    }
+
+    fun getRecordItem(): EtherealRecordItem? {
+        val recordStack = getRecord()
+        if (recordStack.isEmpty || recordStack.item !is EtherealRecordItem) return null
+        return recordStack.item as EtherealRecordItem
     }
 
     fun hasRecord(): Boolean {
@@ -219,11 +230,10 @@ open class RecordPlayerBlockEntity(
         onServer {
             val currentSpeed = abs(this.speed)
             val hasDisc = hasRecord()
+            val isPowered = level?.hasNeighborSignal(worldPosition) ?: false
 
-            // Determine what state we should be in based on conditions
             when {
                 !hasDisc -> {
-                    // No disc - must stop
                     if (playbackState != PlaybackState.STOPPED) {
                         playbackState = PlaybackState.STOPPED
                         notifyUpdate()
@@ -231,22 +241,24 @@ open class RecordPlayerBlockEntity(
                 }
 
                 currentSpeed == 0.0f -> {
-                    // No speed - pause automatically (not manual)
                     if (playbackState == PlaybackState.PLAYING) {
                         playbackState = PlaybackState.PAUSED
                         notifyUpdate()
                     }
-                    // If MANUALLY_PAUSED, keep it that way
                 }
 
                 currentSpeed > 0.0f -> {
-                    // Has speed - can play, but only if not manually paused
-                    if (playbackState == PlaybackState.PAUSED) {
-                        // Auto-resume from automatic pause
-                        playbackState = PlaybackState.PLAYING
-                        notifyUpdate()
+                    if (isPowered) {
+                        if (playbackState != PlaybackState.PLAYING) {
+                            playbackState = PlaybackState.PLAYING
+                            notifyUpdate()
+                        }
+                    } else {
+                        if (playbackState == PlaybackState.PAUSED) {
+                            playbackState = PlaybackState.PLAYING
+                            notifyUpdate()
+                        }
                     }
-                    // If MANUALLY_PAUSED, keep it that way
                 }
             }
         }
@@ -275,16 +287,14 @@ open class RecordPlayerBlockEntity(
             onClient {
                 when (newPlaybackState) {
                     PlaybackState.PLAYING -> {
-                        val currentRecord = getRecord()
-                        if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
-                            val audioUrl = getAudioUrl(currentRecord)
-                            if (!audioUrl.isNullOrEmpty()) {
-                                // Check if we're resuming from pause or starting fresh
-                                if ((oldPlaybackState == PlaybackState.PAUSED || oldPlaybackState == PlaybackState.MANUALLY_PAUSED)
-                                    && AudioPlayer.isPlaying(playerUUID.toString())
-                                ) {
-                                    resumeClientPlayer()
-                                } else {
+                        // If transitioning from paused to playing, resume; otherwise start fresh
+                        if (oldPlaybackState == PlaybackState.PAUSED || oldPlaybackState == PlaybackState.MANUALLY_PAUSED) {
+                            resumeClientPlayer()
+                        } else {
+                            val currentRecord = getRecord()
+                            if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
+                                val audioUrl = getAudioUrl(currentRecord)
+                                if (!audioUrl.isNullOrEmpty()) {
                                     startClientPlayer(audioUrl)
                                 }
                             }

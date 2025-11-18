@@ -9,8 +9,11 @@ import dev.engine_room.flywheel.api.visualization.VisualizationContext
 import dev.engine_room.flywheel.lib.instance.InstanceTypes
 import dev.engine_room.flywheel.lib.instance.TransformedInstance
 import dev.engine_room.flywheel.lib.model.Models
+import dev.engine_room.flywheel.lib.model.baked.PartialModel
 import dev.engine_room.flywheel.lib.visual.SimpleDynamicVisual
 import dev.engine_room.flywheel.lib.visual.SimpleTickableVisual
+import me.mochibit.createharmonics.content.item.EtherealRecordItem
+import me.mochibit.createharmonics.content.item.record.RecordType
 import me.mochibit.createharmonics.extension.lerpTo
 import me.mochibit.createharmonics.registry.ModPartialModels
 import net.createmod.catnip.math.AngleHelper
@@ -39,10 +42,13 @@ class RecordPlayerVisual(
     private var currentSpeed = 0.0f
     private val speedSmoothingFactor = 0.1f
 
+    private var currentModel: PartialModel =
+        ModPartialModels.getRecordModel(blockEntity.getRecordItem()?.recordType ?: RecordType.ETERNAL)
+
     private val disc: TransformedInstance =
         instancerProvider().instancer(
             InstanceTypes.TRANSFORMED,
-            Models.partial(ModPartialModels.ETHEREAL_RECORD)
+            Models.partial(currentModel)
         ).createInstance().apply {
             setVisible(false)
             setChanged()
@@ -69,10 +75,17 @@ class RecordPlayerVisual(
 
 
     override fun tick(context: TickableVisual.Context) {
-        if (!blockEntity.hasRecord()) {
-            disc.setVisible(false)
-        } else {
+        if (blockEntity.hasRecord()) {
+            val recordType = (blockEntity.getRecord().item as EtherealRecordItem).recordType
+            val newModel = ModPartialModels.getRecordModel(recordType)
+            if (newModel != currentModel) {
+                currentModel = newModel
+                instancerProvider().instancer(InstanceTypes.TRANSFORMED, Models.partial(currentModel))
+                    .stealInstance(disc)
+            }
             disc.setVisible(true)
+        } else {
+            disc.setVisible(false)
         }
 
         previousRotation = rotation

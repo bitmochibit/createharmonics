@@ -11,7 +11,9 @@ import dev.engine_room.flywheel.api.visualization.VisualizationContext
 import dev.engine_room.flywheel.lib.instance.InstanceTypes
 import dev.engine_room.flywheel.lib.instance.TransformedInstance
 import dev.engine_room.flywheel.lib.model.Models
+import dev.engine_room.flywheel.lib.model.baked.PartialModel
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
+import me.mochibit.createharmonics.content.item.record.RecordType
 import me.mochibit.createharmonics.extension.lerpTo
 import me.mochibit.createharmonics.registry.ModPartialModels
 import net.createmod.catnip.animation.AnimationTickHolder
@@ -41,9 +43,11 @@ class RecordPlayerActorVisual(
     private var currentSpeed = 0.0f
     private val speedSmoothingFactor = 0.1f
 
+    private var currentModel: PartialModel = ModPartialModels.getRecordModel(RecordType.ETERNAL)
+
 
     val disc: TransformedInstance =
-        instancerProvider.instancer(InstanceTypes.TRANSFORMED, Models.partial(ModPartialModels.ETHEREAL_RECORD)).createInstance()
+        instancerProvider.instancer(InstanceTypes.TRANSFORMED, Models.partial(currentModel)).createInstance()
             .apply {
                 light(localBlockLight(), 0)
                 setVisible(false)
@@ -74,9 +78,22 @@ class RecordPlayerActorVisual(
         return !record.isEmpty && record.item is EtherealRecordItem
     }
 
+    private fun getRecord(): EtherealRecordItem? {
+        val handler = getInventoryHandler() ?: return null
+        val record: ItemStack = handler.getStackInSlot(0)
+        if (record.isEmpty || record.item !is EtherealRecordItem) return null
+        return record.item as EtherealRecordItem
+    }
+
     override fun tick() {
-        if (hasRecord()) {
+        val recordItem = getRecord()
+        if (recordItem != null) {
+            if (currentModel != ModPartialModels.getRecordModel(recordItem.recordType)) {
+                currentModel = ModPartialModels.getRecordModel(recordItem.recordType)
+                instancerProvider.instancer(InstanceTypes.TRANSFORMED, Models.partial(currentModel)).stealInstance(disc)
+            }
             disc.setVisible(true)
+
         } else {
             disc.setVisible(false)
         }
