@@ -116,9 +116,9 @@ class RecordPlayerActorVisual(
             .setIdentityTransform()
             .translate(context.localPos)
             .translate(
-                discFacing.normal.x * .9f,
-                discFacing.normal.y * .9f,
-                discFacing.normal.z * .9f
+                discFacing.normal.x * .95f,
+                discFacing.normal.y * .95f,
+                discFacing.normal.z * .95f
             )
             .center()
             .rotateToFace(discFacing)
