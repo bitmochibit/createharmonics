@@ -158,6 +158,8 @@ tasks.named('jar', Jar).configure {
 shadowJar {
     archiveClassifier = 'all'
 
+    zip64 = true
+
     dependencies {
 
     }
