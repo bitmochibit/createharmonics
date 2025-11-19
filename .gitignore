@@ -5,3 +5,4 @@
 /run/
 /.idea/
 /.kotlin
+/src/generated/
