@@ -7,6 +7,7 @@ import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
+import me.mochibit.createharmonics.datagen.DataGenerators
 import me.mochibit.createharmonics.network.ModNetworkHandler
 import me.mochibit.createharmonics.registry.ModConfigRegistry
 import me.mochibit.createharmonics.registry.ModPartialModels
@@ -16,6 +17,7 @@ import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory
+import net.minecraftforge.data.event.GatherDataEvent
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.DistExecutor
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent
@@ -42,8 +44,10 @@ class ModInitializer(
         modEventBus.addListener(this::onCommonSetup)
         modEventBus.addListener(this::onClientSetup)
         modEventBus.addListener(this::onLoadComplete)
+        modEventBus.addListener { event: GatherDataEvent -> DataGenerators.onGatherData(event) }
 
         forgeEventBus.register(this)
+
 
         RegistryManager.registerAll(modEventBus, context)
 

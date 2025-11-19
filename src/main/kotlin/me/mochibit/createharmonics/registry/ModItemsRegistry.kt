@@ -18,7 +18,7 @@ object ModItemsRegistry : AbstractModRegistry {
     val BASE_RECORD: ItemEntry<Item> = cRegistrate()
         .item("ethereal_record_base") { Item(Item.Properties().stacksTo(16)) }
         .model { ctx, prov ->
-            prov.generated(ctx, prov.mcLoc("item/ethereal_record_base"))
+            prov.generated(ctx, prov.modLoc("item/ethereal_record_base"))
         }
         .register()
 
