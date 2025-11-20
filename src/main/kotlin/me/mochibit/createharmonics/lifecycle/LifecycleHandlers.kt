@@ -17,11 +17,13 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent
 @EventBusSubscriber(bus = EventBusSubscriber.Bus.FORGE)
 object ServerLifecycleHandler {
 
+    @JvmStatic
     @SubscribeEvent
     fun onServerStarting(event: ServerStartingEvent) {
         info("Create: Harmonics server is starting!")
     }
 
+    @JvmStatic
     @SubscribeEvent
     fun onServerStopping(event: ServerStoppingEvent) {
         info("Create: Harmonics server is stopping, cleaning up processes...")
@@ -35,6 +37,7 @@ object ServerLifecycleHandler {
 @EventBusSubscriber(bus = EventBusSubscriber.Bus.FORGE, value = [Dist.CLIENT])
 object ClientLifecycleHandler {
 
+    @JvmStatic
     @SubscribeEvent
     fun onClientDisconnect(event: net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut) {
         info("Client disconnecting from world, cleaning up processes...")
@@ -49,6 +52,7 @@ object ClientLifecycleHandler {
 object ClientModBusHandler {
 
     @SubscribeEvent
+    @JvmStatic
     fun onClientSetup(event: FMLClientSetupEvent) {
         info("Create: Harmonics client is setting up!")
         MinecraftForge.EVENT_BUS.register(MainMenuDisclaimerHandler)

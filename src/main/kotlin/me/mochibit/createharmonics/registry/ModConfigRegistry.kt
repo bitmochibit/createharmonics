@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.registry
 
 import me.mochibit.createharmonics.CommonConfig
+import me.mochibit.createharmonics.CreateHarmonicsMod
 import net.createmod.catnip.config.ConfigBase
 import net.minecraftforge.common.ForgeConfigSpec
 import net.minecraftforge.eventbus.api.IEventBus
@@ -11,7 +12,7 @@ import net.minecraftforge.fml.event.config.ModConfigEvent
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 import java.util.*
 
-@Mod.EventBusSubscriber
+@Mod.EventBusSubscriber(modid = CreateHarmonicsMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
 object ModConfigRegistry : AbstractModRegistry {
     val configs: EnumMap<ModConfig.Type, ConfigBase> = EnumMap(ModConfig.Type::class.java)
 
@@ -40,6 +41,7 @@ object ModConfigRegistry : AbstractModRegistry {
     }
 
     @SubscribeEvent
+    @JvmStatic
     fun onLoad(event: ModConfigEvent.Loading) {
         for (config in configs.values) {
             if (config.specification == event.config.getSpec())
@@ -48,6 +50,7 @@ object ModConfigRegistry : AbstractModRegistry {
     }
 
     @SubscribeEvent
+    @JvmStatic
     fun onReload(event: ModConfigEvent.Reloading) {
         for (config in configs.values) {
             if (config.specification == event.config.getSpec())

@@ -9,7 +9,7 @@ import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
 @Mod(MOD_ID)
-class CreateHarmonicsMod {
+class CreateHarmonicsMod(context: FMLJavaModLoadingContext) {
     companion object {
         const val MOD_ID: String = "createharmonics"
 
@@ -22,9 +22,7 @@ class CreateHarmonicsMod {
 
     init {
         instance = this
-    }
 
-    constructor(context: FMLJavaModLoadingContext) {
         val forgeEventBus = MinecraftForge.EVENT_BUS
         val modEventBus = context.modEventBus
 

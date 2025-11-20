@@ -29,12 +29,14 @@ object ModCoroutineManager : CoroutineScope {
         get() = Dispatchers.Default + supervisor + exceptionHandler
 
     @SubscribeEvent
+    @JvmStatic
     fun onServerStopping(event: ServerStoppingEvent) {
         Logger.info("Server stopping - cancelling all coroutines...")
         cancelAll()
     }
 
     @SubscribeEvent
+    @JvmStatic
     @OnlyIn(Dist.CLIENT)
     fun onClientDisconnect(event: ClientPlayerNetworkEvent.LoggingOut) {
         Logger.info("Client disconnecting - cancelling all coroutines...")
