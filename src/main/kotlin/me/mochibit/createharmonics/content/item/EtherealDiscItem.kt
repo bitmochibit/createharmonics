@@ -1,8 +1,6 @@
 package me.mochibit.createharmonics.content.item
 
-import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.content.item.record.RecordType
-import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResultHolder
 import net.minecraft.world.entity.player.Player
@@ -33,19 +31,6 @@ class EtherealRecordItem(val recordType: RecordType, props: Properties) : Item(p
     override fun use(pLevel: Level, pPlayer: Player, pUsedHand: InteractionHand): InteractionResultHolder<ItemStack> {
         val itemStack = pPlayer.getItemInHand(pUsedHand)
 
-        // Debug logs
-        if (pLevel.isClientSide) {
-            info("=== Ethereal Record Properties ===")
-            info("Record Type: ${recordType.name}")
-            info("Item: ${BuiltInRegistries.ITEM.getKey(this)}")
-            info("Is Damageable: ${itemStack.isDamageableItem}")
-            info("Max Damage: ${getMaxDamage(itemStack)}")
-            info("Current Damage: ${itemStack.damageValue}")
-            info("Remaining Uses: ${if (itemStack.isDamageableItem) getMaxDamage(itemStack) - itemStack.damageValue else "Infinite"}")
-            info("================================")
-        }
-
-        // Only apply damage on server side
         if (!pLevel.isClientSide && itemStack.isDamageableItem) {
             itemStack.hurtAndBreak(1, pPlayer) { player ->
                 player.broadcastBreakEvent(pUsedHand)

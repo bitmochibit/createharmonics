@@ -31,7 +31,7 @@ object ModItemsRegistry : AbstractModRegistry {
 
     private fun registerEtherealRecordVariant(recordType: RecordType, maxUses: Int?): ItemEntry<EtherealRecordItem> {
         val typeName = recordType.name.lowercase()
-        val name = "ethereal_record_$typeName"
+        val name = "{$typeName}_ethereal_record"
         return cRegistrate().item(name) {  
             val properties = Item.Properties().stacksTo(1)
             // If maxUses is not null, set durability. Otherwise, item is unbreakable.
@@ -47,8 +47,8 @@ object ModItemsRegistry : AbstractModRegistry {
             .register()
     }
 
-    fun getEtherealRecordItem(recordType: RecordType): ItemEntry<EtherealRecordItem>? {
-        return ETHEREAL_RECORDS[recordType]
+    fun getEtherealRecordItem(recordType: RecordType): ItemEntry<EtherealRecordItem> {
+        return ETHEREAL_RECORDS.getValue(recordType)
     }
 
     override fun register(eventBus: IEventBus, context: FMLJavaModLoadingContext) {

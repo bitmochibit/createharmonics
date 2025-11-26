@@ -43,7 +43,7 @@ class RecordPlayerActorVisual(
     private var currentSpeed = 0.0f
     private val speedSmoothingFactor = 0.1f
 
-    private var currentModel: PartialModel = ModPartialModels.getRecordModel(RecordType.ETERNAL)
+    private var currentModel: PartialModel = ModPartialModels.getRecordModel(RecordType.BRASS)
 
 
     val disc: TransformedInstance =

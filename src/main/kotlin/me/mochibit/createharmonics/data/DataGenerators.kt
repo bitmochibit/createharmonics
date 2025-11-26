@@ -1,8 +1,9 @@
-package me.mochibit.createharmonics.datagen
+package me.mochibit.createharmonics.data
 
 
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger
+import me.mochibit.createharmonics.data.recipe.ModRecipeProvider
 import net.minecraftforge.data.event.GatherDataEvent
 import net.minecraftforge.eventbus.api.SubscribeEvent
 import net.minecraftforge.fml.common.Mod
@@ -15,15 +16,19 @@ object DataGenerators {
         Logger.info("Generating data for Create: Harmonics")
         val generator = event.generator
         val output = generator.packOutput
+        val lookUpProvider = event.lookupProvider
         val existingFileHelper = event.existingFileHelper
 
-        // Register client-side data generators
+
         if (event.includeClient()) {
-            // Register the ethereal record visual model provider
             generator.addProvider(
                 true,
                 EtherealRecordVisualModelProvider(output, existingFileHelper)
             )
+        }
+
+        if (event.includeServer()) {
+            ModRecipeProvider.registerAllProcessRecipes(generator, output, lookUpProvider)
         }
     }
 }

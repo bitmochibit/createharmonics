@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.datagen
+package me.mochibit.createharmonics.data
 
 import me.mochibit.createharmonics.CreateHarmonicsMod.Companion.MOD_ID
 import me.mochibit.createharmonics.content.item.record.RecordType

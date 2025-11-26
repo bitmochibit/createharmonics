@@ -41,7 +41,7 @@ class CreateHarmonicsMod(val context: FMLJavaModLoadingContext) {
     }
 
     @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
-    object ModSetupListener {
+    object ModSetup {
 
         @JvmStatic
         @SubscribeEvent
