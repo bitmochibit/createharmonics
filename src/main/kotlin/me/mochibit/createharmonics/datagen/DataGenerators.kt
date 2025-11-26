@@ -1,11 +1,16 @@
 package me.mochibit.createharmonics.datagen
 
 
+import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger
 import net.minecraftforge.data.event.GatherDataEvent
+import net.minecraftforge.eventbus.api.SubscribeEvent
+import net.minecraftforge.fml.common.Mod
 
-
+@Mod.EventBusSubscriber(modid = CreateHarmonicsMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
 object DataGenerators {
+    @SubscribeEvent
+    @JvmStatic
     fun onGatherData(event: GatherDataEvent) {
         Logger.info("Generating data for Create: Harmonics")
         val generator = event.generator

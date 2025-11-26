@@ -17,7 +17,7 @@ import kotlin.coroutines.CoroutineContext
  * Manages coroutines for the mod with proper lifecycle handling.
  * All coroutines launched through this manager will be cancelled when the world is unloaded or server stops.
  */
-@Mod.EventBusSubscriber(modid = CreateHarmonicsMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+@Mod.EventBusSubscriber(modid = CreateHarmonicsMod.MOD_ID)
 object ModCoroutineManager : CoroutineScope {
     private val supervisor = SupervisorJob()
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
