@@ -1,11 +1,15 @@
 package me.mochibit.createharmonics.network
 
 import me.mochibit.createharmonics.CreateHarmonicsMod
+import me.mochibit.createharmonics.Logger
+import me.mochibit.createharmonics.registry.AbstractModRegistry
 import net.minecraft.resources.ResourceLocation
+import net.minecraftforge.eventbus.api.IEventBus
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 import net.minecraftforge.network.NetworkRegistry
 import net.minecraftforge.network.simple.SimpleChannel
 
-object ModNetworkHandler {
+object ModNetworkHandler : AbstractModRegistry {
     private const val PROTOCOL_VERSION = "1"
     private var packetId = 0
 
@@ -16,7 +20,7 @@ object ModNetworkHandler {
         { it == PROTOCOL_VERSION }
     )
 
-    fun register() {
-
+    override fun register(eventBus: IEventBus, context: FMLJavaModLoadingContext) {
+        Logger.info("Registering Mod Network Channel")
     }
 }

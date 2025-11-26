@@ -2,18 +2,26 @@ package me.mochibit.createharmonics.content.block.recordPlayer
 
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
 import me.mochibit.createharmonics.audio.AudioPlayer
-import me.mochibit.createharmonics.audio.effect.*
-import me.mochibit.createharmonics.audio.instance.StaticSoundInstance
+import me.mochibit.createharmonics.audio.effect.EffectChain
+import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
+import me.mochibit.createharmonics.audio.effect.ReverbEffect
+import me.mochibit.createharmonics.audio.effect.VolumeEffect
 import me.mochibit.createharmonics.audio.effect.pitchShift.PitchFunction
 import me.mochibit.createharmonics.audio.effect.pitchShift.PitchShiftEffect
+import me.mochibit.createharmonics.audio.instance.StaticSoundInstance
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
+import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.getAudioUrl
 import me.mochibit.createharmonics.extension.onClient
+import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.extension.remapTo
+import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.block.JukeboxBlock
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraftforge.common.capabilities.Capability
@@ -30,16 +38,26 @@ open class RecordPlayerBlockEntity(
     pos: BlockPos,
     state: BlockState,
 ) : KineticBlockEntity(type, pos, state) {
+
+    enum class PlaybackState {
+        PLAYING,
+        STOPPED,
+        PAUSED,           // Automatic pause due to no RPM
+        MANUALLY_PAUSED;  // Manual pause by user clicking
+    }
+
     var playerUUID: UUID = UUID.randomUUID()
-        private set;
+        private set
 
-    private var storedSpeed: Float = .0f
-
-    @Volatile
-    protected var currentPitch: Float = MIN_PITCH
+    protected val currentPitch: Float
+        get() {
+            val currSpeed = abs(this.speed)
+            return currSpeed.remapTo(16.0f, 256.0f, MIN_PITCH, MAX_PITCH)
+        }
 
     @Volatile
     var playbackState: PlaybackState = PlaybackState.STOPPED
+        private set
 
     companion object {
         const val RECORD_SLOT = 0
@@ -51,6 +69,16 @@ open class RecordPlayerBlockEntity(
         override fun isItemValid(slot: Int, stack: ItemStack): Boolean {
             return stack.item is EtherealRecordItem
         }
+
+        override fun onContentsChanged(slot: Int) {
+            super.onContentsChanged(slot)
+            val hasDisc = !getStackInSlot(RECORD_SLOT).isEmpty
+            level?.setBlockAndUpdate(
+                worldPosition,
+                blockState.setValue(JukeboxBlock.HAS_RECORD, hasDisc)
+            )
+            notifyUpdate()
+        }
     }
     protected val lazyInventoryHandler: LazyOptional<IItemHandler> = LazyOptional.of { inventoryHandler }
 
@@ -59,61 +87,56 @@ open class RecordPlayerBlockEntity(
         transitionTimeSeconds = 0.5
     )
 
-    private fun calculatePitch(): Float {
-        val currSpeed = abs(this.speed)
-        if (currSpeed == storedSpeed) return currentPitch
-        return currSpeed.remapTo(16.0f, 256.0f, MIN_PITCH, MAX_PITCH)
-    }
-
     fun startPlayer() {
-        if (playbackState == PlaybackState.PLAYING) {
+        // Only proceed if we have a record
+        if (!hasRecord()) {
+            if (playbackState != PlaybackState.STOPPED) {
+                playbackState = PlaybackState.STOPPED
+                notifyUpdate()
+            }
             return
         }
 
-        val currentRecord = getRecord()
-        if (currentRecord.isEmpty || currentRecord.item !is EtherealRecordItem) return
+        // Only proceed if speed is sufficient
+        if (abs(this.speed) <= 0.0f) {
+            if (playbackState != PlaybackState.PAUSED) {
+                playbackState = PlaybackState.PAUSED
+                notifyUpdate()
+            }
+            return
+        }
 
-
-        val audioUrl = EtherealRecordItem.getAudioUrl(currentRecord)
-        if (audioUrl == null || audioUrl.isEmpty()) return
-
-
-        playbackState = PlaybackState.PLAYING
-
-        this.notifyUpdate()
-
-
-        onClient {
-            this.startClientPlayer(audioUrl)
+        // Only update if state actually changed
+        if (playbackState != PlaybackState.PLAYING) {
+            playbackState = PlaybackState.PLAYING
+            notifyUpdate()
         }
     }
 
     fun stopPlayer() {
-        playbackState = PlaybackState.STOPPED
-        this.notifyUpdate()
-
-        onClient {
-            this.stopClientPlayer()
+        if (playbackState != PlaybackState.STOPPED) {
+            playbackState = PlaybackState.STOPPED
+            notifyUpdate()
         }
     }
 
     fun pausePlayer() {
-        playbackState = PlaybackState.PAUSED
-        this.notifyUpdate()
-        onClient {
-            this.pauseClientPlayer()
+        if (playbackState != PlaybackState.MANUALLY_PAUSED) {
+            playbackState = PlaybackState.MANUALLY_PAUSED
+            notifyUpdate()
         }
     }
 
     protected fun startClientPlayer(audioUrl: String) {
         AudioPlayer.play(
             audioUrl,
-            soundInstanceProvider = { resLoc ->
+            listenerId = playerUUID.toString(),
+            soundInstanceProvider = { streamId, stream ->
                 StaticSoundInstance(
-                    resLoc,
+                    stream,
+                    streamId,
                     this.worldPosition,
                     64,
-                    1.0f
                 )
             },
             EffectChain(
@@ -124,32 +147,27 @@ open class RecordPlayerBlockEntity(
                     ReverbEffect(roomSize = 0.5f, damping = 0.2f, wetMix = 0.8f)
                 )
             ),
-            streamId = playerUUID.toString()
         )
     }
 
+    protected fun resumeClientPlayer() {
+        AudioPlayer.resumeStream(playerUUID.toString())
+    }
+
     protected fun pauseClientPlayer() {
-        AudioPlayer.stopStream(playerUUID.toString())
+        AudioPlayer.pauseStream(playerUUID.toString())
     }
 
     protected fun stopClientPlayer() {
         AudioPlayer.stopStream(playerUUID.toString())
     }
 
-    /**
-     * Both client and server side handling
-     */
     override fun remove() {
-        onClient {
-            stopClientPlayer()
-        }
         super.remove()
     }
 
-    /**
-     * Pure server side handling
-     */
     override fun destroy() {
+        stopPlayer()
         dropContent()
         super.destroy()
     }
@@ -164,17 +182,21 @@ open class RecordPlayerBlockEntity(
         Containers.dropContents(currLevel, this.worldPosition, inv)
     }
 
-    fun insertRecord(discItem: ItemStack): Boolean {
+    fun insertRecord(discItem: ItemStack, autoPlay: Boolean = false): Boolean {
         if (hasRecord()) return false
         inventoryHandler.insertItem(RECORD_SLOT, discItem.copy(), false)
-        notifyUpdate()
+
+        if (autoPlay && abs(this.speed) > 0.0f) {
+            playbackState = PlaybackState.PLAYING
+            notifyUpdate()
+        }
+
         return true
     }
 
     fun popRecord(): ItemStack? {
         if (!hasRecord()) return null
         val item = inventoryHandler.extractItem(RECORD_SLOT, 1, false)
-        notifyUpdate()
         return item
     }
 
@@ -182,72 +204,114 @@ open class RecordPlayerBlockEntity(
         return inventoryHandler.getStackInSlot(RECORD_SLOT).copy()
     }
 
+    fun getRecordItem(): EtherealRecordItem? {
+        val recordStack = getRecord()
+        if (recordStack.isEmpty || recordStack.item !is EtherealRecordItem) return null
+        return recordStack.item as EtherealRecordItem
+    }
+
     fun hasRecord(): Boolean {
         return !inventoryHandler.getStackInSlot(RECORD_SLOT).isEmpty
     }
 
-    override fun <T : Any?> getCapability(cap: Capability<T?>): LazyOptional<T?> {
+    override fun <T : Any?> getCapability(
+        cap: Capability<T?>,
+        side: Direction?
+    ): LazyOptional<T?> {
         if (cap == ForgeCapabilities.ITEM_HANDLER) {
             return lazyInventoryHandler.cast()
         }
-        return super.getCapability(cap)
+        return super.getCapability(cap, side)
     }
 
     override fun tick() {
         super.tick()
-        currentPitch = calculatePitch()
 
-        when {
-            abs(this.speed) > .0f && playbackState == PlaybackState.PAUSED -> startPlayer()
-            abs(this.speed) == .0f && playbackState == PlaybackState.PLAYING -> pausePlayer()
-        }
-    }
+        onServer {
+            val currentSpeed = abs(this.speed)
+            val hasDisc = hasRecord()
+            val isPowered = level?.hasNeighborSignal(worldPosition) ?: false
 
-    override fun write(compound: CompoundTag?, clientPacket: Boolean) {
-        super.write(compound, clientPacket)
-        compound?.put("inventory", inventoryHandler.serializeNBT())
-        compound?.putInt("playbackState", playbackState.ordinal)
-        compound?.putString("playerUUID", playerUUID.toString())
-    }
-
-    override fun read(compound: CompoundTag?, clientPacket: Boolean) {
-        super.read(compound, clientPacket)
-        if (compound?.contains("inventory") == true) {
-            inventoryHandler.deserializeNBT(compound.getCompound("inventory"))
-        }
-
-        if (compound?.contains("playerUUID") == true) {
-            val uuidString = compound.getString("playerUUID")
-            playerUUID = UUID.fromString(uuidString)
-        }
-
-        if (compound?.contains("playbackState") == true) {
-            val newPlaybackState = PlaybackState.fromOrdinal(compound.getInt("playbackState"))
-            val previousState = playbackState
-            playbackState = newPlaybackState
-
-            level?.onClient {
-                val currentRecord = getRecord()
-                val audioUrl = EtherealRecordItem.getAudioUrl(currentRecord)
-
-                when (playbackState) {
-                    PlaybackState.PLAYING -> {
-                        if (!audioUrl.isNullOrEmpty() && previousState != PlaybackState.PLAYING) {
-                            startClientPlayer(audioUrl)
-                        }
+            when {
+                !hasDisc -> {
+                    if (playbackState != PlaybackState.STOPPED) {
+                        playbackState = PlaybackState.STOPPED
+                        notifyUpdate()
                     }
-                    PlaybackState.PAUSED -> {
-                        if (previousState == PlaybackState.PLAYING) {
-                            pauseClientPlayer()
-                        }
+                }
+
+                currentSpeed == 0.0f -> {
+                    if (playbackState == PlaybackState.PLAYING) {
+                        playbackState = PlaybackState.PAUSED
+                        notifyUpdate()
                     }
-                    PlaybackState.STOPPED -> {
-                        if (previousState != PlaybackState.STOPPED) {
-                            stopClientPlayer()
+                }
+
+                currentSpeed > 0.0f -> {
+                    if (isPowered) {
+                        if (playbackState != PlaybackState.PLAYING) {
+                            playbackState = PlaybackState.PLAYING
+                            notifyUpdate()
+                        }
+                    } else {
+                        if (playbackState == PlaybackState.PAUSED) {
+                            playbackState = PlaybackState.PLAYING
+                            notifyUpdate()
                         }
                     }
                 }
             }
         }
     }
+
+    override fun write(compound: CompoundTag, clientPacket: Boolean) {
+        super.write(compound, clientPacket)
+        compound.put("Inventory", inventoryHandler.serializeNBT())
+        NBTHelper.writeEnum(compound, "playbackState", playbackState)
+        compound.putUUID("playerUUID", playerUUID)
+    }
+
+    override fun read(compound: CompoundTag, clientPacket: Boolean) {
+        super.read(compound, clientPacket)
+        if (compound.contains("Inventory")) {
+            inventoryHandler.deserializeNBT(compound.getCompound("Inventory"))
+        }
+
+        if (compound.contains("playerUUID")) {
+            playerUUID = compound.getUUID("playerUUID")
+        }
+
+        if (compound.contains("playbackState")) {
+            val newPlaybackState = NBTHelper.readEnum(compound, "playbackState", PlaybackState::class.java)
+            val oldPlaybackState = playbackState
+            onClient {
+                when (newPlaybackState) {
+                    PlaybackState.PLAYING -> {
+                        // If transitioning from paused to playing, resume; otherwise start fresh
+                        if (oldPlaybackState == PlaybackState.PAUSED || oldPlaybackState == PlaybackState.MANUALLY_PAUSED) {
+                            resumeClientPlayer()
+                        } else {
+                            val currentRecord = getRecord()
+                            if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
+                                val audioUrl = getAudioUrl(currentRecord)
+                                if (!audioUrl.isNullOrEmpty()) {
+                                    startClientPlayer(audioUrl)
+                                }
+                            }
+                        }
+                    }
+
+                    PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
+                        pauseClientPlayer()
+                    }
+                    PlaybackState.STOPPED -> {
+                        stopClientPlayer()
+                    }
+                }
+            }
+            playbackState = newPlaybackState
+        }
+    }
+
+
 }

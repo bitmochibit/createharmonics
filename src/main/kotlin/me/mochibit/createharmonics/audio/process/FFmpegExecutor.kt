@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.audio.process
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -10,7 +11,6 @@ import me.mochibit.createharmonics.Logger.err
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.audio.binProvider.FFMPEGProvider
 import java.io.File
-import kotlinx.coroutines.CoroutineScope
 
 /**
  * Wrapper for FFmpeg operations with managed process lifecycle.
@@ -27,21 +27,6 @@ class FFmpegExecutor {
     sealed class FFmpegResult {
         data class Success(val bytesProcessed: Long) : FFmpegResult()
         data class Error(val exitCode: Int, val message: String) : FFmpegResult()
-    }
-
-    /**
-     * Ensure FFmpeg is installed and available.
-     */
-    suspend fun ensureInstalled(): Boolean = withContext(Dispatchers.IO) {
-        if (!FFMPEGProvider.isAvailable()) {
-            info("FFmpeg not found, installing...")
-            if (!FFMPEGProvider.install()) {
-                err("Failed to install FFmpeg")
-                return@withContext false
-            }
-            info("FFmpeg installed successfully")
-        }
-        true
     }
 
     /**

@@ -4,21 +4,22 @@ import com.mojang.logging.LogUtils
 
 object Logger {
     private val logger = LogUtils.getLogger()
+    private const val prefix = "[CreateHarmonics] "
 
     fun info(message: String) {
-        logger.info(message)
+        logger.info(prefix+message)
     }
 
     fun warn(message: String) {
-        logger.warn(message)
+        logger.warn(prefix+message)
     }
 
     fun err(message: String) {
-        logger.error(message)
+        logger.error(prefix+message)
     }
 
     fun debug(message: String) {
-        logger.debug(message)
+        logger.debug(prefix+message)
     }
 }
 

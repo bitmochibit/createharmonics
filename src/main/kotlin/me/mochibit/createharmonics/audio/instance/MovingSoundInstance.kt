@@ -1,5 +1,7 @@
 package me.mochibit.createharmonics.audio.instance
 
+import me.mochibit.createharmonics.asResource
+import me.mochibit.createharmonics.audio.StreamId
 import net.minecraft.client.resources.sounds.Sound
 import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.client.resources.sounds.TickableSoundInstance
@@ -9,12 +11,14 @@ import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.valueproviders.ConstantFloat
+import java.io.InputStream
 
 class MovingSoundInstance(
-    private val resourceLocation: ResourceLocation,
+    inStream: InputStream,
+    streamId: StreamId,
     private val posSupplier: () -> BlockPos = { BlockPos.ZERO },
     private val radius: Int = 16,
-): TickableSoundInstance {
+) : StreamingSoundInstance(inStream, streamId), TickableSoundInstance {
     private var currentPosition: BlockPos = posSupplier()
     private var stopped = false
 
@@ -29,7 +33,7 @@ class MovingSoundInstance(
 
 
     override fun getLocation(): ResourceLocation {
-        return resourceLocation
+        return "moving_sound_instance".asResource()
     }
 
     override fun resolve(pManager: SoundManager): WeighedSoundEvents {

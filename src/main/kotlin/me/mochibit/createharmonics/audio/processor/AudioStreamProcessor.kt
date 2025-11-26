@@ -1,10 +1,10 @@
 package me.mochibit.createharmonics.audio.processor
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import me.mochibit.createharmonics.Logger.err
 import me.mochibit.createharmonics.Logger.info
-import me.mochibit.createharmonics.audio.cache.YoutubeCache
+import me.mochibit.createharmonics.audio.binProvider.FFMPEGProvider
 import me.mochibit.createharmonics.audio.process.FFmpegExecutor
 import me.mochibit.createharmonics.audio.source.AudioSource
 import java.nio.file.Files
@@ -22,36 +22,28 @@ class AudioStreamProcessor(
     private val ffmpegWrapper = FFmpegExecutor()
 
     init {
-        // Ensure download directory exists
+        if (!FFMPEGProvider.isAvailable()) {
+            throw IllegalStateException("FFMPEG binary is not available, check for installation errors")
+        }
         Files.createDirectories(DOWNLOAD_DIR)
     }
 
-    /**
-     * Main entry point: creates an audio stream with raw PCM data.
-     * Effects will be applied on-demand during playback via the EffectChain.
-     */
     fun processAudioStream(
         audioSource: AudioSource
     ): Flow<ByteArray> = flow {
-        // Ensure FFmpeg is installed before processing
-        if (!ffmpegWrapper.ensureInstalled()) {
-            throw IllegalStateException("FFMPEG installation failed")
-        }
-
         val identifier = audioSource.getIdentifier()
         val duration = audioSource.getDurationSeconds()
 
         val shouldDownload = duration <= DURATION_THRESHOLD_SECONDS
 
         val audioUrl = audioSource.resolveAudioUrl()
-        if (shouldDownload) {
+        val sourceFlow = if (shouldDownload) {
             processWithDownload(audioUrl, identifier)
-                .collect { chunk -> emit(chunk) }
         } else {
             processWithStreaming(audioUrl)
-                .collect { chunk -> emit(chunk) }
         }
 
+        emitAll(sourceFlow)
     }.flowOn(Dispatchers.IO)
 
     /**
@@ -59,19 +51,14 @@ class AudioStreamProcessor(
      */
     private fun processWithStreaming(
         audioUrl: String
-    ): Flow<ByteArray> = flow {
-        info("Starting FFmpeg decode (streaming)")
-        try {
-            ffmpegWrapper.decodeUrlToStream(audioUrl, sampleRate)
-                .collect { chunk ->
-                    emit(chunk)
-                }
-            info("FFmpeg decode completed")
-        } catch (e: Exception) {
+    ): Flow<ByteArray> = ffmpegWrapper
+        .decodeUrlToStream(audioUrl, sampleRate)
+        .onStart { info("Starting FFmpeg decode (streaming)") }
+        .onCompletion { info("FFmpeg decode completed") }
+        .catch { e ->
             err("Decode error: ${e.message}")
             throw e
         }
-    }.flowOn(Dispatchers.IO)
 
     /**
      * Download audio to file first, then process from file.
@@ -104,13 +91,10 @@ class AudioStreamProcessor(
 
             // Process from local file - stream directly
             info("Starting FFmpeg decode from file")
-            ffmpegWrapper.decodeFileToStream(audioFile, sampleRate)
-                .collect { chunk ->
-                    emit(chunk)
-                }
+            emitAll(ffmpegWrapper.decodeFileToStream(audioFile, sampleRate))
         } catch (e: Exception) {
             err("Error processing downloaded audio: ${e.message}")
             throw e
         }
-    }.flowOn(Dispatchers.IO)
+    }
 }

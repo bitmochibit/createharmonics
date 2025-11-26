@@ -8,12 +8,15 @@ import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.TitleScreen
 import net.minecraftforge.event.TickEvent
 import net.minecraftforge.eventbus.api.SubscribeEvent
+import net.minecraftforge.fml.common.Mod
 
+@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
 object MainMenuDisclaimerHandler {
     
     private var hasShownDisclaimer = false
     private var hasChecked = false
-    
+
+    @JvmStatic
     @SubscribeEvent
     fun onClientTick(event: TickEvent.ClientTickEvent) {
         if (event.phase != TickEvent.Phase.END) return

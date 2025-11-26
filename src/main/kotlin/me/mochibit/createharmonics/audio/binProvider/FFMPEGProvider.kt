@@ -6,8 +6,7 @@ object FFMPEGProvider: DownloadableBinProvider(
     override fun getDownloadUrl(): String {
         return when {
             isWindows -> {
-                // Windows builds from gyan.dev
-                "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+                "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.0-latest-win64-lgpl-8.0.zip"
             }
             isMac -> {
                 // macOS - use static builds from evermeet.cx

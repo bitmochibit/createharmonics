@@ -1,8 +1,6 @@
 package me.mochibit.createharmonics.content.item
 
-import me.mochibit.createharmonics.Config
-import me.mochibit.createharmonics.Logger.info
-import net.minecraft.core.registries.BuiltInRegistries
+import me.mochibit.createharmonics.content.item.record.RecordType
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResultHolder
 import net.minecraft.world.entity.player.Player
@@ -11,7 +9,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraftforge.registries.ForgeRegistries
 
-class EtherealRecordItem(private val recordType: Config.RecordType, props: Properties) : Item(props) {
+class EtherealRecordItem(val recordType: RecordType, props: Properties) : Item(props) {
     companion object {
         const val AUDIO_URL_TAG_KEY = "audio_url"
 
@@ -33,20 +31,6 @@ class EtherealRecordItem(private val recordType: Config.RecordType, props: Prope
     override fun use(pLevel: Level, pPlayer: Player, pUsedHand: InteractionHand): InteractionResultHolder<ItemStack> {
         val itemStack = pPlayer.getItemInHand(pUsedHand)
 
-        // Debug logs
-        if (pLevel.isClientSide) {
-            info("=== Ethereal Record Properties ===")
-            info("Record Type: ${recordType.name}")
-            info("Item: ${BuiltInRegistries.ITEM.getKey(this)}")
-            info("Is Damageable: ${itemStack.isDamageableItem}")
-            info("Max Damage: ${getMaxDamage(itemStack)}")
-            info("Current Damage: ${itemStack.damageValue}")
-            info("Remaining Uses: ${if (itemStack.isDamageableItem) getMaxDamage(itemStack) - itemStack.damageValue else "Infinite"}")
-            info("Config Durability: ${Config.getRecordDurability(recordType) ?: "Unbreakable"}")
-            info("================================")
-        }
-
-        // Only apply damage on server side
         if (!pLevel.isClientSide && itemStack.isDamageableItem) {
             itemStack.hurtAndBreak(1, pPlayer) { player ->
                 player.broadcastBreakEvent(pUsedHand)
@@ -60,7 +44,7 @@ class EtherealRecordItem(private val recordType: Config.RecordType, props: Prope
     override fun getMaxDamage(stack: ItemStack): Int {
         // Use config value if available, otherwise fall back to item properties
         val configDurability = try {
-            Config.getRecordDurability(recordType)
+            1
         } catch (e: Exception) {
             null
         }

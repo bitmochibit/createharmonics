@@ -2,7 +2,7 @@ package me.mochibit.createharmonics.audio
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import me.mochibit.createharmonics.Config
+import me.mochibit.createharmonics.CommonConfig
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.effect.EffectChain
@@ -15,41 +15,39 @@ import me.mochibit.createharmonics.coroutine.withClientContext
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.resources.ResourceLocation
-import java.util.UUID
+import java.io.InputStream
+import java.util.*
 
 
-typealias SoundInstanceProvider = (ResourceLocation) -> SoundInstance
+typealias StreamingSoundInstanceProvider = (streamId: StreamId, stream: InputStream) -> SoundInstance
+typealias StreamId = String
 
 object AudioPlayer {
     private const val DEFAULT_SAMPLE_RATE = 48000
 
-    /**
-     * Stream audio from any AudioSource with an effect chain.
-     */
     fun createAudioStream(
         audioSource: AudioSource,
         effectChain: EffectChain = EffectChain.empty(),
         sampleRate: Int = DEFAULT_SAMPLE_RATE,
-        streamResLoc: ResourceLocation
-    ): BufferedAudioStream {
+        streamId: String
+    ): ProcessedAudioInputStream {
         val processor = AudioStreamProcessor(sampleRate)
-        val stream = BufferedAudioStream(audioSource, effectChain, sampleRate, processor)
-        StreamRegistry.registerStream(streamResLoc, stream)
+        val stream = ProcessedAudioInputStream(audioSource, effectChain, sampleRate, processor)
+        StreamRegistry.registerStream(streamId, stream)
         return stream
     }
 
     fun play(
         url: String,
-        soundInstanceProvider: SoundInstanceProvider,
+        listenerId: String = UUID.randomUUID().toString(),
+        soundInstanceProvider: StreamingSoundInstanceProvider,
         effectChain: EffectChain = EffectChain.empty(),
         sampleRate: Int = DEFAULT_SAMPLE_RATE,
-        streamId: String = UUID.randomUUID().toString()
-    ) {
-        val audioSource = resolveAudioSource(url) ?: return
-        val resourceLoc = generateResourceLocation(streamId)
-        if (StreamRegistry.containsStream(resourceLoc)) return
-        val stream = createAudioStream(audioSource, effectChain, sampleRate, resourceLoc)
-        val soundInstance = soundInstanceProvider(resourceLoc)
+    ): StreamId? {
+        if (StreamRegistry.containsStream(listenerId)) return null
+        val audioSource = resolveAudioSource(url) ?: return null
+        val stream = createAudioStream(audioSource, effectChain, sampleRate, listenerId)
+        val soundInstance = soundInstanceProvider(listenerId, stream)
         launchModCoroutine(Dispatchers.IO) {
             try {
                 val preBuffered = stream.awaitPreBuffering(timeoutSeconds = 30)
@@ -68,6 +66,8 @@ object AudioPlayer {
                 }
             }
         }
+
+        return listenerId
     }
 
     /**
@@ -80,8 +80,9 @@ object AudioPlayer {
             url.contains("youtube.com") || url.contains("youtu.be") -> {
                 YoutubeAudioSource(url)
             }
+
             url.startsWith("http://") || url.startsWith("https://") -> {
-                val acceptedDomainList = Config.ACCEPTED_HTTP_DOMAINS.get()
+                val acceptedDomainList = CommonConfig.getAcceptedHttpDomains()
                 if (acceptedDomainList.any { domain -> url.contains(domain) }) {
                     HttpAudioSource(url)
                 } else {
@@ -89,6 +90,7 @@ object AudioPlayer {
                     null
                 }
             }
+
             else -> {
                 null
             }
@@ -96,22 +98,32 @@ object AudioPlayer {
     }
 
     fun isPlaying(streamId: String): Boolean {
-        val resLoc = generateResourceLocation(streamId)
-        return StreamRegistry.containsStream(resLoc)
+        return StreamRegistry.containsStream(streamId)
+    }
+
+    fun pauseStream(streamId: String) {
+        val stream = StreamRegistry.getStream(streamId) as? ProcessedAudioInputStream ?: return
+        if (stream.isPaused()) return
+        stream.pause()
+    }
+
+    fun resumeStream(streamId: String) {
+        val stream = StreamRegistry.getStream(streamId) as? ProcessedAudioInputStream ?: return
+        if (!stream.isPaused()) return
+        stream.resume()
     }
 
     fun stopStream(streamId: String) {
         launchModCoroutine {
-            val resLoc = generateResourceLocation(streamId)
-            Minecraft.getInstance().soundManager.stop(resLoc, null)
-            StreamRegistry.unregisterStream(resLoc)
+            Minecraft.getInstance().soundManager.stop(streamId.toStreamResLocation(), null)
+            StreamRegistry.unregisterStream(streamId)
         }
     }
 
-    fun generateResourceLocation(streamId: String): ResourceLocation {
+    private fun String.toStreamResLocation(): ResourceLocation {
         return ResourceLocation.fromNamespaceAndPath(
             CreateHarmonicsMod.MOD_ID,
-            "harmonics-audio-$streamId"
+            this
         )
     }
 }

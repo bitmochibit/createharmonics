@@ -167,7 +167,6 @@ private class RealTimeSmoothedPitchFunction(
     @Volatile
     private var isFirstCall = true
 
-    private var lastLogTime = 0L
 
     override fun getPitchAt(timeInSeconds: Double): Float {
         // Get the target pitch from the source function (ignoring timeInSeconds)
@@ -183,7 +182,6 @@ private class RealTimeSmoothedPitchFunction(
             transitionStartPitch = newTargetPitch
             transitionStartTimeMillis = nowMillis
             isFirstCall = false
-            println("[RealTimeSmoothed] Initialized with pitch: $currentPitch")
             return currentPitch
         }
 
@@ -194,7 +192,6 @@ private class RealTimeSmoothedPitchFunction(
             transitionStartPitch = currentPitch
             targetPitch = newTargetPitch
             transitionStartTimeMillis = nowMillis
-            println("[RealTimeSmoothed] NEW TRANSITION: $transitionStartPitch -> $targetPitch (${transitionTimeSeconds}s)")
         }
 
         // Calculate progress through the transition (0.0 to 1.0) using wall-clock time
@@ -208,11 +205,6 @@ private class RealTimeSmoothedPitchFunction(
         // Linear interpolation from start to target
         currentPitch = transitionStartPitch + (targetPitch - transitionStartPitch) * progress.toFloat()
 
-        // Log periodically (every 500ms)
-        if (nowMillis - lastLogTime > 500) {
-            println("[RealTimeSmoothed] Current: $currentPitch, Target: $targetPitch, Progress: ${(progress * 100).toInt()}%")
-            lastLogTime = nowMillis
-        }
 
         return currentPitch
     }

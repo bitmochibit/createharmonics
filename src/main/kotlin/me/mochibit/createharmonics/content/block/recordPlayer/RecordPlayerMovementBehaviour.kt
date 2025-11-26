@@ -10,13 +10,19 @@ import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
 import me.mochibit.createharmonics.audio.effect.ReverbEffect
 import me.mochibit.createharmonics.audio.effect.VolumeEffect
+import me.mochibit.createharmonics.audio.effect.pitchShift.PitchFunction
+import me.mochibit.createharmonics.audio.effect.pitchShift.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.MovingSoundInstance
-import me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox.RecordPlayerActorVisual
+import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBlockEntity.Companion.MAX_PITCH
+import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBlockEntity.Companion.MIN_PITCH
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
+import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.getAudioUrl
 import me.mochibit.createharmonics.extension.onClient
+import me.mochibit.createharmonics.extension.remapTo
 import net.minecraft.core.BlockPos
-import net.minecraftforge.items.ItemStackHandler
 import java.util.*
+import kotlin.math.abs
+
 
 /**
  * Handles Record Player behavior when attached to a moving contraption.
@@ -25,130 +31,106 @@ import java.util.*
  */
 class RecordPlayerMovementBehaviour : MovementBehaviour {
 
-
-    /**
-     * Get the player UUID from the block entity data (server-side)
-     */
-    private fun getPlayerUUID(context: MovementContext): UUID? {
-        val blockEntityData = context.blockEntityData ?: return null
-        return if (blockEntityData.contains("playerUUID")) {
-            UUID.fromString(blockEntityData.getString("playerUUID"))
-        } else {
-            null
-        }
+    private fun getPlayerUUID(context: MovementContext): UUID {
+        return context.blockEntityData.getUUID("playerUUID")
     }
 
     /**
      * Get the audio URL from the record in the inventory (server-side data)
      */
     private fun getAudioUrl(context: MovementContext): String? {
-        val inventory = getInventoryHandler(context)
+        val inventory = getInventoryHandler(context) ?: return null
         val record = inventory.getStackInSlot(RecordPlayerBlockEntity.RECORD_SLOT)
 
         if (record.isEmpty || record.item !is EtherealRecordItem) {
             return null
         }
 
-        return EtherealRecordItem.getAudioUrl(record)?.takeIf { it.isNotEmpty() }
+        return getAudioUrl(record)?.takeIf { it.isNotEmpty() }
     }
 
-    /**
-     * Get the inventory handler from the block entity data (server-side)
-     */
-    private fun getInventoryHandler(context: MovementContext): ItemStackHandler {
-        val blockEntityData = context.blockEntityData
-        return blockEntityData?.getCompound("inventory")?.let { nbt ->
-            val handler = ItemStackHandler(1)
-            handler.deserializeNBT(nbt)
-            handler
-        } ?: ItemStackHandler(1)
+    private fun getInventoryHandler(context: MovementContext): RecordPlayerMountedStorage? {
+        val storageManager = context.contraption.storage
+        val rpInventory = storageManager.allItemStorages.get(context.localPos) as? RecordPlayerMountedStorage
+        return rpInventory
     }
 
-    /**
-     * Called when the contraption starts moving
-     */
-    override fun startMoving(context: MovementContext) {
-        super.startMoving(context)
-
-        // Start playing on client if there's a disc
-        context.world.onClient {
-            val audioUrl = getAudioUrl(context)
-            val playerUUID = getPlayerUUID(context)
-
-            if (audioUrl != null && playerUUID != null) {
-                startClientPlayer(playerUUID, context, audioUrl)
-            }
-        }
-    }
-
-    /**
-     * Called when contraption stops - cleanup audio
-     */
     override fun stopMoving(context: MovementContext) {
         super.stopMoving(context)
 
         context.world.onClient {
-            val playerUUID = getPlayerUUID(context)
-            if (playerUUID != null) {
-                stopClientPlayer(playerUUID)
-            }
+            context.temporaryData = null
+            stopClientPlayer(context)
         }
     }
 
-    /**
-     * Called every tick - ensure audio is playing if there's a disc
-     */
     override fun tick(context: MovementContext) {
         super.tick(context)
 
         context.world.onClient {
-            val playerUUID = getPlayerUUID(context) ?: return@onClient
+
             val audioUrl = getAudioUrl(context)
-            val streamId = playerUUID.toString()
 
-            if (audioUrl == null) return@onClient
-
-            if (!AudioPlayer.isPlaying(streamId)) {
-                startClientPlayer(playerUUID, context, audioUrl)
-            } else {
-                stopClientPlayer(playerUUID)
+            if (audioUrl == null) {
+                stopClientPlayer(context)
+                return@onClient
             }
+
+            if (abs(context.animationSpeed) == 0f) {
+                pauseClientPlayer(context)
+                return@onClient
+            }
+
+            startClientPlayer(
+                context, audioUrl, PitchFunction.smoothedRealTime(
+                    sourcePitchFunction = PitchFunction.custom { _ ->
+                        val currSpeed = abs(context.animationSpeed) / 10.0f
+                        currSpeed.remapTo(0.0f, 700.0f, MIN_PITCH, MAX_PITCH)
+                    },
+                    transitionTimeSeconds = 0.5
+                )
+            )
         }
     }
 
-    /**
-     * Start playing audio on client side
-     */
-    private fun startClientPlayer(playerUUID: UUID, context: MovementContext, audioUrl: String) {
-        val streamId = playerUUID.toString()
-
+    private fun startClientPlayer(context: MovementContext, audioUrl: String, pitchFunction: PitchFunction) {
+        if (AudioPlayer.isPlaying(getPlayerUUID(context).toString())) {
+            resumeClientPlayer(context)
+            return
+        }
         AudioPlayer.play(
             audioUrl,
-            soundInstanceProvider = { resLoc ->
+            listenerId = getPlayerUUID(context).toString(),
+            soundInstanceProvider = { streamId, stream ->
                 MovingSoundInstance(
-                    resourceLocation = resLoc,
+                    stream,
+                    streamId,
                     posSupplier = {
                         BlockPos.containing(context.position)
                     },
-                    radius = 64
                 )
             },
             effectChain = EffectChain(
                 listOf(
+                    PitchShiftEffect(pitchFunction),
                     VolumeEffect(0.8f),
                     LowPassFilterEffect(cutoffFrequency = 3000f),
                     ReverbEffect(roomSize = 0.5f, damping = 0.2f, wetMix = 0.8f)
                 )
             ),
-            streamId = streamId
         )
     }
 
-    /**
-     * Stop playing audio on client side
-     */
-    private fun stopClientPlayer(playerUUID: UUID) {
-        AudioPlayer.stopStream(playerUUID.toString())
+    private fun pauseClientPlayer(context: MovementContext) {
+        AudioPlayer.pauseStream(getPlayerUUID(context).toString())
+    }
+
+    private fun resumeClientPlayer(context: MovementContext) {
+        AudioPlayer.resumeStream(getPlayerUUID(context).toString())
+    }
+
+    private fun stopClientPlayer(context: MovementContext) {
+        AudioPlayer.stopStream(getPlayerUUID(context).toString())
     }
 
     override fun createVisual(
@@ -157,5 +139,17 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         movementContext: MovementContext
     ): ActorVisual {
         return RecordPlayerActorVisual(visualizationContext, simulationWorld, movementContext)
+    }
+
+    override fun disableBlockEntityRendering(): Boolean {
+        return true
+    }
+
+
+    override fun writeExtraData(context: MovementContext) {
+        // Ensure inventory is synced from data to blockEntityData when structure is saved/synced
+        if (context.data.contains("inventory")) {
+            context.blockEntityData.put("inventory", context.data.getCompound("inventory"))
+        }
     }
 }

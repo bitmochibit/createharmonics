@@ -66,12 +66,19 @@ side = "BOTH"
 modId="kotlinforforge"
 mandatory=true
 versionRange="[4,)"
-ordering="NONE"
+ordering = "AFTER"
 side="BOTH"
 
 [[dependencies."${mod_id}"]]
 modId="create"
 mandatory=true
 versionRange="[6.0.6,6.1.0)"
-ordering="NONE"
+ordering = "AFTER"
 side="BOTH"
+
+[[dependencies."${mod_id}"]]
+modId = "jei"
+mandatory = false
+versionRange = "[15.19.0,)"
+ordering = "NONE"
+side = "CLIENT"
