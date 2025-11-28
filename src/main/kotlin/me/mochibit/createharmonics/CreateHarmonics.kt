@@ -97,7 +97,7 @@ class CreateHarmonicsMod(val context: FMLJavaModLoadingContext) {
             info("Minecraft shutting down, cleaning up resources...")
             try {
                 // Stop all audio streams first
-                me.mochibit.createharmonics.client.audio.StreamRegistry.clear()
+                me.mochibit.createharmonics.client.audio.AudioPlayerRegistry.clear()
             } catch (e: Exception) {
                 err("Error clearing streams: ${e.message}")
             }

@@ -36,60 +36,99 @@ class AudioEffectInputStream(
     private val outputBuffer = mutableListOf<Byte>()
     private val maxOutputBufferSize = 65536
 
+    @Volatile
+    private var isClosed = false
+
     override fun read(): Int {
+        if (isClosed) return -1
+
         val result = read(singleByte, 0, 1)
         return if (result == -1) -1 else singleByte[0].toInt() and 0xFF
     }
 
     override fun read(b: ByteArray, off: Int, len: Int): Int {
+        if (isClosed) return -1
         if (len == 0) return 0
 
-        if (effectChain.isEmpty()) {
-            val bytesRead = audioStream.read(b, off, len)
-            if (bytesRead > 0) {
-                samplesRead += bytesRead / 2
-                return bytesRead
+        try {
+            if (effectChain.isEmpty()) {
+                val bytesRead = audioStream.read(b, off, len)
+                if (bytesRead > 0) {
+                    samplesRead += bytesRead / 2
+                    return bytesRead
+                }
+                // Return 0 to let PcmAudioStream handle padding with silence
+                return 0
             }
-            return 0
-        }
 
-        while (outputBuffer.size < len && outputBuffer.size < maxOutputBufferSize) {
-            val bytesRead = audioStream.read(processBuffer, 0, processBuffer.size)
-            if (bytesRead <= 0) break
+            // Try to fill the output buffer with processed audio
+            while (outputBuffer.size < len && outputBuffer.size < maxOutputBufferSize) {
+                if (isClosed) return -1
 
-            val inputSamples = processBuffer.copyOf(bytesRead).toShortArray()
-            val currentTime = samplesRead.toDouble() / sampleRate
-            val outputSamples = effectChain.process(inputSamples, currentTime, sampleRate)
+                val bytesRead = audioStream.read(processBuffer, 0, processBuffer.size)
+                if (bytesRead < 0) {
+                    // True end of stream
+                    break
+                }
 
-            if (outputSamples.isEmpty()) {
+                if (bytesRead == 0) {
+                    // No data available, stop trying to read more
+                    break
+                }
+
+                val inputSamples = processBuffer.copyOf(bytesRead).toShortArray()
+                val currentTime = samplesRead.toDouble() / sampleRate
+                val outputSamples = effectChain.process(inputSamples, currentTime, sampleRate)
+
+                if (outputSamples.isEmpty()) {
+                    samplesRead += inputSamples.size
+                    continue
+                }
+
+                outputBuffer.addAll(outputSamples.toByteArray().asIterable())
                 samplesRead += inputSamples.size
-                continue
             }
 
-            outputBuffer.addAll(outputSamples.toByteArray().asIterable())
-            samplesRead += inputSamples.size
-        }
+            if (outputBuffer.isEmpty()) {
+                // Return 0 to signal no data available (will be padded with silence by PcmAudioStream)
+                return 0
+            }
 
-        if (outputBuffer.isEmpty()) {
-            return 0
-        }
+            val bytesToCopy = minOf(outputBuffer.size, len)
+            for (i in 0 until bytesToCopy) {
+                b[off + i] = outputBuffer[i]
+            }
+            repeat(bytesToCopy) { outputBuffer.removeAt(0) }
 
-        val bytesToCopy = minOf(outputBuffer.size, len)
-        for (i in 0 until bytesToCopy) {
-            b[off + i] = outputBuffer[i]
+            return bytesToCopy
+        } catch (e: java.io.IOException) {
+            // Stream was closed while reading, signal end of stream
+            isClosed = true
+            return -1
         }
-        repeat(bytesToCopy) { outputBuffer.removeAt(0) }
-
-        return bytesToCopy
     }
 
     override fun close() {
-        audioStream.close()
+        if (isClosed) return
+        isClosed = true
+
+        try {
+            audioStream.close()
+        } catch (e: Exception) {
+            // Ignore close errors
+        }
+
         outputBuffer.clear()
         effectChain.reset()
     }
 
     override fun available(): Int {
-        return audioStream.available()
+        if (isClosed) return 0
+
+        return try {
+            audioStream.available()
+        } catch (e: java.io.IOException) {
+            0
+        }
     }
 }
