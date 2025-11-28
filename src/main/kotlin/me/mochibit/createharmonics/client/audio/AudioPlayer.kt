@@ -208,7 +208,19 @@ class AudioPlayer(
             val stream = AudioEffectInputStream(
                 inputStream,
                 effectChain,
-                sampleRate
+                sampleRate,
+                onStreamEnd = {
+                    // Stream has ended naturally, transition to STOPPED state
+                    Logger.info("AudioPlayer $playerId: Stream ended naturally")
+                    launchModCoroutine {
+                        stateMutex.withLock {
+                            if (playState == PlayState.PLAYING) {
+                                cleanupResources()
+                                Logger.info("AudioPlayer $playerId: Transitioned to STOPPED after stream end")
+                            }
+                        }
+                    }
+                }
             )
             return stream
         } catch (e: Exception) {

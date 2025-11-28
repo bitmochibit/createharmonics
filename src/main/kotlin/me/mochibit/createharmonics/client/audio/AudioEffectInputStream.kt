@@ -7,6 +7,7 @@ class AudioEffectInputStream(
     private val audioStream: InputStream,
     private val effectChain: EffectChain,
     private val sampleRate: Int,
+    private val onStreamEnd: (() -> Unit)? = null
 ) : InputStream() {
     companion object {
         fun ByteArray.toShortArray(): ShortArray {
@@ -38,6 +39,9 @@ class AudioEffectInputStream(
 
     @Volatile
     private var isClosed = false
+
+    @Volatile
+    private var streamEndSignaled = false
 
     override fun read(): Int {
         if (isClosed) return -1
@@ -90,6 +94,11 @@ class AudioEffectInputStream(
             }
 
             if (outputBuffer.isEmpty()) {
+                // Signal stream end if we haven't already
+                if (!streamEndSignaled) {
+                    streamEndSignaled = true
+                    onStreamEnd?.invoke()
+                }
                 // Return 0 to signal no data available (will be padded with silence by PcmAudioStream)
                 return 0
             }
