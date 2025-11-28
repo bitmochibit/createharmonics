@@ -2,8 +2,8 @@ package me.mochibit.createharmonics.client.gui
 
 import kotlinx.coroutines.Dispatchers
 import me.mochibit.createharmonics.Logger
-import me.mochibit.createharmonics.audio.binProvider.FFMPEGProvider
-import me.mochibit.createharmonics.audio.binProvider.YTDLProvider
+import me.mochibit.createharmonics.client.audio.binProvider.FFMPEGProvider
+import me.mochibit.createharmonics.client.audio.binProvider.YTDLProvider
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft

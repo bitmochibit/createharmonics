@@ -1,16 +1,18 @@
 package me.mochibit.createharmonics.content.block.recordPlayer
 
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
-import me.mochibit.createharmonics.audio.AudioPlayer
-import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
-import me.mochibit.createharmonics.audio.effect.ReverbEffect
-import me.mochibit.createharmonics.audio.effect.VolumeEffect
-import me.mochibit.createharmonics.audio.effect.pitchShift.PitchFunction
-import me.mochibit.createharmonics.audio.effect.pitchShift.PitchShiftEffect
-import me.mochibit.createharmonics.audio.instance.StaticSoundInstance
+import kotlinx.coroutines.Dispatchers
+import me.mochibit.createharmonics.client.audio.AudioPlayer
+import me.mochibit.createharmonics.client.audio.effect.EffectChain
+import me.mochibit.createharmonics.client.audio.effect.LowPassFilterEffect
+import me.mochibit.createharmonics.client.audio.effect.ReverbEffect
+import me.mochibit.createharmonics.client.audio.effect.VolumeEffect
+import me.mochibit.createharmonics.client.audio.effect.pitchShift.PitchFunction
+import me.mochibit.createharmonics.client.audio.effect.pitchShift.PitchShiftEffect
+import me.mochibit.createharmonics.client.audio.instance.StaticSoundInstance
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.getAudioUrl
+import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.extension.remapTo
@@ -64,6 +66,18 @@ open class RecordPlayerBlockEntity(
         const val MIN_PITCH = 0.5f
         const val MAX_PITCH = 2.0f
     }
+
+    private val audioPlayer: AudioPlayer = AudioPlayer(
+        { streamId, stream ->
+            StaticSoundInstance(
+                stream,
+                streamId,
+                this.worldPosition,
+                64,
+            )
+        },
+        playerUUID.toString()
+    )
 
     val inventoryHandler = object : ItemStackHandler(1) {
         override fun isItemValid(slot: Int, stack: ItemStack): Boolean {
@@ -128,38 +142,37 @@ open class RecordPlayerBlockEntity(
     }
 
     protected fun startClientPlayer(audioUrl: String) {
-        AudioPlayer.play(
-            audioUrl,
-            listenerId = playerUUID.toString(),
-            soundInstanceProvider = { streamId, stream ->
-                StaticSoundInstance(
-                    stream,
-                    streamId,
-                    this.worldPosition,
-                    64,
+        launchModCoroutine(Dispatchers.IO) {
+            audioPlayer.play(
+                audioUrl,
+                EffectChain(
+                    listOf(
+                        PitchShiftEffect(speedBasedPitchFunction),
+                        VolumeEffect(0.8f), // Reduce volume to 80%
+                        LowPassFilterEffect(cutoffFrequency = 3000f), // Slight muffling
+                        ReverbEffect(roomSize = 0.5f, damping = 0.2f, wetMix = 0.8f)
+                    )
                 )
-            },
-            EffectChain(
-                listOf(
-                    PitchShiftEffect(speedBasedPitchFunction),
-                    VolumeEffect(0.8f), // Reduce volume to 80%
-                    LowPassFilterEffect(cutoffFrequency = 3000f), // Slight muffling
-                    ReverbEffect(roomSize = 0.5f, damping = 0.2f, wetMix = 0.8f)
-                )
-            ),
-        )
+            )
+        }
     }
 
     protected fun resumeClientPlayer() {
-        AudioPlayer.resumeStream(playerUUID.toString())
+        launchModCoroutine(Dispatchers.IO) {
+            audioPlayer.resume()
+        }
     }
 
     protected fun pauseClientPlayer() {
-        AudioPlayer.pauseStream(playerUUID.toString())
+        launchModCoroutine(Dispatchers.IO) {
+            audioPlayer.pause()
+        }
     }
 
     protected fun stopClientPlayer() {
-        AudioPlayer.stopStream(playerUUID.toString())
+        launchModCoroutine(Dispatchers.IO) {
+            audioPlayer.stop()
+        }
     }
 
     override fun remove() {
@@ -304,6 +317,7 @@ open class RecordPlayerBlockEntity(
                     PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
                         pauseClientPlayer()
                     }
+
                     PlaybackState.STOPPED -> {
                         stopClientPlayer()
                     }

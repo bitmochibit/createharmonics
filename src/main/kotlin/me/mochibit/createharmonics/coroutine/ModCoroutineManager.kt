@@ -3,7 +3,7 @@ package me.mochibit.createharmonics.coroutine
 import kotlinx.coroutines.*
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger
-import me.mochibit.createharmonics.audio.StreamRegistry
+import me.mochibit.createharmonics.client.audio.StreamRegistry
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.api.distmarker.OnlyIn
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent

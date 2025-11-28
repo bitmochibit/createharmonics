@@ -2,8 +2,9 @@ package me.mochibit.createharmonics
 
 import com.simibubi.create.foundation.data.CreateRegistrate
 import me.mochibit.createharmonics.CreateHarmonicsMod.Companion.MOD_ID
+import me.mochibit.createharmonics.Logger.err
 import me.mochibit.createharmonics.Logger.info
-import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
+import me.mochibit.createharmonics.client.audio.process.ProcessLifecycleManager
 import me.mochibit.createharmonics.network.ModNetworkHandler
 import me.mochibit.createharmonics.registry.ModConfigRegistry
 import me.mochibit.createharmonics.registry.ModPartialModels
@@ -93,8 +94,19 @@ class CreateHarmonicsMod(val context: FMLJavaModLoadingContext) {
         ModConfigRegistry.register(modEventBus, context)
 
         Runtime.getRuntime().addShutdownHook(Thread {
-            info("Minecraft shutting down, cleaning up managed processes...")
-            ProcessLifecycleManager.shutdownAll()
+            info("Minecraft shutting down, cleaning up resources...")
+            try {
+                // Stop all audio streams first
+                me.mochibit.createharmonics.client.audio.StreamRegistry.clear()
+            } catch (e: Exception) {
+                err("Error clearing streams: ${e.message}")
+            }
+            try {
+                // Then cleanup managed processes
+                ProcessLifecycleManager.shutdownAll()
+            } catch (e: Exception) {
+                err("Error shutting down processes: ${e.message}")
+            }
         })
     }
 
