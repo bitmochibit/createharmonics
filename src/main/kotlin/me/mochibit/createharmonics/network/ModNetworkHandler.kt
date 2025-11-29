@@ -1,26 +1,80 @@
 package me.mochibit.createharmonics.network
 
-import me.mochibit.createharmonics.CreateHarmonicsMod
+import com.simibubi.create.foundation.networking.SimplePacketBase
 import me.mochibit.createharmonics.Logger
+import me.mochibit.createharmonics.asResource
+import me.mochibit.createharmonics.network.packet.LobbyJoinedPacket
+import me.mochibit.createharmonics.network.packet.RequestPlayerLobbyPacket
 import me.mochibit.createharmonics.registry.AbstractModRegistry
-import net.minecraft.resources.ResourceLocation
+import net.minecraft.network.FriendlyByteBuf
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
+import net.minecraftforge.network.NetworkDirection
+import net.minecraftforge.network.NetworkEvent
 import net.minecraftforge.network.NetworkRegistry
 import net.minecraftforge.network.simple.SimpleChannel
+import java.util.function.Supplier
 
 object ModNetworkHandler : AbstractModRegistry {
     private const val PROTOCOL_VERSION = "1"
+    private const val NETWORK_VERSION = "1"
     private var packetId = 0
 
-    val channel: SimpleChannel = NetworkRegistry.newSimpleChannel(
-        ResourceLocation.fromNamespaceAndPath(CreateHarmonicsMod.MOD_ID, "main"),
-        { PROTOCOL_VERSION },
-        { it == PROTOCOL_VERSION },
-        { it == PROTOCOL_VERSION }
+    val channel: SimpleChannel = NetworkRegistry.ChannelBuilder.named(
+        "main".asResource()
     )
+        .serverAcceptedVersions { it == NETWORK_VERSION }
+        .clientAcceptedVersions { it == NETWORK_VERSION }
+        .networkProtocolVersion { PROTOCOL_VERSION }
+        .simpleChannel()
+
 
     override fun register(eventBus: IEventBus, context: FMLJavaModLoadingContext) {
         Logger.info("Registering Mod Network Channel")
+        val allPackets = PacketType::class.sealedSubclasses.mapNotNull { it.objectInstance }
+        for (packet in allPackets) {
+            packet.register()
+        }
+    }
+
+    private sealed class PacketType<T : SimplePacketBase>(
+        val type: Class<T>,
+        factory: (FriendlyByteBuf) -> T,
+        val direction: NetworkDirection
+    ) {
+        private val encoder: (T, FriendlyByteBuf) -> Unit = { base, buff ->
+            base.write(buff)
+        }
+        private val decoder: (FriendlyByteBuf) -> T = factory
+        private val handler: (T, Supplier<NetworkEvent.Context>) -> Unit = { base, ctxSupplier ->
+            val ctx = ctxSupplier.get()
+            if (base.handle(ctx)) {
+                ctx.packetHandled = true
+            }
+        }
+
+        fun register() {
+            channel
+                .messageBuilder(type, packetId++, direction)
+                .encoder(encoder)
+                .decoder(decoder)
+                .consumerNetworkThread(handler)
+                .add()
+        }
+
+        // CLIENT -> SERVER
+        object USER_JOIN_AUDIO_PLAYER_LOBBY : PacketType<RequestPlayerLobbyPacket>(
+            RequestPlayerLobbyPacket::class.java,
+            ::RequestPlayerLobbyPacket,
+            NetworkDirection.PLAY_TO_SERVER
+        )
+
+        // SERVER -> CLIENT
+
+        object AUDIO_PLAYER_LOBBY_JOINED : PacketType<LobbyJoinedPacket>(
+            LobbyJoinedPacket::class.java,
+            ::LobbyJoinedPacket,
+            NetworkDirection.PLAY_TO_CLIENT
+        )
     }
 }

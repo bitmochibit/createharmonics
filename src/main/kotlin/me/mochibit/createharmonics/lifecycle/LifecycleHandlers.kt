@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics.lifecycle
 
 import me.mochibit.createharmonics.Logger.info
-import me.mochibit.createharmonics.client.audio.process.ProcessLifecycleManager
+import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
 import me.mochibit.createharmonics.client.event.MainMenuDisclaimerHandler
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.common.MinecraftForge

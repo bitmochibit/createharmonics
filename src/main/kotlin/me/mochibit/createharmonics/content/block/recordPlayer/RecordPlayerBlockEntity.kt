@@ -1,18 +1,17 @@
 package me.mochibit.createharmonics.content.block.recordPlayer
 
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
-import kotlinx.coroutines.Dispatchers
-import me.mochibit.createharmonics.client.audio.AudioPlayer
-import me.mochibit.createharmonics.client.audio.effect.EffectChain
-import me.mochibit.createharmonics.client.audio.effect.LowPassFilterEffect
-import me.mochibit.createharmonics.client.audio.effect.ReverbEffect
-import me.mochibit.createharmonics.client.audio.effect.VolumeEffect
-import me.mochibit.createharmonics.client.audio.effect.pitchShift.PitchFunction
-import me.mochibit.createharmonics.client.audio.effect.pitchShift.PitchShiftEffect
-import me.mochibit.createharmonics.client.audio.instance.StaticSoundInstance
+import me.mochibit.createharmonics.audio.AudioPlayer
+import me.mochibit.createharmonics.audio.AudioPlayerRegistry
+import me.mochibit.createharmonics.audio.effect.EffectChain
+import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
+import me.mochibit.createharmonics.audio.effect.ReverbEffect
+import me.mochibit.createharmonics.audio.effect.VolumeEffect
+import me.mochibit.createharmonics.audio.effect.pitchShift.PitchFunction
+import me.mochibit.createharmonics.audio.effect.pitchShift.PitchShiftEffect
+import me.mochibit.createharmonics.audio.instance.StaticSoundInstance
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.getAudioUrl
-import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.extension.remapTo
@@ -67,17 +66,23 @@ open class RecordPlayerBlockEntity(
         const val MAX_PITCH = 2.0f
     }
 
-    private val audioPlayer: AudioPlayer = AudioPlayer(
-        { streamId, stream ->
-            StaticSoundInstance(
-                stream,
-                streamId,
-                this.worldPosition,
-                64,
+
+    private val audioPlayer: AudioPlayer by lazy {
+        me.mochibit.createharmonics.Logger.info("RecordPlayer at $worldPosition: Creating AudioPlayer with UUID $playerUUID")
+        AudioPlayerRegistry.getOrCreatePlayer(playerUUID.toString()) {
+            AudioPlayer(
+                { streamId, stream ->
+                    StaticSoundInstance(
+                        stream,
+                        streamId,
+                        this.worldPosition,
+                        64,
+                    )
+                },
+                playerUUID.toString()
             )
-        },
-        playerUUID.toString()
-    )
+        }
+    }
 
     val inventoryHandler = object : ItemStackHandler(1) {
         override fun isItemValid(slot: Int, stack: ItemStack): Boolean {
@@ -142,37 +147,29 @@ open class RecordPlayerBlockEntity(
     }
 
     protected fun startClientPlayer(audioUrl: String) {
-        launchModCoroutine(Dispatchers.IO) {
-            audioPlayer.play(
-                audioUrl,
-                EffectChain(
-                    listOf(
-                        PitchShiftEffect(speedBasedPitchFunction),
-                        VolumeEffect(0.8f), // Reduce volume to 80%
-                        LowPassFilterEffect(cutoffFrequency = 3000f), // Slight muffling
-                        ReverbEffect(roomSize = 0.5f, damping = 0.2f, wetMix = 0.8f)
-                    )
+        audioPlayer.play(
+            audioUrl,
+            EffectChain(
+                listOf(
+                    PitchShiftEffect(speedBasedPitchFunction),
+                    VolumeEffect(0.8f), // Reduce volume to 80%
+                    LowPassFilterEffect(cutoffFrequency = 3000f), // Slight muffling
+                    ReverbEffect(roomSize = 0.5f, damping = 0.2f, wetMix = 0.8f)
                 )
             )
-        }
+        )
     }
 
     protected fun resumeClientPlayer() {
-        launchModCoroutine(Dispatchers.IO) {
-            audioPlayer.resume()
-        }
+        audioPlayer.resume()
     }
 
     protected fun pauseClientPlayer() {
-        launchModCoroutine(Dispatchers.IO) {
-            audioPlayer.pause()
-        }
+        audioPlayer.pause()
     }
 
     protected fun stopClientPlayer() {
-        launchModCoroutine(Dispatchers.IO) {
-            audioPlayer.stop()
-        }
+        audioPlayer.stop()
     }
 
     override fun remove() {
@@ -291,7 +288,11 @@ open class RecordPlayerBlockEntity(
         }
 
         if (compound.contains("playerUUID")) {
+            val oldUUID = playerUUID
             playerUUID = compound.getUUID("playerUUID")
+            if (oldUUID != playerUUID) {
+                me.mochibit.createharmonics.Logger.info("RecordPlayer at $worldPosition: UUID updated from $oldUUID to $playerUUID (clientPacket=$clientPacket)")
+            }
         }
 
         if (compound.contains("playbackState")) {
