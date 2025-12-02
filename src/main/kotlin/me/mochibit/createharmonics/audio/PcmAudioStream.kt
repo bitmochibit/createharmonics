@@ -15,33 +15,54 @@ class PcmAudioStream(private val inputStream: InputStream) : AudioStream {
 
     override fun getFormat(): AudioFormat = audioFormat
 
-    val readBuffer = ByteArray(maxReadSize)
+    val readBuffer = ByteArray(16384 / 2)
 
     @Throws(IOException::class)
     override fun read(size: Int): ByteBuffer {
         try {
-            val actualSize = min(size, maxReadSize)
-            val bytesRead = inputStream.read(readBuffer, 0, actualSize)
+            val bytesRead = inputStream.read(readBuffer, 0, min(size, readBuffer.size))
 
-            if (bytesRead <= 0) {
-                // End of stream or no data
+            // Only end stream on actual EOF (-1), not on temporary stalls (0)
+            if (bytesRead < 0) {
                 return ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
             }
 
-            // Return only what we actually read - no padding needed
+            // If no data available (game hang/stall), pad with silence to prevent stream interruption
+            if (bytesRead == 0) {
+                val silenceSize = min(size, readBuffer.size)
+                return ByteBuffer.allocateDirect(silenceSize)
+                    .order(ByteOrder.nativeOrder())
+                    .put(ByteArray(silenceSize)) // silence (zeros)
+                    .flip()
+            }
+
             return ByteBuffer.allocateDirect(bytesRead)
                 .order(ByteOrder.nativeOrder())
                 .put(readBuffer, 0, bytesRead)
                 .flip()
         } catch (e: IOException) {
-            return ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
+            // On error, return silence instead of empty buffer to prevent premature stream end
+            val silenceSize = min(size, readBuffer.size)
+            return ByteBuffer.allocateDirect(silenceSize)
+                .order(ByteOrder.nativeOrder())
+                .put(ByteArray(silenceSize))
+                .flip()
         }
     }
 
     @Throws(IOException::class)
     override fun close() {
-        if (inputStream !is AudioEffectInputStream) {
-            inputStream.close()
+        // apparently if you make the game lag for long enough every streamed source is simply skipped, what the actual fuck???????
+        // MOJANG FIX THIS ABSOLUTE, COSMICAL, COLOSSAL, HUMONGOUS DOGSHIT
+
+        when (inputStream) {
+            is AudioEffectInputStream -> {
+                if (inputStream.available() > 0) {
+                    inputStream.onStreamHang?.let { it() }
+                }
+            }
+
+            else -> inputStream.close()
         }
     }
 }

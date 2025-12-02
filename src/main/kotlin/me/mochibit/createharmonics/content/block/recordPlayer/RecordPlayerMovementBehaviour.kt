@@ -76,7 +76,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
             // Handle paused state (not moving but has URL) - pause playback
             if (!isMoving) {
-                if (player.initialized && player.state == AudioPlayer.PlayState.PLAYING) {
+                if (player.state == AudioPlayer.PlayState.PLAYING) {
                     player.pause()
                 }
                 return@onClient

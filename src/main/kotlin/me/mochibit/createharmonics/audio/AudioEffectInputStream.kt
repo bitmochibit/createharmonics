@@ -7,7 +7,8 @@ class AudioEffectInputStream(
     private val audioStream: InputStream,
     private val effectChain: EffectChain,
     private val sampleRate: Int,
-    private val onStreamEnd: (() -> Unit)? = null
+    private val onStreamEnd: (() -> Unit)? = null,
+    val onStreamHang: (() -> Unit)? = null,
 ) : InputStream() {
     companion object {
         fun ByteArray.toShortArray(): ShortArray {
