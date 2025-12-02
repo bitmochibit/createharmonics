@@ -17,8 +17,12 @@ import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBlockE
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.getAudioUrl
 import me.mochibit.createharmonics.extension.onClient
+import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.extension.remapTo
+import me.mochibit.createharmonics.network.ModNetworkHandler
+import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import net.minecraft.core.BlockPos
+import net.minecraftforge.network.PacketDistributor
 import java.util.*
 import kotlin.math.abs
 
@@ -30,9 +34,14 @@ import kotlin.math.abs
  */
 class RecordPlayerMovementBehaviour : MovementBehaviour {
 
-
     override fun stopMoving(context: MovementContext) {
-        super.stopMoving(context)
+        context.world.onServer {
+            ModNetworkHandler.channel.send(
+                PacketDistributor.ALL.noArg(), AudioPlayerContextStopPacket(
+                    this.getPlayerUUID(context).toString()
+                )
+            )
+        }
     }
 
     override fun tick(context: MovementContext) {

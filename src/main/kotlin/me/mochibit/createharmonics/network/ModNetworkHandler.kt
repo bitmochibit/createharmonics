@@ -3,7 +3,7 @@ package me.mochibit.createharmonics.network
 import com.simibubi.create.foundation.networking.SimplePacketBase
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.asResource
-import me.mochibit.createharmonics.network.packet.AudioPlayerLobbyJoinPacket
+import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.registry.AbstractModRegistry
 import net.minecraft.network.FriendlyByteBuf
 import net.minecraftforge.eventbus.api.IEventBus
@@ -62,13 +62,13 @@ object ModNetworkHandler : AbstractModRegistry {
         }
 
         // CLIENT -> SERVER
-        object JOIN_AUDIO_PLAYER_LOBBY : PacketType<AudioPlayerLobbyJoinPacket>(
-            AudioPlayerLobbyJoinPacket::class.java,
-            ::AudioPlayerLobbyJoinPacket,
-            NetworkDirection.PLAY_TO_SERVER
-        )
 
         // SERVER -> CLIENT
+        object AUDIO_PLAYER_CONTEXT_STOP : PacketType<AudioPlayerContextStopPacket>(
+            AudioPlayerContextStopPacket::class.java,
+            ::AudioPlayerContextStopPacket,
+            NetworkDirection.PLAY_TO_CLIENT
+        )
 
     }
 }
