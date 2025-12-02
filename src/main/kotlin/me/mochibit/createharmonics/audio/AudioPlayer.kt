@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.audio
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import me.mochibit.createharmonics.CommonConfig
@@ -90,7 +91,7 @@ class AudioPlayer(
             return
         }
 
-        launchModCoroutine {
+        launchModCoroutine(Dispatchers.IO) {
             stateMutex.withLock {
                 // If already playing the same URL with same effects, ignore
                 if (playState == PlayState.PLAYING &&
@@ -118,13 +119,52 @@ class AudioPlayer(
                         return@launchModCoroutine
                     }
 
-                    playState = PlayState.PLAYING
+                    // Start FFmpeg process in background first (don't block here)
+                    val effectiveUrl = audioSource.resolveAudioUrl()
+                    ffmpegExecutor.createStream(effectiveUrl, sampleRate, offsetSeconds)
 
-                    val newStream = makeStream(audioSource, effectChain, offsetSeconds) ?: run {
-                        Logger.err("AudioPlayer $playerId: Failed to create audio stream")
+                    // Give FFmpeg more time to start and begin connecting
+                    kotlinx.coroutines.delay(500)
+
+                    val inputStream = ffmpegExecutor.inputStream ?: run {
+                        Logger.err("AudioPlayer $playerId: FFmpeg input stream is null")
                         resetStateInternal()
                         return@launchModCoroutine
                     }
+
+                    // Now create the audio stream (pre-buffering happens in background)
+                    // This is still on IO dispatcher, so pre-buffering won't block game thread
+                    val newStream = AudioEffectInputStream(
+                        inputStream,
+                        effectChain,
+                        sampleRate,
+                        onStreamEnd = {
+                            Logger.info("AudioPlayer $playerId: Stream ended naturally")
+                            launchModCoroutine {
+                                stateMutex.withLock {
+                                    if (playState == PlayState.PLAYING) {
+                                        cleanupResourcesInternal()
+                                        Logger.info("AudioPlayer $playerId: Transitioned to STOPPED after stream end")
+                                    }
+                                }
+                            }
+                        },
+                        onStreamHang = {
+                            if (playState == PlayState.PLAYING) {
+                                launchModCoroutine {
+                                    currentSoundInstance?.let { soundInstance ->
+                                        soundManager.stop(soundInstance)
+                                        soundManager.play(soundInstance)
+                                    }
+                                }
+                            }
+                        }
+                    )
+
+                    // Give pre-buffering thread a bit more time to fill the buffer
+                    kotlinx.coroutines.delay(200)
+
+                    playState = PlayState.PLAYING
 
                     processingAudioStream = newStream
                     currentSoundInstance = soundInstanceProvider(playerId, newStream)
@@ -152,7 +192,7 @@ class AudioPlayer(
      * Transitions to STOPPED state.
      */
     fun stop() {
-        launchModCoroutine {
+        launchModCoroutine(Dispatchers.IO) {
             stateMutex.withLock {
                 if (playState == PlayState.STOPPED) {
                     return@launchModCoroutine
@@ -253,58 +293,6 @@ class AudioPlayer(
         }
     }
 
-    private suspend fun makeStream(
-        audioSource: AudioSource,
-        effectChain: EffectChain,
-        seekSeconds: Double,
-    ): AudioEffectInputStream? {
-        if (processingAudioStream != null) {
-            return processingAudioStream
-        }
-
-        try {
-            val effectiveUrl = audioSource.resolveAudioUrl()
-            ffmpegExecutor.createStream(effectiveUrl, sampleRate, seekSeconds)
-
-            val inputStream = ffmpegExecutor.inputStream ?: run {
-                Logger.err("AudioPlayer $playerId: FFmpeg input stream is null")
-                return null
-            }
-
-            val stream = AudioEffectInputStream(
-                inputStream,
-                effectChain,
-                sampleRate,
-                onStreamEnd = {
-                    // Stream has ended naturally, transition to STOPPED state
-                    Logger.info("AudioPlayer $playerId: Stream ended naturally")
-                    launchModCoroutine {
-                        stateMutex.withLock {
-                            if (playState == PlayState.PLAYING) {
-                                cleanupResourcesInternal()
-                                Logger.info("AudioPlayer $playerId: Transitioned to STOPPED after stream end")
-                            }
-                        }
-                    }
-                },
-                onStreamHang = {
-                    if (playState == PlayState.PLAYING) {
-                        launchModCoroutine {
-                            currentSoundInstance?.let { soundInstance ->
-                                soundManager.stop(soundInstance)
-                                soundManager.play(soundInstance)
-                            }
-                        }
-                    }
-                }
-            )
-            return stream
-        } catch (e: Exception) {
-            Logger.err("AudioPlayer $playerId: Error creating stream: ${e.message}")
-            e.printStackTrace()
-            return null
-        }
-    }
 
     /**
      * Internal cleanup method - must be called within stateMutex.withLock
