@@ -93,97 +93,111 @@ class AudioPlayer(
 
         launchModCoroutine(Dispatchers.IO) {
             stateMutex.withLock {
-                // If already playing the same URL with same effects, ignore
-                if (playState == PlayState.PLAYING &&
-                    currentUrl == url &&
-                    currentEffectChain == effectChain
-                ) {
+                if (isAlreadyPlayingSameContent(url, effectChain)) {
                     Logger.info("AudioPlayer $playerId: Already playing requested URL")
                     return@launchModCoroutine
                 }
 
-                // Stop any existing playback before starting new one
                 if (playState != PlayState.STOPPED) {
                     cleanupResourcesInternal()
                 }
 
-                // Update current configuration
-                currentUrl = url
-                currentEffectChain = effectChain
-                currentOffsetSeconds = offsetSeconds
+                updatePlaybackConfiguration(url, effectChain, offsetSeconds)
 
-                try {
-                    val audioSource = resolveAudioSource(url) ?: run {
-                        Logger.err("AudioPlayer $playerId: Failed to resolve audio source for URL: $url")
-                        resetStateInternal()
-                        return@launchModCoroutine
-                    }
+                val playbackResult = runCatching {
+                    initializePlayback(url, effectChain, offsetSeconds)
+                }
 
-                    // Start FFmpeg process in background first (don't block here)
-                    val effectiveUrl = audioSource.resolveAudioUrl()
-                    ffmpegExecutor.createStream(effectiveUrl, sampleRate, offsetSeconds)
-
-                    // Give FFmpeg more time to start and begin connecting
-                    kotlinx.coroutines.delay(500)
-
-                    val inputStream = ffmpegExecutor.inputStream ?: run {
-                        Logger.err("AudioPlayer $playerId: FFmpeg input stream is null")
-                        resetStateInternal()
-                        return@launchModCoroutine
-                    }
-
-                    // Now create the audio stream (pre-buffering happens in background)
-                    // This is still on IO dispatcher, so pre-buffering won't block game thread
-                    val newStream = AudioEffectInputStream(
-                        inputStream,
-                        effectChain,
-                        sampleRate,
-                        onStreamEnd = {
-                            Logger.info("AudioPlayer $playerId: Stream ended naturally")
-                            launchModCoroutine {
-                                stateMutex.withLock {
-                                    if (playState == PlayState.PLAYING) {
-                                        cleanupResourcesInternal()
-                                        Logger.info("AudioPlayer $playerId: Transitioned to STOPPED after stream end")
-                                    }
-                                }
-                            }
-                        },
-                        onStreamHang = {
-                            if (playState == PlayState.PLAYING) {
-                                launchModCoroutine {
-                                    currentSoundInstance?.let { soundInstance ->
-                                        soundManager.stop(soundInstance)
-                                        soundManager.play(soundInstance)
-                                    }
-                                }
-                            }
-                        }
-                    )
-
-                    // Give pre-buffering thread a bit more time to fill the buffer
-                    kotlinx.coroutines.delay(200)
-
-                    playState = PlayState.PLAYING
-
-                    processingAudioStream = newStream
-                    currentSoundInstance = soundInstanceProvider(playerId, newStream)
-
-                    withClientContext {
-                        currentSoundInstance?.let { soundInstance ->
-                            soundManager.play(soundInstance)
-                            Logger.info("AudioPlayer $playerId: Successfully started playback (URL: $url, offset: ${offsetSeconds}s)")
-                        } ?: run {
-                            Logger.err("AudioPlayer $playerId: Failed to create sound instance")
-                            resetStateInternal()
-                        }
-                    }
-                } catch (e: Exception) {
-                    Logger.err("AudioPlayer $playerId: Error during playback initialization: ${e.message}")
-                    e.printStackTrace()
+                if (playbackResult.isFailure) {
+                    Logger.err("AudioPlayer $playerId: Error during playback initialization: ${playbackResult.exceptionOrNull()?.message}")
+                    playbackResult.exceptionOrNull()?.printStackTrace()
                     resetStateInternal()
                 }
             }
+        }
+    }
+
+    private fun isAlreadyPlayingSameContent(url: String, effectChain: EffectChain): Boolean {
+        return playState == PlayState.PLAYING && currentUrl == url && currentEffectChain == effectChain
+    }
+
+    private fun updatePlaybackConfiguration(url: String, effectChain: EffectChain, offsetSeconds: Double) {
+        currentUrl = url
+        currentEffectChain = effectChain
+        currentOffsetSeconds = offsetSeconds
+    }
+
+    private suspend fun initializePlayback(url: String, effectChain: EffectChain, offsetSeconds: Double) {
+        val audioSource = resolveAudioSource(url) ?: run {
+            Logger.err("AudioPlayer $playerId: Failed to resolve audio source for URL: $url")
+            throw IllegalArgumentException("Unsupported audio source")
+        }
+
+        val effectiveUrl = audioSource.resolveAudioUrl()
+        if (!ffmpegExecutor.createStream(effectiveUrl, sampleRate, offsetSeconds)) {
+            Logger.err("AudioPlayer $playerId: FFmpeg stream failed to start")
+            throw IllegalStateException("FFmpeg stream initialization failed")
+        }
+
+        val inputStream = ffmpegExecutor.inputStream
+            ?: throw IllegalStateException("FFmpeg input stream is null")
+
+        val audioStream = createAudioEffectInputStream(inputStream, effectChain)
+        processingAudioStream = audioStream
+
+        if (!audioStream.awaitPreBuffering()) {
+            Logger.err("AudioPlayer $playerId: Pre-buffering timeout")
+            throw IllegalStateException("Pre-buffering timeout")
+        }
+
+        startPlayback(audioStream, url, offsetSeconds)
+    }
+
+    private fun createAudioEffectInputStream(
+        inputStream: InputStream,
+        effectChain: EffectChain
+    ): AudioEffectInputStream {
+        return AudioEffectInputStream(
+            inputStream,
+            effectChain,
+            sampleRate,
+            onStreamEnd = { handleStreamEnd() },
+            onStreamHang = { handleStreamHang() }
+        )
+    }
+
+    private fun handleStreamEnd() {
+        Logger.info("AudioPlayer $playerId: Stream ended naturally")
+        launchModCoroutine {
+            stateMutex.withLock {
+                if (playState == PlayState.PLAYING) {
+                    cleanupResourcesInternal()
+                    Logger.info("AudioPlayer $playerId: Transitioned to STOPPED after stream end")
+                }
+            }
+        }
+    }
+
+    private fun handleStreamHang() {
+        if (playState == PlayState.PLAYING) {
+            launchModCoroutine {
+                currentSoundInstance?.let { soundInstance ->
+                    soundManager.stop(soundInstance)
+                    soundManager.play(soundInstance)
+                }
+            }
+        }
+    }
+
+    private suspend fun startPlayback(audioStream: AudioEffectInputStream, url: String, offsetSeconds: Double) {
+        currentSoundInstance = soundInstanceProvider(playerId, audioStream)
+        playState = PlayState.PLAYING
+
+        withClientContext {
+            currentSoundInstance?.let { soundInstance ->
+                soundManager.play(soundInstance)
+                Logger.info("AudioPlayer $playerId: Successfully started playback (URL: $url, offset: ${offsetSeconds}s)")
+            } ?: throw IllegalStateException("Failed to create sound instance")
         }
     }
 
@@ -198,18 +212,17 @@ class AudioPlayer(
                     return@launchModCoroutine
                 }
 
-                try {
+                runCatching {
                     withClientContext {
                         currentSoundInstance?.let { soundManager.stop(it) }
                     }
-
                     cleanupResourcesInternal()
+                }.onSuccess {
                     Logger.info("AudioPlayer $playerId: Successfully stopped playback")
-                } catch (e: Exception) {
+                }.onFailure { e ->
                     Logger.err("AudioPlayer $playerId: Error during stop: ${e.message}")
                     e.printStackTrace()
-                    // Still try to clean up resources
-                    cleanupResourcesInternal()
+                    cleanupResourcesInternal() // Ensure cleanup even on error
                 }
             }
         }
@@ -226,13 +239,14 @@ class AudioPlayer(
                     return@launchModCoroutine
                 }
 
-                try {
+                runCatching {
                     withClientContext {
                         currentSoundInstance?.let { soundManager.stop(it) }
                     }
                     playState = PlayState.PAUSED
+                }.onSuccess {
                     Logger.info("AudioPlayer $playerId: Paused playback")
-                } catch (e: Exception) {
+                }.onFailure { e ->
                     Logger.err("AudioPlayer $playerId: Error during pause: ${e.message}")
                     e.printStackTrace()
                 }
@@ -256,13 +270,14 @@ class AudioPlayer(
                     return@launchModCoroutine
                 }
 
-                try {
+                runCatching {
                     withClientContext {
                         currentSoundInstance?.let { soundManager.play(it) }
                     }
                     playState = PlayState.PLAYING
+                }.onSuccess {
                     Logger.info("AudioPlayer $playerId: Resumed playback")
-                } catch (e: Exception) {
+                }.onFailure { e ->
                     Logger.err("AudioPlayer $playerId: Error during resume: ${e.message}")
                     e.printStackTrace()
                 }
@@ -330,11 +345,11 @@ class AudioPlayer(
     fun dispose() {
         launchModCoroutine {
             stateMutex.withLock {
-                try {
+                runCatching {
                     withClientContext {
                         currentSoundInstance?.let { soundManager.stop(it) }
                     }
-                } catch (e: Exception) {
+                }.onFailure { e ->
                     Logger.err("AudioPlayer $playerId: Error stopping sound during dispose: ${e.message}")
                 }
 
