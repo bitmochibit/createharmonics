@@ -20,7 +20,7 @@ object AudioPlayerRegistry {
     }
 
     fun destroyPlayer(id: String) {
-        players.remove(id)?.stop()
+        players.remove(id)?.dispose()
     }
 
     fun clear() {

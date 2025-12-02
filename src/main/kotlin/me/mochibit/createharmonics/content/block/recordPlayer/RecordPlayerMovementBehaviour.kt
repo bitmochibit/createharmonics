@@ -33,17 +33,9 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
     override fun stopMoving(context: MovementContext) {
         super.stopMoving(context)
-        context.world.onClient {
-            val uuid = getPlayerUUID(context)
-            if (uuid != null) {
-                AudioPlayerRegistry.destroyPlayer(uuid.toString())
-            }
-        }
     }
 
     override fun tick(context: MovementContext) {
-        super.tick(context)
-
         context.world.onClient {
             val uuid = getPlayerUUID(context) ?: return@onClient
             val playerId = uuid.toString()
@@ -99,6 +91,8 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                 AudioPlayer.PlayState.PLAYING -> {
                     // Already playing, do nothing
                 }
+
+                else -> {}
             }
         }
     }
@@ -119,7 +113,6 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         // This method syncs data from context.data to context.blockEntityData for client sync
         // For trains, we need to ensure playerUUID is available
 
-        // Try to get UUID from context.data first
         if (context.data.contains("playerUUID")) {
             val uuid = context.data.getUUID("playerUUID")
             context.blockEntityData.putUUID("playerUUID", uuid)

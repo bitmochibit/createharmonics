@@ -10,30 +10,23 @@ import kotlin.math.min
 
 class PcmAudioStream(private val inputStream: InputStream) : AudioStream {
     val sampleRate: Int = 48000
-    private val maxReadSize = sampleRate / 10
+
+    val readBufferSize = 8192
     private val audioFormat = AudioFormat(sampleRate.toFloat(), 16, 1, true, false)
 
     override fun getFormat(): AudioFormat = audioFormat
 
-    val readBuffer = ByteArray(16384 / 2)
+
+    val readBuffer = ByteArray(readBufferSize)
 
     @Throws(IOException::class)
     override fun read(size: Int): ByteBuffer {
         try {
             val bytesRead = inputStream.read(readBuffer, 0, min(size, readBuffer.size))
 
-            // Only end stream on actual EOF (-1), not on temporary stalls (0)
-            if (bytesRead < 0) {
+            // If no data
+            if (bytesRead <= 0) {
                 return ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
-            }
-
-            // If no data available (game hang/stall), pad with silence to prevent stream interruption
-            if (bytesRead == 0) {
-                val silenceSize = min(size, readBuffer.size)
-                return ByteBuffer.allocateDirect(silenceSize)
-                    .order(ByteOrder.nativeOrder())
-                    .put(ByteArray(silenceSize)) // silence (zeros)
-                    .flip()
             }
 
             return ByteBuffer.allocateDirect(bytesRead)

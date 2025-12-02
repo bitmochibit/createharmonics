@@ -11,145 +11,115 @@ import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
-import net.minecraft.network.chat.MutableComponent
-import net.minecraft.util.FormattedCharSequence
 
-class LibraryDisclaimerScreen(private val parent: Screen?) : Screen(Component.literal("Library Download Required")) {
+class LibraryDisclaimerScreen(private val parent: Screen?) : Screen(Component.literal("Library Setup")) {
 
-    private var acceptButton: Button? = null
-    private var declineButton: Button? = null
-    private var shutdownCountdown = 5
-    private var declined = false
-    private var tickCounter = 0
-    private var downloading = false
-    private var ytdlpStatus = "pending"
-    private var ffmpegStatus = "pending"
+    private data class LibInfo(val name: String, val desc: String, val url: String)
+
+    private val libraries = listOf(
+        LibInfo("yt-dlp", "Downloads audio from YouTube & platforms.", "https://github.com/yt-dlp/yt-dlp"),
+        LibInfo("FFmpeg", "Processes and converts audio streams.", "https://ffmpeg.org/")
+    )
+
+    // State
+    private enum class State { DISCLAIMER, DOWNLOADING, SKIPPED }
+
+    private var currentState = State.DISCLAIMER
+
+    // Download Metrics
+    private var ytdlpStatus = "Pending..."
+    private var ffmpegStatus = "Pending..."
     private var ytdlpProgress = 0.0f
     private var ffmpegProgress = 0.0f
     private var ytdlpSpeed = ""
     private var ffmpegSpeed = ""
 
-    private fun getDisclaimerText(): List<Component> = listOf(
-        Component.literal("Create: Harmonics - External Libraries Required")
-            .withStyle(ChatFormatting.BOLD, ChatFormatting.UNDERLINE),
-        Component.empty(),
-        Component.literal("This mod requires two external libraries to function:"),
-        Component.empty(),
-        Component.literal("1. yt-dlp").withStyle(ChatFormatting.YELLOW)
-            .append(Component.literal(" - A command-line program to download videos from")),
-        Component.literal("   YouTube and other video platforms"),
-        Component.literal("   License: The Unlicense (Public Domain)"),
-        Component.literal("   Source: ").append(
-            Component.literal("https://github.com/yt-dlp/yt-dlp").withStyle(ChatFormatting.AQUA)
-        ),
-        Component.empty(),
-        Component.literal("2. FFmpeg").withStyle(ChatFormatting.YELLOW)
-            .append(Component.literal(" - A complete, cross-platform solution to record,")),
-        Component.literal("   convert and stream audio and video"),
-        Component.literal("   License: GNU LGPL 2.1+ / GNU GPL 2+"),
-        Component.literal("   Source: ").append(
-            Component.literal("https://ffmpeg.org/").withStyle(ChatFormatting.AQUA)
-        ),
-        Component.empty(),
-        Component.literal("These libraries will be downloaded automatically when you"),
-        Component.literal("click 'Accept' below. They are essential for the mod to work."),
-        Component.empty(),
-        Component.literal("If you decline, you must remove this mod from your game.")
-            .withStyle(ChatFormatting.RED)
-    )
+    // UI Constants
+    private val cardColor = 0x40000000 // Semi-transparent black
+    private val borderColor = 0xFF555555.toInt()
+    private val warningColor = 0x40FF0000 // Red tint
 
     override fun init() {
         super.init()
+        rebuildWidgets()
+    }
 
-        val buttonWidth = 200
-        val buttonHeight = 20
+    override fun rebuildWidgets() {
+        clearWidgets()
+        val buttonW = 160
+        val buttonH = 20
         val centerX = width / 2
-        val buttonY = height - 40
+        val bottomY = height - 40
 
-        if (!declined) {
-            acceptButton = Button.builder(Component.literal("Accept & Download")) { _ ->
-                onAccept()
+        when (currentState) {
+            State.DISCLAIMER -> {
+                addRenderableWidget(
+                    Button.builder(
+                        Component.literal("Accept & Install").withStyle(ChatFormatting.GREEN)
+                    ) {
+                        startDownload()
+                    }.bounds(centerX - buttonW - 5, bottomY, buttonW, buttonH).build()
+                )
+
+                addRenderableWidget(Button.builder(Component.literal("Skip (Manual Install)")) {
+                    currentState = State.SKIPPED
+                    rebuildWidgets()
+                }.bounds(centerX + 5, bottomY, buttonW, buttonH).build())
             }
-                .bounds(centerX - buttonWidth - 10, buttonY, buttonWidth, buttonHeight)
-                .build()
 
-            declineButton = Button.builder(Component.literal("Decline")) { _ ->
-                onDecline()
+            State.SKIPPED -> {
+                addRenderableWidget(Button.builder(Component.literal("I Understand, Proceed")) {
+                    onClose() // Go to parent
+                }.bounds(centerX - (buttonW / 2), bottomY, buttonW, buttonH).build())
             }
-                .bounds(centerX + 10, buttonY, buttonWidth, buttonHeight)
-                .build()
 
-            addRenderableWidget(acceptButton!!)
-            addRenderableWidget(declineButton!!)
+            State.DOWNLOADING -> {
+                // No buttons, just waiting
+            }
         }
     }
 
-    private fun onAccept() {
-        acceptButton?.active = false
-        declineButton?.active = false
-        downloading = true
+    private fun startDownload() {
+        currentState = State.DOWNLOADING
+        rebuildWidgets() // Remove buttons
 
+        Logger.info("Starting library installation...")
 
-        Logger.info("User accepted library download, starting installation...")
-
-        // Download libraries in background
         launchModCoroutine(Dispatchers.IO) {
             try {
-                Logger.info("Installing yt-dlp...")
-                ytdlpStatus = "downloading"
+                // 1. YT-DLP
+                ytdlpStatus = "Downloading..."
                 val ytdlSuccess = YTDLProvider.install { status, progress, speed ->
-                    ytdlpStatus = status
+                    ytdlpStatus = formatStatus(status)
                     ytdlpProgress = progress
                     ytdlpSpeed = speed
                 }
+                ytdlpStatus = if (ytdlSuccess) "Installed" else "Failed"
 
-                Logger.info("Installing FFmpeg...")
-                ffmpegStatus = "downloading"
+                // 2. FFMPEG
+                ffmpegStatus = "Downloading..."
                 val ffmpegSuccess = FFMPEGProvider.install { status, progress, speed ->
-                    ffmpegStatus = status
+                    ffmpegStatus = formatStatus(status)
                     ffmpegProgress = progress
                     ffmpegSpeed = speed
                 }
+                ffmpegStatus = if (ffmpegSuccess) "Installed" else "Failed"
 
+                // Finish
                 if (ytdlSuccess && ffmpegSuccess) {
-                    Logger.info("All libraries installed successfully!")
+                    Logger.info("Library installation complete.")
+                    Minecraft.getInstance().execute { onClose() }
                 } else {
-                    Logger.err("Failed to install some libraries: yt-dlp=$ytdlSuccess, ffmpeg=$ffmpegSuccess")
-                }
-
-                // Return to main menu
-                Minecraft.getInstance().execute {
-                    minecraft?.setScreen(parent)
+                    // If failed, we arguably should let them retry or skip,
+                    // but for now we just let them proceed to menu so they aren't soft-locked.
+                    Minecraft.getInstance().execute { onClose() }
                 }
             } catch (e: Exception) {
-                Logger.err("Error during library installation: ${e.message}")
+                Logger.err("Installation crashed: ${e.message}")
                 e.printStackTrace()
-                ytdlpStatus = "failed"
-                ffmpegStatus = "failed"
-            }
-        }
-    }
-
-    private fun onDecline() {
-        declined = true
-        removeWidget(acceptButton!!)
-        removeWidget(declineButton!!)
-        acceptButton = null
-        declineButton = null
-    }
-
-    override fun tick() {
-        super.tick()
-
-        if (declined) {
-            tickCounter++
-            if (tickCounter >= 20) { // 20 ticks = 1 second
-                tickCounter = 0
-                shutdownCountdown--
-
-                if (shutdownCountdown <= 0) {
-                    Logger.info("User declined library download, shutting down game...")
-                    minecraft?.stop()
+                Minecraft.getInstance().execute {
+                    currentState = State.SKIPPED // Fallback to manual
+                    rebuildWidgets()
                 }
             }
         }
@@ -158,159 +128,163 @@ class LibraryDisclaimerScreen(private val parent: Screen?) : Screen(Component.li
     override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
         renderBackground(guiGraphics)
 
+        // Dark overlay for focus
+        guiGraphics.fillGradient(0, 0, width, height, -1072689136, -804253680)
+
         val centerX = width / 2
+        val centerY = height / 2
 
-        // Only render disclaimer text if not downloading and not declined
-        if (!downloading && !declined) {
-            var yPos = 20
+        // Draw Title
+        val titleScale = 1.5f
+        guiGraphics.pose().pushPose()
+        guiGraphics.pose().translate(centerX.toDouble(), 30.0, 0.0)
+        guiGraphics.pose().scale(titleScale, titleScale, 1f)
+        drawCenteredString(guiGraphics, "Create: Harmonics Setup", 0, 0, 0xFFFFFF)
+        guiGraphics.pose().popPose()
 
-            // Calculate available space for disclaimer text
-            val buttonAreaHeight = 60
-            val maxTextHeight = height - buttonAreaHeight - 40
-
-            // Render disclaimer text
-            val disclaimerComponents = getDisclaimerText()
-            for (component in disclaimerComponents) {
-                val sequences = font.split(component, width - 60)
-
-                for (sequence in sequences) {
-                    if (yPos + 12 <= maxTextHeight) {
-                        drawCenteredString(guiGraphics, font, sequence, centerX, yPos, 0xFFFFFF)
-                    }
-                    yPos += 12
-                }
-            }
-        }
-
-        // Render download status or decline message
-        if (downloading) {
-            val statusY = height - 140
-
-            drawCenteredString(
-                guiGraphics,
-                font,
-                Component.literal("Downloading libraries, please wait...")
-                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD),
-                centerX,
-                statusY,
-                0xFFFFFF
-            )
-
-            // Show yt-dlp status with progress bar
-            val ytdlpY = statusY + 25
-            val ytdlpStatusComponent = Component.literal("yt-dlp: ")
-                .withStyle(ChatFormatting.YELLOW)
-                .append(getStatusComponent(ytdlpStatus))
-            drawCenteredString(
-                guiGraphics,
-                font,
-                ytdlpStatusComponent,
-                centerX,
-                ytdlpY,
-                0xFFFFFF
-            )
-
-            // Draw yt-dlp progress bar
-            if (ytdlpStatus == "downloading" && ytdlpProgress > 0) {
-                drawProgressBar(guiGraphics, centerX, ytdlpY + 15, ytdlpProgress, ytdlpSpeed)
-            }
-
-            // Show FFmpeg status with progress bar
-            val ffmpegY = ytdlpY + 40
-            val ffmpegStatusComponent = Component.literal("FFmpeg: ")
-                .withStyle(ChatFormatting.YELLOW)
-                .append(getStatusComponent(ffmpegStatus))
-            drawCenteredString(
-                guiGraphics,
-                font,
-                ffmpegStatusComponent,
-                centerX,
-                ffmpegY,
-                0xFFFFFF
-            )
-
-            // Draw FFmpeg progress bar
-            if (ffmpegStatus == "downloading" && ffmpegProgress > 0) {
-                drawProgressBar(guiGraphics, centerX, ffmpegY + 15, ffmpegProgress, ffmpegSpeed)
-            }
-        } else if (declined) {
-            val declineY = height - 110
-
-            drawCenteredString(
-                guiGraphics,
-                font,
-                Component.literal("Not accepted. You will need to remove the mod.")
-                    .withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
-                centerX,
-                declineY,
-                0xFFFFFF
-            )
-
-            drawCenteredString(
-                guiGraphics,
-                font,
-                Component.literal("Shutting down in $shutdownCountdown seconds...")
-                    .withStyle(ChatFormatting.YELLOW),
-                centerX,
-                declineY + 20,
-                0xFFFFFF
-            )
+        when (currentState) {
+            State.DISCLAIMER -> renderDisclaimer(guiGraphics, centerX, centerY)
+            State.DOWNLOADING -> renderDownloading(guiGraphics, centerX, centerY)
+            State.SKIPPED -> renderSkipped(guiGraphics, centerX, centerY)
         }
 
         super.render(guiGraphics, mouseX, mouseY, partialTick)
     }
 
-    private fun getStatusComponent(status: String): MutableComponent {
-        return when (status) {
-            "pending" -> Component.literal("Waiting...").withStyle(ChatFormatting.GRAY)
-            "downloading" -> Component.literal("Downloading...").withStyle(ChatFormatting.AQUA)
-            "extracting" -> Component.literal("Extracting...").withStyle(ChatFormatting.BLUE)
-            "completed" -> Component.literal("✓ Completed").withStyle(ChatFormatting.GREEN)
-            "already_installed" -> Component.literal("✓ Already Installed").withStyle(ChatFormatting.GREEN)
-            "failed" -> Component.literal("✗ Failed").withStyle(ChatFormatting.RED)
-            else -> Component.literal(status).withStyle(ChatFormatting.WHITE)
+    private fun renderDisclaimer(gfx: GuiGraphics, cx: Int, cy: Int) {
+        // Draw Info Text
+        drawCenteredString(
+            gfx,
+            "This mod requires external libraries to function.",
+            cx,
+            60,
+            ChatFormatting.GRAY.color ?: 0xAAAAAA
+        )
+
+        // Draw Library Cards
+        val cardWidth = 280
+        val cardHeight = 50
+        var currentY = cy - 40
+
+        libraries.forEach { lib ->
+            // Card Background
+            gfx.fill(cx - cardWidth / 2, currentY, cx + cardWidth / 2, currentY + cardHeight, cardColor)
+            gfx.renderOutline(cx - cardWidth / 2, currentY, cardWidth, cardHeight, borderColor)
+
+            // Lib Name
+            gfx.drawString(font, lib.name, cx - cardWidth / 2 + 10, currentY + 8, 0xFFAA00, false)
+
+            // Lib Desc
+            gfx.drawString(font, lib.desc, cx - cardWidth / 2 + 10, currentY + 22, 0xDDDDDD, false)
+
+            // Lib URL
+            gfx.drawString(font, lib.url, cx - cardWidth / 2 + 10, currentY + 34, 0x55FFFF, false)
+
+            currentY += cardHeight + 10
         }
     }
 
-    private fun drawProgressBar(guiGraphics: GuiGraphics, centerX: Int, y: Int, progress: Float, speedText: String) {
-        val barWidth = 200
-        val barHeight = 10
-        val barX = centerX - barWidth / 2
+    private fun renderDownloading(gfx: GuiGraphics, cx: Int, cy: Int) {
+        drawCenteredString(gfx, "Downloading binaries...", cx, cy - 60, 0xFFFFFF)
 
-        // Draw background (dark gray)
-        guiGraphics.fill(barX, y, barX + barWidth, y + barHeight, 0xFF3F3F3F.toInt())
+        // Render YT-DLP Progress
+        renderProgressBar(gfx, cx, cy - 20, "yt-dlp", ytdlpStatus, ytdlpProgress, ytdlpSpeed)
 
-        // Draw progress (green)
-        val progressWidth = (barWidth * progress.coerceIn(0.0f, 1.0f)).toInt()
-        if (progressWidth > 0) {
-            guiGraphics.fill(barX, y, barX + progressWidth, y + barHeight, 0xFF00AA00.toInt())
+        // Render FFmpeg Progress
+        renderProgressBar(gfx, cx, cy + 30, "FFmpeg", ffmpegStatus, ffmpegProgress, ffmpegSpeed)
+    }
+
+    private fun renderProgressBar(
+        gfx: GuiGraphics,
+        cx: Int,
+        y: Int,
+        label: String,
+        status: String,
+        progress: Float,
+        speed: String
+    ) {
+        val barW = 200
+        val barH = 6
+        val barX = cx - barW / 2
+
+        // Label
+        gfx.drawString(font, label, barX, y - 10, 0xFFFFFF, false)
+        // Status/Speed (Right aligned)
+        val stats = if (speed.isNotEmpty()) "$status ($speed)" else status
+        gfx.drawString(font, stats, barX + barW - font.width(stats), y - 10, 0xAAAAAA, false)
+
+        // Bar Background
+        gfx.fill(barX, y, barX + barW, y + barH, 0xFF333333.toInt())
+        // Bar Fill
+        val fillW = (barW * progress.coerceIn(0f, 1f)).toInt()
+        if (fillW > 0) {
+            gfx.fill(barX, y, barX + fillW, y + barH, 0xFF00AA00.toInt()) // Green fill
         }
+        // Border
+        gfx.renderOutline(barX - 1, y - 1, barW + 2, barH + 2, 0xFF777777.toInt())
+    }
 
-        // Draw border (white)
-        guiGraphics.renderOutline(barX, y, barWidth, barHeight, 0xFFFFFFFF.toInt())
+    private fun renderSkipped(gfx: GuiGraphics, cx: Int, cy: Int) {
+        val boxW = 300
+        val boxH = 100
+        val topY = cy - 50
 
-        // Draw percentage text centered in the bar
-        val percentText = "${(progress * 100).toInt()}%"
-        guiGraphics.drawString(font, percentText, barX + barWidth / 2 - font.width(percentText) / 2, y + 1, 0xFFFFFF)
+        // Warning Box Background
+        gfx.fill(cx - boxW / 2, topY, cx + boxW / 2, topY + boxH, warningColor)
+        gfx.renderOutline(cx - boxW / 2, topY, boxW, boxH, 0xFFFF5555.toInt())
 
-        // Draw speed text to the right of the bar
-        if (speedText.isNotEmpty()) {
-            guiGraphics.drawString(font, speedText, barX + barWidth + 10, y + 1, 0xAAFFAA)
+        // Warning Icon/Text
+        val title =
+            Component.literal("⚠ Manual Installation Required").withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+        drawCenteredString(gfx, title.visualOrderText, cx, topY + 15, 0xFFFFFF)
+
+        val lines = listOf(
+            "You have skipped the automatic library download.",
+            "The mod will NOT be able to play internet sources",
+            "Download yt-dlp and ffmpeg and place them (extracted) in",
+            "",
+            FFMPEGProvider.directory.toPath().toAbsolutePath().normalize().toString(),
+            YTDLProvider.directory.toPath().toAbsolutePath().normalize().toString(),
+        )
+
+        var textY = topY + 35
+        lines.forEach { line ->
+            val color = if (line.contains("/") || line.contains("\\")) 0xFFFF55 else 0xDDDDDD
+            drawCenteredString(gfx, line, cx, textY, color)
+            textY += 10
         }
     }
 
-    private fun drawCenteredString(guiGraphics: GuiGraphics, font: net.minecraft.client.gui.Font,
-                                   text: FormattedCharSequence, x: Int, y: Int, color: Int) {
-        guiGraphics.drawString(font, text, x - font.width(text) / 2, y, color)
+    // Helper for simple text centering
+    private fun drawCenteredString(gfx: GuiGraphics, text: String, x: Int, y: Int, color: Int) {
+        gfx.drawString(font, text, x - font.width(text) / 2, y, color, false)
     }
 
-    private fun drawCenteredString(guiGraphics: GuiGraphics, font: net.minecraft.client.gui.Font,
-                                   text: Component, x: Int, y: Int, color: Int) {
-        drawCenteredString(guiGraphics, font, text.visualOrderText, x, y, color)
+    // Helper to handle visual order text (components)
+    private fun drawCenteredString(
+        gfx: GuiGraphics,
+        text: net.minecraft.util.FormattedCharSequence,
+        x: Int,
+        y: Int,
+        color: Int
+    ) {
+        gfx.drawString(font, text, x - font.width(text) / 2, y, color, false)
+    }
+
+    private fun formatStatus(raw: String): String {
+        return when (raw) {
+            "downloading" -> "Downloading"
+            "extracting" -> "Extracting"
+            "completed" -> "Done"
+            else -> raw.replaceFirstChar { it.uppercase() }
+        }
+    }
+
+    override fun onClose() {
+        // Return to the previous screen (Main Menu usually)
+        minecraft?.setScreen(parent)
     }
 
     override fun isPauseScreen(): Boolean = true
-
-    override fun shouldCloseOnEsc(): Boolean = false
+    override fun shouldCloseOnEsc(): Boolean = currentState != State.DOWNLOADING
 }
-

@@ -37,7 +37,7 @@ class FFmpegExecutor {
 
     /**
      * Creates an FFmpeg stream and suspends until the stream is ready or timeout occurs.
-     *
+
      * @return true if stream was successfully created and is ready, false otherwise
      */
     suspend fun createStream(url: String, sampleRate: Int = 48000, seekSeconds: Double = 0.0): Boolean {

@@ -46,6 +46,9 @@ class AudioPlayer(
         /** No audio is playing and resources are released */
         STOPPED,
 
+        /** Audio is being initialized and will start playing soon */
+        LOADING,
+
         /** Audio is currently playing */
         PLAYING,
 
@@ -56,6 +59,8 @@ class AudioPlayer(
     private val stateMutex = Mutex()
     private val ffmpegExecutor = FFmpegExecutor()
     private var processingAudioStream: AudioEffectInputStream? = null
+
+    @Volatile
     private var currentSoundInstance: SoundInstance? = null
 
     @Volatile
@@ -98,11 +103,18 @@ class AudioPlayer(
                     return@launchModCoroutine
                 }
 
+                // Check if already loading the same content
+                if (playState == PlayState.LOADING && currentUrl == url && currentEffectChain == effectChain) {
+                    Logger.info("AudioPlayer $playerId: Already loading requested URL")
+                    return@launchModCoroutine
+                }
+
                 if (playState != PlayState.STOPPED) {
                     cleanupResourcesInternal()
                 }
 
                 updatePlaybackConfiguration(url, effectChain, offsetSeconds)
+                playState = PlayState.LOADING
 
                 val playbackResult = runCatching {
                     initializePlayback(url, effectChain, offsetSeconds)
@@ -341,21 +353,37 @@ class AudioPlayer(
     /**
      * Dispose of this audio player and release all resources.
      * Should be called when the player is no longer needed.
+     * This first stops the sound immediately, then cleans up resources asynchronously.
      */
     fun dispose() {
+        // First, immediately stop the sound without waiting for the mutex
+        stopSoundImmediately()
+
+        // Then perform full cleanup asynchronously with proper synchronization
         launchModCoroutine {
             stateMutex.withLock {
-                runCatching {
-                    withClientContext {
-                        currentSoundInstance?.let { soundManager.stop(it) }
-                    }
-                }.onFailure { e ->
-                    Logger.err("AudioPlayer $playerId: Error stopping sound during dispose: ${e.message}")
-                }
-
                 cleanupResourcesInternal()
                 Logger.info("AudioPlayer $playerId: Disposed")
             }
+        }
+    }
+
+    /**
+     * Synchronously stop the sound immediately, without waiting for coroutines.
+     * This is useful for cases where immediate cleanup is required (e.g., when a contraption is destroyed).
+     * This method can be called from any thread and does not require acquiring the state mutex.
+     * Full cleanup still happens asynchronously via the dispose() method.
+     */
+    fun stopSoundImmediately() {
+        try {
+            // Safely read the volatile reference
+            val soundInstance = currentSoundInstance
+            if (soundInstance != null) {
+                soundManager.stop(soundInstance)
+                Logger.info("AudioPlayer $playerId: Sound stopped immediately")
+            }
+        } catch (e: Exception) {
+            Logger.err("AudioPlayer $playerId: Error stopping sound immediately: ${e.message}")
         }
     }
 }
