@@ -12,6 +12,8 @@ import me.mochibit.createharmonics.audio.source.HttpAudioSource
 import me.mochibit.createharmonics.audio.source.YoutubeAudioSource
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import me.mochibit.createharmonics.coroutine.withClientContext
+import me.mochibit.createharmonics.network.ModNetworkHandler
+import me.mochibit.createharmonics.network.packet.AudioPlayerStreamEndPacket
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import java.io.InputStream
@@ -184,7 +186,9 @@ class AudioPlayer(
             stateMutex.withLock {
                 if (playState == PlayState.PLAYING) {
                     cleanupResourcesInternal()
-                    Logger.info("AudioPlayer $playerId: Transitioned to STOPPED after stream end")
+                    ModNetworkHandler.channel.sendToServer(
+                        AudioPlayerStreamEndPacket(playerId)
+                    )
                 }
             }
         }
@@ -194,7 +198,6 @@ class AudioPlayer(
         if (playState == PlayState.PLAYING) {
             launchModCoroutine {
                 currentSoundInstance?.let { soundInstance ->
-                    soundManager.stop(soundInstance)
                     soundManager.play(soundInstance)
                 }
             }

@@ -1,7 +1,10 @@
 package me.mochibit.createharmonics.audio
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import java.io.InputStream
@@ -15,10 +18,9 @@ class AudioEffectInputStream(
     val onStreamHang: (() -> Unit)? = null,
 ) : InputStream() {
     companion object {
-        private const val PROCESS_BUFFER_SIZE = 8192  // 8KB - balance between latency and efficiency
-        private const val TARGET_BUFFER_SIZE = 4096  // 4KB - target output buffer size
-        private const val PRE_BUFFER_SIZE = 16384  // 16KB - pre-buffer to prevent initial hang
-        private const val MIN_BUFFER_BEFORE_PLAY = 8192  // 8KB - minimum before playback starts
+        private const val PROCESS_BUFFER_SIZE = 4096  // 4KB - smaller chunks for lower latency
+        private const val PRE_BUFFER_SIZE = 8192  // 8KB - brief pre-buffer to prevent initial hang
+        private const val MIN_BUFFER_BEFORE_PLAY = 4096  // 4KB - minimum before playback starts
 
         /**
          * Convert PCM byte array to 16-bit signed short samples (little-endian).
@@ -72,14 +74,10 @@ class AudioEffectInputStream(
     private var processingJob: Job? = null
 
     init {
-        // Start background processing that continuously fills the buffer
+        // Start brief pre-buffering only
         processingJob = launchModCoroutine(Dispatchers.IO) {
             try {
-                // First, pre-buffer audio
                 preBufferAudio()
-
-                // Then continuously process audio in background
-                continuouslyProcessAudio()
             } catch (_: Exception) {
                 if (!isClosed) {
                     // If pre-buffering fails, mark as complete anyway to not block reads
@@ -106,8 +104,8 @@ class AudioEffectInputStream(
     }
 
     /**
-     * Pre-buffer audio data in background to prevent initial hang.
-     * Uses coroutines for non-blocking I/O operations.
+     * Pre-buffer a small amount of audio data to prevent initial hang.
+     * This is brief and doesn't continuously read from the stream.
      */
     private suspend fun preBufferAudio() {
         if (!waitForStreamReady()) {
@@ -118,13 +116,13 @@ class AudioEffectInputStream(
 
         val targetSize = if (effectChain.isEmpty()) MIN_BUFFER_BEFORE_PLAY else PRE_BUFFER_SIZE
 
-        // Buffer initial audio data
+        // Buffer initial audio data (limited attempts)
         var attempts = 0
-        val maxAttempts = 20
+        val maxAttempts = 10  // Reduced - we want this to be brief
         while (synchronized(bufferLock) { outputBuffer.size } < targetSize && !streamEnded && attempts < maxAttempts) {
             if (isClosed) break
 
-            val bytesRead = readFromStream()
+            val bytesRead = readFromStreamSync()
             when {
                 bytesRead < 0 -> {
                     streamEnded = true
@@ -144,12 +142,9 @@ class AudioEffectInputStream(
             }
         }
 
-        // Mark pre-buffering as complete only if we have minimum data
-        val hasEnoughData = synchronized(bufferLock) { outputBuffer.size >= MIN_BUFFER_BEFORE_PLAY }
-        if (hasEnoughData || streamEnded) {
-            isPreBuffered.set(true)
-            preBufferChannel.trySend(Unit)
-        }
+        // Mark pre-buffering as complete (even if we didn't reach target)
+        isPreBuffered.set(true)
+        preBufferChannel.trySend(Unit)
     }
 
     /**
@@ -177,15 +172,14 @@ class AudioEffectInputStream(
     }
 
     /**
-     * Read audio data from the input stream.
+     * Read audio data from the input stream (synchronous).
+     * Used both during pre-buffering and when read() is called.
      *
      * @return Number of bytes read, 0 if no data available, -1 on stream end
      */
-    private suspend fun readFromStream(): Int {
+    private fun readFromStreamSync(): Int {
         return try {
-            withContext(Dispatchers.IO) {
-                audioStream.read(processBuffer, 0, processBuffer.size)
-            }
+            audioStream.read(processBuffer, 0, processBuffer.size)
         } catch (_: Exception) {
             -1
         }
@@ -244,42 +238,7 @@ class AudioEffectInputStream(
         samplesRead += sampleCount
     }
 
-    /**
-     * Continuously process audio in background to keep buffer filled.
-     * This prevents the read() method from blocking.
-     */
-    private suspend fun continuouslyProcessAudio() {
-        while (!isClosed && !streamEnded) {
-            // Only process if buffer is below target size
-            val currentBufferSize = synchronized(bufferLock) { outputBuffer.size }
-            if (currentBufferSize >= TARGET_BUFFER_SIZE) {
-                delay(10) // Buffer is full, wait a bit
-                continue
-            }
 
-            val bytesRead = readFromStream()
-
-            when {
-                bytesRead < 0 -> {
-                    streamEnded = true
-                    if (!streamEndSignaled) {
-                        streamEndSignaled = true
-                        onStreamEnd?.invoke()
-                    }
-                    break
-                }
-
-                bytesRead == 0 -> {
-                    delay(10) // No data available, wait a bit
-                    continue
-                }
-
-                else -> {
-                    processAudioChunk(bytesRead)
-                }
-            }
-        }
-    }
 
     override fun read(): Int {
         if (isClosed) return -1
@@ -298,23 +257,67 @@ class AudioEffectInputStream(
         }
 
         try {
-            // All data comes from the buffer now (filled by background job)
+            var totalBytesCopied = 0
+
+            // First, drain any existing buffer
             val availableBytes = synchronized(bufferLock) { outputBuffer.size }
+            if (availableBytes > 0) {
+                val bytesToCopy = minOf(availableBytes, len)
+                synchronized(bufferLock) {
+                    for (i in 0 until bytesToCopy) {
+                        b[off + i] = outputBuffer.removeFirst()
+                    }
+                }
+                totalBytesCopied += bytesToCopy
 
-            if (availableBytes == 0) {
-                // Return -1 only if stream truly ended, otherwise return 0 (no data yet)
-                return if (streamEnded) -1 else 0
-            }
-
-            // Copy from output buffer efficiently using ArrayDeque's removeFirst()
-            val bytesToCopy = minOf(availableBytes, len)
-            synchronized(bufferLock) {
-                for (i in 0 until bytesToCopy) {
-                    b[off + i] = outputBuffer.removeFirst()
+                // If we satisfied the request, return
+                if (totalBytesCopied >= len) {
+                    return totalBytesCopied
                 }
             }
 
-            return bytesToCopy
+            // If buffer is empty and stream ended, signal end
+            if (streamEnded) {
+                return if (totalBytesCopied > 0) totalBytesCopied else -1
+            }
+
+            // Need more data - read from stream and process it on-demand
+            val bytesRead = readFromStreamSync()
+
+            when {
+                bytesRead < 0 -> {
+                    streamEnded = true
+                    if (!streamEndSignaled) {
+                        streamEndSignaled = true
+                        onStreamEnd?.invoke()
+                    }
+                    return if (totalBytesCopied > 0) totalBytesCopied else -1
+                }
+
+                bytesRead == 0 -> {
+                    // No data available right now
+                    return if (totalBytesCopied > 0) totalBytesCopied else 0
+                }
+
+                else -> {
+                    // Process the chunk we just read
+                    processAudioChunk(bytesRead)
+
+                    // Copy from the newly filled buffer
+                    val newAvailable = synchronized(bufferLock) { outputBuffer.size }
+                    val remainingSpace = len - totalBytesCopied
+                    val bytesToCopy = minOf(newAvailable, remainingSpace)
+
+                    synchronized(bufferLock) {
+                        for (i in 0 until bytesToCopy) {
+                            b[off + totalBytesCopied + i] = outputBuffer.removeFirst()
+                        }
+                    }
+                    totalBytesCopied += bytesToCopy
+
+                    return totalBytesCopied
+                }
+            }
         } catch (_: java.io.IOException) {
             // Stream was closed while reading, signal end of stream
             isClosed = true

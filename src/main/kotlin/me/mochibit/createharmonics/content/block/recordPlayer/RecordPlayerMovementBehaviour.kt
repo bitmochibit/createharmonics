@@ -14,6 +14,7 @@ import me.mochibit.createharmonics.audio.effect.pitchShift.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.MovingSoundInstance
 import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBlockEntity.Companion.MAX_PITCH
 import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBlockEntity.Companion.MIN_PITCH
+import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBlockEntity.PlaybackState
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.getAudioUrl
 import me.mochibit.createharmonics.extension.onClient
@@ -34,76 +35,163 @@ import kotlin.math.abs
  */
 class RecordPlayerMovementBehaviour : MovementBehaviour {
 
+    companion object {
+        private const val PLAYBACK_STATE_KEY = "PlaybackState"
+        private const val PLAY_TIME_KEY = "PlayTime"
+        private const val PLAYER_UUID_KEY = "RecordPlayerUUID"
+    }
+
+
     override fun stopMoving(context: MovementContext) {
         context.world.onServer {
             ModNetworkHandler.channel.send(
-                PacketDistributor.ALL.noArg(), AudioPlayerContextStopPacket(
-                    this.getPlayerUUID(context).toString()
-                )
+                PacketDistributor.ALL.noArg(),
+                AudioPlayerContextStopPacket(getPlayerUUID(context).toString())
             )
         }
     }
 
     override fun tick(context: MovementContext) {
-        context.world.onClient {
-            val uuid = getPlayerUUID(context) ?: return@onClient
-            val playerId = uuid.toString()
+        // Deterministically calculate playback state on BOTH server and client
+        // This ensures they stay synchronized without network packets
+        val currentSpeed = abs(context.animationSpeed)
+        val hasRecord = hasRecord(context)
+        val currentState = getPlaybackState(context)
 
-            val audioUrl = getAudioUrl(context)
-            val isMoving = abs(context.animationSpeed) != 0f
-
-            // Get or create player for this contraption
-            val player = AudioPlayerRegistry.getOrCreatePlayer(playerId) {
-                Logger.info("Creating audio player for moving contraption: $playerId at ${context.localPos}")
-                AudioPlayer(
-                    { streamId, stream ->
-                        MovingSoundInstance(
-                            stream,
-                            streamId,
-                            posSupplier = { BlockPos.containing(context.position) },
-                        )
-                    },
-                    playerId
-                )
+        val newState = when {
+            !hasRecord -> PlaybackState.STOPPED
+            currentSpeed == 0f -> {
+                // Auto-pause when contraption stops moving
+                if (currentState == PlaybackState.PLAYING) PlaybackState.PAUSED
+                else currentState
             }
 
-            // Handle no URL case - stop playback
-            if (audioUrl == null) {
-                if (player.state != AudioPlayer.PlayState.STOPPED) {
-                    player.stop()
+            currentSpeed > 0f -> {
+                // Auto-resume when contraption starts moving (unless manually paused)
+                when (currentState) {
+                    PlaybackState.PAUSED, PlaybackState.STOPPED -> PlaybackState.PLAYING
+                    PlaybackState.MANUALLY_PAUSED -> currentState // Respect manual pause
+                    else -> currentState
                 }
-                return@onClient
             }
 
-            // Handle paused state (not moving but has URL) - pause playback
-            if (!isMoving) {
+            else -> currentState
+        }
+
+        if (newState != currentState) {
+            updatePlaybackState(context, newState)
+        }
+
+        // Client-side only: manage audio player based on the calculated state
+        context.world.onClient {
+            handleClientPlayback(context, newState)
+        }
+    }
+
+    /**
+     * Client-side only: Handle audio playback based on calculated state
+     * State is calculated deterministically on both sides, so no sync needed
+     */
+    private fun handleClientPlayback(context: MovementContext, playbackState: PlaybackState) {
+        val uuid = getPlayerUUID(context) ?: return
+        val playerId = uuid.toString()
+        val audioUrl = getAudioUrl(context)
+
+        // Get or create audio player
+        val player = AudioPlayerRegistry.getOrCreatePlayer(playerId) {
+            Logger.info("Creating audio player for moving contraption: $playerId at ${context.localPos}")
+            AudioPlayer(
+                { streamId, stream ->
+                    MovingSoundInstance(
+                        stream,
+                        streamId,
+                        posSupplier = { BlockPos.containing(context.position) },
+                    )
+                },
+                playerId
+            )
+        }
+
+        // Handle state changes based on calculated state
+        when (playbackState) {
+            PlaybackState.PLAYING -> {
+                when (player.state) {
+                    AudioPlayer.PlayState.STOPPED -> {
+                        if (audioUrl != null) {
+                            Logger.info("Starting audio for player $playerId")
+                            startClientPlayer(player, audioUrl, context)
+                        }
+                    }
+
+                    AudioPlayer.PlayState.PAUSED -> {
+                        Logger.info("Resuming audio for player $playerId")
+                        player.resume()
+                    }
+
+                    else -> {} // Already playing
+                }
+            }
+
+            PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
                 if (player.state == AudioPlayer.PlayState.PLAYING) {
+                    Logger.info("Pausing audio for player $playerId")
                     player.pause()
                 }
-                return@onClient
             }
 
-            // Handle playing state - start or resume playback
-            when (player.state) {
-                AudioPlayer.PlayState.STOPPED -> {
-                    // First time or after stop - start playing
-                    Logger.info("Starting audio for player $playerId with URL: $audioUrl")
-                    startClientPlayer(player, audioUrl, context)
+            PlaybackState.STOPPED -> {
+                if (player.state != AudioPlayer.PlayState.STOPPED) {
+                    Logger.info("Stopping audio for player $playerId")
+                    player.stop()
                 }
-
-                AudioPlayer.PlayState.PAUSED -> {
-                    // Resume from pause
-                    Logger.info("Resuming audio for player $playerId")
-                    player.resume()
-                }
-
-                AudioPlayer.PlayState.PLAYING -> {
-                    // Already playing, do nothing
-                }
-
-                else -> {}
             }
         }
+    }
+
+    /**
+     * Update the playback state locally (runs on both server and client)
+     * No synchronization needed - state is calculated deterministically on both sides
+     */
+    private fun updatePlaybackState(context: MovementContext, newState: PlaybackState) {
+        val oldState = getPlaybackState(context)
+
+        // Store in context.data (local to this side, not synced)
+        context.data.putString(PLAYBACK_STATE_KEY, newState.name)
+
+        when {
+            newState == PlaybackState.STOPPED -> {
+                context.data.putLong(PLAY_TIME_KEY, 0)
+            }
+
+            newState == PlaybackState.PLAYING && oldState != PlaybackState.PLAYING -> {
+                context.data.putLong(PLAY_TIME_KEY, System.currentTimeMillis())
+            }
+        }
+
+        Logger.info("Updated playback state from $oldState to $newState for ${context.localPos}")
+    }
+
+    /**
+     * Get current playback state from context.data (local state, calculated deterministically)
+     */
+    private fun getPlaybackState(context: MovementContext): PlaybackState {
+        if (!context.data.contains(PLAYBACK_STATE_KEY)) {
+            return PlaybackState.STOPPED
+        }
+        return try {
+            PlaybackState.valueOf(context.data.getString(PLAYBACK_STATE_KEY))
+        } catch (_: IllegalArgumentException) {
+            PlaybackState.STOPPED
+        }
+    }
+
+    /**
+     * Check if a record is present in the inventory
+     */
+    private fun hasRecord(context: MovementContext): Boolean {
+        val inventory = getInventoryHandler(context) ?: return false
+        val record = inventory.getStackInSlot(RecordPlayerBlockEntity.RECORD_SLOT)
+        return !record.isEmpty && record.item is EtherealRecordItem
     }
 
     override fun createVisual(
@@ -119,33 +207,22 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
     }
 
     override fun writeExtraData(context: MovementContext) {
-        // This method syncs data from context.data to context.blockEntityData for client sync
-        // For trains, we need to ensure playerUUID is available
-
-        if (context.data.contains("playerUUID")) {
-            val uuid = context.data.getUUID("playerUUID")
-            context.blockEntityData.putUUID("playerUUID", uuid)
-            Logger.info("writeExtraData: Synced playerUUID $uuid from context.data at ${context.localPos}")
-        } else {
-            // If not in context.data, try to get it from the block entity
-            val blockEntity = context.contraption.presentBlockEntities[context.localPos]
-            if (blockEntity is RecordPlayerBlockEntity) {
-                val uuid = blockEntity.playerUUID
-                context.data.putUUID("playerUUID", uuid)
-                context.blockEntityData.putUUID("playerUUID", uuid)
-                Logger.info("writeExtraData: Retrieved and synced playerUUID $uuid from block entity at ${context.localPos}")
-            } else {
-                Logger.err("writeExtraData: Could not find playerUUID for ${context.localPos}")
-            }
-        }
-
-        // Sync inventory
-        if (context.data.contains("inventory")) {
-            context.blockEntityData.put("inventory", context.data.getCompound("inventory"))
-        }
+        context.data.putString(PLAYBACK_STATE_KEY, getPlaybackState(context).name)
     }
 
     private fun startClientPlayer(player: AudioPlayer, audioUrl: String, context: MovementContext) {
+        // Calculate offset time for synchronization (same as block entity)
+        val offsetSeconds = if (context.blockEntityData.contains(PLAY_TIME_KEY)) {
+            val playTime = context.blockEntityData.getLong(PLAY_TIME_KEY)
+            if (playTime > 0) {
+                (System.currentTimeMillis() - playTime) / 1000.0
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        }
+
         val pitchFunction = PitchFunction.smoothedRealTime(
             sourcePitchFunction = PitchFunction.custom { _ ->
                 val currSpeed = abs(context.animationSpeed) / 10.0f
@@ -161,16 +238,18 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                     PitchShiftEffect(pitchFunction),
                 )
             ),
+            offsetSeconds
         )
 
     }
 
     private fun getPlayerUUID(context: MovementContext): UUID? {
-        if (!context.blockEntityData.contains("playerUUID")) {
-            Logger.err("PlayerUUID not found in blockEntityData at ${context.localPos}")
+        // Read from context.data which is automatically synced between server and client
+        if (!context.blockEntityData.contains(PLAYER_UUID_KEY)) {
+            Logger.err("PlayerUUID not found at ${context.localPos}")
             return null
         }
-        return context.blockEntityData.getUUID("playerUUID")
+        return context.blockEntityData.getUUID(PLAYER_UUID_KEY)
     }
 
     /**

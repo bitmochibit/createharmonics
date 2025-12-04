@@ -51,8 +51,6 @@ abstract class RecordPlayerBlock(properties: Properties) : DirectionalKineticBlo
         if (AllItems.WRENCH.isIn(clickItem))
             return InteractionResult.PASS
 
-
-        // If any other item except hand, pass
         if (!clickItem.isEmpty && clickItem.item !is EtherealRecordItem)
             return InteractionResult.PASS
 
@@ -79,24 +77,10 @@ abstract class RecordPlayerBlock(properties: Properties) : DirectionalKineticBlo
                 return InteractionResult.SUCCESS
             }
 
-
             if (blockEntity.hasRecord() && !isPowered) {
                 when (blockEntity.playbackState) {
-                    RecordPlayerBlockEntity.PlaybackState.PAUSED -> {
-                        blockEntity.startPlayer()
-                    }
-
-                    RecordPlayerBlockEntity.PlaybackState.MANUALLY_PAUSED -> {
-                        blockEntity.startPlayer()
-                    }
-
-                    RecordPlayerBlockEntity.PlaybackState.PLAYING -> {
-                        blockEntity.pausePlayer()
-                    }
-
-                    RecordPlayerBlockEntity.PlaybackState.STOPPED -> {
-                        blockEntity.startPlayer()
-                    }
+                    RecordPlayerBlockEntity.PlaybackState.PLAYING -> blockEntity.pausePlayer()
+                    else -> blockEntity.startPlayer()
                 }
             }
         }

@@ -35,19 +35,8 @@ import kotlin.concurrent.Volatile
 import kotlin.math.abs
 
 /**
- * Block entity for the Record Player block.
- *
  * Manages playback of Ethereal Records with dynamic audio effects based on rotational speed.
- * Features include:
- * - Speed-based pitch shifting
- * - Audio effects (volume, low-pass filter, reverb)
- * - Automatic pause/resume based on rotation
- * - Redstone control support
- * - Record inventory management
- *
- * @param type The block entity type
- * @param pos The block position
- * @param state The block state
+ * Supports speed-based pitch shifting, automatic pause/resume, and redstone control.
  */
 open class RecordPlayerBlockEntity(
     type: BlockEntityType<*>,
@@ -55,24 +44,14 @@ open class RecordPlayerBlockEntity(
     state: BlockState,
 ) : KineticBlockEntity(type, pos, state) {
 
-    /**
-     * Represents the current playback state of the record player.
-     */
     enum class PlaybackState {
-        /** Audio is currently playing */
         PLAYING,
-
-        /** No record or playback stopped */
         STOPPED,
-
-        /** Playback paused due to insufficient speed */
         PAUSED,
-
-        /** Playback manually paused by redstone signal */
-        MANUALLY_PAUSED;
+        MANUALLY_PAUSED
     }
 
-    var playerUUID: UUID = UUID.randomUUID()
+    var recordPlayerUUID: UUID = UUID.randomUUID()
         private set
 
     protected val currentPitch: Float
@@ -92,21 +71,42 @@ open class RecordPlayerBlockEntity(
         const val RECORD_SLOT = 0
         const val MIN_PITCH = 0.5f
         const val MAX_PITCH = 2.0f
-        const val PITCH_TRANSITION_TIME = 0.5 // seconds
+        const val PITCH_TRANSITION_TIME = 0.5
         const val VOLUME_LEVEL = 0.8f
         const val LOWPASS_CUTOFF = 3000f
         const val REVERB_ROOM_SIZE = 0.5f
         const val REVERB_DAMPING = 0.2f
         const val REVERB_WET_MIX = 0.8f
         const val SOUND_RADIUS = 64
+
+        // Static tracking for active record players by their audio player UUID
+        private val activePlayersByUUID = mutableMapOf<String, RecordPlayerBlockEntity>()
+
+        /**
+         * Gets the record player block entity associated with the given player UUID.
+         * This is used to handle stream end events from the client.
+         */
+        fun getBlockEntityByPlayerUUID(playerUUID: String): RecordPlayerBlockEntity? {
+            return activePlayersByUUID[playerUUID]
+        }
+
+        /**
+         * Registers a record player when it starts playing.
+         */
+        private fun registerPlayer(playerUUID: String, blockEntity: RecordPlayerBlockEntity) {
+            activePlayersByUUID[playerUUID] = blockEntity
+        }
+
+        /**
+         * Unregisters a record player when it stops playing.
+         */
+        private fun unregisterPlayer(playerUUID: String) {
+            activePlayersByUUID.remove(playerUUID)
+        }
     }
 
-    /**
-     * Audio player instance for this record player.
-     * Lazily initialized and registered globally.
-     */
     private val audioPlayer: AudioPlayer by lazy {
-        AudioPlayerRegistry.getOrCreatePlayer(playerUUID.toString()) {
+        AudioPlayerRegistry.getOrCreatePlayer(recordPlayerUUID.toString()) {
             AudioPlayer(
                 soundInstanceProvider = { streamId, stream ->
                     StaticSoundInstance(
@@ -116,14 +116,11 @@ open class RecordPlayerBlockEntity(
                         SOUND_RADIUS,
                     )
                 },
-                playerId = playerUUID.toString()
+                playerId = recordPlayerUUID.toString()
             )
         }
     }
 
-    /**
-     * Inventory handler for storing a single Ethereal Record.
-     */
     val inventoryHandler = object : ItemStackHandler(1) {
         override fun isItemValid(slot: Int, stack: ItemStack): Boolean {
             return stack.item is EtherealRecordItem
@@ -143,17 +140,11 @@ open class RecordPlayerBlockEntity(
     protected val lazyInventoryHandler: LazyOptional<IItemHandler> =
         LazyOptional.of { inventoryHandler }
 
-    /**
-     * Pitch function that smoothly transitions based on the current rotational speed.
-     */
     val speedBasedPitchFunction = PitchFunction.smoothedRealTime(
         sourcePitchFunction = PitchFunction.custom { _ -> currentPitch },
         transitionTimeSeconds = PITCH_TRANSITION_TIME
     )
 
-    /**
-     * Start playback if conditions are met (has record and sufficient speed).
-     */
     fun startPlayer() {
         when {
             !hasRecord() -> {
@@ -161,7 +152,7 @@ open class RecordPlayerBlockEntity(
             }
 
             abs(this.speed) <= 0.0f -> {
-                updatePlaybackState(PlaybackState.PAUSED, resetTime = true)
+                updatePlaybackState(PlaybackState.PAUSED, resetTime = false)
             }
 
             else -> {
@@ -170,23 +161,14 @@ open class RecordPlayerBlockEntity(
         }
     }
 
-    /**
-     * Stop playback and reset play time.
-     */
     fun stopPlayer() {
         updatePlaybackState(PlaybackState.STOPPED, resetTime = true)
     }
 
-    /**
-     * Manually pause playback (typically by redstone signal).
-     */
     fun pausePlayer() {
         updatePlaybackState(PlaybackState.MANUALLY_PAUSED, resetTime = false)
     }
 
-    /**
-     * Internal helper to update playback state only when it changes.
-     */
     private fun updatePlaybackState(
         newState: PlaybackState,
         resetTime: Boolean = false,
@@ -196,6 +178,7 @@ open class RecordPlayerBlockEntity(
             return
         }
 
+        val oldState = playbackState
         playbackState = newState
 
         when {
@@ -203,15 +186,21 @@ open class RecordPlayerBlockEntity(
             setCurrentTime -> playTime = System.currentTimeMillis()
         }
 
+        // Register/unregister player tracking
+        when {
+            newState == PlaybackState.PLAYING && oldState != PlaybackState.PLAYING -> {
+                registerPlayer(recordPlayerUUID.toString(), this)
+            }
+
+            newState == PlaybackState.STOPPED && oldState != PlaybackState.STOPPED -> {
+                unregisterPlayer(recordPlayerUUID.toString())
+            }
+        }
+
         notifyUpdate()
     }
 
-    /**
-     * Start audio playback on the client with configured effects.
-     * @param audioUrl The URL of the audio to play
-     */
     protected fun startClientPlayer(audioUrl: String) {
-
         val offsetSeconds = if (playTime > 0) {
             (System.currentTimeMillis() - this.playTime) / 1000.0
         } else {
@@ -236,35 +225,25 @@ open class RecordPlayerBlockEntity(
         )
     }
 
-    /**
-     * Resume paused audio playback on the client.
-     */
     protected fun resumeClientPlayer() {
         audioPlayer.resume()
     }
 
-    /**
-     * Pause audio playback on the client.
-     */
     protected fun pauseClientPlayer() {
         audioPlayer.pause()
     }
 
-    /**
-     * Stop audio playback on the client.
-     */
     protected fun stopClientPlayer() {
         audioPlayer.stop()
     }
 
     override fun remove() {
         onClient {
-            // Properly dispose of audio player when block entity is removed
-            // Only dispose if it was actually used (player is registered)
-            if (AudioPlayerRegistry.containsStream(playerUUID.toString())) {
+            if (AudioPlayerRegistry.containsStream(recordPlayerUUID.toString())) {
                 audioPlayer.dispose()
             }
         }
+        unregisterPlayer(recordPlayerUUID.toString())
         super.remove()
     }
 
@@ -274,9 +253,6 @@ open class RecordPlayerBlockEntity(
         super.destroy()
     }
 
-    /**
-     * Drop all inventory contents into the world.
-     */
     fun dropContent() {
         val currLevel = this.level ?: return
         val inv = SimpleContainer(inventoryHandler.slots)
@@ -287,12 +263,6 @@ open class RecordPlayerBlockEntity(
         Containers.dropContents(currLevel, this.worldPosition, inv)
     }
 
-    /**
-     * Insert a record into the player.
-     * @param discItem The record item stack to insert
-     * @param autoPlay Whether to automatically start playing if speed is sufficient
-     * @return true if the record was successfully inserted
-     */
     fun insertRecord(discItem: ItemStack, autoPlay: Boolean = false): Boolean {
         if (hasRecord()) return false
         inventoryHandler.insertItem(RECORD_SLOT, discItem.copy(), false)
@@ -305,41 +275,26 @@ open class RecordPlayerBlockEntity(
         return true
     }
 
-    /**
-     * Remove and return the current record.
-     * @return The record item stack, or null if no record is present
-     */
     fun popRecord(): ItemStack? {
         if (!hasRecord()) return null
         val item = inventoryHandler.extractItem(RECORD_SLOT, 1, false)
         return item
     }
 
-    /**
-     * Get a copy of the current record without removing it.
-     * @return A copy of the record item stack
-     */
     fun getRecord(): ItemStack {
         return inventoryHandler.getStackInSlot(RECORD_SLOT).copy()
     }
 
-    /**
-     * Get the current record as an EtherealRecordItem.
-     * @return The EtherealRecordItem, or null if no record or not an EtherealRecordItem
-     */
     fun getRecordItem(): EtherealRecordItem? {
         val recordStack = getRecord()
         if (recordStack.isEmpty || recordStack.item !is EtherealRecordItem) return null
         return recordStack.item as EtherealRecordItem
     }
 
-    /**
-     * Check if a record is currently in the player.
-     * @return true if a record is present
-     */
     fun hasRecord(): Boolean {
         return !inventoryHandler.getStackInSlot(RECORD_SLOT).isEmpty
     }
+
 
     override fun <T : Any?> getCapability(
         cap: Capability<T?>,
@@ -390,9 +345,9 @@ open class RecordPlayerBlockEntity(
     override fun write(compound: CompoundTag, clientPacket: Boolean) {
         super.write(compound, clientPacket)
         compound.put("Inventory", inventoryHandler.serializeNBT())
-        NBTHelper.writeEnum(compound, "playbackState", playbackState)
-        compound.putUUID("playerUUID", playerUUID)
-        compound.putLong("playTime", playTime)
+        NBTHelper.writeEnum(compound, "PlaybackState", playbackState)
+        compound.putUUID("RecordPlayerUUID", recordPlayerUUID)
+        compound.putLong("PlayTime", playTime)
     }
 
     override fun read(compound: CompoundTag, clientPacket: Boolean) {
@@ -401,25 +356,27 @@ open class RecordPlayerBlockEntity(
             inventoryHandler.deserializeNBT(compound.getCompound("Inventory"))
         }
 
-        if (compound.contains("playerUUID")) {
-            playerUUID = compound.getUUID("playerUUID")
+        if (compound.contains("RecordPlayerUUID")) {
+            recordPlayerUUID = compound.getUUID("RecordPlayerUUID")
         }
 
-        // Read playTime BEFORE processing playbackState
-        // This ensures the offset calculation has valid data
-        if (compound.contains("playTime")) {
-            playTime = compound.getLong("playTime")
+        if (compound.contains("PlayTime")) {
+            playTime = compound.getLong("PlayTime")
         }
 
-        if (compound.contains("playbackState")) {
-            val newPlaybackState = NBTHelper.readEnum(compound, "playbackState", PlaybackState::class.java)
+        if (compound.contains("PlaybackState")) {
+            val newPlaybackState = NBTHelper.readEnum(compound, "PlaybackState", PlaybackState::class.java)
             val oldPlaybackState = playbackState
+
             onClient {
-                // Only act if the state actually changed
                 if (oldPlaybackState != newPlaybackState) {
-                    when (newPlaybackState) {
-                        PlaybackState.PLAYING -> {
-                            // Start or restart playback with correct offset
+                    when {
+                        newPlaybackState == PlaybackState.PLAYING &&
+                                (oldPlaybackState == PlaybackState.PAUSED || oldPlaybackState == PlaybackState.MANUALLY_PAUSED) -> {
+                            resumeClientPlayer()
+                        }
+
+                        newPlaybackState == PlaybackState.PLAYING && oldPlaybackState == PlaybackState.STOPPED -> {
                             val currentRecord = getRecord()
                             if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
                                 val audioUrl = getAudioUrl(currentRecord)
@@ -429,11 +386,11 @@ open class RecordPlayerBlockEntity(
                             }
                         }
 
-                        PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
+                        newPlaybackState == PlaybackState.PAUSED || newPlaybackState == PlaybackState.MANUALLY_PAUSED -> {
                             pauseClientPlayer()
                         }
 
-                        PlaybackState.STOPPED -> {
+                        newPlaybackState == PlaybackState.STOPPED -> {
                             stopClientPlayer()
                         }
                     }
