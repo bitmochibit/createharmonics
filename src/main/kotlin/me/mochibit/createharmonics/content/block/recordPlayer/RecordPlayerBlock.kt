@@ -22,19 +22,24 @@ import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.shapes.CollisionContext
 import net.minecraft.world.phys.shapes.VoxelShape
 
-abstract class RecordPlayerBlock(properties: Properties) : DirectionalKineticBlock(properties) {
-
+abstract class RecordPlayerBlock(
+    properties: Properties,
+) : DirectionalKineticBlock(properties) {
     init {
         registerDefaultState(
-            stateDefinition.any()
-                .setValue(JukeboxBlock.HAS_RECORD, false)
+            stateDefinition
+                .any()
+                .setValue(JukeboxBlock.HAS_RECORD, false),
         )
     }
 
     @Deprecated("Deprecated in Java")
-    override fun getShape(state: BlockState, level: BlockGetter, pos: BlockPos, context: CollisionContext): VoxelShape {
-        return AllShapes.CASING_14PX[Direction.DOWN]
-    }
+    override fun getShape(
+        state: BlockState,
+        level: BlockGetter,
+        pos: BlockPos,
+        context: CollisionContext,
+    ): VoxelShape = AllShapes.CASING_14PX[Direction.DOWN]
 
     @Deprecated("Deprecated in Java")
     override fun use(
@@ -43,17 +48,18 @@ abstract class RecordPlayerBlock(properties: Properties) : DirectionalKineticBlo
         pPos: BlockPos,
         pPlayer: Player,
         pHand: InteractionHand,
-        pHit: BlockHitResult
+        pHit: BlockHitResult,
     ): InteractionResult {
         val blockEntity = pLevel.getBlockEntity(pPos) as? AndesiteJukeboxBlockEntity ?: return InteractionResult.PASS
         val clickItem = pPlayer.getItemInHand(pHand)
 
-        if (AllItems.WRENCH.isIn(clickItem))
+        if (AllItems.WRENCH.isIn(clickItem)) {
             return InteractionResult.PASS
+        }
 
-        if (!clickItem.isEmpty && clickItem.item !is EtherealRecordItem)
+        if (!clickItem.isEmpty && clickItem.item !is EtherealRecordItem) {
             return InteractionResult.PASS
-
+        }
 
         pLevel.onServer {
             val isPowered = pLevel.hasNeighborSignal(pPos)
@@ -79,7 +85,7 @@ abstract class RecordPlayerBlock(properties: Properties) : DirectionalKineticBlo
 
             if (blockEntity.hasRecord() && !isPowered) {
                 when (blockEntity.playbackState) {
-                    RecordPlayerBlockEntity.PlaybackState.PLAYING -> blockEntity.pausePlayer()
+                    RecordPlayerBehaviour.PlaybackState.PLAYING -> blockEntity.pausePlayer()
                     else -> blockEntity.startPlayer()
                 }
             }
@@ -93,18 +99,19 @@ abstract class RecordPlayerBlock(properties: Properties) : DirectionalKineticBlo
         pLevel: Level,
         pPos: BlockPos,
         pNewState: BlockState,
-        pIsMoving: Boolean
+        pIsMoving: Boolean,
     ) {
         super.onRemove(pState, pLevel, pPos, pNewState, pIsMoving)
     }
 
-    override fun hasShaftTowards(world: LevelReader?, pos: BlockPos?, state: BlockState, face: Direction?): Boolean {
-        return face == state.getValue(FACING).opposite
-    }
+    override fun hasShaftTowards(
+        world: LevelReader?,
+        pos: BlockPos?,
+        state: BlockState,
+        face: Direction?,
+    ): Boolean = face == state.getValue(FACING).opposite
 
-    override fun getRotationAxis(state: BlockState): Direction.Axis {
-        return state.getValue(FACING).axis
-    }
+    override fun getRotationAxis(state: BlockState): Direction.Axis = state.getValue(FACING).axis
 
     override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block?, BlockState?>) {
         super.createBlockStateDefinition(builder)

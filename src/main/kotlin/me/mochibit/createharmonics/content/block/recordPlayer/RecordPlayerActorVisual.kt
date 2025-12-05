@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.content.block.recordPlayer
 
 import com.simibubi.create.AllPartialModels
+import com.simibubi.create.api.contraption.storage.item.MountedItemStorage
 import com.simibubi.create.content.contraptions.behaviour.MovementContext
 import com.simibubi.create.content.contraptions.render.ActorVisual
 import com.simibubi.create.content.kinetics.base.KineticBlockEntityVisual
@@ -26,13 +27,12 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties
 class RecordPlayerActorVisual(
     context: VisualizationContext,
     val world: VirtualRenderWorld,
-    val movementContext: MovementContext
+    val movementContext: MovementContext,
 ) : ActorVisual(
-    context,
-    world,
-    movementContext
+        context,
+        world,
+        movementContext,
 ) {
-
     private val discFacing = movementContext.state.getValue(BlockStateProperties.FACING)
     private val axis: Direction.Axis = KineticBlockEntityVisual.rotationAxis(movementContext.state)
     private val blockState: BlockState = movementContext.state
@@ -45,9 +45,10 @@ class RecordPlayerActorVisual(
 
     private var currentModel: PartialModel = ModPartialModels.getRecordModel(RecordType.BRASS)
 
-
     val disc: TransformedInstance =
-        instancerProvider.instancer(InstanceTypes.TRANSFORMED, Models.partial(currentModel)).createInstance()
+        instancerProvider
+            .instancer(InstanceTypes.TRANSFORMED, Models.partial(currentModel))
+            .createInstance()
             .apply {
                 light(localBlockLight(), 0)
                 setVisible(false)
@@ -55,7 +56,9 @@ class RecordPlayerActorVisual(
             }
 
     val shaft: RotatingInstance =
-        instancerProvider.instancer(AllInstanceTypes.ROTATING, Models.partial(AllPartialModels.SHAFT_HALF)).createInstance()
+        instancerProvider
+            .instancer(AllInstanceTypes.ROTATING, Models.partial(AllPartialModels.SHAFT_HALF))
+            .createInstance()
             .apply {
                 setRotationAxis(axis)
                 setRotationOffset(KineticBlockEntityVisual.rotationOffset(blockState, axis, movementContext.localPos))
@@ -65,21 +68,24 @@ class RecordPlayerActorVisual(
                 setChanged()
             }
 
+    private fun getMountedStorage(): RecordPlayerMountedStorage? {
+        val contraptionEntity = context.contraption.entity
+        val storage: MountedItemStorage? =
+            contraptionEntity
+                .getContraption()
+                .getStorage()
+                .getAllItemStorages()
+                .get(context.localPos)
 
-    private fun getInventoryHandler(): RecordPlayerMountedStorage? {
-        val storageManager = context.contraption.storage
-        val rpInventory = storageManager.allItemStorages.get(context.localPos) as? RecordPlayerMountedStorage
-        return rpInventory
-    }
+        if (storage is RecordPlayerMountedStorage) {
+            return storage
+        }
 
-    private fun hasRecord(): Boolean {
-        val handler = getInventoryHandler() ?: return false
-        val record: ItemStack = handler.getStackInSlot(0)
-        return !record.isEmpty && record.item is EtherealRecordItem
+        return null
     }
 
     private fun getRecord(): EtherealRecordItem? {
-        val handler = getInventoryHandler() ?: return null
+        val handler = getMountedStorage() ?: return null
         val record: ItemStack = handler.getStackInSlot(0)
         if (record.isEmpty || record.item !is EtherealRecordItem) return null
         return record.item as EtherealRecordItem
@@ -93,7 +99,6 @@ class RecordPlayerActorVisual(
                 instancerProvider.instancer(InstanceTypes.TRANSFORMED, Models.partial(currentModel)).stealInstance(disc)
             }
             disc.setVisible(true)
-
         } else {
             disc.setVisible(false)
         }
@@ -102,7 +107,7 @@ class RecordPlayerActorVisual(
 
         previousRotation = rotation
 
-        currentSpeed = currentSpeed.lerpTo(context.animationSpeed/20, speedSmoothingFactor)
+        currentSpeed = currentSpeed.lerpTo(context.animationSpeed / 20, speedSmoothingFactor)
 
         val deg: Float = currentSpeed * 5
 
@@ -118,18 +123,15 @@ class RecordPlayerActorVisual(
             .translate(
                 discFacing.normal.x * .95f,
                 discFacing.normal.y * .95f,
-                discFacing.normal.z * .95f
-            )
-            .center()
+                discFacing.normal.z * .95f,
+            ).center()
             .rotateToFace(discFacing)
             .rotateZDegrees(getRotation())
             .uncenter()
             .setChanged()
     }
 
-    private fun getRotation(): Float {
-        return AngleHelper.angleLerp(AnimationTickHolder.getPartialTicks().toDouble(), previousRotation, rotation)
-    }
+    private fun getRotation(): Float = AngleHelper.angleLerp(AnimationTickHolder.getPartialTicks().toDouble(), previousRotation, rotation)
 
     override fun _delete() {
         disc.delete()

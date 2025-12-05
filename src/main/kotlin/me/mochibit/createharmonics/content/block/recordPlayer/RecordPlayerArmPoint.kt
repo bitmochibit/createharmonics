@@ -13,22 +13,23 @@ class RecordPlayerArmPoint(
     type: ArmInteractionPointType,
     level: Level,
     pos: BlockPos,
-    state: BlockState
+    state: BlockState,
 ) : AllArmInteractionPointTypes.JukeboxPoint(type, level, pos, state) {
     override fun insert(
         stack: ItemStack?,
-        simulate: Boolean
+        simulate: Boolean,
     ): ItemStack? {
         if (stack?.item !is EtherealRecordItem) return stack
         if (cachedState.getOptionalValue(JukeboxBlock.HAS_RECORD).orElse(true)) return stack
-        val be = level.getBlockEntity(pos) as? RecordPlayerBlockEntity
-            ?: return stack
+        val be =
+            level.getBlockEntity(pos) as? RecordPlayerBlockEntity
+                ?: return stack
 
         val remainder = stack.copy()
         val toInsert = remainder.split(1)
-        val isPowered = level.hasNeighborSignal(pos)
+        level.hasNeighborSignal(pos)
         if (!simulate) {
-            be.insertRecord(toInsert, isPowered)
+            be.insertRecord(toInsert)
         }
 
         return remainder
@@ -37,11 +38,12 @@ class RecordPlayerArmPoint(
     override fun extract(
         slot: Int,
         amount: Int,
-        simulate: Boolean
+        simulate: Boolean,
     ): ItemStack {
         if (cachedState.getOptionalValue(JukeboxBlock.HAS_RECORD).orElse(false)) return ItemStack.EMPTY
-        val be = level.getBlockEntity(pos) as? RecordPlayerBlockEntity
-            ?: return ItemStack.EMPTY
+        val be =
+            level.getBlockEntity(pos) as? RecordPlayerBlockEntity
+                ?: return ItemStack.EMPTY
 
         if (!simulate) {
             val record = be.popRecord()
