@@ -1,7 +1,6 @@
 package me.mochibit.createharmonics.content.block.recordPlayer
 
 import com.simibubi.create.AllPartialModels
-import com.simibubi.create.api.contraption.storage.item.MountedItemStorage
 import com.simibubi.create.content.contraptions.behaviour.MovementContext
 import com.simibubi.create.content.contraptions.render.ActorVisual
 import com.simibubi.create.content.kinetics.base.KineticBlockEntityVisual
@@ -25,17 +24,17 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 
 class RecordPlayerActorVisual(
-    context: VisualizationContext,
-    val world: VirtualRenderWorld,
-    val movementContext: MovementContext,
+    vCtx: VisualizationContext,
+    vRw: VirtualRenderWorld,
+    mCtx: MovementContext,
 ) : ActorVisual(
-        context,
-        world,
-        movementContext,
-) {
-    private val discFacing = movementContext.state.getValue(BlockStateProperties.FACING)
-    private val axis: Direction.Axis = KineticBlockEntityVisual.rotationAxis(movementContext.state)
-    private val blockState: BlockState = movementContext.state
+        vCtx,
+        vRw,
+        mCtx,
+    ) {
+    private val discFacing = context.state.getValue(BlockStateProperties.FACING)
+    private val axis: Direction.Axis = KineticBlockEntityVisual.rotationAxis(context.state)
+    private val blockState: BlockState = context.state
 
     private var rotation: Double = 0.0
     private var previousRotation: Double = 0.0
@@ -44,6 +43,8 @@ class RecordPlayerActorVisual(
     private val speedSmoothingFactor = 0.1f
 
     private var currentModel: PartialModel = ModPartialModels.getRecordModel(RecordType.BRASS)
+
+    private var cachedRecordType: RecordType? = null
 
     val disc: TransformedInstance =
         instancerProvider
@@ -61,46 +62,27 @@ class RecordPlayerActorVisual(
             .createInstance()
             .apply {
                 setRotationAxis(axis)
-                setRotationOffset(KineticBlockEntityVisual.rotationOffset(blockState, axis, movementContext.localPos))
-                setPosition(movementContext.localPos)
+                setRotationOffset(KineticBlockEntityVisual.rotationOffset(blockState, axis, context.localPos))
+                setPosition(context.localPos)
                 rotateToFace(Direction.SOUTH, blockState.getValue(BlockStateProperties.FACING).opposite)
                 light(localBlockLight(), 0)
                 setChanged()
             }
 
-    private fun getMountedStorage(): RecordPlayerMountedStorage? {
-        val contraptionEntity = context.contraption.entity
-        val storage: MountedItemStorage? =
-            contraptionEntity
-                .getContraption()
-                .getStorage()
-                .getAllItemStorages()
-                .get(context.localPos)
-
-        if (storage is RecordPlayerMountedStorage) {
-            return storage
-        }
-
-        return null
-    }
-
     private fun getRecord(): EtherealRecordItem? {
-        val handler = getMountedStorage() ?: return null
-        val record: ItemStack = handler.getStackInSlot(0)
+        val be = context.contraption.presentBlockEntities[context.localPos] as? RecordPlayerBlockEntity ?: return null
+        val record: ItemStack = be.getRecord()
         if (record.isEmpty || record.item !is EtherealRecordItem) return null
         return record.item as EtherealRecordItem
     }
 
     override fun tick() {
         val recordItem = getRecord()
-        if (recordItem != null) {
-            if (currentModel != ModPartialModels.getRecordModel(recordItem.recordType)) {
-                currentModel = ModPartialModels.getRecordModel(recordItem.recordType)
-                instancerProvider.instancer(InstanceTypes.TRANSFORMED, Models.partial(currentModel)).stealInstance(disc)
-            }
-            disc.setVisible(true)
-        } else {
-            disc.setVisible(false)
+        val newRecordType = recordItem?.recordType
+
+        if (newRecordType != cachedRecordType) {
+            cachedRecordType = newRecordType
+            updateRecordModel(newRecordType)
         }
 
         if (context.disabled) return
@@ -114,6 +96,16 @@ class RecordPlayerActorVisual(
         rotation += (deg / 20).toDouble()
 
         rotation %= 360.0
+    }
+
+    private fun updateRecordModel(recordType: RecordType?) {
+        if (recordType != null) {
+            currentModel = ModPartialModels.getRecordModel(recordType)
+            instancerProvider.instancer(InstanceTypes.TRANSFORMED, Models.partial(currentModel)).stealInstance(disc)
+            disc.setVisible(true)
+        } else {
+            disc.setVisible(false)
+        }
     }
 
     override fun beginFrame() {

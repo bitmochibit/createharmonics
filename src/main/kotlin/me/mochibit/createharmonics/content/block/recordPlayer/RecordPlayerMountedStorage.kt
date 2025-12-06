@@ -7,6 +7,7 @@ import com.simibubi.create.api.contraption.storage.item.WrapperMountedItemStorag
 import com.simibubi.create.content.contraptions.Contraption
 import com.simibubi.create.foundation.utility.CreateCodecs
 import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
+import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerMountedStorage.Handler
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.registry.ModMountedStorageRegistry
 import net.minecraft.core.BlockPos
@@ -22,15 +23,38 @@ import net.minecraftforge.items.ItemStackHandler
 
 class RecordPlayerMountedStorage(
     mountedStorageType: MountedItemStorageType<*>,
-    handler: ItemStackHandler,
-) : WrapperMountedItemStorage<ItemStackHandler>(
+    handler: Handler,
+) : WrapperMountedItemStorage<Handler>(
         mountedStorageType,
         handler,
     ),
     SyncedMountedStorage {
-    constructor(wrapped: ItemStackHandler) : this(ModMountedStorageRegistry.SIMPLE_RECORD_PLAYER_STORAGE.get(), wrapped)
+    companion object {
+        @JvmStatic
+        val CODEC: Codec<RecordPlayerMountedStorage> =
+            CreateCodecs.ITEM_STACK_HANDLER
+                .xmap(
+                    { handler ->
+                        RecordPlayerMountedStorage(Handler(handler, handler.slots)).apply {
+                            markDirty()
+                        }
+                    },
+                ) { storage -> storage.wrapped }
 
-    private var dirty = true // Need immediate resync
+        fun fromRecordPlayer(be: RecordPlayerBlockEntity): RecordPlayerMountedStorage {
+            val handler = be.lazyItemHandler.resolve().get()
+            return RecordPlayerMountedStorage(Handler(handler, handler.slots))
+        }
+    }
+
+    constructor(wrapped: Handler) : this(ModMountedStorageRegistry.SIMPLE_RECORD_PLAYER_STORAGE.get(), wrapped)
+
+    private var dirty = false
+
+    init {
+        // Set up onChange callback to mark dirty on any future changes
+        this.wrapped.onChange = { markDirty() }
+    }
 
     override fun isItemValid(
         slot: Int,
@@ -59,7 +83,6 @@ class RecordPlayerMountedStorage(
             val discItem = getRecord().copy()
             if (discItem.isEmpty) return false
             setRecord(ItemStack.EMPTY)
-            dirty = true
             if (!player.inventory.add(discItem)) {
                 player.drop(discItem, false)
             }
@@ -68,7 +91,6 @@ class RecordPlayerMountedStorage(
             if (!discItem.isEmpty) return false
             if (itemInHand.item is EtherealRecordItem) {
                 setRecord(itemInHand.copy())
-                dirty = true
                 itemInHand.shrink(1)
             }
         }
@@ -87,10 +109,18 @@ class RecordPlayerMountedStorage(
         dirty = false
     }
 
+    fun markDirty() {
+        dirty = true
+    }
+
     override fun afterSync(
         contraption: Contraption,
         localPos: BlockPos,
     ) {
+        val be = contraption.presentBlockEntities[localPos]
+        if (be is RecordPlayerBlockEntity) {
+            be.setRecordItem(this.getRecord())
+        }
     }
 
     fun setRecord(recordStack: ItemStack) {
@@ -99,17 +129,25 @@ class RecordPlayerMountedStorage(
 
     fun getRecord(): ItemStack = this.wrapped.getStackInSlot(MAIN_RECORD_SLOT)
 
-    companion object {
-        val CODEC: Codec<RecordPlayerMountedStorage> =
-            CreateCodecs.ITEM_STACK_HANDLER
-                .xmap(
-                    ::RecordPlayerMountedStorage,
-                    { storage -> storage.wrapped },
-                )
+    class Handler(
+        slots: Int,
+    ) : ItemStackHandler(slots) {
+        var onChange: () -> Unit = {}
 
-        fun fromRecordPlayer(be: RecordPlayerBlockEntity): RecordPlayerMountedStorage {
-            val handler = be.lazyItemHandler.resolve().get()
-            return RecordPlayerMountedStorage(copyToItemStackHandler(handler))
+        var onLoadEvent: () -> Unit = {}
+
+        constructor(handler: ItemStackHandler, slots: Int) : this(slots) {
+            for (i in 0 until handler.slots) {
+                this.setStackInSlot(i, handler.getStackInSlot(i).copy())
+            }
+        }
+
+        override fun onLoad() {
+            onLoadEvent()
+        }
+
+        override fun onContentsChanged(slot: Int) {
+            onChange()
         }
     }
 }
