@@ -5,6 +5,7 @@ import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.asResource
 import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.network.packet.AudioPlayerStreamEndPacket
+import me.mochibit.createharmonics.network.packet.ContraptionBlockDataChangedPacket
 import me.mochibit.createharmonics.registry.AbstractModRegistry
 import net.minecraft.network.FriendlyByteBuf
 import net.minecraftforge.eventbus.api.IEventBus
@@ -20,16 +21,19 @@ object ModNetworkHandler : AbstractModRegistry {
     private const val NETWORK_VERSION = "1"
     private var packetId = 0
 
-    val channel: SimpleChannel = NetworkRegistry.ChannelBuilder.named(
-        "main".asResource()
-    )
-        .serverAcceptedVersions { it == NETWORK_VERSION }
-        .clientAcceptedVersions { it == NETWORK_VERSION }
-        .networkProtocolVersion { PROTOCOL_VERSION }
-        .simpleChannel()
+    val channel: SimpleChannel =
+        NetworkRegistry.ChannelBuilder
+            .named(
+                "main".asResource(),
+            ).serverAcceptedVersions { it == NETWORK_VERSION }
+            .clientAcceptedVersions { it == NETWORK_VERSION }
+            .networkProtocolVersion { PROTOCOL_VERSION }
+            .simpleChannel()
 
-
-    override fun register(eventBus: IEventBus, context: FMLJavaModLoadingContext) {
+    override fun register(
+        eventBus: IEventBus,
+        context: FMLJavaModLoadingContext,
+    ) {
         Logger.info("Registering Mod Network Channel")
         val allPackets = PacketType::class.sealedSubclasses.mapNotNull { it.objectInstance }
         for (packet in allPackets) {
@@ -40,7 +44,7 @@ object ModNetworkHandler : AbstractModRegistry {
     private sealed class PacketType<T : SimplePacketBase>(
         val type: Class<T>,
         factory: (FriendlyByteBuf) -> T,
-        val direction: NetworkDirection
+        val direction: NetworkDirection,
     ) {
         private val encoder: (T, FriendlyByteBuf) -> Unit = { base, buff ->
             base.write(buff)
@@ -63,19 +67,23 @@ object ModNetworkHandler : AbstractModRegistry {
         }
 
         // CLIENT -> SERVER
-        object AUDIO_PLAYER_STREAM_END : PacketType<AudioPlayerStreamEndPacket>(
+        object AudioPlayerStreamEnd : PacketType<AudioPlayerStreamEndPacket>(
             AudioPlayerStreamEndPacket::class.java,
             ::AudioPlayerStreamEndPacket,
-            NetworkDirection.PLAY_TO_SERVER
+            NetworkDirection.PLAY_TO_SERVER,
         )
-
 
         // SERVER -> CLIENT
-        object AUDIO_PLAYER_CONTEXT_STOP : PacketType<AudioPlayerContextStopPacket>(
+        object AudioPlayerContextStop : PacketType<AudioPlayerContextStopPacket>(
             AudioPlayerContextStopPacket::class.java,
             ::AudioPlayerContextStopPacket,
-            NetworkDirection.PLAY_TO_CLIENT
+            NetworkDirection.PLAY_TO_CLIENT,
         )
 
+        object ContraptionBlockDataChanged : PacketType<ContraptionBlockDataChangedPacket>(
+            ContraptionBlockDataChangedPacket::class.java,
+            ::ContraptionBlockDataChangedPacket,
+            NetworkDirection.PLAY_TO_CLIENT,
+        )
     }
 }
