@@ -24,8 +24,6 @@ import net.minecraftforge.network.PacketDistributor
 import java.util.*
 import kotlin.math.abs
 
-daskldjsadlksaj
-
 class RecordPlayerMovementBehaviour : MovementBehaviour {
     companion object {
         private const val PLAY_TIME_KEY = "PlayTime"
