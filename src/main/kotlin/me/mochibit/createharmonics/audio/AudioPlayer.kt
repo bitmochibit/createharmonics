@@ -39,7 +39,7 @@ typealias StreamingSoundInstanceProvider = (streamId: StreamId, stream: InputStr
 class AudioPlayer(
     val soundInstanceProvider: StreamingSoundInstanceProvider,
     val playerId: String = UUID.randomUUID().toString(),
-    val sampleRate: Int = 48000
+    val sampleRate: Int = 48000,
 ) {
     /**
      * Represents the current playback state of the audio player.
@@ -91,7 +91,7 @@ class AudioPlayer(
     fun play(
         url: String,
         effectChain: EffectChain = EffectChain.empty(),
-        offsetSeconds: Double = 0.0
+        offsetSeconds: Double = 0.0,
     ) {
         if (url.isBlank()) {
             Logger.err("AudioPlayer $playerId: Cannot play empty URL")
@@ -118,9 +118,10 @@ class AudioPlayer(
                 updatePlaybackConfiguration(url, effectChain, offsetSeconds)
                 playState = PlayState.LOADING
 
-                val playbackResult = runCatching {
-                    initializePlayback(url, effectChain, offsetSeconds)
-                }
+                val playbackResult =
+                    runCatching {
+                        initializePlayback(url, effectChain, offsetSeconds)
+                    }
 
                 if (playbackResult.isFailure) {
                     Logger.err("AudioPlayer $playerId: Error during playback initialization: ${playbackResult.exceptionOrNull()?.message}")
@@ -131,21 +132,31 @@ class AudioPlayer(
         }
     }
 
-    private fun isAlreadyPlayingSameContent(url: String, effectChain: EffectChain): Boolean {
-        return playState == PlayState.PLAYING && currentUrl == url && currentEffectChain == effectChain
-    }
+    private fun isAlreadyPlayingSameContent(
+        url: String,
+        effectChain: EffectChain,
+    ): Boolean = playState == PlayState.PLAYING && currentUrl == url && currentEffectChain == effectChain
 
-    private fun updatePlaybackConfiguration(url: String, effectChain: EffectChain, offsetSeconds: Double) {
+    private fun updatePlaybackConfiguration(
+        url: String,
+        effectChain: EffectChain,
+        offsetSeconds: Double,
+    ) {
         currentUrl = url
         currentEffectChain = effectChain
         currentOffsetSeconds = offsetSeconds
     }
 
-    private suspend fun initializePlayback(url: String, effectChain: EffectChain, offsetSeconds: Double) {
-        val audioSource = resolveAudioSource(url) ?: run {
-            Logger.err("AudioPlayer $playerId: Failed to resolve audio source for URL: $url")
-            throw IllegalArgumentException("Unsupported audio source")
-        }
+    private suspend fun initializePlayback(
+        url: String,
+        effectChain: EffectChain,
+        offsetSeconds: Double,
+    ) {
+        val audioSource =
+            resolveAudioSource(url) ?: run {
+                Logger.err("AudioPlayer $playerId: Failed to resolve audio source for URL: $url")
+                throw IllegalArgumentException("Unsupported audio source")
+            }
 
         val effectiveUrl = audioSource.resolveAudioUrl()
         if (!ffmpegExecutor.createStream(effectiveUrl, sampleRate, offsetSeconds)) {
@@ -153,8 +164,9 @@ class AudioPlayer(
             throw IllegalStateException("FFmpeg stream initialization failed")
         }
 
-        val inputStream = ffmpegExecutor.inputStream
-            ?: throw IllegalStateException("FFmpeg input stream is null")
+        val inputStream =
+            ffmpegExecutor.inputStream
+                ?: throw IllegalStateException("FFmpeg input stream is null")
 
         val audioStream = createAudioEffectInputStream(inputStream, effectChain)
         processingAudioStream = audioStream
@@ -169,16 +181,15 @@ class AudioPlayer(
 
     private fun createAudioEffectInputStream(
         inputStream: InputStream,
-        effectChain: EffectChain
-    ): AudioEffectInputStream {
-        return AudioEffectInputStream(
+        effectChain: EffectChain,
+    ): AudioEffectInputStream =
+        AudioEffectInputStream(
             inputStream,
             effectChain,
             sampleRate,
             onStreamEnd = { handleStreamEnd() },
-            onStreamHang = { handleStreamHang() }
+            onStreamHang = { handleStreamHang() },
         )
-    }
 
     private fun handleStreamEnd() {
         Logger.info("AudioPlayer $playerId: Stream ended naturally")
@@ -187,7 +198,7 @@ class AudioPlayer(
                 if (playState == PlayState.PLAYING) {
                     cleanupResourcesInternal()
                     ModNetworkHandler.channel.sendToServer(
-                        AudioPlayerStreamEndPacket(playerId)
+                        AudioPlayerStreamEndPacket(playerId),
                     )
                 }
             }
@@ -204,7 +215,11 @@ class AudioPlayer(
         }
     }
 
-    private suspend fun startPlayback(audioStream: AudioEffectInputStream, url: String, offsetSeconds: Double) {
+    private suspend fun startPlayback(
+        audioStream: AudioEffectInputStream,
+        url: String,
+        offsetSeconds: Double,
+    ) {
         currentSoundInstance = soundInstanceProvider(playerId, audioStream)
         playState = PlayState.PLAYING
 
@@ -298,11 +313,10 @@ class AudioPlayer(
                 }
             }
         }
-
     }
 
-    private fun resolveAudioSource(url: String): AudioSource? {
-        return when {
+    private fun resolveAudioSource(url: String): AudioSource? =
+        when {
             url.contains("youtube.com") || url.contains("youtu.be") -> {
                 YoutubeAudioSource(url)
             }
@@ -321,8 +335,6 @@ class AudioPlayer(
                 null
             }
         }
-    }
-
 
     /**
      * Internal cleanup method - must be called within stateMutex.withLock

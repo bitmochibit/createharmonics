@@ -35,9 +35,7 @@ class RecordPlayerMountedStorage(
             CreateCodecs.ITEM_STACK_HANDLER
                 .xmap(
                     { handler ->
-                        RecordPlayerMountedStorage(Handler(handler, handler.slots)).apply {
-                            markDirty()
-                        }
+                        RecordPlayerMountedStorage(Handler(handler, handler.slots))
                     },
                 ) { storage -> storage.wrapped }
 

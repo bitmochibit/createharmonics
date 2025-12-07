@@ -5,12 +5,11 @@ import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import net.minecraft.network.FriendlyByteBuf
 import net.minecraftforge.network.NetworkEvent
 
-
 class AudioPlayerContextStopPacket(
-    val audioPlayerId: String
+    val audioPlayerId: String,
 ) : SimplePacketBase() {
     constructor(buffer: FriendlyByteBuf) : this(
-        audioPlayerId = buffer.readUtf()
+        audioPlayerId = buffer.readUtf(),
     )
 
     override fun write(buffer: FriendlyByteBuf) {
@@ -24,4 +23,3 @@ class AudioPlayerContextStopPacket(
         return true
     }
 }
-
