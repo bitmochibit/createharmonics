@@ -21,7 +21,7 @@ import me.mochibit.createharmonics.network.packet.setBlockData
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack
 import net.minecraftforge.network.PacketDistributor
-import java.util.*
+import java.util.UUID
 import kotlin.math.abs
 
 class RecordPlayerMovementBehaviour : MovementBehaviour {
