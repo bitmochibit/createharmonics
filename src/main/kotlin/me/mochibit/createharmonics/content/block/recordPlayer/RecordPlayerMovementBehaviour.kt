@@ -26,14 +26,13 @@ import kotlin.math.abs
 
 class RecordPlayerMovementBehaviour : MovementBehaviour {
     companion object {
-        private const val PLAYBACK_STATE_KEY = "PlaybackState"
         private const val PLAY_TIME_KEY = "PlayTime"
         private const val PLAYER_UUID_KEY = "RecordPlayerUUID"
-        private const val CLIENT_LAST_PAUSED_TIME_KEY = "ClientLastPausedTime"
-        private const val CLIENT_RESUME_GRACE_PERIOD_MS = 500L // Client-side grace period before resuming
-        private const val SERVER_STATE_CHANGE_DEBOUNCE_TICKS = 10 // Server debounce period in ticks
-        private const val LAST_STATE_CHANGE_TICK_KEY = "LastStateChangeTick"
+        private const val CLIENT_LAST_PLAYER_STATE_KEY = "ClientLastPlayerState"
         private const val SPEED_THRESHOLD = 0.01f // Minimum speed to consider as "moving"
+        private const val HAS_RECORD_KEY = "HasRecord"
+        private const val PAUSE_GRACE_PERIOD_TICKS = 5 // Wait 5 ticks (0.25s) before actually pausing
+        private const val PAUSE_REQUESTED_TICK_KEY = "PauseRequestedTick"
     }
 
     override fun stopMoving(context: MovementContext) {
@@ -43,71 +42,50 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                 AudioPlayerContextStopPacket(getPlayerUUID(context).toString()),
             )
         }
+
+        context.world.onClient {
+            // Clean up client state tracking
+            context.data.remove(CLIENT_LAST_PLAYER_STATE_KEY)
+            context.data.remove(PAUSE_REQUESTED_TICK_KEY)
+        }
     }
 
-    private fun updateServerPlaybackState(context: MovementContext) {
-        val currentSpeed = abs(context.animationSpeed)
+    private fun updateServerData(context: MovementContext) {
         val hasRecord = hasRecord(context)
-        val currentState = getPlaybackState(context)
+        val currentSpeed = abs(context.animationSpeed)
         val isStalled = context.stall
 
-        // Get current tick from world
-        val currentTick = context.world.gameTime
-        val lastStateChangeTick = context.data.getLong(LAST_STATE_CHANGE_TICK_KEY)
+        // Determine if contraption should be "playing" (has record and is moving or stalled)
+        val shouldBePlaying = hasRecord && (currentSpeed >= SPEED_THRESHOLD || isStalled)
 
-        // Check if we're still in debounce period (except for STOPPED state)
-        val ticksSinceLastChange = currentTick - lastStateChangeTick
-        if (currentState != PlaybackState.STOPPED && ticksSinceLastChange < SERVER_STATE_CHANGE_DEBOUNCE_TICKS) {
-            return
+        // Update playTime continuously while playing
+        if (shouldBePlaying) {
+            val newPlayTime = System.currentTimeMillis()
+            context.data.putLong(PLAY_TIME_KEY, newPlayTime)
+        } else if (!hasRecord) {
+            // Only reset playTime when record is removed
+            // Keep playTime alive during temporary stops (e.g., mining interruptions)
+            context.data.putLong(PLAY_TIME_KEY, 0)
         }
+        // Note: If hasRecord but not playing (paused), we keep the old playTime
+        // so the track position is preserved for seamless resume
 
-        val newState =
-            when {
-                // No record, should be stopped (immediate)
-                !hasRecord -> {
-                    PlaybackState.STOPPED
-                }
+        // Track hasRecord state for client sync
+        context.data.putBoolean(HAS_RECORD_KEY, hasRecord)
 
-                // If stalled, keep playing regardless of speed
-                isStalled -> {
-                    PlaybackState.PLAYING
-                }
-
-                // Speed is effectively zero and not stalled, pause if currently playing
-                currentSpeed < SPEED_THRESHOLD -> {
-                    if (currentState == PlaybackState.PLAYING) {
-                        PlaybackState.PAUSED
-                    } else {
-                        currentState
-                    }
-                }
-
-                // Speed is positive, resume playing if paused or stopped
-                currentSpeed >= SPEED_THRESHOLD -> {
-                    when (currentState) {
-                        PlaybackState.PAUSED, PlaybackState.STOPPED -> PlaybackState.PLAYING
-                        else -> currentState
-                    }
-                }
-
-                else -> {
-                    currentState
-                }
-            }
-
-        if (newState != currentState) {
-            Logger.info(
-                "MovementBehaviour state change: $currentState -> $newState " +
-                    "(speed: $currentSpeed, stalled: $isStalled, ticks since last: $ticksSinceLastChange)",
-            )
-            context.data.putLong(LAST_STATE_CHANGE_TICK_KEY, currentTick)
-            updatePlaybackState(context, newState)
+        // Sync to contraption block data for client
+        val block = context.contraption.blocks[context.localPos]
+        val nbt = block?.nbt
+        if (block != null && nbt != null) {
+            nbt.putLong(PLAY_TIME_KEY, context.data.getLong(PLAY_TIME_KEY))
+            nbt.putBoolean(HAS_RECORD_KEY, hasRecord)
+            context.contraption.entity.setBlockData(context.localPos, block)
         }
     }
 
     override fun tick(context: MovementContext) {
         context.world.onServer {
-            updateServerPlaybackState(context)
+            updateServerData(context)
         }
 
         context.world.onClient {
@@ -119,73 +97,141 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
     private fun updateClientState(context: MovementContext) {
         val blockNbt = context.contraption.blocks[context.localPos]?.nbt ?: return
 
-        val newPlaybackState = blockNbt.getString(PLAYBACK_STATE_KEY)
         val newPlayTime = blockNbt.getLong(PLAY_TIME_KEY)
-
-        // Update playback state if changed
-        if (newPlaybackState.isNotEmpty()) {
-            val currentState = context.data.getString(PLAYBACK_STATE_KEY)
-            if (currentState != newPlaybackState) {
-                context.data.putString(PLAYBACK_STATE_KEY, newPlaybackState)
-            }
-        }
+        val newHasRecord = blockNbt.getBoolean(HAS_RECORD_KEY)
 
         // Update play time if changed
         val currentPlayTime = context.data.getLong(PLAY_TIME_KEY)
         if (currentPlayTime != newPlayTime) {
             context.data.putLong(PLAY_TIME_KEY, newPlayTime)
         }
+
+        // Update hasRecord if changed
+        val currentHasRecord = context.data.getBoolean(HAS_RECORD_KEY)
+        if (currentHasRecord != newHasRecord) {
+            context.data.putBoolean(HAS_RECORD_KEY, newHasRecord)
+        }
     }
 
     private fun handleClientPlayback(context: MovementContext) {
-        val playbackState = getPlaybackState(context)
-        val playTime = context.data.getLong(PLAY_TIME_KEY)
-
         val uuid = getPlayerUUID(context) ?: return
         val playerId = uuid.toString()
-        val record = getRecordItemClient(context)
-        val audioUrl = getAudioUrl(record) ?: return
 
         val player = getOrCreateAudioPlayer(playerId, context)
-        val currentTime = System.currentTimeMillis()
 
-        when (playbackState) {
+        // CRITICAL: Never send commands to a player that's still loading
+        // This prevents corrupted audio from rapid state changes during initialization
+        if (player.state == AudioPlayer.PlayState.LOADING) {
+            return
+        }
+
+        // Calculate desired playback state based on current local contraption state
+        val hasRecord = context.data.getBoolean(HAS_RECORD_KEY)
+        val playTime = context.data.getLong(PLAY_TIME_KEY)
+        val currentSpeed = abs(context.animationSpeed)
+        val isStalled = context.stall
+        val currentTick = context.world.gameTime
+
+        // Determine raw desired state (before grace period)
+        val rawDesiredState =
+            when {
+                !hasRecord -> PlaybackState.STOPPED
+                currentSpeed >= SPEED_THRESHOLD || isStalled -> PlaybackState.PLAYING
+                else -> PlaybackState.PAUSED
+            }
+
+        // Get the last state we processed
+        val lastPlaybackState =
+            if (context.data.contains(CLIENT_LAST_PLAYER_STATE_KEY)) {
+                context.data.getString(CLIENT_LAST_PLAYER_STATE_KEY)
+            } else {
+                null
+            }
+
+        // Grace period logic for PAUSED state to avoid momentary interruptions
+        val desiredState: PlaybackState
+        val desiredStateStr: String
+
+        if (rawDesiredState == PlaybackState.PAUSED && lastPlaybackState == "PLAYING") {
+            // We want to pause, but we were playing - check grace period
+            if (!context.data.contains(PAUSE_REQUESTED_TICK_KEY)) {
+                // First tick we want to pause - record the tick
+                context.data.putLong(PAUSE_REQUESTED_TICK_KEY, currentTick)
+                Logger.info("Client: pause requested, starting grace period (speed: $currentSpeed, stalled: $isStalled)")
+                // Keep playing for now
+                return
+            } else {
+                // We've been wanting to pause for a while - check if grace period expired
+                val pauseRequestedTick = context.data.getLong(PAUSE_REQUESTED_TICK_KEY)
+                val ticksSincePauseRequested = currentTick - pauseRequestedTick
+
+                if (ticksSincePauseRequested < PAUSE_GRACE_PERIOD_TICKS) {
+                    // Still in grace period - keep playing
+                    return
+                } else {
+                    // Grace period expired - actually pause now
+                    desiredState = PlaybackState.PAUSED
+                    desiredStateStr = desiredState.name
+                    context.data.remove(PAUSE_REQUESTED_TICK_KEY)
+                }
+            }
+        } else {
+            // Not trying to pause, or already paused/stopped - clear grace period
+            context.data.remove(PAUSE_REQUESTED_TICK_KEY)
+            desiredState = rawDesiredState
+            desiredStateStr = desiredState.name
+        }
+
+        // Only process if state has actually changed from what we last processed
+        if (lastPlaybackState == desiredStateStr) {
+            return
+        }
+
+        // Update the last processed state immediately to prevent duplicate commands
+        context.data.putString(CLIENT_LAST_PLAYER_STATE_KEY, desiredStateStr)
+
+        Logger.info("Client: state transition $lastPlaybackState -> $desiredStateStr (speed: $currentSpeed, stalled: $isStalled)")
+
+        when (desiredState) {
             PlaybackState.PLAYING -> {
-                // Check if we should actually resume from pause (client-side debouncing)
-                if (player.state == AudioPlayer.PlayState.PAUSED) {
-                    // Check when we were paused
-                    val lastPausedTime = context.data.getLong(CLIENT_LAST_PAUSED_TIME_KEY)
-                    if (lastPausedTime > 0) {
-                        val timeSincePause = currentTime - lastPausedTime
-                        if (timeSincePause < CLIENT_RESUME_GRACE_PERIOD_MS) {
-                            // Still in grace period, don't resume yet
-                            Logger.info("Client debounce: ignoring resume (${timeSincePause}ms since pause)")
-                            return
+                when (player.state) {
+                    AudioPlayer.PlayState.PAUSED -> {
+                        Logger.info("Client: resuming playback")
+                        player.resume()
+                    }
+
+                    AudioPlayer.PlayState.STOPPED -> {
+                        // Get audio URL only when we need to start playback
+                        val record = getRecordItemClient(context)
+                        val audioUrl = getAudioUrl(record)
+
+                        if (audioUrl != null) {
+                            // Start playback with offset
+                            val offsetSeconds =
+                                if (playTime > 0) (System.currentTimeMillis() - playTime) / 1000.0 else 0.0
+                            Logger.info("Client: starting playback with offset ${offsetSeconds}s")
+                            player.play(audioUrl, EffectChain.empty(), offsetSeconds)
+                        } else {
+                            Logger.warn("Client: Cannot start playback, no valid audio URL")
                         }
                     }
-                    // Clear the paused time since we're resuming
-                    context.data.remove(CLIENT_LAST_PAUSED_TIME_KEY)
-                    Logger.info("Client: resuming playback after debounce")
-                }
 
-                handlePlayingState(player, context, audioUrl, playTime)
+                    AudioPlayer.PlayState.PLAYING, AudioPlayer.PlayState.LOADING -> {
+                        // Already in correct state, do nothing
+                    }
+                }
             }
 
             PlaybackState.PAUSED -> {
-                // Track when we first received the paused state
-                if (!context.data.contains(CLIENT_LAST_PAUSED_TIME_KEY)) {
-                    context.data.putLong(CLIENT_LAST_PAUSED_TIME_KEY, currentTime)
-                    Logger.info("Client: entering pause state, starting grace period")
-                }
-
-                if (player.state != AudioPlayer.PlayState.PAUSED) {
+                Logger.info("Client: pausing playback")
+                // Only pause if actually playing
+                if (player.state == AudioPlayer.PlayState.PLAYING) {
                     player.pause()
                 }
             }
 
             PlaybackState.STOPPED -> {
-                // Clear any pause tracking
-                context.data.remove(CLIENT_LAST_PAUSED_TIME_KEY)
+                Logger.info("Client: stopping playback")
 
                 if (player.state != AudioPlayer.PlayState.STOPPED) {
                     player.stop()
@@ -213,72 +259,6 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                 playerId,
             )
         }
-
-    private fun handlePlayingState(
-        player: AudioPlayer,
-        @Suppress("UNUSED_PARAMETER")
-        context: MovementContext,
-        audioUrl: String,
-        playTime: Long,
-    ) {
-        when (player.state) {
-            AudioPlayer.PlayState.PAUSED -> {
-                player.resume()
-            }
-
-            AudioPlayer.PlayState.PLAYING, AudioPlayer.PlayState.LOADING -> {
-                return
-            }
-
-            // Already playing or loading, do nothing
-            AudioPlayer.PlayState.STOPPED -> {
-                // Start playback
-                val offsetSeconds = if (playTime > 0) (System.currentTimeMillis() - playTime) / 1000.0 else 0.0
-                player.play(audioUrl, EffectChain.empty(), offsetSeconds)
-            }
-        }
-    }
-
-    private fun updatePlaybackState(
-        context: MovementContext,
-        newState: PlaybackState,
-    ) {
-        val oldState = getPlaybackState(context)
-
-        // Update context data
-        context.data.putString(PLAYBACK_STATE_KEY, newState.name)
-
-        // Update play time based on state transition
-        when {
-            newState == PlaybackState.STOPPED -> {
-                context.data.putLong(PLAY_TIME_KEY, 0)
-            }
-
-            newState == PlaybackState.PLAYING && oldState != PlaybackState.PLAYING -> {
-                context.data.putLong(PLAY_TIME_KEY, System.currentTimeMillis())
-            }
-        }
-
-        // Sync to contraption block data for client synchronization
-        val block = context.contraption.blocks[context.localPos] ?: return
-        val nbt = block.nbt ?: return
-        nbt.putString(PLAYBACK_STATE_KEY, newState.name)
-        nbt.putLong(PLAY_TIME_KEY, context.data.getLong(PLAY_TIME_KEY))
-        context.contraption.entity.setBlockData(context.localPos, block)
-    }
-
-    private fun getPlaybackState(context: MovementContext): PlaybackState {
-        val nbt = context.data
-
-        if (!nbt.contains(PLAYBACK_STATE_KEY)) {
-            return PlaybackState.STOPPED
-        }
-        return try {
-            PlaybackState.valueOf(nbt.getString(PLAYBACK_STATE_KEY))
-        } catch (_: IllegalArgumentException) {
-            PlaybackState.STOPPED
-        }
-    }
 
     private fun hasRecord(context: MovementContext): Boolean {
         val record = getRecordItem(context)
