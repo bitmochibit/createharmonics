@@ -29,7 +29,7 @@ class SimpleTickableSoundInstance(
         volumeSupplier,
         pitchSupplier,
         radiusSupplier,
-) {
+    ) {
     init {
         this.looping = looping
         this.delay = delay

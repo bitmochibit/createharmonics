@@ -16,8 +16,12 @@ import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.extension.remapTo
 import me.mochibit.createharmonics.registry.ModConfigRegistry
+import me.mochibit.createharmonics.registry.ModSoundsRegistry
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.sounds.SoundEvent
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.util.RandomSource
 import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.item.ItemStack
@@ -106,6 +110,7 @@ class RecordPlayerBehaviour(
                     SimpleStreamSoundInstance(
                         stream,
                         streamId,
+                        SoundEvents.EMPTY,
                         { be.blockPos },
                         radiusSupplier = { soundRadius },
                         pitchSupplier = { pitchSupplierInterpolated.getPitch() },
@@ -250,6 +255,8 @@ class RecordPlayerBehaviour(
         val soundEvents = recordProps.soundEventCompProvider()
         for (event in soundEvents) {
             event.pitchSupplier = { pitchSupplierInterpolated.getPitch() }
+            event.posSupplier = { be.blockPos }
+            event.radiusSupplier = { soundRadius }
         }
 
         audioPlayer.play(

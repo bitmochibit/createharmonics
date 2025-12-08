@@ -17,6 +17,7 @@ import java.util.concurrent.CompletableFuture
 abstract class StreamingSoundInstance(
     val sourceStream: InputStream,
     val streamId: String,
+    soundEvent: net.minecraft.sounds.SoundEvent,
     soundSource: SoundSource = SoundSource.RECORDS,
     randomSource: RandomSource = RandomSource.create(),
     volumeSupplier: () -> Float = { 1.0f },
@@ -24,7 +25,7 @@ abstract class StreamingSoundInstance(
     posSupplier: () -> BlockPos = { BlockPos.ZERO },
     radiusSupplier: () -> Int = { 16 },
 ) : SuppliedSoundInstance(
-        ModSoundsRegistry.SLIDING_STONE.get(),
+        soundEvent,
         soundSource,
         randomSource,
         true,

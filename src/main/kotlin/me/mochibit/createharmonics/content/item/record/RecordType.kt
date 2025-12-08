@@ -9,7 +9,9 @@ import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
 import me.mochibit.createharmonics.audio.effect.MixerEffect
 import me.mochibit.createharmonics.audio.effect.ReverbEffect
+import me.mochibit.createharmonics.audio.effect.VolumeEffect
 import me.mochibit.createharmonics.registry.ModSoundsRegistry
+import net.minecraft.sounds.SoundEvents
 import net.minecraft.world.item.crafting.Ingredient
 import net.minecraftforge.common.Tags
 
@@ -30,6 +32,7 @@ enum class RecordType(
                         ModSoundsRegistry.SLIDING_STONE.get(),
                         looping = true,
                         relative = false,
+                        volumeSupplier = { 0.5f },
                     ),
                 )
             },

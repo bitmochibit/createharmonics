@@ -7,6 +7,15 @@
         "stream": false
       }
     ]
+  },
+  "sparkling": {
+    "subtitle": "sounds.createharmonics.subtitle.sparkling",
+    "sounds": [
+      {
+        "name": "createharmonics:sparkling",
+        "stream": false
+      }
+    ]
   }
 }
 

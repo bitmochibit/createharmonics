@@ -20,6 +20,8 @@ import me.mochibit.createharmonics.network.ModNetworkHandler
 import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.network.packet.setBlockData
 import net.minecraft.core.BlockPos
+import net.minecraft.sounds.SoundEvent
+import net.minecraft.sounds.SoundEvents
 import net.minecraft.world.item.ItemStack
 import net.minecraftforge.network.PacketDistributor
 import java.util.UUID
@@ -320,6 +322,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                     SimpleStreamSoundInstance(
                         stream,
                         streamId,
+                        SoundEvents.EMPTY,
                         posSupplier = { BlockPos.containing(context.position) },
                     )
                 },
