@@ -29,6 +29,7 @@ enum class RecordType(
                     SoundEventComposition.SoundEventDef(
                         ModSoundsRegistry.SLIDING_STONE.get(),
                         looping = true,
+                        relative = false,
                     ),
                 )
             },

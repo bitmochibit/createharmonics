@@ -10,7 +10,7 @@ import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.audio.instance.MovingStreamSoundInstance
+import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBehaviour.PlaybackState
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.getAudioUrl
@@ -317,7 +317,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             Logger.info("Creating audio player for moving contraption: $playerId at ${context.localPos}")
             AudioPlayer(
                 { streamId, stream ->
-                    MovingStreamSoundInstance(
+                    SimpleStreamSoundInstance(
                         stream,
                         streamId,
                         posSupplier = { BlockPos.containing(context.position) },

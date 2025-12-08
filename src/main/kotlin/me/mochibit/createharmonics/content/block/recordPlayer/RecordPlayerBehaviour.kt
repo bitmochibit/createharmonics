@@ -4,10 +4,11 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
+import me.mochibit.createharmonics.audio.comp.PitchSupplierInterpolated
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.effect.pitchShift.PitchFunction
-import me.mochibit.createharmonics.audio.instance.StaticStreamSoundInstance
+import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.getAudioUrl
@@ -96,27 +97,24 @@ class RecordPlayerBehaviour(
     val itemHandler = RecordPlayerItemHandler(this, 1)
     val lazyItemHandler: LazyOptional<RecordPlayerItemHandler> = LazyOptional.of { itemHandler }
 
+    val pitchSupplierInterpolated = PitchSupplierInterpolated({ currentPitch }, 500)
+
     private val audioPlayer: AudioPlayer by lazy {
         AudioPlayerRegistry.getOrCreatePlayer(recordPlayerUUID.toString()) {
             AudioPlayer(
                 soundInstanceProvider = { streamId, stream ->
-                    StaticStreamSoundInstance(
+                    SimpleStreamSoundInstance(
                         stream,
                         streamId,
-                        be.blockPos,
-                        soundRadius,
+                        { be.blockPos },
+                        radiusSupplier = { soundRadius },
+                        pitchSupplier = { pitchSupplierInterpolated.getPitch() },
                     )
                 },
                 playerId = recordPlayerUUID.toString(),
             )
         }
     }
-
-    val speedBasedPitchFunction =
-        PitchFunction.smoothedRealTime(
-            sourcePitchFunction = PitchFunction.custom { _ -> currentPitch },
-            transitionTimeSeconds = 0.8,
-        )
 
     override fun getType(): BehaviourType<RecordPlayerBehaviour> = BEHAVIOUR_TYPE
 
@@ -249,13 +247,17 @@ class RecordPlayerBehaviour(
             }
 
         val recordProps = (currentRecord.item as EtherealRecordItem).recordType.properties
+        val soundEvents = recordProps.soundEventCompProvider()
+        for (event in soundEvents) {
+            event.pitchSupplier = { pitchSupplierInterpolated.getPitch() }
+        }
 
         audioPlayer.play(
             audioUrl,
             EffectChain(
                 recordProps.audioEffectsProvider(),
             ),
-            SoundEventComposition(recordProps.soundEventCompProvider()),
+            SoundEventComposition(soundEvents),
             offsetSeconds,
         )
     }
