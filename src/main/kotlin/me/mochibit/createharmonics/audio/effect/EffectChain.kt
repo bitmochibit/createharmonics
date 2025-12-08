@@ -5,12 +5,15 @@ package me.mochibit.createharmonics.audio.effect
  * Effects are applied in the order they were added.
  */
 class EffectChain(
-    private val effects: List<AudioEffect> = emptyList()
+    private val effects: List<AudioEffect> = emptyList(),
 ) : AudioEffect {
-
     constructor(vararg effects: AudioEffect) : this(effects.toList())
 
-    override fun process(samples: ShortArray, timeInSeconds: Double, sampleRate: Int): ShortArray {
+    override fun process(
+        samples: ShortArray,
+        timeInSeconds: Double,
+        sampleRate: Int,
+    ): ShortArray {
         var result = samples
         for (effect in effects) {
             result = effect.process(result, timeInSeconds, sampleRate)
@@ -27,9 +30,7 @@ class EffectChain(
     /**
      * Create a new chain with an additional effect appended.
      */
-    fun append(effect: AudioEffect): EffectChain {
-        return EffectChain(effects + effect)
-    }
+    fun append(effect: AudioEffect): EffectChain = EffectChain(effects + effect)
 
     /**
      * Check if the chain is empty (no effects).
@@ -48,4 +49,3 @@ class EffectChain(
         fun empty(): EffectChain = EffectChain()
     }
 }
-

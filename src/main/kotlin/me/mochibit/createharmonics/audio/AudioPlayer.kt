@@ -5,6 +5,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import me.mochibit.createharmonics.CommonConfig
 import me.mochibit.createharmonics.Logger
+import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.process.FFmpegExecutor
 import me.mochibit.createharmonics.audio.source.AudioSource
@@ -17,7 +18,7 @@ import me.mochibit.createharmonics.network.packet.AudioPlayerStreamEndPacket
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import java.io.InputStream
-import java.util.*
+import java.util.UUID
 
 typealias StreamId = String
 typealias StreamingSoundInstanceProvider = (streamId: StreamId, stream: InputStream) -> SoundInstance
@@ -66,6 +67,9 @@ class AudioPlayer(
     private var currentSoundInstance: SoundInstance? = null
 
     @Volatile
+    private var currentSoundComposition: SoundEventComposition? = null
+
+    @Volatile
     private var playState = PlayState.STOPPED
 
     val state: PlayState
@@ -91,6 +95,7 @@ class AudioPlayer(
     fun play(
         url: String,
         effectChain: EffectChain = EffectChain.empty(),
+        soundEventComposition: SoundEventComposition = SoundEventComposition(),
         offsetSeconds: Double = 0.0,
     ) {
         if (url.isBlank()) {
@@ -115,12 +120,12 @@ class AudioPlayer(
                     cleanupResourcesInternal()
                 }
 
-                updatePlaybackConfiguration(url, effectChain, offsetSeconds)
+                updatePlaybackConfiguration(url, effectChain, soundEventComposition, offsetSeconds)
                 playState = PlayState.LOADING
 
                 val playbackResult =
                     runCatching {
-                        initializePlayback(url, effectChain, offsetSeconds)
+                        initializePlayback(url, effectChain, soundEventComposition, offsetSeconds)
                     }
 
                 if (playbackResult.isFailure) {
@@ -140,16 +145,19 @@ class AudioPlayer(
     private fun updatePlaybackConfiguration(
         url: String,
         effectChain: EffectChain,
+        soundEventComposition: SoundEventComposition,
         offsetSeconds: Double,
     ) {
         currentUrl = url
         currentEffectChain = effectChain
         currentOffsetSeconds = offsetSeconds
+        currentSoundComposition = soundEventComposition
     }
 
     private suspend fun initializePlayback(
         url: String,
         effectChain: EffectChain,
+        soundEventComposition: SoundEventComposition,
         offsetSeconds: Double,
     ) {
         val audioSource =
@@ -176,7 +184,7 @@ class AudioPlayer(
             throw IllegalStateException("Pre-buffering timeout")
         }
 
-        startPlayback(audioStream, url, offsetSeconds)
+        startPlayback(audioStream, url, soundEventComposition, offsetSeconds)
     }
 
     private fun createAudioEffectInputStream(
@@ -218,6 +226,7 @@ class AudioPlayer(
     private suspend fun startPlayback(
         audioStream: AudioEffectInputStream,
         url: String,
+        soundEventComposition: SoundEventComposition,
         offsetSeconds: Double,
     ) {
         currentSoundInstance = soundInstanceProvider(playerId, audioStream)
@@ -225,6 +234,7 @@ class AudioPlayer(
 
         withClientContext {
             currentSoundInstance?.let { soundInstance ->
+                soundEventComposition.makeComposition(soundInstance)
                 soundManager.play(soundInstance)
                 Logger.info("AudioPlayer $playerId: Successfully started playback (URL: $url, offset: ${offsetSeconds}s)")
             } ?: throw IllegalStateException("Failed to create sound instance")
@@ -244,7 +254,10 @@ class AudioPlayer(
 
                 runCatching {
                     withClientContext {
-                        currentSoundInstance?.let { soundManager.stop(it) }
+                        currentSoundInstance?.let {
+                            currentSoundComposition?.stopComposition()
+                            soundManager.stop(it)
+                        }
                     }
                     cleanupResourcesInternal()
                 }.onSuccess {
@@ -271,7 +284,11 @@ class AudioPlayer(
 
                 runCatching {
                     withClientContext {
-                        currentSoundInstance?.let { soundManager.stop(it) }
+                        currentSoundInstance?.let {
+                            soundManager.stop(it)
+                            // TODO: Maybe handle differently based on each soundevent definition, if it should stop on pause
+                            currentSoundComposition?.stopComposition()
+                        }
                     }
                     playState = PlayState.PAUSED
                 }.onSuccess {
@@ -302,7 +319,10 @@ class AudioPlayer(
 
                 runCatching {
                     withClientContext {
-                        currentSoundInstance?.let { soundManager.play(it) }
+                        currentSoundInstance?.let {
+                            soundManager.play(it)
+                            currentSoundComposition?.makeComposition(it)
+                        }
                     }
                     playState = PlayState.PLAYING
                 }.onSuccess {
@@ -354,6 +374,8 @@ class AudioPlayer(
 
         processingAudioStream = null
         currentSoundInstance = null
+        currentSoundComposition?.stopComposition()
+        currentSoundComposition = null
         playState = PlayState.STOPPED
     }
 
@@ -395,6 +417,7 @@ class AudioPlayer(
             val soundInstance = currentSoundInstance
             if (soundInstance != null) {
                 soundManager.stop(soundInstance)
+                currentSoundComposition?.stopComposition()
                 Logger.info("AudioPlayer $playerId: Sound stopped immediately")
             }
         } catch (e: Exception) {

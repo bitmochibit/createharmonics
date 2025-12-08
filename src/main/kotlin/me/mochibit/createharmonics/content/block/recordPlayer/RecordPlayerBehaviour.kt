@@ -4,10 +4,10 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
+import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.effect.pitchShift.PitchFunction
-import me.mochibit.createharmonics.audio.effect.pitchShift.PitchShiftEffect
-import me.mochibit.createharmonics.audio.instance.StaticSoundInstance
+import me.mochibit.createharmonics.audio.instance.StaticStreamSoundInstance
 import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.getAudioUrl
@@ -21,7 +21,7 @@ import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.item.ItemStack
 import net.minecraftforge.common.util.LazyOptional
-import java.util.*
+import java.util.UUID
 import kotlin.math.abs
 
 class RecordPlayerBehaviour(
@@ -100,7 +100,7 @@ class RecordPlayerBehaviour(
         AudioPlayerRegistry.getOrCreatePlayer(recordPlayerUUID.toString()) {
             AudioPlayer(
                 soundInstanceProvider = { streamId, stream ->
-                    StaticSoundInstance(
+                    StaticStreamSoundInstance(
                         stream,
                         streamId,
                         be.blockPos,
@@ -237,7 +237,10 @@ class RecordPlayerBehaviour(
         be.notifyUpdate()
     }
 
-    private fun startClientPlayer(audioUrl: String) {
+    private fun startClientPlayer(
+        audioUrl: String,
+        currentRecord: ItemStack,
+    ) {
         val offsetSeconds =
             if (playTime > 0) {
                 (System.currentTimeMillis() - this.playTime) / 1000.0
@@ -245,13 +248,14 @@ class RecordPlayerBehaviour(
                 0.0
             }
 
+        val recordProps = (currentRecord.item as EtherealRecordItem).recordType.properties
+
         audioPlayer.play(
             audioUrl,
             EffectChain(
-                listOf(
-                    PitchShiftEffect(speedBasedPitchFunction),
-                ),
+                recordProps.audioEffectsProvider(),
             ),
+            SoundEventComposition(recordProps.soundEventCompProvider()),
             offsetSeconds,
         )
     }
@@ -270,6 +274,7 @@ class RecordPlayerBehaviour(
 
     fun dropContent() {
         val currLevel = be.level ?: return
+
         val inv = SimpleContainer(itemHandler.slots)
         for (i in 0 until itemHandler.slots) {
             inv.setItem(i, itemHandler.getStackInSlot(i))
@@ -337,7 +342,7 @@ class RecordPlayerBehaviour(
                             if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
                                 val audioUrl = getAudioUrl(currentRecord)
                                 if (!audioUrl.isNullOrEmpty()) {
-                                    startClientPlayer(audioUrl)
+                                    startClientPlayer(audioUrl, currentRecord)
                                 }
                             }
                         }

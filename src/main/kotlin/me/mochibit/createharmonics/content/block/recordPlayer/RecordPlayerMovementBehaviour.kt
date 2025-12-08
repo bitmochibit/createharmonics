@@ -8,8 +8,9 @@ import dev.engine_room.flywheel.api.visualization.VisualizationContext
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
+import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.audio.instance.MovingSoundInstance
+import me.mochibit.createharmonics.audio.instance.MovingStreamSoundInstance
 import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBehaviour.PlaybackState
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.getAudioUrl
@@ -277,7 +278,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                             val offsetSeconds =
                                 if (playTime > 0) (System.currentTimeMillis() - playTime) / 1000.0 else 0.0
                             Logger.info("Client: starting playback with offset ${offsetSeconds}s")
-                            player.play(audioUrl, EffectChain.empty(), offsetSeconds)
+                            player.play(audioUrl, EffectChain.empty(), SoundEventComposition(), offsetSeconds)
                         } else {
                             Logger.warn("Client: Cannot start playback, no valid audio URL")
                         }
@@ -316,7 +317,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             Logger.info("Creating audio player for moving contraption: $playerId at ${context.localPos}")
             AudioPlayer(
                 { streamId, stream ->
-                    MovingSoundInstance(
+                    MovingStreamSoundInstance(
                         stream,
                         streamId,
                         posSupplier = { BlockPos.containing(context.position) },

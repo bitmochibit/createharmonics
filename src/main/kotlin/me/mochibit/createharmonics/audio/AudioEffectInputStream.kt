@@ -18,9 +18,9 @@ class AudioEffectInputStream(
     val onStreamHang: (() -> Unit)? = null,
 ) : InputStream() {
     companion object {
-        private const val PROCESS_BUFFER_SIZE = 4096  // 4KB - smaller chunks for lower latency
-        private const val PRE_BUFFER_SIZE = 8192  // 8KB - brief pre-buffer to prevent initial hang
-        private const val MIN_BUFFER_BEFORE_PLAY = 4096  // 4KB - minimum before playback starts
+        private const val PROCESS_BUFFER_SIZE = 4096 // 4KB - smaller chunks for lower latency
+        private const val PRE_BUFFER_SIZE = 8192 // 8KB - brief pre-buffer to prevent initial hang
+        private const val MIN_BUFFER_BEFORE_PLAY = 4096 // 4KB - minimum before playback starts
 
         /**
          * Convert PCM byte array to 16-bit signed short samples (little-endian).
@@ -28,12 +28,19 @@ class AudioEffectInputStream(
          *
          * @return Number of shorts written
          */
-        private fun bytesToShorts(bytes: ByteArray, length: Int, shorts: ShortArray): Int {
+        private fun bytesToShorts(
+            bytes: ByteArray,
+            length: Int,
+            shorts: ShortArray,
+        ): Int {
             val shortCount = length / 2
             for (i in 0 until shortCount) {
                 val offset = i * 2
-                shorts[i] = (((bytes[offset + 1].toInt() and 0xFF) shl 8) or
-                        (bytes[offset].toInt() and 0xFF)).toShort()
+                shorts[i] =
+                    (
+                        ((bytes[offset + 1].toInt() and 0xFF) shl 8) or
+                            (bytes[offset].toInt() and 0xFF)
+                    ).toShort()
             }
             return shortCount
         }
@@ -41,7 +48,11 @@ class AudioEffectInputStream(
         /**
          * Convert 16-bit signed short samples to PCM byte array (little-endian).
          */
-        private fun shortsToBytes(shorts: ShortArray, length: Int, bytes: ByteArray) {
+        private fun shortsToBytes(
+            shorts: ShortArray,
+            length: Int,
+            bytes: ByteArray,
+        ) {
             for (i in 0 until length) {
                 val offset = i * 2
                 bytes[offset] = (shorts[i].toInt() and 0xFF).toByte()
@@ -55,7 +66,7 @@ class AudioEffectInputStream(
     private val processBuffer = ByteArray(PROCESS_BUFFER_SIZE)
     private val shortBuffer = ShortArray(PROCESS_BUFFER_SIZE / 2)
     private val outputByteBuffer = ByteArray(PROCESS_BUFFER_SIZE * 2)
-    private val outputBuffer = ArrayDeque<Byte>()  // O(1) add/remove operations
+    private val outputBuffer = ArrayDeque<Byte>() // O(1) add/remove operations
     private val bufferLock = Any()
 
     @Volatile
@@ -75,17 +86,18 @@ class AudioEffectInputStream(
 
     init {
         // Start brief pre-buffering only
-        processingJob = launchModCoroutine(Dispatchers.IO) {
-            try {
-                preBufferAudio()
-            } catch (_: Exception) {
-                if (!isClosed) {
-                    // If pre-buffering fails, mark as complete anyway to not block reads
-                    isPreBuffered.set(true)
-                    preBufferChannel.trySend(Unit)
+        processingJob =
+            launchModCoroutine(Dispatchers.IO) {
+                try {
+                    preBufferAudio()
+                } catch (_: Exception) {
+                    if (!isClosed) {
+                        // If pre-buffering fails, mark as complete anyway to not block reads
+                        isPreBuffered.set(true)
+                        preBufferChannel.trySend(Unit)
+                    }
                 }
             }
-        }
     }
 
     /**
@@ -118,7 +130,7 @@ class AudioEffectInputStream(
 
         // Buffer initial audio data (limited attempts)
         var attempts = 0
-        val maxAttempts = 10  // Reduced - we want this to be brief
+        val maxAttempts = 10 // Reduced - we want this to be brief
         while (synchronized(bufferLock) { outputBuffer.size } < targetSize && !streamEnded && attempts < maxAttempts) {
             if (isClosed) break
 
@@ -177,13 +189,12 @@ class AudioEffectInputStream(
      *
      * @return Number of bytes read, 0 if no data available, -1 on stream end
      */
-    private fun readFromStreamSync(): Int {
-        return try {
+    private fun readFromStreamSync(): Int =
+        try {
             audioStream.read(processBuffer, 0, processBuffer.size)
         } catch (_: Exception) {
             -1
         }
-    }
 
     /**
      * Process a chunk of audio data (with or without effects) and add to output buffer.
@@ -218,11 +229,12 @@ class AudioEffectInputStream(
         val sampleCount = bytesToShorts(processBuffer, validBytes, shortBuffer)
         val currentTime = samplesRead.toDouble() / sampleRate
 
-        val outputSamples = if (sampleCount == shortBuffer.size) {
-            effectChain.process(shortBuffer, currentTime, sampleRate)
-        } else {
-            effectChain.process(shortBuffer.copyOf(sampleCount), currentTime, sampleRate)
-        }
+        val outputSamples =
+            if (sampleCount == shortBuffer.size) {
+                effectChain.process(shortBuffer, currentTime, sampleRate)
+            } else {
+                effectChain.process(shortBuffer.copyOf(sampleCount), currentTime, sampleRate)
+            }
 
         if (outputSamples.isNotEmpty()) {
             val outputByteCount = outputSamples.size * 2
@@ -238,8 +250,6 @@ class AudioEffectInputStream(
         samplesRead += sampleCount
     }
 
-
-
     override fun read(): Int {
         if (isClosed) return -1
 
@@ -247,7 +257,11 @@ class AudioEffectInputStream(
         return if (result == -1) -1 else singleByte[0].toInt() and 0xFF
     }
 
-    override fun read(b: ByteArray, off: Int, len: Int): Int {
+    override fun read(
+        b: ByteArray,
+        off: Int,
+        len: Int,
+    ): Int {
         if (isClosed) return -1
         if (len == 0) return 0
 
