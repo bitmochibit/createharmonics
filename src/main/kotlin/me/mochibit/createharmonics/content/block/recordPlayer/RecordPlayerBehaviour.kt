@@ -59,7 +59,7 @@ class RecordPlayerBehaviour(
             playerUUID: String,
             blockEntity: RecordPlayerBlockEntity,
         ) {
-            activePlayersByUUID[playerUUID] = blockEntity
+            activePlayersByUUID.putIfAbsent(playerUUID, blockEntity)
         }
 
         /**
@@ -255,8 +255,6 @@ class RecordPlayerBehaviour(
         val soundEvents = recordProps.soundEventCompProvider()
         for (event in soundEvents) {
             event.pitchSupplier = { pitchSupplierInterpolated.getPitch() }
-            event.posSupplier = { be.blockPos }
-            event.radiusSupplier = { soundRadius }
         }
 
         audioPlayer.play(
@@ -328,6 +326,9 @@ class RecordPlayerBehaviour(
 
         if (compound.contains("RecordPlayerUUID")) {
             recordPlayerUUID = compound.getUUID("RecordPlayerUUID")
+            if (!clientPacket) {
+                registerPlayer(recordPlayerUUID.toString(), be)
+            }
         }
 
         if (compound.contains("PlayTime")) {

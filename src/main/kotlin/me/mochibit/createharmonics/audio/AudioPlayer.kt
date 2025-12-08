@@ -131,7 +131,15 @@ class AudioPlayer(
                 if (playbackResult.isFailure) {
                     Logger.err("AudioPlayer $playerId: Error during playback initialization: ${playbackResult.exceptionOrNull()?.message}")
                     playbackResult.exceptionOrNull()?.printStackTrace()
-                    resetStateInternal()
+
+                    try {
+                        resetStateInternal()
+                    } catch (e: Exception) {
+                        Logger.err("AudioPlayer $playerId: Error during state reset: ${e.message}")
+                        e.printStackTrace()
+                    }
+
+                    handleStreamFailure()
                 }
             }
         }
@@ -166,6 +174,13 @@ class AudioPlayer(
                 throw IllegalArgumentException("Unsupported audio source")
             }
 
+        // Validate offset against duration if duration is known
+        val duration = audioSource.getDurationSeconds()
+        if (duration > 0 && offsetSeconds >= duration) {
+            Logger.err("AudioPlayer $playerId: Offset ($offsetSeconds s) exceeds or equals duration ($duration s). Resetting playback.")
+            throw IllegalArgumentException("Offset exceeds audio duration")
+        }
+
         val effectiveUrl = audioSource.resolveAudioUrl()
         if (!ffmpegExecutor.createStream(effectiveUrl, sampleRate, offsetSeconds)) {
             Logger.err("AudioPlayer $playerId: FFmpeg stream failed to start")
@@ -198,6 +213,13 @@ class AudioPlayer(
             onStreamEnd = { handleStreamEnd() },
             onStreamHang = { handleStreamHang() },
         )
+
+    private fun handleStreamFailure() {
+        Logger.info("AudioPlayer $playerId: Sending stream end packet to server due to failure")
+        ModNetworkHandler.channel.sendToServer(
+            AudioPlayerStreamEndPacket(playerId),
+        )
+    }
 
     private fun handleStreamEnd() {
         Logger.info("AudioPlayer $playerId: Stream ended naturally")

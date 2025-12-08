@@ -8,6 +8,7 @@ import dev.engine_room.flywheel.api.visualization.VisualizationContext
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
+import me.mochibit.createharmonics.audio.comp.PitchSupplierInterpolated
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
@@ -191,6 +192,17 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         }
     }
 
+    private fun buildPitchSupplier(context: MovementContext): () -> Float {
+        if (context.temporaryData !is PitchSupplierInterpolated) {
+            context.temporaryData =
+                PitchSupplierInterpolated({
+                    ((context.motion.length() * 2).coerceIn(0.5, 2.0)).toFloat()
+                }, 500)
+        }
+
+        return { (context.temporaryData as PitchSupplierInterpolated).getPitch() }
+    }
+
     private fun handleClientPlayback(context: MovementContext) {
         val uuid = getPlayerUUID(context) ?: return
         val playerId = uuid.toString()
@@ -276,10 +288,18 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                         val audioUrl = getAudioUrl(record)
 
                         if (audioUrl != null) {
-                            // Start playback with offset
                             val offsetSeconds =
                                 if (playTime > 0) (System.currentTimeMillis() - playTime) / 1000.0 else 0.0
-                            Logger.info("Client: starting playback with offset ${offsetSeconds}s")
+
+                            val recordProps = (record.item as EtherealRecordItem).recordType.properties
+                            val soundEvents = recordProps.soundEventCompProvider()
+                            for (event in soundEvents) {
+                                if (context.temporaryData is PitchSupplierInterpolated) {
+                                    val tmp = context.temporaryData as PitchSupplierInterpolated
+                                    event.pitchSupplier = { tmp.getPitch() }
+                                }
+                            }
+
                             player.play(audioUrl, EffectChain.empty(), SoundEventComposition(), offsetSeconds)
                         } else {
                             Logger.warn("Client: Cannot start playback, no valid audio URL")
@@ -324,6 +344,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                         streamId,
                         SoundEvents.EMPTY,
                         posSupplier = { BlockPos.containing(context.position) },
+                        pitchSupplier = buildPitchSupplier(context),
                     )
                 },
                 playerId,
