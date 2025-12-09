@@ -13,7 +13,11 @@ interface AudioEffect {
      * @param sampleRate Sample rate of the audio
      * @return Processed audio samples
      */
-    fun process(samples: ShortArray, timeInSeconds: Double, sampleRate: Int): ShortArray
+    fun process(
+        samples: ShortArray,
+        timeInSeconds: Double,
+        sampleRate: Int,
+    ): ShortArray
 
     /**
      * Reset the effect's internal state (e.g., for reverb buffers).
@@ -26,4 +30,3 @@ interface AudioEffect {
      */
     fun getName(): String = this::class.simpleName ?: "UnknownEffect"
 }
-

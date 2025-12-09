@@ -8,8 +8,10 @@ import dev.engine_room.flywheel.api.visualization.VisualizationContext
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
+import me.mochibit.createharmonics.audio.comp.PitchSupplierInterpolated
+import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.audio.instance.MovingSoundInstance
+import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBehaviour.PlaybackState
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.getAudioUrl
@@ -19,7 +21,13 @@ import me.mochibit.createharmonics.network.ModNetworkHandler
 import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.network.packet.setBlockData
 import net.minecraft.core.BlockPos
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.sounds.SoundSource
+import net.minecraft.util.RandomSource
+import net.minecraft.world.Containers
+import net.minecraft.world.SimpleContainer
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
 import net.minecraftforge.network.PacketDistributor
 import java.util.UUID
 import kotlin.math.abs
@@ -126,6 +134,9 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
         // Check if data actually changed
         if (oldPlayTime != newPlayTime) {
+            if (hasRecord && oldPlayTime == 0L) {
+                handleRecordUse(context)
+            }
             context.data.putLong(PLAY_TIME_KEY, newPlayTime)
             dataChanged = true
         }
@@ -143,6 +154,30 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                 nbt.putLong(PLAY_TIME_KEY, newPlayTime)
                 nbt.putBoolean(HAS_RECORD_KEY, hasRecord)
                 context.contraption.entity.setBlockData(context.localPos, block)
+            }
+        }
+    }
+
+    private fun handleRecordUse(context: MovementContext) {
+        context.world?.onServer { level ->
+            val storage =
+                context.contraption.storage.allItemStorages[context.localPos] as? RecordPlayerMountedStorage ?: return
+            val damaged = getRecordItem(context)
+            // Damage only if it has url
+            getAudioUrl(damaged) ?: return@onServer
+            val broken = damaged.hurt(1, RandomSource.create(), null)
+
+            if (broken) {
+                storage.setRecord(ItemStack.EMPTY)
+                val inv = SimpleContainer(1)
+                inv.setItem(0, ItemStack(Items.AMETHYST_SHARD))
+
+                val pos = BlockPos.containing(context.position)
+
+                Containers.dropContents(level, pos, inv)
+                level.playSound(null, pos, SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, 1.0f, 1.0f)
+            } else {
+                storage.setRecord(damaged)
             }
         }
     }
@@ -188,6 +223,17 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         }
     }
 
+    private fun buildPitchSupplier(context: MovementContext): () -> Float {
+        if (context.temporaryData !is PitchSupplierInterpolated) {
+            context.temporaryData =
+                PitchSupplierInterpolated({
+                    ((context.motion.length() * 2).coerceIn(0.5, 2.0)).toFloat()
+                }, 500)
+        }
+
+        return { (context.temporaryData as PitchSupplierInterpolated).getPitch() }
+    }
+
     private fun handleClientPlayback(context: MovementContext) {
         val uuid = getPlayerUUID(context) ?: return
         val playerId = uuid.toString()
@@ -205,11 +251,9 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         val isStalled = context.stall
         val currentTick = context.world.gameTime
 
-        // Check if audio was stopped externally (e.g., by stopMoving() when bearing speed changes)
         val wasAudioEnded = context.data.contains(AUDIO_ENDED_KEY)
         if (wasAudioEnded) {
             context.data.remove(AUDIO_ENDED_KEY)
-            Logger.info("Client: Audio ended externally, will force restart if conditions met")
         }
 
         // Determine raw desired state (before grace period)
@@ -232,12 +276,8 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         val desiredState: PlaybackState
 
         if (rawDesiredState == PlaybackState.PAUSED) {
-            // We want to pause, but we were playing - check grace period
             if (!context.data.contains(PAUSE_REQUESTED_TICK_KEY)) {
-                // First tick we want to pause - record the tick
                 context.data.putLong(PAUSE_REQUESTED_TICK_KEY, currentTick)
-                Logger.info("Client: pause requested, starting grace period (speed: $currentSpeed")
-                // Keep playing for now
                 return
             } else {
                 // We've been wanting to pause for a while - check if grace period expired
@@ -273,11 +313,24 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                         val audioUrl = getAudioUrl(record)
 
                         if (audioUrl != null) {
-                            // Start playback with offset
                             val offsetSeconds =
                                 if (playTime > 0) (System.currentTimeMillis() - playTime) / 1000.0 else 0.0
-                            Logger.info("Client: starting playback with offset ${offsetSeconds}s")
-                            player.play(audioUrl, EffectChain.empty(), offsetSeconds)
+
+                            val recordProps = (record.item as EtherealRecordItem).recordType.properties
+                            val soundEvents = recordProps.soundEventCompProvider()
+                            for (event in soundEvents) {
+                                if (context.temporaryData is PitchSupplierInterpolated) {
+                                    val tmp = context.temporaryData as PitchSupplierInterpolated
+                                    event.pitchSupplier = { tmp.getPitch() }
+                                }
+                            }
+
+                            player.play(
+                                audioUrl,
+                                EffectChain(recordProps.audioEffectsProvider()),
+                                SoundEventComposition(soundEvents),
+                                offsetSeconds,
+                            )
                         } else {
                             Logger.warn("Client: Cannot start playback, no valid audio URL")
                         }
@@ -290,8 +343,6 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             }
 
             PlaybackState.PAUSED -> {
-                Logger.info("Client: pausing playback")
-                // Only pause if actually playing
                 if (player.state == AudioPlayer.PlayState.PLAYING) {
                     player.pause()
                 }
@@ -299,7 +350,6 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
             PlaybackState.STOPPED -> {
                 if (player.state != AudioPlayer.PlayState.STOPPED) {
-                    Logger.info("Client: stopping playback")
                     player.stop()
                 }
             }
@@ -316,10 +366,12 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             Logger.info("Creating audio player for moving contraption: $playerId at ${context.localPos}")
             AudioPlayer(
                 { streamId, stream ->
-                    MovingSoundInstance(
+                    SimpleStreamSoundInstance(
                         stream,
                         streamId,
+                        SoundEvents.EMPTY,
                         posSupplier = { BlockPos.containing(context.position) },
+                        pitchSupplier = buildPitchSupplier(context),
                     )
                 },
                 playerId,

@@ -19,16 +19,24 @@ class AudioPlayerStreamEndPacket(
 
     override fun handle(context: NetworkEvent.Context): Boolean {
         context.enqueueWork {
-            // Handle static record player
             val blockEntity =
                 RecordPlayerBehaviour
                     .getBlockEntityByPlayerUUID(audioPlayerId)
-            blockEntity?.stopPlayer()
+            if (blockEntity != null) {
+                blockEntity.stopPlayer()
+            } else {
+                me.mochibit.createharmonics.Logger.info(
+                    "AudioPlayerStreamEndPacket: No static block entity found for player ID: $audioPlayerId",
+                )
+            }
 
             // Handle moving record player (on contraptions)
             RecordPlayerMovementBehaviour.getContextByPlayerUUID(audioPlayerId)?.let { movementContext ->
                 RecordPlayerMovementBehaviour.stopMovingPlayer(movementContext)
             }
+                ?: me.mochibit.createharmonics.Logger.info(
+                    "AudioPlayerStreamEndPacket: No moving player context found for player ID: $audioPlayerId",
+                )
         }
         return true
     }

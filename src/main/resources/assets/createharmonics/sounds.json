@@ -1,10 +1,19 @@
 {
-  "ethereal_sound": {
-    "subtitle": "createharmonics.subtitle.ethereal_sound",
+  "sliding_stone": {
+    "subtitle": "sounds.createharmonics.subtitle.sliding_stone",
     "sounds": [
       {
-        "name": "createharmonics:ethereal_sound",
-        "stream": true
+        "name": "createharmonics:sliding_stone",
+        "stream": false
+      }
+    ]
+  },
+  "glitter": {
+    "subtitle": "sounds.createharmonics.subtitle.glitter",
+    "sounds": [
+      {
+        "name": "createharmonics:glitter",
+        "stream": false
       }
     ]
   }
