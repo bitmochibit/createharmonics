@@ -2,12 +2,12 @@ package me.mochibit.createharmonics.content.block.recordPlayer
 
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
+import dev.engine_room.flywheel.lib.material.Materials
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import me.mochibit.createharmonics.audio.comp.PitchSupplierInterpolated
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.audio.effect.pitchShift.PitchFunction
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
@@ -16,15 +16,17 @@ import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.extension.remapTo
 import me.mochibit.createharmonics.registry.ModConfigRegistry
-import me.mochibit.createharmonics.registry.ModSoundsRegistry
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.nbt.CompoundTag
-import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundEvents
+import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
 import net.minecraft.world.Containers
+import net.minecraft.world.InteractionHand
 import net.minecraft.world.SimpleContainer
+import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
 import net.minecraftforge.common.util.LazyOptional
 import java.util.UUID
 import kotlin.math.abs
@@ -149,13 +151,38 @@ class RecordPlayerBehaviour(
                     if (isPowered) {
                         if (playbackState != PlaybackState.PLAYING) {
                             updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = true)
+                            handleRecordUse()
                         }
                     } else {
                         if (playbackState == PlaybackState.PAUSED) {
                             updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = true)
+                            handleRecordUse()
                         }
                     }
                 }
+            }
+        }
+    }
+
+    fun handleRecordUse() {
+        be.level?.onServer { level ->
+            val damaged = getRecord()
+            // Damage only if it has a url set
+            getAudioUrl(damaged) ?: return@onServer
+            val broken = damaged.hurt(1, RandomSource.create(), null)
+
+            if (broken) {
+                setRecord(ItemStack.EMPTY)
+
+                val inv = SimpleContainer(itemHandler.slots)
+                for (i in 0 until itemHandler.slots) {
+                    inv.setItem(i, ItemStack(Items.AMETHYST_SHARD))
+                }
+
+                Containers.dropContents(level, be.blockPos, inv)
+                level.playSound(null, be.blockPos, SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, 1.0f, 1.0f)
+            } else {
+                setRecord(damaged)
             }
         }
     }

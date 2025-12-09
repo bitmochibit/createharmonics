@@ -276,8 +276,16 @@ class AudioPlayer(
 
                 runCatching {
                     withClientContext {
+                        // Stop composition FIRST before stopping the main sound instance
+                        currentSoundComposition?.let {
+                            try {
+                                it.stopComposition()
+                            } catch (e: Exception) {
+                                Logger.err("AudioPlayer $playerId: Error stopping composition in stop(): ${e.message}")
+                            }
+                        }
+
                         currentSoundInstance?.let {
-                            currentSoundComposition?.stopComposition()
                             soundManager.stop(it)
                         }
                     }
@@ -382,6 +390,14 @@ class AudioPlayer(
      * Internal cleanup method - must be called within stateMutex.withLock
      */
     private fun cleanupResourcesInternal() {
+        // Stop composition FIRST before any other cleanup to ensure sounds are stopped
+        try {
+            currentSoundComposition?.stopComposition()
+        } catch (e: Exception) {
+            Logger.err("AudioPlayer $playerId: Error stopping sound composition: ${e.message}")
+        }
+        currentSoundComposition = null
+
         try {
             processingAudioStream?.close()
         } catch (e: Exception) {
@@ -396,8 +412,6 @@ class AudioPlayer(
 
         processingAudioStream = null
         currentSoundInstance = null
-        currentSoundComposition?.stopComposition()
-        currentSoundComposition = null
         playState = PlayState.STOPPED
     }
 
@@ -435,11 +449,27 @@ class AudioPlayer(
      */
     fun stopSoundImmediately() {
         try {
-            // Safely read the volatile reference
+            // Stop composition FIRST to ensure all composition sounds are stopped
+            val composition = currentSoundComposition
+            if (composition != null) {
+                try {
+                    composition.stopComposition()
+                } catch (e: Exception) {
+                    Logger.err("AudioPlayer $playerId: Error stopping composition immediately: ${e.message}")
+                }
+            }
+
+            // Then stop the main sound instance
             val soundInstance = currentSoundInstance
             if (soundInstance != null) {
-                soundManager.stop(soundInstance)
-                currentSoundComposition?.stopComposition()
+                try {
+                    soundManager.stop(soundInstance)
+                } catch (e: Exception) {
+                    Logger.err("AudioPlayer $playerId: Error stopping sound instance immediately: ${e.message}")
+                }
+            }
+
+            if (composition != null || soundInstance != null) {
                 Logger.info("AudioPlayer $playerId: Sound stopped immediately")
             }
         } catch (e: Exception) {

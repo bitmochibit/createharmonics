@@ -21,9 +21,13 @@ import me.mochibit.createharmonics.network.ModNetworkHandler
 import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.network.packet.setBlockData
 import net.minecraft.core.BlockPos
-import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundEvents
+import net.minecraft.sounds.SoundSource
+import net.minecraft.util.RandomSource
+import net.minecraft.world.Containers
+import net.minecraft.world.SimpleContainer
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
 import net.minecraftforge.network.PacketDistributor
 import java.util.UUID
 import kotlin.math.abs
@@ -130,6 +134,9 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
         // Check if data actually changed
         if (oldPlayTime != newPlayTime) {
+            if (hasRecord && oldPlayTime == 0L) {
+                handleRecordUse(context)
+            }
             context.data.putLong(PLAY_TIME_KEY, newPlayTime)
             dataChanged = true
         }
@@ -147,6 +154,30 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                 nbt.putLong(PLAY_TIME_KEY, newPlayTime)
                 nbt.putBoolean(HAS_RECORD_KEY, hasRecord)
                 context.contraption.entity.setBlockData(context.localPos, block)
+            }
+        }
+    }
+
+    private fun handleRecordUse(context: MovementContext) {
+        context.world?.onServer { level ->
+            val storage =
+                context.contraption.storage.allItemStorages[context.localPos] as? RecordPlayerMountedStorage ?: return
+            val damaged = getRecordItem(context)
+            // Damage only if it has url
+            getAudioUrl(damaged) ?: return@onServer
+            val broken = damaged.hurt(1, RandomSource.create(), null)
+
+            if (broken) {
+                storage.setRecord(ItemStack.EMPTY)
+                val inv = SimpleContainer(1)
+                inv.setItem(0, ItemStack(Items.AMETHYST_SHARD))
+
+                val pos = BlockPos.containing(context.position)
+
+                Containers.dropContents(level, pos, inv)
+                level.playSound(null, pos, SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, 1.0f, 1.0f)
+            } else {
+                storage.setRecord(damaged)
             }
         }
     }
