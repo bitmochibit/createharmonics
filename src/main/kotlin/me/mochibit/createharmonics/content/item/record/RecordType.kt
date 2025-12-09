@@ -1,17 +1,12 @@
 package me.mochibit.createharmonics.content.item.record
 
 import com.simibubi.create.AllItems
-import com.simibubi.create.AllSoundEvents
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.BitCrushEffect
 import me.mochibit.createharmonics.audio.effect.EQBand
-import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.effect.EqualizerEffect
-import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
-import me.mochibit.createharmonics.audio.effect.MixerEffect
-import me.mochibit.createharmonics.audio.effect.ReverbEffect
-import me.mochibit.createharmonics.audio.effect.VolumeEffect
+import me.mochibit.createharmonics.registry.ModItemsRegistry
 import me.mochibit.createharmonics.registry.ModSoundsRegistry
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.util.RandomSource
@@ -24,7 +19,10 @@ enum class RecordType(
     STONE(
         Properties(
             uses = 20,
-            recordIngredientProvider = { Ingredient.of(Tags.Items.STONE) },
+            recipe =
+                Properties.Recipe(
+                    secondaryIngredientProvider = { Ingredient.of(Tags.Items.STONE) },
+                ),
             audioEffectsProvider = {
                 listOf(
                     BitCrushEffect(quality = 0.3f),
@@ -46,14 +44,20 @@ enum class RecordType(
     GOLD(
         Properties(
             uses = 1,
-            recordIngredientProvider = { Ingredient.of(Tags.Items.INGOTS_GOLD) },
+            recipe =
+                Properties.Recipe(
+                    secondaryIngredientProvider = { Ingredient.of(Tags.Items.INGOTS_GOLD) },
+                ),
         ),
     ),
 
     EMERALD(
         Properties(
             uses = 800,
-            recordIngredientProvider = { Ingredient.of(Tags.Items.GEMS_EMERALD) },
+            recipe =
+                Properties.Recipe(
+                    secondaryIngredientProvider = { Ingredient.of(Tags.Items.GEMS_EMERALD) },
+                ),
             audioEffectsProvider = {
                 listOf(
                     BitCrushEffect(quality = 0.6f),
@@ -65,7 +69,7 @@ enum class RecordType(
                         SoundEvents.VILLAGER_AMBIENT,
                         looping = false,
                         relative = false,
-                        volumeSupplier = { 1.0f },
+                        volumeSupplier = { 1.5f },
                         randomSource = RandomSource.create(),
                         probabilitySupplier = { 0.35f },
                     ),
@@ -77,14 +81,18 @@ enum class RecordType(
     DIAMOND(
         Properties(
             uses = 1500,
-            recordIngredientProvider = { Ingredient.of(Tags.Items.GEMS_DIAMOND) },
+            recipe =
+                Properties.Recipe(
+                    secondaryIngredientProvider = { Ingredient.of(Tags.Items.GEMS_DIAMOND) },
+                ),
             soundEventCompProvider = {
                 listOf(
                     SoundEventComposition.SoundEventDef(
-                        ModSoundsRegistry.SPARKLING.get(),
+                        ModSoundsRegistry.GLITTER.get(),
                         looping = true,
                         relative = false,
                         volumeSupplier = { 0.7f },
+                        probabilitySupplier = { 0.1f },
                     ),
                 )
             },
@@ -94,7 +102,11 @@ enum class RecordType(
     NETHERITE(
         Properties(
             uses = 2000,
-            recordIngredientProvider = { Ingredient.of(Tags.Items.INGOTS_NETHERITE) },
+            recipe =
+                Properties.Recipe(
+                    { Ingredient.of(ModItemsRegistry.getEtherealRecordItem(DIAMOND)) },
+                    { Ingredient.of(Tags.Items.INGOTS_NETHERITE) },
+                ),
             audioEffectsProvider = {
                 listOf(
                     EqualizerEffect(
@@ -114,7 +126,10 @@ enum class RecordType(
 
     BRASS(
         Properties(
-            recordIngredientProvider = { Ingredient.of(AllItems.BRASS_INGOT) },
+            recipe =
+                Properties.Recipe(
+                    secondaryIngredientProvider = { Ingredient.of(AllItems.BRASS_INGOT) },
+                ),
             audioEffectsProvider = {
                 listOf(
                     BitCrushEffect(quality = 0.9f),
@@ -126,8 +141,13 @@ enum class RecordType(
 
     data class Properties(
         val uses: Int = 100,
-        val recordIngredientProvider: () -> Ingredient = { Ingredient.EMPTY },
+        val recipe: Recipe? = null,
         val audioEffectsProvider: () -> List<AudioEffect> = { listOf() },
         val soundEventCompProvider: () -> List<SoundEventComposition.SoundEventDef> = { listOf() },
-    )
+    ) {
+        data class Recipe(
+            val primaryIngredientProvider: () -> Ingredient = { Ingredient.of(ModItemsRegistry.BASE_RECORD.get()) },
+            val secondaryIngredientProvider: () -> Ingredient = { Ingredient.EMPTY },
+        )
+    }
 }

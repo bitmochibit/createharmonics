@@ -14,7 +14,7 @@ object ModSoundsRegistry : AbstractModRegistry {
         DeferredRegister.create(ForgeRegistries.SOUND_EVENTS, CreateHarmonicsMod.MOD_ID)
 
     val SLIDING_STONE = registerSoundEvent("sliding_stone")
-    val SPARKLING = registerSoundEvent("sparkling")
+    val GLITTER = registerSoundEvent("glitter")
 
     private fun registerSoundEvent(name: String): RegistryObject<SoundEvent> =
         SOUND_EVENTS.register(name) {

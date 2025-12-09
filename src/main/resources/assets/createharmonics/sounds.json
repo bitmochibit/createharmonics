@@ -8,11 +8,11 @@
       }
     ]
   },
-  "sparkling": {
-    "subtitle": "sounds.createharmonics.subtitle.sparkling",
+  "glitter": {
+    "subtitle": "sounds.createharmonics.subtitle.glitter",
     "sounds": [
       {
-        "name": "createharmonics:sparkling",
+        "name": "createharmonics:glitter",
         "stream": false
       }
     ]
