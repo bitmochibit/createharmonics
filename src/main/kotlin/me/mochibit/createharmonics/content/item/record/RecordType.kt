@@ -5,13 +5,16 @@ import com.simibubi.create.AllSoundEvents
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.BitCrushEffect
+import me.mochibit.createharmonics.audio.effect.EQBand
 import me.mochibit.createharmonics.audio.effect.EffectChain
+import me.mochibit.createharmonics.audio.effect.EqualizerEffect
 import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
 import me.mochibit.createharmonics.audio.effect.MixerEffect
 import me.mochibit.createharmonics.audio.effect.ReverbEffect
 import me.mochibit.createharmonics.audio.effect.VolumeEffect
 import me.mochibit.createharmonics.registry.ModSoundsRegistry
 import net.minecraft.sounds.SoundEvents
+import net.minecraft.util.RandomSource
 import net.minecraft.world.item.crafting.Ingredient
 import net.minecraftforge.common.Tags
 
@@ -20,6 +23,7 @@ enum class RecordType(
 ) {
     STONE(
         Properties(
+            uses = 20,
             recordIngredientProvider = { Ingredient.of(Tags.Items.STONE) },
             audioEffectsProvider = {
                 listOf(
@@ -41,23 +45,30 @@ enum class RecordType(
 
     GOLD(
         Properties(
+            uses = 1,
             recordIngredientProvider = { Ingredient.of(Tags.Items.INGOTS_GOLD) },
-            audioEffectsProvider = {
-                listOf(
-                    ReverbEffect(roomSize = 0.3f, damping = 0.3f, wetMix = 0.2f),
-                    BitCrushEffect(quality = 0.7f),
-                )
-            },
         ),
     ),
 
     EMERALD(
         Properties(
+            uses = 800,
             recordIngredientProvider = { Ingredient.of(Tags.Items.GEMS_EMERALD) },
             audioEffectsProvider = {
                 listOf(
-                    ReverbEffect(roomSize = 0.4f, damping = 0.5f, wetMix = 0.25f),
-                    BitCrushEffect(quality = 0.85f),
+                    BitCrushEffect(quality = 0.6f),
+                )
+            },
+            soundEventCompProvider = {
+                listOf(
+                    SoundEventComposition.SoundEventDef(
+                        SoundEvents.VILLAGER_AMBIENT,
+                        looping = false,
+                        relative = false,
+                        volumeSupplier = { 1.0f },
+                        randomSource = RandomSource.create(),
+                        probabilitySupplier = { 0.35f },
+                    ),
                 )
             },
         ),
@@ -65,11 +76,16 @@ enum class RecordType(
 
     DIAMOND(
         Properties(
+            uses = 1500,
             recordIngredientProvider = { Ingredient.of(Tags.Items.GEMS_DIAMOND) },
-            audioEffectsProvider = {
+            soundEventCompProvider = {
                 listOf(
-                    ReverbEffect(roomSize = 0.5f, damping = 0.6f, wetMix = 0.3f),
-                    BitCrushEffect(quality = 0.95f),
+                    SoundEventComposition.SoundEventDef(
+                        ModSoundsRegistry.SPARKLING.get(),
+                        looping = true,
+                        relative = false,
+                        volumeSupplier = { 0.7f },
+                    ),
                 )
             },
         ),
@@ -77,11 +93,20 @@ enum class RecordType(
 
     NETHERITE(
         Properties(
+            uses = 2000,
             recordIngredientProvider = { Ingredient.of(Tags.Items.INGOTS_NETHERITE) },
             audioEffectsProvider = {
                 listOf(
-                    ReverbEffect(roomSize = 0.6f, damping = 0.7f, wetMix = 0.35f),
-                    BitCrushEffect(quality = 1.0f), // No degradation
+                    EqualizerEffect(
+                        // Bass boost 🪩
+                        bands =
+                            listOf(
+                                EQBand(frequency = 60f, quality = 0.7f, gain = 6f),
+                                EQBand(frequency = 200f, quality = 1.0f, gain = 3f),
+                                EQBand(frequency = 800f, quality = 1.5f, gain = -3f),
+                                EQBand(frequency = 4000f, quality = 1.2f, gain = 2f),
+                            ),
+                    ),
                 )
             },
         ),
@@ -92,9 +117,7 @@ enum class RecordType(
             recordIngredientProvider = { Ingredient.of(AllItems.BRASS_INGOT) },
             audioEffectsProvider = {
                 listOf(
-                    LowPassFilterEffect(cutoffFrequency = 8000f, resonance = 0.4f),
-                    ReverbEffect(roomSize = 0.35f, damping = 0.4f, wetMix = 0.2f),
-                    BitCrushEffect(quality = 0.8f),
+                    BitCrushEffect(quality = 0.9f),
                 )
             },
         ),

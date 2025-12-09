@@ -1,13 +1,21 @@
 package me.mochibit.createharmonics.audio.comp
 
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.audio.instance.SimpleTickableSoundInstance
+import me.mochibit.createharmonics.coroutine.MinecraftClientDispatcher
+import me.mochibit.createharmonics.coroutine.launchModCoroutine
+import me.mochibit.createharmonics.coroutine.launchRepeating
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.core.BlockPos
 import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
+import java.time.Duration
+import kotlin.random.Random
+import kotlin.time.Duration.Companion.seconds
 
 class PitchSupplierInterpolated(
     val pitchSupplier: () -> Float,
@@ -72,63 +80,96 @@ class SoundEventComposition(
         var pitchSupplier: (() -> Float)? = null,
         var volumeSupplier: (() -> Float)? = null,
         var radiusSupplier: (() -> Int)? = null,
+        var probabilitySupplier: (() -> Float)? = null,
     )
 
     private val soundInstances: MutableList<SoundInstance> = mutableListOf()
+    private val probabilityJobs: MutableList<Job> = mutableListOf()
 
     fun makeComposition(referenceSoundInstance: SoundInstance) {
         for (soundEvent in soundList) {
-            val newSoundInstance =
-                when (referenceSoundInstance) {
-                    is SimpleStreamSoundInstance -> {
-                        SimpleTickableSoundInstance(
-                            soundEvent.event,
-                            soundEvent.source ?: referenceSoundInstance.source,
-                            soundEvent.randomSource ?: RandomSource.create(),
-                            soundEvent.looping ?: referenceSoundInstance.isLooping,
-                            soundEvent.delay ?: referenceSoundInstance.delay,
-                            soundEvent.attenuation ?: referenceSoundInstance.attenuation,
-                            soundEvent.relative ?: referenceSoundInstance.isRelative,
-                            soundEvent.needStream,
-                            soundEvent.volumeSupplier ?: referenceSoundInstance.volumeSupplier,
-                            soundEvent.pitchSupplier ?: referenceSoundInstance.pitchSupplier,
-                            soundEvent.posSupplier ?: referenceSoundInstance.posSupplier,
-                            soundEvent.radiusSupplier ?: referenceSoundInstance.radiusSupplier,
-                        )
-                    }
+            val isLooping = soundEvent.looping ?: false
+            val hasProbabilitySupplier = soundEvent.probabilitySupplier != null
 
-                    else -> {
-                        SimpleTickableSoundInstance(
-                            soundEvent.event,
-                            soundEvent.source ?: referenceSoundInstance.source,
-                            soundEvent.randomSource ?: RandomSource.create(),
-                            soundEvent.looping ?: referenceSoundInstance.isLooping,
-                            soundEvent.delay ?: referenceSoundInstance.delay,
-                            soundEvent.attenuation ?: referenceSoundInstance.attenuation,
-                            soundEvent.relative ?: referenceSoundInstance.isRelative,
-                            soundEvent.needStream,
-                            soundEvent.volumeSupplier ?: { referenceSoundInstance.volume },
-                            soundEvent.pitchSupplier ?: { referenceSoundInstance.pitch },
-                            soundEvent.posSupplier ?: {
-                                BlockPos(
-                                    referenceSoundInstance.x.toInt(),
-                                    referenceSoundInstance.y.toInt(),
-                                    referenceSoundInstance.z.toInt(),
-                                )
-                            },
-                            soundEvent.radiusSupplier ?: { 16 },
-                        )
-                    }
-                }
+            // If sound has probabilitySupplier and is NOT looping, use coroutine-based probability system
+            if (hasProbabilitySupplier && !isLooping) {
+                val job =
+                    launchRepeating(context = MinecraftClientDispatcher, Duration.ZERO, 1.seconds) {
+                        val probability = soundEvent.probabilitySupplier?.invoke() ?: 0f
+                        val randomValue = Random.nextFloat()
 
-            Minecraft.getInstance().soundManager.play(newSoundInstance)
-            soundInstances.add(newSoundInstance)
+                        if (randomValue <= probability) {
+                            // Create and play the sound instance
+                            val newSoundInstance = createSoundInstance(soundEvent, referenceSoundInstance, false)
+                            Minecraft.getInstance().soundManager.play(newSoundInstance)
+                        }
+                    }
+                probabilityJobs.add(job)
+            } else {
+                // Play normally for looping sounds or sounds without probabilitySupplier
+                val newSoundInstance = createSoundInstance(soundEvent, referenceSoundInstance, isLooping)
+                Minecraft.getInstance().soundManager.play(newSoundInstance)
+                soundInstances.add(newSoundInstance)
+            }
         }
     }
+
+    private fun createSoundInstance(
+        soundEvent: SoundEventDef,
+        referenceSoundInstance: SoundInstance,
+        isLooping: Boolean,
+    ): SoundInstance =
+        when (referenceSoundInstance) {
+            is SimpleStreamSoundInstance -> {
+                SimpleTickableSoundInstance(
+                    soundEvent.event,
+                    soundEvent.source ?: referenceSoundInstance.source,
+                    soundEvent.randomSource ?: RandomSource.create(),
+                    isLooping,
+                    soundEvent.delay ?: referenceSoundInstance.delay,
+                    soundEvent.attenuation ?: referenceSoundInstance.attenuation,
+                    soundEvent.relative ?: referenceSoundInstance.isRelative,
+                    soundEvent.needStream,
+                    soundEvent.volumeSupplier ?: referenceSoundInstance.volumeSupplier,
+                    soundEvent.pitchSupplier ?: referenceSoundInstance.pitchSupplier,
+                    soundEvent.posSupplier ?: referenceSoundInstance.posSupplier,
+                    soundEvent.radiusSupplier ?: referenceSoundInstance.radiusSupplier,
+                )
+            }
+
+            else -> {
+                SimpleTickableSoundInstance(
+                    soundEvent.event,
+                    soundEvent.source ?: referenceSoundInstance.source,
+                    soundEvent.randomSource ?: RandomSource.create(),
+                    isLooping,
+                    soundEvent.delay ?: referenceSoundInstance.delay,
+                    soundEvent.attenuation ?: referenceSoundInstance.attenuation,
+                    soundEvent.relative ?: referenceSoundInstance.isRelative,
+                    soundEvent.needStream,
+                    soundEvent.volumeSupplier ?: { referenceSoundInstance.volume },
+                    soundEvent.pitchSupplier ?: { referenceSoundInstance.pitch },
+                    soundEvent.posSupplier ?: {
+                        BlockPos(
+                            referenceSoundInstance.x.toInt(),
+                            referenceSoundInstance.y.toInt(),
+                            referenceSoundInstance.z.toInt(),
+                        )
+                    },
+                    soundEvent.radiusSupplier ?: { 16 },
+                )
+            }
+        }
 
     fun stopComposition() {
         for (soundInstance in soundInstances) {
             Minecraft.getInstance().soundManager.stop(soundInstance)
         }
+        soundInstances.clear()
+
+        for (job in probabilityJobs) {
+            job.cancel()
+        }
+        probabilityJobs.clear()
     }
 }

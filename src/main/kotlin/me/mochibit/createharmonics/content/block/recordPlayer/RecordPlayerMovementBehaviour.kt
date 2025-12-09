@@ -220,11 +220,9 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         val isStalled = context.stall
         val currentTick = context.world.gameTime
 
-        // Check if audio was stopped externally (e.g., by stopMoving() when bearing speed changes)
         val wasAudioEnded = context.data.contains(AUDIO_ENDED_KEY)
         if (wasAudioEnded) {
             context.data.remove(AUDIO_ENDED_KEY)
-            Logger.info("Client: Audio ended externally, will force restart if conditions met")
         }
 
         // Determine raw desired state (before grace period)
@@ -247,12 +245,8 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         val desiredState: PlaybackState
 
         if (rawDesiredState == PlaybackState.PAUSED) {
-            // We want to pause, but we were playing - check grace period
             if (!context.data.contains(PAUSE_REQUESTED_TICK_KEY)) {
-                // First tick we want to pause - record the tick
                 context.data.putLong(PAUSE_REQUESTED_TICK_KEY, currentTick)
-                Logger.info("Client: pause requested, starting grace period (speed: $currentSpeed")
-                // Keep playing for now
                 return
             } else {
                 // We've been wanting to pause for a while - check if grace period expired
@@ -300,7 +294,12 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                                 }
                             }
 
-                            player.play(audioUrl, EffectChain.empty(), SoundEventComposition(), offsetSeconds)
+                            player.play(
+                                audioUrl,
+                                EffectChain(recordProps.audioEffectsProvider()),
+                                SoundEventComposition(soundEvents),
+                                offsetSeconds,
+                            )
                         } else {
                             Logger.warn("Client: Cannot start playback, no valid audio URL")
                         }
@@ -313,8 +312,6 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             }
 
             PlaybackState.PAUSED -> {
-                Logger.info("Client: pausing playback")
-                // Only pause if actually playing
                 if (player.state == AudioPlayer.PlayState.PLAYING) {
                     player.pause()
                 }
@@ -322,7 +319,6 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
             PlaybackState.STOPPED -> {
                 if (player.state != AudioPlayer.PlayState.STOPPED) {
-                    Logger.info("Client: stopping playback")
                     player.stop()
                 }
             }

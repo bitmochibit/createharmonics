@@ -10,6 +10,7 @@ import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import java.io.InputStream
 import java.util.concurrent.atomic.AtomicBoolean
 
+// TODO: Make audio end after complete effects from buffers are exhausted, and not only if source has ended, so effects like delay can continue even after the audio end
 class AudioEffectInputStream(
     private val audioStream: InputStream,
     private val effectChain: EffectChain,
