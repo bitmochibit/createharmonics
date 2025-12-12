@@ -6,9 +6,8 @@ import me.mochibit.createharmonics.audio.cache.YoutubeCache
  * Audio source implementation for YouTube videos.
  */
 class YoutubeAudioSource(
-    private val youtubeUrl: String
+    private val youtubeUrl: String,
 ) : AudioSource {
-
     private var cachedInfo: YoutubeCache.YoutubeAudioInfo? = null
 
     override fun getIdentifier(): String = youtubeUrl
@@ -29,12 +28,10 @@ class YoutubeAudioSource(
         return cachedInfo!!.durationSeconds
     }
 
-    override fun getMetadata(): Map<String, Any> {
-        return mapOf(
+    override fun getMetadata(): Map<String, Any> =
+        mapOf(
             "source" to "youtube",
             "url" to youtubeUrl,
-            "duration" to (cachedInfo?.durationSeconds ?: 0)
+            "duration" to (cachedInfo?.durationSeconds ?: 0),
         )
-    }
 }
-
