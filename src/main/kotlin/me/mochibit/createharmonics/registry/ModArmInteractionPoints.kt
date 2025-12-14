@@ -13,27 +13,31 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
-object ModArmInteractionPointRegistry : AbstractModRegistry {
+object ModArmInteractionPoints : AutoRegistrable {
     val RECORD_PLAYER_TYPE: RegistryEntry<RecordPlayerType> =
-        cRegistrate().generic("record_player", CreateRegistries.ARM_INTERACTION_POINT_TYPE) {
-            RecordPlayerType()
-        }.register()
+        cRegistrate()
+            .generic("record_player", CreateRegistries.ARM_INTERACTION_POINT_TYPE) {
+                RecordPlayerType()
+            }.register()
 
-    override fun register(eventBus: IEventBus, context: FMLJavaModLoadingContext) {
+    override fun register(
+        eventBus: IEventBus,
+        context: FMLJavaModLoadingContext,
+    ) {
         Logger.info("Registering Arm Interaction Points...")
     }
 
     class RecordPlayerType : AllArmInteractionPointTypes.JukeboxType() {
-        override fun canCreatePoint(level: Level?, pos: BlockPos?, state: BlockState): Boolean {
-            return state.`is`(ModBlocksRegistry.ANDESITE_JUKEBOX.get())
-        }
+        override fun canCreatePoint(
+            level: Level?,
+            pos: BlockPos?,
+            state: BlockState,
+        ): Boolean = state.`is`(ModBlocks.ANDESITE_JUKEBOX.get())
 
         override fun createPoint(
             level: Level,
             pos: BlockPos,
-            state: BlockState
-        ): ArmInteractionPoint {
-            return RecordPlayerArmPoint(this, level, pos, state)
-        }
+            state: BlockState,
+        ): ArmInteractionPoint = RecordPlayerArmPoint(this, level, pos, state)
     }
 }

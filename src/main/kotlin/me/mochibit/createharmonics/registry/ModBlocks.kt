@@ -9,13 +9,14 @@ import com.tterrag.registrate.util.entry.BlockEntry
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.cRegistrate
+import me.mochibit.createharmonics.content.block.recordBurner.RecordPressBaseBlock
 import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerMovementBehaviour
 import me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox.AndesiteJukeboxBlock
 import net.minecraft.world.level.block.SoundType
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
-object ModBlocksRegistry : AbstractModRegistry {
+object ModBlocks : AutoRegistrable {
     val ANDESITE_JUKEBOX: BlockEntry<AndesiteJukeboxBlock> =
         cRegistrate()
             .block("andesite_jukebox") { properties ->
@@ -28,9 +29,22 @@ object ModBlocksRegistry : AbstractModRegistry {
             .onRegister(movementBehaviour(RecordPlayerMovementBehaviour()))
             .tag(AllTags.AllBlockTags.SAFE_NBT.tag)
             .tag(AllTags.AllBlockTags.SIMPLE_MOUNTED_STORAGE.tag)
-            .transform(mountedItemStorage(ModMountedStorageRegistry.SIMPLE_RECORD_PLAYER_STORAGE))
+            .transform(mountedItemStorage(ModMountedStorages.SIMPLE_RECORD_PLAYER_STORAGE))
             .item()
             .tag(AllTags.AllItemTags.CONTRAPTION_CONTROLLED.tag)
+            .transform(customItemModel())
+            .register()
+
+    val RECORD_PRESS_BASE: BlockEntry<RecordPressBaseBlock> =
+        cRegistrate()
+            .block("record_press_base", ::RecordPressBaseBlock)
+            .properties { p ->
+                p
+                    .strength(2.0f, 6.0f)
+                    .sound(SoundType.COPPER)
+            }.blockstate(BlockStateGen.horizontalBlockProvider(true))
+            .tag(AllTags.AllBlockTags.SAFE_NBT.tag)
+            .item()
             .transform(customItemModel())
             .register()
 

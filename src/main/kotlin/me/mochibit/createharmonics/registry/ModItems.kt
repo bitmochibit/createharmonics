@@ -1,7 +1,6 @@
 package me.mochibit.createharmonics.registry
 
 import com.tterrag.registrate.util.entry.ItemEntry
-import me.mochibit.createharmonics.CommonConfig
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.cRegistrate
@@ -12,7 +11,7 @@ import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 import java.util.EnumMap
 
-object ModItemsRegistry : AbstractModRegistry {
+object ModItems : AutoRegistrable {
     val BASE_RECORD: ItemEntry<Item> =
         cRegistrate()
             .item("ethereal_record_base") { Item(Item.Properties().stacksTo(16)) }

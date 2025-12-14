@@ -2,7 +2,6 @@ package me.mochibit.createharmonics.content.block.recordPlayer
 
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
-import dev.engine_room.flywheel.lib.material.Materials
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import me.mochibit.createharmonics.audio.comp.PitchSupplierInterpolated
@@ -15,16 +14,14 @@ import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.get
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.extension.remapTo
-import me.mochibit.createharmonics.registry.ModConfigRegistry
+import me.mochibit.createharmonics.registry.ModConfigurations
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
 import net.minecraft.world.Containers
-import net.minecraft.world.InteractionHand
 import net.minecraft.world.SimpleContainer
-import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraftforge.common.util.LazyOptional
@@ -73,11 +70,11 @@ class RecordPlayerBehaviour(
     }
 
     private val maxPitch =
-        ModConfigRegistry.common.maxPitch
+        ModConfigurations.common.maxPitch
             .get()
             .toFloat()
     private val minPitch =
-        ModConfigRegistry.common.minPitch
+        ModConfigurations.common.minPitch
             .get()
             .toFloat()
 

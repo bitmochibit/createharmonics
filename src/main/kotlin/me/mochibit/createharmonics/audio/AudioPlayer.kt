@@ -13,8 +13,8 @@ import me.mochibit.createharmonics.audio.source.HttpAudioSource
 import me.mochibit.createharmonics.audio.source.YoutubeAudioSource
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import me.mochibit.createharmonics.coroutine.withClientContext
-import me.mochibit.createharmonics.network.ModNetworkHandler
 import me.mochibit.createharmonics.network.packet.AudioPlayerStreamEndPacket
+import me.mochibit.createharmonics.registry.ModPackets
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import java.io.InputStream
@@ -216,7 +216,7 @@ class AudioPlayer(
 
     private fun handleStreamFailure() {
         Logger.info("AudioPlayer $playerId: Sending stream end packet to server due to failure")
-        ModNetworkHandler.channel.sendToServer(
+        ModPackets.channel.sendToServer(
             AudioPlayerStreamEndPacket(playerId),
         )
     }
@@ -227,7 +227,7 @@ class AudioPlayer(
             stateMutex.withLock {
                 if (playState == PlayState.PLAYING) {
                     cleanupResourcesInternal()
-                    ModNetworkHandler.channel.sendToServer(
+                    ModPackets.channel.sendToServer(
                         AudioPlayerStreamEndPacket(playerId),
                     )
                 }

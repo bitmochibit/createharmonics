@@ -14,7 +14,7 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
-object ModMountedStorageRegistry : AbstractModRegistry {
+object ModMountedStorages : AutoRegistrable {
     val SIMPLE_RECORD_PLAYER_STORAGE: RegistryEntry<RecordPlayerMountedStorageType> =
         cRegistrate()
             .mountedItemStorage("simple_record_player_storage", ::RecordPlayerMountedStorageType)

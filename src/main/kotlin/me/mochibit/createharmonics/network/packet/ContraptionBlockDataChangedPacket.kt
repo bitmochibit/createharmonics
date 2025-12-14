@@ -2,7 +2,7 @@ package me.mochibit.createharmonics.network.packet
 
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity
 import com.simibubi.create.foundation.networking.SimplePacketBase
-import me.mochibit.createharmonics.network.ModNetworkHandler
+import me.mochibit.createharmonics.registry.ModPackets
 import net.minecraft.client.Minecraft
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
@@ -31,7 +31,7 @@ fun AbstractContraptionEntity.setBlockData(
     newInfo: StructureBlockInfo,
 ) {
     contraption.blocks[localPos] = newInfo
-    ModNetworkHandler.channel.send(
+    ModPackets.channel.send(
         PacketDistributor.TRACKING_ENTITY.with { this },
         ContraptionBlockDataChangedPacket(id, localPos, newInfo.nbt ?: CompoundTag()),
     )

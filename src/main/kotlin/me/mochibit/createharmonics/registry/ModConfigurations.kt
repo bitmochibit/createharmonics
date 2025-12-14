@@ -10,20 +10,24 @@ import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.fml.config.ModConfig
 import net.minecraftforge.fml.event.config.ModConfigEvent
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
-import java.util.*
+import java.util.EnumMap
 
 @Mod.EventBusSubscriber(modid = CreateHarmonicsMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
-object ModConfigRegistry : AbstractModRegistry {
+object ModConfigurations : AutoRegistrable {
     val configs: EnumMap<ModConfig.Type, ConfigBase> = EnumMap(ModConfig.Type::class.java)
 
     val common: CommonConfig = registerConfig({ CommonConfig }, ModConfig.Type.COMMON) as CommonConfig
 
-    fun registerConfig(factory: () -> ConfigBase, type: ModConfig.Type): ConfigBase {
-        val specPair = ForgeConfigSpec.Builder().configure { builder ->
-            val config = factory()
-            config.registerAll(builder)
-            return@configure config
-        }
+    fun registerConfig(
+        factory: () -> ConfigBase,
+        type: ModConfig.Type,
+    ): ConfigBase {
+        val specPair =
+            ForgeConfigSpec.Builder().configure { builder ->
+                val config = factory()
+                config.registerAll(builder)
+                return@configure config
+            }
 
         val config = specPair.left
         config.specification = specPair.right
@@ -33,7 +37,7 @@ object ModConfigRegistry : AbstractModRegistry {
 
     override fun register(
         eventBus: IEventBus,
-        context: FMLJavaModLoadingContext
+        context: FMLJavaModLoadingContext,
     ) {
         configs.forEach { (type, config) ->
             context.registerConfig(type, config.specification)
@@ -44,8 +48,9 @@ object ModConfigRegistry : AbstractModRegistry {
     @JvmStatic
     fun onLoad(event: ModConfigEvent.Loading) {
         for (config in configs.values) {
-            if (config.specification == event.config.getSpec())
+            if (config.specification == event.config.getSpec()) {
                 config.onLoad()
+            }
         }
     }
 
@@ -53,10 +58,9 @@ object ModConfigRegistry : AbstractModRegistry {
     @JvmStatic
     fun onReload(event: ModConfigEvent.Reloading) {
         for (config in configs.values) {
-            if (config.specification == event.config.getSpec())
+            if (config.specification == event.config.getSpec()) {
                 config.onReload()
+            }
         }
     }
-
-
 }

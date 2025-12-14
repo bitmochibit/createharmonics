@@ -6,8 +6,8 @@ import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.BitCrushEffect
 import me.mochibit.createharmonics.audio.effect.EQBand
 import me.mochibit.createharmonics.audio.effect.EqualizerEffect
-import me.mochibit.createharmonics.registry.ModItemsRegistry
-import me.mochibit.createharmonics.registry.ModSoundsRegistry
+import me.mochibit.createharmonics.registry.ModItems
+import me.mochibit.createharmonics.registry.ModSounds
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.util.RandomSource
 import net.minecraft.world.item.crafting.Ingredient
@@ -31,7 +31,7 @@ enum class RecordType(
             soundEventCompProvider = {
                 listOf(
                     SoundEventComposition.SoundEventDef(
-                        ModSoundsRegistry.SLIDING_STONE.get(),
+                        ModSounds.SLIDING_STONE.get(),
                         looping = true,
                         relative = false,
                         volumeSupplier = { 0.5f },
@@ -88,7 +88,7 @@ enum class RecordType(
             soundEventCompProvider = {
                 listOf(
                     SoundEventComposition.SoundEventDef(
-                        ModSoundsRegistry.GLITTER.get(),
+                        ModSounds.GLITTER.get(),
                         looping = true,
                         relative = false,
                         volumeSupplier = { 0.7f },
@@ -104,7 +104,7 @@ enum class RecordType(
             uses = 2000,
             recipe =
                 Properties.Recipe(
-                    { Ingredient.of(ModItemsRegistry.getEtherealRecordItem(DIAMOND)) },
+                    { Ingredient.of(ModItems.getEtherealRecordItem(DIAMOND)) },
                     { Ingredient.of(Tags.Items.INGOTS_NETHERITE) },
                 ),
             audioEffectsProvider = {
@@ -146,7 +146,7 @@ enum class RecordType(
         val soundEventCompProvider: () -> List<SoundEventComposition.SoundEventDef> = { listOf() },
     ) {
         data class Recipe(
-            val primaryIngredientProvider: () -> Ingredient = { Ingredient.of(ModItemsRegistry.BASE_RECORD.get()) },
+            val primaryIngredientProvider: () -> Ingredient = { Ingredient.of(ModItems.BASE_RECORD.get()) },
             val secondaryIngredientProvider: () -> Ingredient = { Ingredient.EMPTY },
         )
     }

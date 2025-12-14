@@ -17,9 +17,9 @@ import me.mochibit.createharmonics.content.item.EtherealRecordItem
 import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.getAudioUrl
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
-import me.mochibit.createharmonics.network.ModNetworkHandler
 import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.network.packet.setBlockData
+import me.mochibit.createharmonics.registry.ModPackets
 import net.minecraft.core.BlockPos
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
@@ -91,7 +91,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         // We send a packet to destroy the audio player on all clients so they can restart fresh.
         context.world.onServer {
             val playerId = getPlayerUUID(context).toString()
-            ModNetworkHandler.channel.send(
+            ModPackets.channel.send(
                 PacketDistributor.ALL.noArg(),
                 AudioPlayerContextStopPacket(playerId),
             )

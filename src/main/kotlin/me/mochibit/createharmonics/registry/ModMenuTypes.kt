@@ -7,7 +7,7 @@ import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 import net.minecraftforge.registries.DeferredRegister
 
-object ModMenuTypesRegistry : AbstractModRegistry {
+object ModMenuTypes : AutoRegistrable {
     private val MENUS = DeferredRegister.create(Registries.MENU, CreateHarmonicsMod.MOD_ID)
 
     override fun register(

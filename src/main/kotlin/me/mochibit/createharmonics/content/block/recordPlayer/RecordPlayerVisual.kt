@@ -24,16 +24,17 @@ import java.util.function.Consumer
 class RecordPlayerVisual(
     context: VisualizationContext,
     blockEntity: RecordPlayerBlockEntity,
-    partialTick: Float
+    partialTick: Float,
 ) : OrientedRotatingVisual<RecordPlayerBlockEntity>(
-    context,
-    blockEntity,
-    partialTick,
-    Direction.SOUTH,
-    blockEntity.blockState.getValue(BlockStateProperties.FACING).opposite,
-    Models.partial(AllPartialModels.SHAFT_HALF)
-), SimpleTickableVisual, SimpleDynamicVisual {
-
+        context,
+        blockEntity,
+        partialTick,
+        Direction.SOUTH,
+        blockEntity.blockState.getValue(BlockStateProperties.FACING).opposite,
+        Models.partial(AllPartialModels.SHAFT_HALF),
+    ),
+    SimpleTickableVisual,
+    SimpleDynamicVisual {
     private val discFacing = blockState.getValue(BlockStateProperties.FACING)
 
     private var rotation = 0.0
@@ -46,22 +47,22 @@ class RecordPlayerVisual(
         ModPartialModels.getRecordModel(blockEntity.getRecordItem()?.recordType ?: RecordType.BRASS)
 
     private val disc: TransformedInstance =
-        instancerProvider().instancer(
-            InstanceTypes.TRANSFORMED,
-            Models.partial(currentModel)
-        ).createInstance().apply {
-            setVisible(false)
-            setChanged()
-        }
+        instancerProvider()
+            .instancer(
+                InstanceTypes.TRANSFORMED,
+                Models.partial(currentModel),
+            ).createInstance()
+            .apply {
+                setVisible(false)
+                setChanged()
+            }
 
     override fun _delete() {
         super._delete()
         disc.delete()
     }
 
-    private fun getRotation(partialTick: Double): Float {
-        return AngleHelper.angleLerp(partialTick, previousRotation, rotation)
-    }
+    private fun getRotation(partialTick: Double): Float = AngleHelper.angleLerp(partialTick, previousRotation, rotation)
 
     override fun collectCrumblingInstances(consumer: Consumer<Instance?>) {
         super.collectCrumblingInstances(consumer)
@@ -73,14 +74,14 @@ class RecordPlayerVisual(
         relight(disc)
     }
 
-
     override fun tick(context: TickableVisual.Context) {
         if (blockEntity.hasRecord()) {
             val recordType = (blockEntity.getRecord().item as EtherealRecordItem).recordType
             val newModel = ModPartialModels.getRecordModel(recordType)
             if (newModel != currentModel) {
                 currentModel = newModel
-                instancerProvider().instancer(InstanceTypes.TRANSFORMED, Models.partial(currentModel))
+                instancerProvider()
+                    .instancer(InstanceTypes.TRANSFORMED, Models.partial(currentModel))
                     .stealInstance(disc)
             }
             disc.setVisible(true)
@@ -106,14 +107,11 @@ class RecordPlayerVisual(
             .translate(
                 discFacing.normal.x * .95f,
                 discFacing.normal.y * .95f,
-                discFacing.normal.z * .95f
-            )
-            .center()
+                discFacing.normal.z * .95f,
+            ).center()
             .rotateToFace(discFacing)
             .rotateZDegrees(getRotation(ctx?.partialTick()?.toDouble() ?: 0.0))
             .uncenter()
             .setChanged()
     }
-
-
 }

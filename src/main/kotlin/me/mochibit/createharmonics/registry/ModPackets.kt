@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.network
+package me.mochibit.createharmonics.registry
 
 import com.simibubi.create.foundation.networking.SimplePacketBase
 import me.mochibit.createharmonics.Logger
@@ -6,7 +6,6 @@ import me.mochibit.createharmonics.asResource
 import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.network.packet.AudioPlayerStreamEndPacket
 import me.mochibit.createharmonics.network.packet.ContraptionBlockDataChangedPacket
-import me.mochibit.createharmonics.registry.AbstractModRegistry
 import net.minecraft.network.FriendlyByteBuf
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
@@ -16,7 +15,7 @@ import net.minecraftforge.network.NetworkRegistry
 import net.minecraftforge.network.simple.SimpleChannel
 import java.util.function.Supplier
 
-object ModNetworkHandler : AbstractModRegistry {
+object ModPackets : AutoRegistrable {
     private const val PROTOCOL_VERSION = "1"
     private const val NETWORK_VERSION = "1"
     private var packetId = 0

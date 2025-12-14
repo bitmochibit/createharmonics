@@ -12,7 +12,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 import net.minecraftforge.registries.DeferredRegister
 import net.minecraftforge.registries.RegistryObject
 
-object ModCreativeTabs : AbstractModRegistry {
+object ModCreativeTabs : AutoRegistrable {
     private val CREATIVE_MODE_TABS: DeferredRegister<CreativeModeTab> =
         DeferredRegister.create(Registries.CREATIVE_MODE_TAB, CreateHarmonicsMod.MOD_ID)
 

@@ -10,35 +10,38 @@ import net.minecraft.data.recipes.RecipeProvider
 import java.util.concurrent.CompletableFuture
 import java.util.function.Consumer
 
-class ModRecipeProvider(packOutput: PackOutput) : RecipeProvider(packOutput) {
+class ModRecipeProvider(
+    packOutput: PackOutput,
+) : RecipeProvider(packOutput) {
     companion object {
         fun registerAllProcessRecipes(
             gen: DataGenerator,
             output: PackOutput,
-            registries: CompletableFuture<HolderLookup.Provider>
+            registries: CompletableFuture<HolderLookup.Provider>,
         ) {
-            val generators = listOf(
-                ModDeployingRecipeGen(output)
+            val generators =
+                listOf(
+                    ModDeployingRecipeGen(output),
+                    ModPressingRecipeGen(output),
+                )
+
+            gen.addProvider(
+                true,
+                object : DataProvider {
+                    override fun run(pOutput: CachedOutput): CompletableFuture<*> =
+                        CompletableFuture.allOf(
+                            *generators
+                                .map { gen ->
+                                    gen.run(pOutput)
+                                }.toTypedArray(),
+                        )
+
+                    override fun getName(): String = "Create Harmonics Processing Recipes"
+                },
             )
-
-            gen.addProvider(true, object : DataProvider {
-                override fun run(pOutput: CachedOutput): CompletableFuture<*> {
-                    return CompletableFuture.allOf(
-                        *generators.map { gen ->
-                            gen.run(pOutput)
-                        }.toTypedArray()
-                    )
-                }
-
-                override fun getName(): String {
-                    return "Create Harmonics Processing Recipes"
-                }
-
-            })
         }
     }
 
     override fun buildRecipes(pWriter: Consumer<FinishedRecipe?>) {
     }
 }
-

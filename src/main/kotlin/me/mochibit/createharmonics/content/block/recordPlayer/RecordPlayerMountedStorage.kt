@@ -9,7 +9,7 @@ import com.simibubi.create.foundation.utility.CreateCodecs
 import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
 import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerMountedStorage.Handler
 import me.mochibit.createharmonics.content.item.EtherealRecordItem
-import me.mochibit.createharmonics.registry.ModMountedStorageRegistry
+import me.mochibit.createharmonics.registry.ModMountedStorages
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
@@ -45,7 +45,7 @@ class RecordPlayerMountedStorage(
         }
     }
 
-    constructor(wrapped: Handler) : this(ModMountedStorageRegistry.SIMPLE_RECORD_PLAYER_STORAGE.get(), wrapped)
+    constructor(wrapped: Handler) : this(ModMountedStorages.SIMPLE_RECORD_PLAYER_STORAGE.get(), wrapped)
 
     private var dirty = false
 
