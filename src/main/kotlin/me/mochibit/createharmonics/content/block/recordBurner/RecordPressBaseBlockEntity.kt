@@ -1,6 +1,6 @@
 package me.mochibit.createharmonics.content.block.recordBurner
 
-import com.simibubi.create.content.kinetics.base.KineticBlockEntity
+import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -14,7 +14,7 @@ class RecordPressBaseBlockEntity(
     type: BlockEntityType<*>,
     pos: BlockPos,
     state: BlockState,
-) : KineticBlockEntity(type, pos, state) {
+) : SmartBlockEntity(type, pos, state) {
     private lateinit var behaviour: RecordPressBaseBehaviour
 
     override fun addBehaviours(behaviours: MutableList<BlockEntityBehaviour>) {

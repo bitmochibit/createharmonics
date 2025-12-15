@@ -342,6 +342,7 @@ class RecordPressBaseBehaviour(
                 .considerOccupiedWhen { !heldItemStack.isEmpty },
         )
 
+        // TODO: Make this handler process other crafts normally, except for Ethereal records
         transportedHandler = TransportedItemStackHandlerBehaviour(be) { _, _ -> }
         behaviours.add(transportedHandler)
     }

@@ -34,7 +34,7 @@ enum class RecordType(
                         ModSounds.SLIDING_STONE.get(),
                         looping = true,
                         relative = false,
-                        volumeSupplier = { 0.5f },
+                        volumeSupplier = { 0.25f },
                     ),
                 )
             },
