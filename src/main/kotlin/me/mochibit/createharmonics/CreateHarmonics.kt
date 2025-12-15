@@ -50,9 +50,6 @@ class CreateHarmonicsMod(
         @SubscribeEvent
         fun onClientSetup(event: FMLClientSetupEvent) {
             BaseConfigScreen.setDefaultActionFor(MOD_ID) { base ->
-                val newRes = ResourceLocation.fromNamespaceAndPath(CreateHarmonicsMod.MOD_ID, "item")
-                val newResCool = "item".asResource()
-
                 base.withSpecs(null, ModConfigurations.common.specification, null)
             }
         }
