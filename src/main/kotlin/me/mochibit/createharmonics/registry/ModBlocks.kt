@@ -9,9 +9,9 @@ import com.tterrag.registrate.util.entry.BlockEntry
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.cRegistrate
-import me.mochibit.createharmonics.content.block.recordBurner.RecordPressBaseBlock
 import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerMovementBehaviour
 import me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox.AndesiteJukeboxBlock
+import me.mochibit.createharmonics.content.block.recordPressBase.RecordPressBaseBlock
 import net.minecraft.world.level.block.SoundType
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext

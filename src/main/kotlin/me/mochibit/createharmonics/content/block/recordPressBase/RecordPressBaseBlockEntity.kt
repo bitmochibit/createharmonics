@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.content.block.recordBurner
+package me.mochibit.createharmonics.content.block.recordPressBase
 
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
@@ -32,4 +32,11 @@ class RecordPressBaseBlockEntity(
         }
         return super.getCapability(cap, side)
     }
+
+    var urlTemplate: String
+        get() = behaviour.audioUrlTemplate
+        set(value) {
+            behaviour.audioUrlTemplate = value
+            notifyUpdate()
+        }
 }

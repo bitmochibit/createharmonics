@@ -5,10 +5,10 @@ import dev.engine_room.flywheel.lib.visualization.SimpleBlockEntityVisualizer
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.cRegistrate
-import me.mochibit.createharmonics.content.block.recordBurner.RecordBurnerVisual
-import me.mochibit.createharmonics.content.block.recordBurner.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerVisual
 import me.mochibit.createharmonics.content.block.recordPlayer.andesiteJukebox.AndesiteJukeboxBlockEntity
+import me.mochibit.createharmonics.content.block.recordPressBase.RecordPressBaseBlockEntity
+import me.mochibit.createharmonics.content.block.recordPressBase.RecordPressBaseVisual
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
@@ -29,7 +29,7 @@ object ModBlockEntities : AutoRegistrable {
             .blockEntity("record_press_base", ::RecordPressBaseBlockEntity)
             .visual({
                 SimpleBlockEntityVisualizer.Factory { ctx, be, pt ->
-                    RecordBurnerVisual(ctx, be, pt)
+                    RecordPressBaseVisual(ctx, be, pt)
                 }
             }, false)
             .validBlocks(ModBlocks.RECORD_PRESS_BASE)

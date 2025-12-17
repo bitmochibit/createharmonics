@@ -5,6 +5,7 @@ import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.asResource
 import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.network.packet.AudioPlayerStreamEndPacket
+import me.mochibit.createharmonics.network.packet.ConfigureRecordPressBasePacket
 import me.mochibit.createharmonics.network.packet.ContraptionBlockDataChangedPacket
 import net.minecraft.network.FriendlyByteBuf
 import net.minecraftforge.eventbus.api.IEventBus
@@ -69,6 +70,12 @@ object ModPackets : AutoRegistrable {
         object AudioPlayerStreamEnd : PacketType<AudioPlayerStreamEndPacket>(
             AudioPlayerStreamEndPacket::class.java,
             ::AudioPlayerStreamEndPacket,
+            NetworkDirection.PLAY_TO_SERVER,
+        )
+
+        object ConfigureRecordPressBase : PacketType<ConfigureRecordPressBasePacket>(
+            ConfigureRecordPressBasePacket::class.java,
+            ::ConfigureRecordPressBasePacket,
             NetworkDirection.PLAY_TO_SERVER,
         )
 

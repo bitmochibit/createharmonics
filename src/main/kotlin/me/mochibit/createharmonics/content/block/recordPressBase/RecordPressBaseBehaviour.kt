@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.content.block.recordBurner
+package me.mochibit.createharmonics.content.block.recordPressBase
 
 import com.simibubi.create.content.kinetics.belt.behaviour.BeltProcessingBehaviour
 import com.simibubi.create.content.kinetics.belt.behaviour.DirectBeltInputBehaviour
@@ -43,6 +43,9 @@ class RecordPressBaseBehaviour(
 
     /** Queue of items that have arrived but haven't been placed on the base yet */
     private val incoming = mutableListOf<TransportedItemStack>()
+
+    /** The audio URL to be assigned to processed Ethereal Records */
+    var audioUrlTemplate: String = ""
 
     /** Handles the transportation state for items on conveyor belts */
     private lateinit var transportedHandler: TransportedItemStackHandlerBehaviour
@@ -323,7 +326,7 @@ class RecordPressBaseBehaviour(
      * @param stack The item stack to assign the URL to
      */
     private fun assignUrlToItem(stack: ItemStack) {
-        EtherealRecordItem.setAudioUrl(stack, "https://music.youtube.com/watch?v=rLeA7eQVIXk")
+        EtherealRecordItem.setAudioUrl(stack, audioUrlTemplate)
     }
 
     /**
@@ -357,6 +360,7 @@ class RecordPressBaseBehaviour(
     ) {
         super.write(compound, clientPacket)
         heldItem?.let { compound.put("HeldItem", it.serializeNBT()) }
+        compound.putString("AudioUrl", audioUrlTemplate)
     }
 
     /**
@@ -374,6 +378,9 @@ class RecordPressBaseBehaviour(
             } else {
                 null
             }
+        if (compound.contains("AudioUrl")) {
+            audioUrlTemplate = compound.getString("AudioUrl")
+        }
     }
 
     /**
