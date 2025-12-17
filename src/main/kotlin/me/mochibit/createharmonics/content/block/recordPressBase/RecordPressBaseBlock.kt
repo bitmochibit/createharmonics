@@ -1,0 +1,66 @@
+package me.mochibit.createharmonics.content.block.recordPressBase
+
+import com.simibubi.create.AllItems
+import com.simibubi.create.content.kinetics.base.HorizontalKineticBlock
+import com.simibubi.create.content.redstone.thresholdSwitch.ThresholdSwitchBlockEntity
+import com.simibubi.create.content.redstone.thresholdSwitch.ThresholdSwitchScreen
+import com.simibubi.create.foundation.block.IBE
+import me.mochibit.createharmonics.registry.ModBlockEntities
+import net.createmod.catnip.gui.ScreenOpener
+import net.minecraft.client.player.LocalPlayer
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.entity.BlockEntityType
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.phys.BlockHitResult
+import net.minecraftforge.api.distmarker.Dist
+import net.minecraftforge.api.distmarker.OnlyIn
+import net.minecraftforge.fml.DistExecutor
+import java.util.function.Consumer
+import java.util.function.Supplier
+
+class RecordPressBaseBlock(
+    properties: Properties,
+) : HorizontalKineticBlock(properties),
+    IBE<RecordPressBaseBlockEntity> {
+    override fun getRotationAxis(state: BlockState?): Direction.Axis = Direction.UP.axis
+
+    override fun getBlockEntityClass(): Class<RecordPressBaseBlockEntity> = RecordPressBaseBlockEntity::class.java
+
+    override fun getBlockEntityType(): BlockEntityType<out RecordPressBaseBlockEntity> = ModBlockEntities.RECORD_PRESS_BASE.get()
+
+    @Deprecated("Deprecated in Java")
+    override fun use(
+        pState: BlockState,
+        pLevel: Level,
+        pPos: BlockPos,
+        pPlayer: Player,
+        pHand: InteractionHand,
+        pHit: BlockHitResult,
+    ): InteractionResult {
+        if (AllItems.WRENCH.isIn(pPlayer.getItemInHand(pHand))) return InteractionResult.PASS
+        DistExecutor.unsafeRunWhenOn(
+            Dist.CLIENT,
+        ) {
+            Runnable {
+                withBlockEntityDo(
+                    pLevel,
+                    pPos,
+                ) { be: RecordPressBaseBlockEntity -> this.displayScreen(be, pPlayer) }
+            }
+        }
+        return InteractionResult.SUCCESS
+    }
+
+    @OnlyIn(value = Dist.CLIENT)
+    fun displayScreen(
+        be: RecordPressBaseBlockEntity,
+        player: Player,
+    ) {
+        if (player is LocalPlayer) ScreenOpener.open(RecordPressBaseScreen(be))
+    }
+}
