@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.content.block.recordPlayer
+package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.mojang.serialization.Codec
 import com.simibubi.create.api.contraption.storage.SyncedMountedStorage
@@ -6,9 +6,9 @@ import com.simibubi.create.api.contraption.storage.item.MountedItemStorageType
 import com.simibubi.create.api.contraption.storage.item.WrapperMountedItemStorage
 import com.simibubi.create.content.contraptions.Contraption
 import com.simibubi.create.foundation.utility.CreateCodecs
-import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
-import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerMountedStorage.Handler
-import me.mochibit.createharmonics.content.item.EtherealRecordItem
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMountedStorage.Handler
+import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.registry.ModMountedStorages
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel

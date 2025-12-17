@@ -1,8 +1,8 @@
 package me.mochibit.createharmonics.network.packet
 
 import com.simibubi.create.foundation.networking.SimplePacketBase
-import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBehaviour
-import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerMovementBehaviour
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour
 import net.minecraft.network.FriendlyByteBuf
 import net.minecraftforge.network.NetworkEvent
 

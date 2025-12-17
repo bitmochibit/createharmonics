@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.content.block.recordPressBase
+package me.mochibit.createharmonics.content.processing.recordPressBase
 
 import dev.engine_room.flywheel.api.instance.Instance
 import dev.engine_room.flywheel.api.visualization.VisualizationContext
@@ -9,7 +9,7 @@ class RecordPressBaseVisual(
     context: VisualizationContext,
     blockEntity: RecordPressBaseBlockEntity,
     partialTick: Float,
-) : AbstractBlockEntityVisual<RecordPressBaseBlockEntity>(
+) : dev.engine_room.flywheel.lib.visual.AbstractBlockEntityVisual<RecordPressBaseBlockEntity>(
         context,
         blockEntity,
         partialTick,

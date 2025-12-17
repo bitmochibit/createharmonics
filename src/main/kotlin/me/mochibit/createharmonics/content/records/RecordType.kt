@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.content.item.record
+package me.mochibit.createharmonics.content.records
 
 import com.simibubi.create.AllItems
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition

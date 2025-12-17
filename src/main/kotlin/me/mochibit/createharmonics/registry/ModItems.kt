@@ -4,8 +4,8 @@ import com.tterrag.registrate.util.entry.ItemEntry
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.cRegistrate
-import me.mochibit.createharmonics.content.item.EtherealRecordItem
-import me.mochibit.createharmonics.content.item.record.RecordType
+import me.mochibit.createharmonics.content.records.EtherealRecordItem
+import me.mochibit.createharmonics.content.records.RecordType
 import net.minecraft.world.item.Item
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext

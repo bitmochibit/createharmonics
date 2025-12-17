@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.content.block.recordPressBase
+package me.mochibit.createharmonics.content.processing.recordPressBase
 
 import com.simibubi.create.content.kinetics.belt.behaviour.BeltProcessingBehaviour
 import com.simibubi.create.content.kinetics.belt.behaviour.DirectBeltInputBehaviour
@@ -7,7 +7,7 @@ import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.utility.BlockHelper
-import me.mochibit.createharmonics.content.item.EtherealRecordItem
+import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import net.createmod.catnip.math.VecHelper
 import net.minecraft.core.Direction
 import net.minecraft.nbt.CompoundTag
@@ -201,7 +201,7 @@ class RecordPressBaseBehaviour(
 
         // Look for the record press 2 blocks above this base
         val processingBehaviour =
-            BlockEntityBehaviour.get(
+            get(
                 world,
                 pos.above(2),
                 BeltProcessingBehaviour.TYPE,
@@ -277,7 +277,7 @@ class RecordPressBaseBehaviour(
     ) {
         val side = direction
         val nextPos = pos.relative(side)
-        val nextBehaviour = BlockEntityBehaviour.get(world, nextPos, DirectBeltInputBehaviour.TYPE)
+        val nextBehaviour = get(world, nextPos, DirectBeltInputBehaviour.TYPE)
 
         // Try to insert into an adjacent belt or conveyor
         if (nextBehaviour != null && nextBehaviour.canInsertFromSide(side)) {

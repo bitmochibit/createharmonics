@@ -3,7 +3,7 @@ package me.mochibit.createharmonics.registry
 import dev.engine_room.flywheel.lib.model.baked.PartialModel
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger
-import me.mochibit.createharmonics.content.item.record.RecordType
+import me.mochibit.createharmonics.content.records.RecordType
 import net.minecraft.resources.ResourceLocation
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext

@@ -5,8 +5,8 @@ import com.tterrag.registrate.util.entry.RegistryEntry
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.cRegistrate
-import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBlockEntity
-import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerMountedStorage
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMountedStorage
 import net.minecraft.core.BlockPos
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntity

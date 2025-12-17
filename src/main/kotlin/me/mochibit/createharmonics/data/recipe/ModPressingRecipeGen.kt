@@ -3,7 +3,7 @@ package me.mochibit.createharmonics.data.recipe
 import com.simibubi.create.api.data.recipe.PressingRecipeGen
 import com.simibubi.create.content.kinetics.press.PressingRecipe
 import me.mochibit.createharmonics.CreateHarmonicsMod
-import me.mochibit.createharmonics.content.item.record.RecordType
+import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.registry.ModItems
 import net.minecraft.data.PackOutput
 import net.minecraft.world.item.ItemStack

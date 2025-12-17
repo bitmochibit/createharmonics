@@ -1,6 +1,6 @@
-package me.mochibit.createharmonics.content.item
+package me.mochibit.createharmonics.content.records
 
-import me.mochibit.createharmonics.content.item.record.RecordType
+import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraftforge.registries.ForgeRegistries
@@ -24,7 +24,7 @@ class EtherealRecordItem(
             if (stack.item !is EtherealRecordItem) return
 
             if (stack.tag == null) {
-                stack.tag = net.minecraft.nbt.CompoundTag()
+                stack.tag = CompoundTag()
             }
             stack.tag?.putString(AUDIO_URL_TAG_KEY, url)
         }

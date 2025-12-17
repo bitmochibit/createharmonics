@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics.network.packet
 
 import com.simibubi.create.foundation.networking.BlockEntityConfigurationPacket
-import me.mochibit.createharmonics.content.block.recordPressBase.RecordPressBaseBlockEntity
+import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.network.FriendlyByteBuf
 

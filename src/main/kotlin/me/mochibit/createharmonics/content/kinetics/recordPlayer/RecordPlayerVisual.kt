@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.content.block.recordPlayer
+package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.AllPartialModels
 import com.simibubi.create.content.kinetics.base.OrientedRotatingVisual
@@ -12,8 +12,8 @@ import dev.engine_room.flywheel.lib.model.Models
 import dev.engine_room.flywheel.lib.model.baked.PartialModel
 import dev.engine_room.flywheel.lib.visual.SimpleDynamicVisual
 import dev.engine_room.flywheel.lib.visual.SimpleTickableVisual
-import me.mochibit.createharmonics.content.item.EtherealRecordItem
-import me.mochibit.createharmonics.content.item.record.RecordType
+import me.mochibit.createharmonics.content.records.EtherealRecordItem
+import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.extension.lerpTo
 import me.mochibit.createharmonics.registry.ModPartialModels
 import net.createmod.catnip.math.AngleHelper
@@ -25,7 +25,7 @@ class RecordPlayerVisual(
     context: VisualizationContext,
     blockEntity: RecordPlayerBlockEntity,
     partialTick: Float,
-) : OrientedRotatingVisual<RecordPlayerBlockEntity>(
+) : com.simibubi.create.content.kinetics.base.OrientedRotatingVisual<RecordPlayerBlockEntity>(
         context,
         blockEntity,
         partialTick,

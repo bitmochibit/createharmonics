@@ -1,6 +1,6 @@
 package me.mochibit.createharmonics
 
-import me.mochibit.createharmonics.content.item.record.RecordType
+import me.mochibit.createharmonics.content.records.RecordType
 import net.createmod.catnip.config.ConfigBase
 import net.minecraftforge.common.ForgeConfigSpec
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber

@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.content.block.recordPlayer
+package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.api.behaviour.movement.MovementBehaviour
 import com.simibubi.create.content.contraptions.behaviour.MovementContext
@@ -12,9 +12,9 @@ import me.mochibit.createharmonics.audio.comp.PitchSupplierInterpolated
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
-import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBehaviour.PlaybackState
-import me.mochibit.createharmonics.content.item.EtherealRecordItem
-import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.getAudioUrl
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.PlaybackState
+import me.mochibit.createharmonics.content.records.EtherealRecordItem
+import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.getAudioUrl
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket

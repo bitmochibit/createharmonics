@@ -6,7 +6,7 @@ import com.simibubi.create.content.kinetics.mechanicalArm.ArmInteractionPoint
 import com.tterrag.registrate.util.entry.RegistryEntry
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.cRegistrate
-import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerArmPoint
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerArmPoint
 import net.minecraft.core.BlockPos
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.state.BlockState

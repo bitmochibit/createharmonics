@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.content.block.recordPlayer
+package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.AllPartialModels
 import com.simibubi.create.content.contraptions.behaviour.MovementContext
@@ -12,8 +12,8 @@ import dev.engine_room.flywheel.lib.instance.InstanceTypes
 import dev.engine_room.flywheel.lib.instance.TransformedInstance
 import dev.engine_room.flywheel.lib.model.Models
 import dev.engine_room.flywheel.lib.model.baked.PartialModel
-import me.mochibit.createharmonics.content.item.EtherealRecordItem
-import me.mochibit.createharmonics.content.item.record.RecordType
+import me.mochibit.createharmonics.content.records.EtherealRecordItem
+import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.extension.lerpTo
 import me.mochibit.createharmonics.registry.ModPartialModels
 import net.createmod.catnip.animation.AnimationTickHolder

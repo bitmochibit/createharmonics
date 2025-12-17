@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.content.block.recordPressBase
+package me.mochibit.createharmonics.content.processing.recordPressBase
 
 import com.simibubi.create.AllItems
 import com.simibubi.create.content.kinetics.base.HorizontalKineticBlock

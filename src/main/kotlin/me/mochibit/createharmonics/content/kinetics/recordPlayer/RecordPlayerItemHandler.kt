@@ -1,6 +1,6 @@
-package me.mochibit.createharmonics.content.block.recordPlayer
+package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
-import me.mochibit.createharmonics.content.item.EtherealRecordItem
+import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.JukeboxBlock
 import net.minecraftforge.items.ItemStackHandler
