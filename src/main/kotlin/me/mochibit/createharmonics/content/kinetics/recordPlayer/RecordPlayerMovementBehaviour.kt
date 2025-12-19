@@ -1,10 +1,12 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.api.behaviour.movement.MovementBehaviour
+import com.simibubi.create.content.contraptions.AbstractContraptionEntity
 import com.simibubi.create.content.contraptions.behaviour.MovementContext
 import com.simibubi.create.content.contraptions.render.ActorVisual
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import dev.engine_room.flywheel.api.visualization.VisualizationContext
+import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
@@ -13,13 +15,16 @@ import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.PlaybackState
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour.Companion.unregisterPlayer
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.getAudioUrl
+import me.mochibit.createharmonics.event.contraption.ContraptionDisassembleEvent
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.network.packet.setBlockData
 import me.mochibit.createharmonics.registry.ModPackets
+import net.minecraft.client.Minecraft
 import net.minecraft.core.BlockPos
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
@@ -28,6 +33,8 @@ import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraftforge.eventbus.api.SubscribeEvent
+import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.network.PacketDistributor
 import java.util.UUID
 import kotlin.math.abs
@@ -35,7 +42,7 @@ import kotlin.math.abs
 class RecordPlayerMovementBehaviour : MovementBehaviour {
     companion object {
         private const val PLAY_TIME_KEY = "PlayTime"
-        private const val PLAYER_UUID_KEY = "RecordPlayerUUID"
+        const val PLAYER_UUID_KEY = "RecordPlayerUUID"
         private const val SPEED_THRESHOLD = 0.01f // Minimum speed to consider as "moving"
         private const val HAS_RECORD_KEY = "HasRecord"
         private const val PAUSE_GRACE_PERIOD_TICKS = 5 // Wait 5 ticks (0.25s) before actually pausing
@@ -85,18 +92,28 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         }
     }
 
-    override fun stopMoving(context: MovementContext) {
-        // STOP MOVING ONLY WORKS ON SERVER LEVEL!
-        // This is called when the contraption stops moving, including when bearing speed changes.
-        // We send a packet to destroy the audio player on all clients so they can restart fresh.
-        context.world.onServer {
-            val playerId = getPlayerUUID(context).toString()
-            ModPackets.channel.send(
-                PacketDistributor.ALL.noArg(),
-                AudioPlayerContextStopPacket(playerId),
-            )
-            unregisterPlayer(playerId)
+    @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE, modid = CreateHarmonicsMod.MOD_ID)
+    object DisassembleHandler {
+        @JvmStatic
+        @SubscribeEvent
+        fun onContraptionDisassemble(event: ContraptionDisassembleEvent) {
+            val level = Minecraft.getInstance().level ?: return
+            val contraption: AbstractContraptionEntity =
+                level.getEntity(event.contraptionId) as? AbstractContraptionEntity ?: return
+
+            contraption.contraption.actors.forEach { actor ->
+                val ctx = actor.value
+                val playerUUID = ctx.blockEntityData.getUUID(RecordPlayerMovementBehaviour.PLAYER_UUID_KEY) ?: return
+                ModPackets.channel.send(
+                    PacketDistributor.ALL.noArg(),
+                    AudioPlayerContextStopPacket(playerUUID.toString()),
+                )
+                unregisterPlayer(playerUUID.toString())
+            }
         }
+    }
+
+    override fun stopMoving(context: MovementContext) {
     }
 
     private fun updateServerData(context: MovementContext) {
