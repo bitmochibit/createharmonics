@@ -18,6 +18,13 @@ abstract class RecordPlayerBlockEntity(
     pos: BlockPos,
     state: BlockState,
 ) : KineticBlockEntity(type, pos, state) {
+    companion object {
+        fun handlePlaybackEnd(playerId: String) {
+            val blockEntity = RecordPlayerBehaviour.getBlockEntityByPlayerUUID(playerId)
+            blockEntity?.onPlaybackEnd(playerId)
+        }
+    }
+
     private lateinit var behaviour: RecordPlayerBehaviour
 
     override fun addBehaviours(behaviours: MutableList<BlockEntityBehaviour>) {
@@ -45,6 +52,10 @@ abstract class RecordPlayerBlockEntity(
     val itemHandler: RecordPlayerItemHandler = behaviour.itemHandler
 
     val playbackState get() = behaviour.playbackState
+
+    val playCount get() = behaviour.audioPlayCount
+
+    fun onPlaybackEnd(endedPlayerId: String) = behaviour.onPlaybackEnd(endedPlayerId)
 
     fun hasRecord(): Boolean = behaviour.hasRecord()
 

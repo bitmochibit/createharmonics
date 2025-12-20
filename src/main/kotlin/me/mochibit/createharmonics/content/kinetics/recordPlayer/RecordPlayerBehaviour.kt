@@ -96,6 +96,11 @@ class RecordPlayerBehaviour(
 
     @Volatile
     var playTime: Long = 0
+        private set
+
+    @Volatile
+    var audioPlayCount: Long = 0
+        private set
 
     val itemHandler = RecordPlayerItemHandler(this, 1)
     val lazyItemHandler: LazyOptional<RecordPlayerItemHandler> = LazyOptional.of { itemHandler }
@@ -135,6 +140,7 @@ class RecordPlayerBehaviour(
                 !hasDisc -> {
                     if (playbackState != PlaybackState.STOPPED) {
                         updatePlaybackState(PlaybackState.STOPPED, resetTime = true)
+                        audioPlayCount = 0
                     }
                 }
 
@@ -338,6 +344,7 @@ class RecordPlayerBehaviour(
         NBTHelper.writeEnum(compound, "PlaybackState", playbackState)
         compound.putUUID("RecordPlayerUUID", recordPlayerUUID)
         compound.putLong("PlayTime", playTime)
+        compound.putLong("AudioPlayCount", audioPlayCount)
     }
 
     override fun read(
@@ -357,6 +364,10 @@ class RecordPlayerBehaviour(
 
         if (compound.contains("PlayTime")) {
             playTime = compound.getLong("PlayTime")
+        }
+
+        if (compound.contains("AudioPlayCount")) {
+            audioPlayCount = compound.getLong("AudioPlayTimes")
         }
 
         if (compound.contains("PlaybackState")) {
@@ -393,5 +404,10 @@ class RecordPlayerBehaviour(
             }
             playbackState = newPlaybackState
         }
+    }
+
+    fun onPlaybackEnd(endedPlayerId: String) {
+        this.stopPlayer()
+        audioPlayCount += 1
     }
 }

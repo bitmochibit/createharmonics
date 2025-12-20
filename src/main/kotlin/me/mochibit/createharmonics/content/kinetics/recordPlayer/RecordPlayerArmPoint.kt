@@ -40,10 +40,12 @@ class RecordPlayerArmPoint(
         amount: Int,
         simulate: Boolean,
     ): ItemStack {
-        if (cachedState.getOptionalValue(JukeboxBlock.HAS_RECORD).orElse(false)) return ItemStack.EMPTY
+        if (!cachedState.getOptionalValue(JukeboxBlock.HAS_RECORD).orElse(false)) return ItemStack.EMPTY
         val be =
             level.getBlockEntity(pos) as? RecordPlayerBlockEntity
                 ?: return ItemStack.EMPTY
+
+        if (be.playCount < 1) return ItemStack.EMPTY
 
         if (!simulate) {
             val record = be.popRecord()

@@ -103,7 +103,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
             contraption.contraption.actors.forEach { actor ->
                 val ctx = actor.value
-                val playerUUID = ctx.blockEntityData.getUUID(RecordPlayerMovementBehaviour.PLAYER_UUID_KEY) ?: return
+                val playerUUID = ctx.blockEntityData.getUUID(PLAYER_UUID_KEY) ?: return
                 ModPackets.channel.send(
                     PacketDistributor.ALL.noArg(),
                     AudioPlayerContextStopPacket(playerUUID.toString()),
