@@ -1,13 +1,12 @@
 package me.mochibit.createharmonics
 
-import me.mochibit.createharmonics.content.item.record.RecordType
+import me.mochibit.createharmonics.content.records.RecordType
 import net.createmod.catnip.config.ConfigBase
 import net.minecraftforge.common.ForgeConfigSpec
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber
 
 @EventBusSubscriber(modid = CreateHarmonicsMod.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
 object CommonConfig : ConfigBase() {
-
     lateinit var minPitch: ConfigFloat
         private set
 
@@ -33,13 +32,14 @@ object CommonConfig : ConfigBase() {
         minPitch = f(0.5f, 0.1f, 1.0f, "minPitch")
         maxPitch = f(2.0f, 1.0f, 4.0f, "maxPitch")
         playbackBufferSeconds = f(0.05f, 0.01f, 30.0f, "playbackBufferSeconds")
-        acceptedHttpDomains = CValue(
-            "acceptedHttpDomains",
-            {
-                builder.define("acceptedHttpDomains", "youtube.com, youtu.be, soundcloud.com")
-            },
-            "List of accepted HTTP domains for audio sources, separated by commas."
-        )
+        acceptedHttpDomains =
+            CValue(
+                "acceptedHttpDomains",
+                {
+                    builder.define("acceptedHttpDomains", "youtube.com, youtu.be, soundcloud.com")
+                },
+                "List of accepted HTTP domains for audio sources, separated by commas.",
+            )
     }
 
     fun recordGroup() {
@@ -62,7 +62,5 @@ object CommonConfig : ConfigBase() {
         return raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
     }
 
-    override fun getName(): String {
-        return "common"
-    }
+    override fun getName(): String = "common"
 }

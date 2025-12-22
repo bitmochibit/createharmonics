@@ -15,11 +15,12 @@ object YoutubeCache {
     data class YoutubeAudioInfo(
         val audioUrl: String,
         val durationSeconds: Int,
-        val timestamp: Long = System.currentTimeMillis()
+        val timestamp: Long = System.currentTimeMillis(),
+        val title: String,
     )
 
     private val cache = mutableMapOf<String, YoutubeAudioInfo>()
-    private val CACHE_TTL_MS = 2.minutes.inWholeMilliseconds
+    private val CACHE_TTL_MS = 5.minutes.inWholeMilliseconds // Increased from 2 to 5 minutes
     private val ytdlpWrapper = YTdlpExecutor()
 
     /**
@@ -41,13 +42,18 @@ object YoutubeCache {
 
         // Extract URL and duration using yt-dlp
         info("YoutubeCache: Extracting audio info for $youtubeUrl")
+        val startTime = System.currentTimeMillis()
         val extractedInfo = ytdlpWrapper.extractAudioInfo(youtubeUrl)
+        val extractionTimeMs = System.currentTimeMillis() - startTime
+        info("YoutubeCache: yt-dlp extraction took ${extractionTimeMs}ms")
 
         if (extractedInfo != null) {
-            val audioInfo = YoutubeAudioInfo(
-                audioUrl = extractedInfo.audioUrl,
-                durationSeconds = extractedInfo.durationSeconds
-            )
+            val audioInfo =
+                YoutubeAudioInfo(
+                    audioUrl = extractedInfo.audioUrl,
+                    durationSeconds = extractedInfo.durationSeconds,
+                    title = extractedInfo.title,
+                )
 
             synchronized(cache) {
                 cache[youtubeUrl] = audioInfo
@@ -86,4 +92,3 @@ object YoutubeCache {
      */
     fun size(): Int = synchronized(cache) { cache.size }
 }
-

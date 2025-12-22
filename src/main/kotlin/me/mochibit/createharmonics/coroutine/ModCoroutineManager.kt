@@ -20,10 +20,11 @@ import kotlin.coroutines.CoroutineContext
 @Mod.EventBusSubscriber(modid = CreateHarmonicsMod.MOD_ID)
 object ModCoroutineManager : CoroutineScope {
     private val supervisor = SupervisorJob()
-    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
-        Logger.err("Uncaught exception in coroutine: $throwable")
-        throwable.printStackTrace()
-    }
+    private val exceptionHandler =
+        CoroutineExceptionHandler { _, throwable ->
+            Logger.err("Uncaught exception in coroutine: $throwable")
+            throwable.printStackTrace()
+        }
 
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Default + supervisor + exceptionHandler
@@ -62,7 +63,6 @@ object ModCoroutineManager : CoroutineScope {
     }
 }
 
-
 /**
  * Launch a coroutine in the mod's coroutine scope.
  * The coroutine will be automatically cancelled when the world is unloaded.
@@ -75,7 +75,7 @@ object ModCoroutineManager : CoroutineScope {
 fun launchModCoroutine(
     context: CoroutineContext = MinecraftClientDispatcher,
     start: CoroutineStart = CoroutineStart.DEFAULT,
-    block: suspend CoroutineScope.() -> Unit
+    block: suspend CoroutineScope.() -> Unit,
 ): Job = ModCoroutineManager.launch(context, start, block)
 
 /**
@@ -88,12 +88,13 @@ fun launchModCoroutine(
  */
 fun launchDelayed(
     context: CoroutineContext = MinecraftClientDispatcher,
-    delay: Duration,
-    block: suspend CoroutineScope.() -> Unit
-): Job = ModCoroutineManager.launch(context) {
-    delay(delay.toMillis())
-    block()
-}
+    delay: kotlin.time.Duration,
+    block: suspend CoroutineScope.() -> Unit,
+): Job =
+    ModCoroutineManager.launch(context) {
+        delay(delay.inWholeMilliseconds)
+        block()
+    }
 
 /**
  * Launch a repeating coroutine that executes periodically.
@@ -108,27 +109,26 @@ fun launchRepeating(
     context: CoroutineContext = MinecraftClientDispatcher,
     initialDelay: Duration = Duration.ZERO,
     delay: kotlin.time.Duration,
-    block: suspend CoroutineScope.() -> Unit
-): Job = ModCoroutineManager.launch(context) {
-    if (initialDelay.toMillis() > 0) {
-        delay(initialDelay.toMillis())
-    }
-    while (isActive) {
-        block()
-        if (delay.inWholeMilliseconds > 0) {
-            delay(delay.inWholeMilliseconds)
+    block: suspend CoroutineScope.() -> Unit,
+): Job =
+    ModCoroutineManager.launch(context) {
+        if (initialDelay.toMillis() > 0) {
+            delay(initialDelay.toMillis())
+        }
+        while (isActive) {
+            block()
+            if (delay.inWholeMilliseconds > 0) {
+                delay(delay.inWholeMilliseconds)
+            }
         }
     }
-}
 
 /**
  * Execute a suspend block in the server dispatcher context.
  */
-suspend fun <T> withServerContext(block: suspend CoroutineScope.() -> T): T =
-    withContext(MinecraftServerDispatcher, block)
+suspend fun <T> withServerContext(block: suspend CoroutineScope.() -> T): T = withContext(MinecraftServerDispatcher, block)
 
 /**
  * Execute a suspend block in the client dispatcher context.
  */
-suspend fun <T> withClientContext(block: suspend CoroutineScope.() -> T): T =
-    withContext(MinecraftClientDispatcher, block)
+suspend fun <T> withClientContext(block: suspend CoroutineScope.() -> T): T = withContext(MinecraftClientDispatcher, block)

@@ -26,4 +26,10 @@ interface AudioSource {
      * Optional: Get metadata about this audio source (title, duration, etc.)
      */
     fun getMetadata(): Map<String, Any> = emptyMap()
+
+    /**
+     * Get the name/title of the audio.
+     * Returns "Unknown" by default if not available.
+     */
+    suspend fun getAudioName(): String = "Unknown"
 }

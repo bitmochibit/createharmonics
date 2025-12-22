@@ -6,8 +6,8 @@ import me.mochibit.createharmonics.Logger.err
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
-import me.mochibit.createharmonics.network.ModNetworkHandler
-import me.mochibit.createharmonics.registry.ModConfigRegistry
+import me.mochibit.createharmonics.registry.ModConfigurations
+import me.mochibit.createharmonics.registry.ModPackets
 import me.mochibit.createharmonics.registry.ModPartialModels
 import me.mochibit.createharmonics.registry.RegistryManager
 import net.createmod.catnip.config.ui.BaseConfigScreen
@@ -26,7 +26,9 @@ import net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
 @Mod(MOD_ID)
-class CreateHarmonicsMod(val context: FMLJavaModLoadingContext) {
+class CreateHarmonicsMod(
+    val context: FMLJavaModLoadingContext,
+) {
     companion object {
         const val MOD_ID: String = "createharmonics"
 
@@ -44,12 +46,11 @@ class CreateHarmonicsMod(val context: FMLJavaModLoadingContext) {
 
     @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
     object ModSetup {
-
         @JvmStatic
         @SubscribeEvent
         fun onClientSetup(event: FMLClientSetupEvent) {
             BaseConfigScreen.setDefaultActionFor(MOD_ID) { base ->
-                base.withSpecs(null, ModConfigRegistry.common.specification, null)
+                base.withSpecs(null, ModConfigurations.common.specification, null)
             }
         }
 
@@ -57,12 +58,12 @@ class CreateHarmonicsMod(val context: FMLJavaModLoadingContext) {
         @SubscribeEvent
         fun onLoadComplete(event: FMLLoadCompleteEvent) {
             instance.context.registerExtensionPoint(
-                ConfigScreenFactory::class.java
+                ConfigScreenFactory::class.java,
             ) {
                 ConfigScreenFactory { mc: Minecraft, previousScreen: Screen ->
                     BaseConfigScreen(
                         previousScreen,
-                        MOD_ID
+                        MOD_ID,
                     )
                 }
             }
@@ -73,7 +74,6 @@ class CreateHarmonicsMod(val context: FMLJavaModLoadingContext) {
         fun onCommonSetup(event: FMLCommonSetupEvent) {
             info("Create: Harmonics common setup complete!")
         }
-
     }
 
     private fun initialize() {
@@ -90,24 +90,24 @@ class CreateHarmonicsMod(val context: FMLJavaModLoadingContext) {
 
         RegistryManager.registerAll(modEventBus, context)
 
-        ModNetworkHandler.register(modEventBus, context)
+        ModPackets.register(modEventBus, context)
 
-        ModConfigRegistry.register(modEventBus, context)
-
-        Runtime.getRuntime().addShutdownHook(Thread {
-            info("Minecraft shutting down, cleaning up resources...")
-            try {
-                AudioPlayerRegistry.clear()
-            } catch (e: Exception) {
-                err("Error clearing streams: ${e.message}")
-            }
-            try {
-                // Then cleanup managed processes
-                ProcessLifecycleManager.shutdownAll()
-            } catch (e: Exception) {
-                err("Error shutting down processes: ${e.message}")
-            }
-        })
+        Runtime.getRuntime().addShutdownHook(
+            Thread {
+                info("Minecraft shutting down, cleaning up resources...")
+                try {
+                    AudioPlayerRegistry.clear()
+                } catch (e: Exception) {
+                    err("Error clearing streams: ${e.message}")
+                }
+                try {
+                    // Then cleanup managed processes
+                    ProcessLifecycleManager.shutdownAll()
+                } catch (e: Exception) {
+                    err("Error shutting down processes: ${e.message}")
+                }
+            },
+        )
     }
 
     fun getRegistrate(): CreateRegistrate = registrate
@@ -117,4 +117,5 @@ val CreateHarmonics: CreateHarmonicsMod
     get() = CreateHarmonicsMod.instance
 
 internal fun String.asResource() = ResourceLocation.fromNamespaceAndPath(MOD_ID, this)
+
 internal fun cRegistrate() = CreateHarmonics.getRegistrate()

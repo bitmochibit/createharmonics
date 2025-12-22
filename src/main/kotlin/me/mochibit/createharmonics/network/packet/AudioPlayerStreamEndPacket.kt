@@ -1,8 +1,8 @@
 package me.mochibit.createharmonics.network.packet
 
 import com.simibubi.create.foundation.networking.SimplePacketBase
-import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerBehaviour
-import me.mochibit.createharmonics.content.block.recordPlayer.RecordPlayerMovementBehaviour
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour
 import net.minecraft.network.FriendlyByteBuf
 import net.minecraftforge.network.NetworkEvent
 
@@ -19,16 +19,7 @@ class AudioPlayerStreamEndPacket(
 
     override fun handle(context: NetworkEvent.Context): Boolean {
         context.enqueueWork {
-            val blockEntity =
-                RecordPlayerBehaviour
-                    .getBlockEntityByPlayerUUID(audioPlayerId)
-            if (blockEntity != null) {
-                blockEntity.stopPlayer()
-            } else {
-                me.mochibit.createharmonics.Logger.info(
-                    "AudioPlayerStreamEndPacket: No static block entity found for player ID: $audioPlayerId",
-                )
-            }
+            RecordPlayerBlockEntity.handlePlaybackEnd(audioPlayerId)
 
             // Handle moving record player (on contraptions)
             RecordPlayerMovementBehaviour.getContextByPlayerUUID(audioPlayerId)?.let { movementContext ->

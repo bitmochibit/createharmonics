@@ -8,14 +8,15 @@ import java.nio.ByteOrder
 import javax.sound.sampled.AudioFormat
 import kotlin.math.min
 
-class PcmAudioStream(private val inputStream: InputStream) : AudioStream {
+class PcmAudioStream(
+    private val inputStream: InputStream,
+) : AudioStream {
     val sampleRate: Int = 48000
 
     val readBufferSize = 8192
     private val audioFormat = AudioFormat(sampleRate.toFloat(), 16, 1, true, false)
 
     override fun getFormat(): AudioFormat = audioFormat
-
 
     val readBuffer = ByteArray(readBufferSize)
 
@@ -29,14 +30,16 @@ class PcmAudioStream(private val inputStream: InputStream) : AudioStream {
                 return ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
             }
 
-            return ByteBuffer.allocateDirect(bytesRead)
+            return ByteBuffer
+                .allocateDirect(bytesRead)
                 .order(ByteOrder.nativeOrder())
                 .put(readBuffer, 0, bytesRead)
                 .flip()
         } catch (e: IOException) {
             // On error, return silence instead of empty buffer to prevent premature stream end
             val silenceSize = min(size, readBuffer.size)
-            return ByteBuffer.allocateDirect(silenceSize)
+            return ByteBuffer
+                .allocateDirect(silenceSize)
                 .order(ByteOrder.nativeOrder())
                 .put(ByteArray(silenceSize))
                 .flip()
@@ -50,12 +53,13 @@ class PcmAudioStream(private val inputStream: InputStream) : AudioStream {
 
         when (inputStream) {
             is AudioEffectInputStream -> {
-                if (inputStream.available() > 0) {
-                    inputStream.onStreamHang?.let { it() }
-                }
+                // Since the buffer is smaller (and more susceptible to hanging) the stream closure will be handled by the stream directly
+                inputStream.onStreamHang?.let { it() }
             }
 
-            else -> inputStream.close()
+            else -> {
+                inputStream.close()
+            }
         }
     }
 }

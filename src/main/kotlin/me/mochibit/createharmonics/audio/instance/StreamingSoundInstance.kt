@@ -2,8 +2,6 @@ package me.mochibit.createharmonics.audio.instance
 
 import me.mochibit.createharmonics.asResource
 import me.mochibit.createharmonics.audio.PcmAudioStream
-import me.mochibit.createharmonics.registry.ModSoundsRegistry
-import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance
 import net.minecraft.client.resources.sounds.Sound
 import net.minecraft.client.sounds.AudioStream
 import net.minecraft.client.sounds.SoundBufferLibrary

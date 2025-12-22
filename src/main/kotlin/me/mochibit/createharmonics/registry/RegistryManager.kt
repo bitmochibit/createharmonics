@@ -2,24 +2,9 @@ package me.mochibit.createharmonics.registry
 
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
+import kotlin.reflect.KClass
 
-/**
- * Manages automatic discovery and registration of mod registries.
- * This class scans for all classes implementing AbstractModRegistry that are
- * annotated with @AutoRegister and registers them in priority order.
- */
 object RegistryManager {
-    val registries =
-        listOf(
-            ModSoundsRegistry,
-            ModBlocksRegistry,
-            ModBlockEntitiesRegistry,
-            ModItemsRegistry,
-            ModCreativeTabs,
-            ModMenuTypesRegistry,
-            ModArmInteractionPointRegistry,
-        )
-
     /**
      * Registers all mod registries
      * @param eventBus The Forge mod event bus to register to
@@ -28,7 +13,9 @@ object RegistryManager {
         eventBus: IEventBus,
         context: FMLJavaModLoadingContext,
     ) {
-        for (registry in registries) {
+        val autoRegistrable: List<KClass<out AutoRegistrable>> = AutoRegistrable::class.sealedSubclasses
+        for (registry in autoRegistrable) {
+            val registry = registry.objectInstance ?: continue
             registry.register(eventBus, context)
         }
     }

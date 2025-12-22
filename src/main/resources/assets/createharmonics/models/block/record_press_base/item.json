@@ -1,0 +1,179 @@
+{
+	"format_version": "1.9.0",
+	"credit": "Made with Blockbench",
+	"parent": "block/block",
+	"ambientocclusion": false,
+	"texture_size": [
+		32,
+		32
+	],
+	"textures": {
+		"0": "createharmonics:block/record_press_base/base_texture",
+		"2": "createharmonics:block/record_press_base/stamp_texture",
+		"particle": "createharmonics:block/record_press_base/base_texture"
+	},
+	"elements": [
+		{
+			"name": "stamp",
+			"from": [
+				0.95,
+				11,
+				0.95
+			],
+			"to": [
+				15.05,
+				13,
+				15.05
+			],
+			"rotation": {
+				"angle": 0,
+				"axis": "y",
+				"origin": [
+					9,
+					-2,
+					9
+				]
+			},
+			"faces": {
+				"north": {
+					"uv": [
+						0,
+						7,
+						7,
+						8
+					],
+					"texture": "#2"
+				},
+				"east": {
+					"uv": [
+						0,
+						7,
+						7,
+						8
+					],
+					"texture": "#2"
+				},
+				"south": {
+					"uv": [
+						0,
+						7,
+						7,
+						8
+					],
+					"texture": "#2"
+				},
+				"west": {
+					"uv": [
+						0,
+						7,
+						7,
+						8
+					],
+					"texture": "#2"
+				},
+				"up": {
+					"uv": [
+						7,
+						7,
+						0,
+						0
+					],
+					"texture": "#2"
+				}
+			}
+		},
+		{
+			"name": "base",
+			"from": [
+				0,
+				0,
+				0
+			],
+			"to": [
+				16,
+				11,
+				16
+			],
+			"rotation": {
+				"angle": 0,
+				"axis": "y",
+				"origin": [
+					0.5,
+					10.5,
+					0.5
+				]
+			},
+			"faces": {
+				"north": {
+					"uv": [
+						4,
+						0,
+						8,
+						2.75
+					],
+					"texture": "#0"
+				},
+				"east": {
+					"uv": [
+						4,
+						0,
+						8,
+						2.75
+					],
+					"texture": "#0"
+				},
+				"south": {
+					"uv": [
+						4,
+						0,
+						8,
+						2.75
+					],
+					"texture": "#0"
+				},
+				"west": {
+					"uv": [
+						4,
+						0,
+						8,
+						2.75
+					],
+					"texture": "#0"
+				},
+				"up": {
+					"uv": [
+						4,
+						4,
+						0,
+						0
+					],
+					"texture": "#0"
+				},
+				"down": {
+					"uv": [
+						4,
+						0,
+						0,
+						4
+					],
+					"texture": "#0"
+				}
+			}
+		}
+	],
+	"groups": [
+		{
+			"name": "burner",
+			"origin": [
+				8,
+				8,
+				8
+			],
+			"color": 0,
+			"children": [
+				0,
+				1
+			]
+		}
+	]
+}

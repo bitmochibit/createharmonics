@@ -3,8 +3,8 @@ package me.mochibit.createharmonics.data.recipe
 import com.simibubi.create.api.data.recipe.DeployingRecipeGen
 import com.simibubi.create.content.kinetics.deployer.DeployerApplicationRecipe
 import me.mochibit.createharmonics.CreateHarmonicsMod
-import me.mochibit.createharmonics.content.item.record.RecordType
-import me.mochibit.createharmonics.registry.ModItemsRegistry
+import me.mochibit.createharmonics.content.records.RecordType
+import me.mochibit.createharmonics.registry.ModItems
 import net.minecraft.data.PackOutput
 
 class ModDeployingRecipeGen(
@@ -16,7 +16,7 @@ class ModDeployingRecipeGen(
                 builder
                     .require(it.properties.recipe?.primaryIngredientProvider())
                     .require(it.properties.recipe?.secondaryIngredientProvider())
-                    .output { ModItemsRegistry.getEtherealRecordItem(it).get() }
+                    .output { ModItems.getEtherealRecordItem(it).get() }
             }
         }
 }

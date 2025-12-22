@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_8",
   "refmap": "createharmonics.refmap.json",
   "mixins": [
+    "AbstractContraptionEntityMixin",
     "SoundEngineAccessor",
     "SoundManagerAccessor"
   ],

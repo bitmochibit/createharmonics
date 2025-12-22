@@ -3,8 +3,8 @@ package me.mochibit.createharmonics.command
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
-import me.mochibit.createharmonics.content.item.EtherealRecordItem
-import me.mochibit.createharmonics.content.item.EtherealRecordItem.Companion.setAudioUrl
+import me.mochibit.createharmonics.content.records.EtherealRecordItem
+import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.setAudioUrl
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.network.chat.Component
@@ -20,9 +20,10 @@ object SetRecordUrlCommand : Registrable<CommandDispatcher<CommandSourceStack>> 
                 .literal("set-record-url")
                 .requires { it.hasPermission(4) } // Admin only
                 .then(
-                    Commands.argument("url", StringArgumentType.string())
-                        .executes(this::execute)
-                )
+                    Commands
+                        .argument("url", StringArgumentType.string())
+                        .executes(this::execute),
+                ),
         )
     }
 
@@ -50,17 +51,15 @@ object SetRecordUrlCommand : Registrable<CommandDispatcher<CommandSourceStack>> 
             return 0
         }
 
-
         setAudioUrl(mainHandItem, audioUrl)
 
         source.sendSuccess(
             {
                 Component.literal("Set Ethereal Record audio URL to: $audioUrl")
             },
-            false
+            false,
         )
 
         return 1
     }
-
 }

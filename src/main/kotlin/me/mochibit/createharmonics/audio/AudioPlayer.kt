@@ -13,8 +13,9 @@ import me.mochibit.createharmonics.audio.source.HttpAudioSource
 import me.mochibit.createharmonics.audio.source.YoutubeAudioSource
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import me.mochibit.createharmonics.coroutine.withClientContext
-import me.mochibit.createharmonics.network.ModNetworkHandler
 import me.mochibit.createharmonics.network.packet.AudioPlayerStreamEndPacket
+import me.mochibit.createharmonics.network.packet.UpdateAudioNamePacket
+import me.mochibit.createharmonics.registry.ModPackets
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import java.io.InputStream
@@ -174,7 +175,14 @@ class AudioPlayer(
                 throw IllegalArgumentException("Unsupported audio source")
             }
 
-        // Validate offset against duration if duration is known
+        audioSource.getAudioName().let { audioName ->
+            if (audioName != "Unknown") {
+                ModPackets.channel.sendToServer(
+                    UpdateAudioNamePacket(playerId, audioName),
+                )
+            }
+        }
+
         val duration = audioSource.getDurationSeconds()
         if (duration > 0 && offsetSeconds >= duration) {
             Logger.err("AudioPlayer $playerId: Offset ($offsetSeconds s) exceeds or equals duration ($duration s). Resetting playback.")
@@ -216,7 +224,7 @@ class AudioPlayer(
 
     private fun handleStreamFailure() {
         Logger.info("AudioPlayer $playerId: Sending stream end packet to server due to failure")
-        ModNetworkHandler.channel.sendToServer(
+        ModPackets.channel.sendToServer(
             AudioPlayerStreamEndPacket(playerId),
         )
     }
@@ -227,7 +235,7 @@ class AudioPlayer(
             stateMutex.withLock {
                 if (playState == PlayState.PLAYING) {
                     cleanupResourcesInternal()
-                    ModNetworkHandler.channel.sendToServer(
+                    ModPackets.channel.sendToServer(
                         AudioPlayerStreamEndPacket(playerId),
                     )
                 }
