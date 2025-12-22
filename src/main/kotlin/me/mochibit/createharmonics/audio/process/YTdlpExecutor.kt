@@ -9,6 +9,7 @@ class YTdlpExecutor {
     data class YoutubeAudioInfo(
         val audioUrl: String,
         val durationSeconds: Int,
+        val title: String,
     )
 
     suspend fun extractAudioInfo(youtubeUrl: String): YoutubeAudioInfo? =
@@ -29,7 +30,8 @@ class YTdlpExecutor {
                         // Prefer opus/m4a/webm audio, exclude HLS/DASH streaming (slower to parse)
                         "-f",
                         "bestaudio[ext=opus]/bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
-                        // Output options - only what we need
+                        // Output options - only what we need (order matters: title, url, duration)
+                        "--get-title",
                         "--get-url",
                         "--get-duration",
                         // Performance optimizations
@@ -74,16 +76,23 @@ class YTdlpExecutor {
                     }
 
                     val lines = output.trim().lines()
-                    val audioUrl = lines.firstOrNull { it.startsWith("http") }
-                    val durationStr = lines.lastOrNull { it.contains(":") } // Format: HH:MM:SS or MM:SS
+                    // Output order: title, url, duration (based on flag order: --get-title, --get-url, --get-duration)
+                    if (lines.size < 3) {
+                        err("Failed to parse yt-dlp output. Expected 3 lines (title, url, duration), got ${lines.size}. Lines: $lines")
+                        return@withContext null
+                    }
 
-                    if (audioUrl == null || durationStr == null) {
-                        err("Failed to parse yt-dlp output. Lines: $lines")
+                    val title = lines[0].ifBlank { "Unknown" }
+                    val audioUrl = lines[1]
+                    val durationStr = lines[2] // Format: HH:MM:SS or MM:SS or SS
+
+                    if (!audioUrl.startsWith("http")) {
+                        err("Failed to parse yt-dlp output. URL doesn't start with http: $audioUrl")
                         return@withContext null
                     }
 
                     val durationSeconds = parseDuration(durationStr)
-                    YoutubeAudioInfo(audioUrl, durationSeconds)
+                    YoutubeAudioInfo(audioUrl, durationSeconds, title)
                 } finally {
                     ProcessLifecycleManager.destroyProcess(processId)
                 }

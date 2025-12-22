@@ -28,6 +28,14 @@ class YoutubeAudioSource(
         return cachedInfo!!.durationSeconds
     }
 
+    override suspend fun getAudioName(): String {
+        if (cachedInfo == null) {
+            cachedInfo = YoutubeCache.getAudioInfo(youtubeUrl)
+                ?: return "Unknown"
+        }
+        return cachedInfo!!.title
+    }
+
     override fun getMetadata(): Map<String, Any> =
         mapOf(
             "source" to "youtube",

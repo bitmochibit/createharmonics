@@ -427,7 +427,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         val be =
             context.contraption.presentBlockEntities[context.localPos] as? RecordPlayerBlockEntity
                 ?: return ItemStack.EMPTY
-        val record: ItemStack = be.getRecord()
+        val record: ItemStack = be.playerBehaviour.getRecord()
         return record
     }
 }

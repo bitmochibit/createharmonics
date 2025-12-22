@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.content.kinetics.mechanicalArm.AllArmInteractionPointTypes
 import com.simibubi.create.content.kinetics.mechanicalArm.ArmInteractionPointType
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.PlaybackState
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack
@@ -27,9 +28,14 @@ class RecordPlayerArmPoint(
 
         val remainder = stack.copy()
         val toInsert = remainder.split(1)
-        level.hasNeighborSignal(pos)
+        val isPowered = level.hasNeighborSignal(pos)
         if (!simulate) {
-            be.insertRecord(toInsert)
+            be.playerBehaviour.apply {
+                insertRecord(toInsert)
+                if (!isPowered) {
+                    startPlayer()
+                }
+            }
         }
 
         return remainder
@@ -45,14 +51,15 @@ class RecordPlayerArmPoint(
             level.getBlockEntity(pos) as? RecordPlayerBlockEntity
                 ?: return ItemStack.EMPTY
 
-        if (be.playCount < 1) return ItemStack.EMPTY
+        if (level.hasNeighborSignal(pos)) return ItemStack.EMPTY
+        if (be.playerBehaviour.playbackState != PlaybackState.STOPPED) return ItemStack.EMPTY
 
         if (!simulate) {
-            val record = be.popRecord()
+            val record = be.playerBehaviour.popRecord()
             return record ?: ItemStack.EMPTY
         }
 
-        val recordInBe = be.getRecord()
+        val recordInBe = be.playerBehaviour.getRecord()
         return recordInBe
     }
 }

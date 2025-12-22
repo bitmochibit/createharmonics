@@ -65,28 +65,28 @@ abstract class RecordPlayerBlock(
             val isPowered = pLevel.hasNeighborSignal(pPos)
 
             if (pPlayer.isShiftKeyDown) {
-                if (!blockEntity.hasRecord()) {
+                if (!blockEntity.playerBehaviour.hasRecord()) {
                     return InteractionResult.PASS
                 }
 
-                val disc = blockEntity.popRecord() ?: return@onServer
+                val disc = blockEntity.playerBehaviour.popRecord() ?: return@onServer
                 pPlayer.addItem(disc)
 
-                blockEntity.stopPlayer()
+                blockEntity.playerBehaviour.stopPlayer()
 
                 return InteractionResult.SUCCESS
             }
 
-            if (clickItem.item is EtherealRecordItem && !blockEntity.hasRecord()) {
-                blockEntity.insertRecord(clickItem)
+            if (clickItem.item is EtherealRecordItem && !blockEntity.playerBehaviour.hasRecord()) {
+                blockEntity.playerBehaviour.insertRecord(clickItem)
                 clickItem.shrink(1)
                 return InteractionResult.SUCCESS
             }
 
-            if (blockEntity.hasRecord() && !isPowered) {
-                when (blockEntity.playbackState) {
-                    RecordPlayerBehaviour.PlaybackState.PLAYING -> blockEntity.pausePlayer()
-                    else -> blockEntity.startPlayer()
+            if (blockEntity.playerBehaviour.hasRecord() && !isPowered) {
+                when (blockEntity.playerBehaviour.playbackState) {
+                    RecordPlayerBehaviour.PlaybackState.PLAYING -> blockEntity.playerBehaviour.pausePlayer()
+                    else -> blockEntity.playerBehaviour.startPlayer()
                 }
             }
         }

@@ -44,7 +44,7 @@ class RecordPlayerVisual(
     private val speedSmoothingFactor = 0.1f
 
     private var currentModel: PartialModel =
-        ModPartialModels.getRecordModel(blockEntity.getRecordItem()?.recordType ?: RecordType.BRASS)
+        ModPartialModels.getRecordModel(blockEntity.playerBehaviour.getRecordItem()?.recordType ?: RecordType.BRASS)
 
     private val disc: TransformedInstance =
         instancerProvider()
@@ -75,8 +75,8 @@ class RecordPlayerVisual(
     }
 
     override fun tick(context: TickableVisual.Context) {
-        if (blockEntity.hasRecord()) {
-            val recordType = (blockEntity.getRecord().item as EtherealRecordItem).recordType
+        if (blockEntity.playerBehaviour.hasRecord()) {
+            val recordType = (blockEntity.playerBehaviour.getRecord().item as EtherealRecordItem).recordType
             val newModel = ModPartialModels.getRecordModel(recordType)
             if (newModel != currentModel) {
                 currentModel = newModel

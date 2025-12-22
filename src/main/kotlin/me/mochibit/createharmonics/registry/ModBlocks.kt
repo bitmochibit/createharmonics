@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.registry
 
 import com.simibubi.create.AllTags
+import com.simibubi.create.api.behaviour.display.DisplaySource.displaySource
 import com.simibubi.create.api.behaviour.movement.MovementBehaviour.movementBehaviour
 import com.simibubi.create.api.contraption.storage.item.MountedItemStorageType.mountedItemStorage
 import com.simibubi.create.foundation.data.BlockStateGen
@@ -30,6 +31,7 @@ object ModBlocks : AutoRegistrable {
             .tag(AllTags.AllBlockTags.SAFE_NBT.tag)
             .tag(AllTags.AllBlockTags.SIMPLE_MOUNTED_STORAGE.tag)
             .transform(mountedItemStorage(ModMountedStorages.SIMPLE_RECORD_PLAYER_STORAGE))
+            .transform(displaySource(ModDisplaySources.AUDIO_NAME))
             .item()
             .tag(AllTags.AllItemTags.CONTRAPTION_CONTROLLED.tag)
             .transform(customItemModel())

@@ -117,7 +117,7 @@ class RecordPlayerMountedStorage(
     ) {
         val be = contraption.presentBlockEntities[localPos]
         if (be is RecordPlayerBlockEntity) {
-            be.setRecordItem(this.getRecord())
+            be.playerBehaviour.setRecord(this.getRecord())
         }
     }
 

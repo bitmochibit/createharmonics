@@ -14,6 +14,7 @@ import me.mochibit.createharmonics.audio.source.YoutubeAudioSource
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import me.mochibit.createharmonics.coroutine.withClientContext
 import me.mochibit.createharmonics.network.packet.AudioPlayerStreamEndPacket
+import me.mochibit.createharmonics.network.packet.UpdateAudioNamePacket
 import me.mochibit.createharmonics.registry.ModPackets
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
@@ -174,7 +175,14 @@ class AudioPlayer(
                 throw IllegalArgumentException("Unsupported audio source")
             }
 
-        // Validate offset against duration if duration is known
+        audioSource.getAudioName().let { audioName ->
+            if (audioName != "Unknown") {
+                ModPackets.channel.sendToServer(
+                    UpdateAudioNamePacket(playerId, audioName),
+                )
+            }
+        }
+
         val duration = audioSource.getDurationSeconds()
         if (duration > 0 && offsetSeconds >= duration) {
             Logger.err("AudioPlayer $playerId: Offset ($offsetSeconds s) exceeds or equals duration ($duration s). Resetting playback.")

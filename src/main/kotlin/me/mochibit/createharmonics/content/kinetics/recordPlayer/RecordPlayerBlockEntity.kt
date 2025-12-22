@@ -2,7 +2,6 @@ package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
-import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.world.item.ItemStack
@@ -21,23 +20,32 @@ abstract class RecordPlayerBlockEntity(
     companion object {
         fun handlePlaybackEnd(playerId: String) {
             val blockEntity = RecordPlayerBehaviour.getBlockEntityByPlayerUUID(playerId)
-            blockEntity?.onPlaybackEnd(playerId)
+            blockEntity?.playerBehaviour?.onPlaybackEnd(playerId)
+        }
+
+        fun handleAudioTitleChange(
+            playerId: String,
+            newTitle: String,
+        ) {
+            val blockEntity = RecordPlayerBehaviour.getBlockEntityByPlayerUUID(playerId)
+            blockEntity?.playerBehaviour?.onAudioTitleUpdate(newTitle)
         }
     }
 
-    private lateinit var behaviour: RecordPlayerBehaviour
+    lateinit var playerBehaviour: RecordPlayerBehaviour
+        private set
 
     override fun addBehaviours(behaviours: MutableList<BlockEntityBehaviour>) {
-        behaviour = RecordPlayerBehaviour(this)
-        behaviours.add(behaviour)
+        playerBehaviour = RecordPlayerBehaviour(this)
+        behaviours.add(playerBehaviour)
     }
 
-    override fun <T : Any?> getCapability(
+    override fun <T> getCapability(
         cap: Capability<T?>,
         side: Direction?,
     ): LazyOptional<T?> {
         if (cap == ForgeCapabilities.ITEM_HANDLER) {
-            return behaviour.lazyItemHandler.cast()
+            return playerBehaviour.lazyItemHandler.cast()
         }
         return super.getCapability(cap, side)
     }
@@ -48,30 +56,9 @@ abstract class RecordPlayerBlockEntity(
         }
     }
 
-    val lazyItemHandler: LazyOptional<RecordPlayerItemHandler> = behaviour.lazyItemHandler
-    val itemHandler: RecordPlayerItemHandler = behaviour.itemHandler
+    val lazyItemHandler: LazyOptional<RecordPlayerItemHandler>
+        get() = playerBehaviour.lazyItemHandler
 
-    val playbackState get() = behaviour.playbackState
-
-    val playCount get() = behaviour.audioPlayCount
-
-    fun onPlaybackEnd(endedPlayerId: String) = behaviour.onPlaybackEnd(endedPlayerId)
-
-    fun hasRecord(): Boolean = behaviour.hasRecord()
-
-    fun insertRecord(discItem: ItemStack): Boolean = behaviour.insertRecord(discItem)
-
-    fun popRecord(): ItemStack? = behaviour.popRecord()
-
-    fun getRecord(): ItemStack = behaviour.getRecord()
-
-    fun getRecordItem(): EtherealRecordItem? = behaviour.getRecordItem()
-
-    fun startPlayer() = behaviour.startPlayer()
-
-    fun stopPlayer() = behaviour.stopPlayer()
-
-    fun pausePlayer() = behaviour.pausePlayer()
-
-    fun setRecordItem(discItem: ItemStack) = behaviour.setRecord(discItem)
+    val itemHandler: RecordPlayerItemHandler
+        get() = playerBehaviour.itemHandler
 }

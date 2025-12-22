@@ -102,6 +102,10 @@ class RecordPlayerBehaviour(
     var audioPlayCount: Long = 0
         private set
 
+    @Volatile
+    var audioPlayingTitle: String? = null
+        private set
+
     val itemHandler = RecordPlayerItemHandler(this, 1)
     val lazyItemHandler: LazyOptional<RecordPlayerItemHandler> = LazyOptional.of { itemHandler }
 
@@ -141,6 +145,7 @@ class RecordPlayerBehaviour(
                     if (playbackState != PlaybackState.STOPPED) {
                         updatePlaybackState(PlaybackState.STOPPED, resetTime = true)
                         audioPlayCount = 0
+                        audioPlayingTitle = null
                     }
                 }
 
@@ -154,6 +159,7 @@ class RecordPlayerBehaviour(
                     if (isPowered) {
                         if (playbackState != PlaybackState.PLAYING) {
                             updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = true)
+                            audioPlayCount += 1
                             handleRecordUse()
                         }
                     } else {
@@ -228,6 +234,7 @@ class RecordPlayerBehaviour(
 
             else -> {
                 updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = true)
+                audioPlayCount += 1
             }
         }
     }
@@ -345,6 +352,9 @@ class RecordPlayerBehaviour(
         compound.putUUID("RecordPlayerUUID", recordPlayerUUID)
         compound.putLong("PlayTime", playTime)
         compound.putLong("AudioPlayCount", audioPlayCount)
+        audioPlayingTitle?.let {
+            compound.putString("AudioPlayingTitle", it)
+        }
     }
 
     override fun read(
@@ -366,8 +376,12 @@ class RecordPlayerBehaviour(
             playTime = compound.getLong("PlayTime")
         }
 
+        if (compound.contains("AudioPlayingTitle")) {
+            audioPlayingTitle = compound.getString("AudioPlayingTitle")
+        }
+
         if (compound.contains("AudioPlayCount")) {
-            audioPlayCount = compound.getLong("AudioPlayTimes")
+            audioPlayCount = compound.getLong("AudioPlayCount")
         }
 
         if (compound.contains("PlaybackState")) {
@@ -408,6 +422,10 @@ class RecordPlayerBehaviour(
 
     fun onPlaybackEnd(endedPlayerId: String) {
         this.stopPlayer()
-        audioPlayCount += 1
+    }
+
+    fun onAudioTitleUpdate(audioTitle: String) {
+        if (audioTitle == "Unknown") return
+        audioPlayingTitle = audioTitle
     }
 }
