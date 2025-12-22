@@ -19,7 +19,7 @@ inline fun net.minecraft.world.level.Level.onServer(block: (level: ServerLevel) 
 }
 
 inline fun net.minecraft.world.level.Level.onClient(block: (level: ClientLevel) -> Unit) {
-    if (isClientSide) {
-        block(this as ClientLevel)
+    if (isClientSide && this is ClientLevel) {
+        block(this)
     }
 }
