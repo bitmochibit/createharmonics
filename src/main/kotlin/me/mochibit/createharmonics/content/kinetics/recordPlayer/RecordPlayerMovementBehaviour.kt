@@ -15,7 +15,6 @@ import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.PlaybackState
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour.Companion.unregisterPlayer
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.getAudioUrl
 import me.mochibit.createharmonics.event.contraption.ContraptionDisassembleEvent
@@ -205,7 +204,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             updateServerData(context)
         }
 
-        context.world.onClient {
+        context.world.onClient { level, virtual ->
             updateClientState(context)
             handleClientPlayback(context)
         }

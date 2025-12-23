@@ -12,6 +12,8 @@ import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
 object ModPonders : AutoRegistrable {
+    override val registrationOrder = 5
+
     fun addTags(rawHelper: PonderTagRegistrationHelper<ResourceLocation>) {
         val helper = rawHelper.withKeyFunction(RegistryEntry<*>::getId)
 

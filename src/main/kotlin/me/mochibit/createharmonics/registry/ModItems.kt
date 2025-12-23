@@ -12,6 +12,8 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 import java.util.EnumMap
 
 object ModItems : AutoRegistrable {
+    override val registrationOrder = 3
+
     val BASE_RECORD: ItemEntry<Item> =
         cRegistrate()
             .item("ethereal_record_base") { Item(Item.Properties().stacksTo(16)) }

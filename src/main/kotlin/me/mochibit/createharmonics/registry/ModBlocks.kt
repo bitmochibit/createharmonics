@@ -18,6 +18,8 @@ import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
 object ModBlocks : AutoRegistrable {
+    override val registrationOrder = 2
+
     val ANDESITE_JUKEBOX: BlockEntry<AndesiteJukeboxBlock> =
         cRegistrate()
             .block("andesite_jukebox") { properties ->

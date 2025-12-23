@@ -13,6 +13,8 @@ import net.minecraftforge.registries.DeferredRegister
 import net.minecraftforge.registries.RegistryObject
 
 object ModCreativeTabs : AutoRegistrable {
+    override val registrationOrder = 4
+
     private val CREATIVE_MODE_TABS: DeferredRegister<CreativeModeTab> =
         DeferredRegister.create(Registries.CREATIVE_MODE_TAB, CreateHarmonicsMod.MOD_ID)
 

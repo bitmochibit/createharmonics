@@ -53,9 +53,12 @@ minecraft {
         }
 
         client {
-            jvmArg "-Xmx4G"
-            jvmArg "-Xms2G"
             property 'forge.enabledGameTestNamespaces', mod_id
+        }
+
+        debug {
+            parent runs.client
+            jvmArg "-XX:+AllowEnhancedClassRedefinition"
         }
 
         clientDummy {

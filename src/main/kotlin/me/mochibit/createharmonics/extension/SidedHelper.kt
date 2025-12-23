@@ -1,5 +1,7 @@
 package me.mochibit.createharmonics.extension
 
+import net.createmod.ponder.api.level.PonderLevel
+import net.minecraft.client.Minecraft
 import net.minecraft.client.multiplayer.ClientLevel
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.block.entity.BlockEntity
@@ -18,8 +20,19 @@ inline fun net.minecraft.world.level.Level.onServer(block: (level: ServerLevel) 
     }
 }
 
-inline fun net.minecraft.world.level.Level.onClient(block: (level: ClientLevel) -> Unit) {
-    if (isClientSide && this is ClientLevel) {
-        block(this)
+inline fun net.minecraft.world.level.Level.onClient(block: (level: ClientLevel, virtual: Boolean) -> Unit) {
+    if (!isClientSide) return
+
+    when (this) {
+        is ClientLevel -> {
+            block(this, false)
+        }
+
+        is PonderLevel -> {
+            val clientLevel = Minecraft.getInstance().level
+            if (clientLevel != null) {
+                block(clientLevel, true)
+            }
+        }
     }
 }

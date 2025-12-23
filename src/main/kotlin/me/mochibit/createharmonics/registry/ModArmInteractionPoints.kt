@@ -14,6 +14,8 @@ import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
 object ModArmInteractionPoints : AutoRegistrable {
+    override val registrationOrder = 3
+
     val RECORD_PLAYER_TYPE: RegistryEntry<RecordPlayerType> =
         cRegistrate()
             .generic("record_player", CreateRegistries.ARM_INTERACTION_POINT_TYPE) {

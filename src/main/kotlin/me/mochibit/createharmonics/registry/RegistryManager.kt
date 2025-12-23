@@ -6,7 +6,8 @@ import kotlin.reflect.KClass
 
 object RegistryManager {
     /**
-     * Registers all mod registries
+     * Registers all mod registries sorted by their registration order.
+     * Lower [AutoRegistrable.registrationOrder] values are registered first.
      * @param eventBus The Forge mod event bus to register to
      */
     fun registerAll(
@@ -14,9 +15,9 @@ object RegistryManager {
         context: FMLJavaModLoadingContext,
     ) {
         val autoRegistrable: List<KClass<out AutoRegistrable>> = AutoRegistrable::class.sealedSubclasses
-        for (registry in autoRegistrable) {
-            val registry = registry.objectInstance ?: continue
-            registry.register(eventBus, context)
-        }
+        autoRegistrable
+            .mapNotNull { it.objectInstance }
+            .sortedBy { it.registrationOrder }
+            .forEach { it.register(eventBus, context) }
     }
 }

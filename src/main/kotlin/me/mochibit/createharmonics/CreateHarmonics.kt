@@ -12,7 +12,6 @@ import me.mochibit.createharmonics.registry.ModPackets
 import me.mochibit.createharmonics.registry.ModPartialModels
 import me.mochibit.createharmonics.registry.RegistryManager
 import net.createmod.catnip.config.ui.BaseConfigScreen
-import net.createmod.ponder.api.registration.PonderPlugin
 import net.createmod.ponder.foundation.PonderIndex
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
@@ -52,7 +51,6 @@ class CreateHarmonicsMod(
         @JvmStatic
         @SubscribeEvent
         fun onClientSetup(event: FMLClientSetupEvent) {
-            PonderIndex.addPlugin(ModPonderPlugin())
             BaseConfigScreen.setDefaultActionFor(MOD_ID) { base ->
                 base.withSpecs(null, ModConfigurations.common.specification, null)
             }
@@ -89,6 +87,7 @@ class CreateHarmonicsMod(
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT) {
             Runnable {
                 ModPartialModels.register(modEventBus, context)
+                PonderIndex.addPlugin(ModPonderPlugin())
             }
         }
 

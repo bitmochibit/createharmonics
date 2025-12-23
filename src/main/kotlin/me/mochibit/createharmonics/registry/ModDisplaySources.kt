@@ -7,6 +7,8 @@ import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
 object ModDisplaySources : AutoRegistrable {
+    override val registrationOrder = 1
+
     val AUDIO_NAME =
         cRegistrate()
             .displaySource("audio_name", ::AudioNameDisplaySource)

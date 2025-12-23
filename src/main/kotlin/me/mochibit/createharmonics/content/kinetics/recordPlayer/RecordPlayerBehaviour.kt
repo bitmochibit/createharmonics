@@ -328,7 +328,7 @@ class RecordPlayerBehaviour(
     }
 
     override fun unload() {
-        be.level?.onClient {
+        be.level?.onClient { level, virtual ->
             if (AudioPlayerRegistry.containsStream(recordPlayerUUID.toString())) {
                 audioPlayer.dispose()
             }
@@ -388,7 +388,7 @@ class RecordPlayerBehaviour(
             val newPlaybackState = NBTHelper.readEnum(compound, "PlaybackState", PlaybackState::class.java)
             val oldPlaybackState = playbackState
 
-            be.level?.onClient {
+            be.level?.onClient { level, virtual ->
                 if (oldPlaybackState != newPlaybackState) {
                     when {
                         newPlaybackState == PlaybackState.PLAYING &&

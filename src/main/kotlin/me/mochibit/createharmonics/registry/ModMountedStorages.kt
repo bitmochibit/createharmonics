@@ -15,6 +15,8 @@ import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
 object ModMountedStorages : AutoRegistrable {
+    override val registrationOrder = 1
+
     val SIMPLE_RECORD_PLAYER_STORAGE: RegistryEntry<RecordPlayerMountedStorageType> =
         cRegistrate()
             .mountedItemStorage("simple_record_player_storage", ::RecordPlayerMountedStorageType)
