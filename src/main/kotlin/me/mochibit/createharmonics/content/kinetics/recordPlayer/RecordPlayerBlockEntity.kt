@@ -2,6 +2,8 @@ package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
+import me.mochibit.createharmonics.extension.lerpTo
+import net.createmod.catnip.math.AngleHelper
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.world.item.ItemStack
@@ -34,6 +36,29 @@ abstract class RecordPlayerBlockEntity(
 
     lateinit var playerBehaviour: RecordPlayerBehaviour
         private set
+
+    var visualSpeed = 0f
+    private val visualSpeedSmoothFactor = 0.1f
+
+    private var accumulatedRotation = 0.0
+    private var previousRotation = 0.0
+
+    override fun tick() {
+        super.tick()
+
+        if (level?.isClientSide == true) {
+            visualSpeed = visualSpeed.lerpTo(this.speed, visualSpeedSmoothFactor)
+        }
+    }
+
+    fun getRotationAngle(partialTicks: Float): Float {
+        previousRotation = accumulatedRotation
+        val deg = visualSpeed / (360 * 5)
+        accumulatedRotation += deg
+        accumulatedRotation %= 360.0
+
+        return AngleHelper.angleLerp(partialTicks.toDouble(), previousRotation, accumulatedRotation)
+    }
 
     override fun addBehaviours(behaviours: MutableList<BlockEntityBehaviour>) {
         playerBehaviour = RecordPlayerBehaviour(this)
