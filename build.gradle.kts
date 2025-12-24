@@ -66,16 +66,6 @@ java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(17))
 }
 
-// Find JetBrains Runtime (JBR) 17 if available
-val jbrHome: String? =
-    System.getenv("JBR_17_HOME")
-        ?: listOf(
-            "${System.getProperty("user.home")}/.jdks/jbr-17",
-            "${System.getProperty("user.home")}/.jdks/jbrsdk-17",
-            "C:/Users/${System.getProperty("user.name")}/.jdks/jbr-17",
-            System.getenv("IDEA_JDK"),
-        ).firstOrNull { path -> path != null && file(path).exists() }
-
 minecraft {
     mappings(mcMappingChannel, mcMappingVersion)
     copyIdeResources.set(true)
@@ -100,10 +90,6 @@ minecraft {
         register("debug") {
             parent(this@runs.getByName("client"))
             jvmArg("-XX:+AllowEnhancedClassRedefinition")
-            // Use JetBrains Runtime if available for enhanced debugging
-            jbrHome?.let { jbr ->
-                environment("JAVA_HOME", jbr)
-            }
         }
 
         register("clientDummy") {
