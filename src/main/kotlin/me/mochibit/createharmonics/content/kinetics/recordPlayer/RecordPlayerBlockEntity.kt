@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
+import dev.engine_room.flywheel.api.visualization.VisualizationManager
 import me.mochibit.createharmonics.extension.lerpTo
 import net.createmod.catnip.math.AngleHelper
 import net.minecraft.core.BlockPos
@@ -46,7 +47,7 @@ abstract class RecordPlayerBlockEntity(
     override fun tick() {
         super.tick()
 
-        if (level?.isClientSide == true) {
+        if (level?.isClientSide == true && !VisualizationManager.supportsVisualization(level)) {
             visualSpeed = visualSpeed.lerpTo(this.speed, visualSpeedSmoothFactor)
         }
     }

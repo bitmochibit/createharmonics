@@ -4,8 +4,10 @@ import com.simibubi.create.api.behaviour.movement.MovementBehaviour
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity
 import com.simibubi.create.content.contraptions.behaviour.MovementContext
 import com.simibubi.create.content.contraptions.render.ActorVisual
+import com.simibubi.create.content.contraptions.render.ContraptionMatrices
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import dev.engine_room.flywheel.api.visualization.VisualizationContext
+import dev.engine_room.flywheel.api.visualization.VisualizationManager
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.AudioPlayer
@@ -24,6 +26,7 @@ import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.network.packet.setBlockData
 import me.mochibit.createharmonics.registry.ModPackets
 import net.minecraft.client.Minecraft
+import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
@@ -404,6 +407,16 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         simulationWorld: VirtualRenderWorld,
         movementContext: MovementContext,
     ): ActorVisual = RecordPlayerActorVisual(visualizationContext, simulationWorld, movementContext)
+
+    override fun renderInContraption(
+        context: MovementContext,
+        renderWorld: VirtualRenderWorld,
+        matrices: ContraptionMatrices,
+        buffer: MultiBufferSource,
+    ) {
+        if (VisualizationManager.supportsVisualization(context.world)) return
+        RecordPlayerRenderer.renderInContraption(context, renderWorld, matrices, buffer)
+    }
 
     override fun disableBlockEntityRendering(): Boolean = true
 
