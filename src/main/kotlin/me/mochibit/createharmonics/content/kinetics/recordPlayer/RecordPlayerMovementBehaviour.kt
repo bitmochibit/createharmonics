@@ -246,7 +246,34 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         if (context.temporaryData !is PitchSupplierInterpolated) {
             context.temporaryData =
                 PitchSupplierInterpolated({
-                    ((context.motion.length() * 2).coerceIn(0.5, 2.0)).toFloat()
+                    val speed = abs(context.animationSpeed) / 100
+
+                    val minSpeed = 3.6f
+                    val midSpeed = 6.0f
+                    val maxSpeed = 36.0f
+
+                    val pitch =
+                        when {
+                            speed < minSpeed -> {
+                                val t = (speed / minSpeed).coerceIn(0f, 1f)
+                                0.5f + (0.5f * t)
+                            }
+
+                            speed in minSpeed..midSpeed -> {
+                                1.0f
+                            }
+
+                            speed > midSpeed -> {
+                                val t = ((speed - midSpeed) / (maxSpeed - midSpeed)).coerceIn(0f, 1f)
+                                1.0f + (1.0f * t)
+                            }
+
+                            else -> {
+                                1.0f
+                            }
+                        }
+
+                    pitch
                 }, 500)
         }
 

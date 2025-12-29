@@ -14,7 +14,7 @@ buildscript {
     }
     dependencies {
         classpath("org.spongepowered:mixingradle:0.7-SNAPSHOT")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.21")
     }
 }
 
@@ -23,8 +23,8 @@ plugins {
     idea
     id("net.minecraftforge.gradle") version "[6.0.16,6.2)"
     id("org.parchmentmc.librarian.forgegradle") version "1.+"
-    id("org.jetbrains.kotlin.jvm") version "2.3.0"
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.3.0"
+    id("org.jetbrains.kotlin.jvm") version "2.2.21"
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.2.21"
     id("com.gradleup.shadow") version "9.2.2"
 }
 
@@ -161,7 +161,7 @@ dependencies {
 
     annotationProcessor("org.spongepowered:mixin:0.8.5:processor")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
-    implementation("thedarkcolour:kotlinforforge:4.10.0")
+    implementation("thedarkcolour:kotlinforforge:4.12.0")
 
     implementation(fg.deobf("com.simibubi.create:create-$minecraftVersion:$createVersion:slim"))
     configurations.getByName("implementation").dependencies.last().apply {

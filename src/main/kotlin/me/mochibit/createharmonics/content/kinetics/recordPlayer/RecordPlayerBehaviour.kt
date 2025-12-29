@@ -84,7 +84,26 @@ class RecordPlayerBehaviour(
     private val currentPitch: Float
         get() {
             val currSpeed = abs(be.speed)
-            return currSpeed.remapTo(16.0f, 256.0f, minPitch, maxPitch)
+
+            val minRpm = 16.0f
+            val midRpm = 128.0f
+            val maxRpm = 256.0f
+
+            return when {
+                currSpeed < midRpm -> {
+                    val t = (currSpeed - minRpm) / (midRpm - minRpm)
+                    minPitch + ((1.0f - minPitch) * t.coerceIn(0f, 1f))
+                }
+
+                currSpeed > midRpm -> {
+                    val t = (currSpeed - midRpm) / (maxRpm - midRpm)
+                    1.0f + ((maxPitch - 1.0f) * t.coerceIn(0f, 1f))
+                }
+
+                else -> {
+                    1.0f
+                }
+            }
         }
 
     // TODO: make this adjustable with a wrench
