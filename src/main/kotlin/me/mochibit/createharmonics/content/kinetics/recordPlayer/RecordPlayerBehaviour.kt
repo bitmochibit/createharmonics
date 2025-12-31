@@ -20,6 +20,9 @@ import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.extension.remapTo
 import me.mochibit.createharmonics.registry.ModConfigurations
 import net.createmod.catnip.nbt.NBTHelper
+import net.minecraft.client.particle.NoteParticle
+import net.minecraft.core.particles.ParticleTypes
+import net.minecraft.core.particles.ShriekParticleOption
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
@@ -29,6 +32,7 @@ import net.minecraft.world.SimpleContainer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.RecordItem
+import net.minecraft.world.phys.Vec3
 import net.minecraftforge.common.util.LazyOptional
 import java.util.UUID
 import kotlin.math.abs
@@ -192,6 +196,42 @@ class RecordPlayerBehaviour(
                             handleRecordUse()
                         }
                     }
+                }
+            }
+        }
+    }
+
+    override fun lazyTick() {
+        this.be.level?.onClient { level, virtual ->
+            val pos = Vec3.atBottomCenterOf(be.blockPos).add(0.0, 1.2, 0.0)
+            val displacement = level.random.nextInt(4) / 24f
+            when (audioPlayer.state) {
+                AudioPlayer.PlayState.LOADING -> {
+                    level.addParticle(
+                        ShriekParticleOption(2),
+                        false,
+                        pos.x,
+                        pos.y,
+                        pos.z,
+                        0.0,
+                        12.5,
+                        0.0,
+                    )
+                }
+
+                AudioPlayer.PlayState.PLAYING -> {
+                    level.addParticle(
+                        ParticleTypes.NOTE,
+                        pos.x + displacement,
+                        pos.y + displacement,
+                        pos.z + displacement,
+                        level.random.nextFloat().toDouble(),
+                        0.0,
+                        0.0,
+                    )
+                }
+
+                else -> {
                 }
             }
         }

@@ -10,7 +10,7 @@
   "textures": {
     "0": "createharmonics:block/record_press_base/base_texture",
     "2": "createharmonics:block/record_press_base/stamp_texture",
-    "particle": "createharmonics:block/record_press_base/base_texture"
+    "particle": "createharmonics:block/record_press_base/particle"
   },
   "elements": [
     {

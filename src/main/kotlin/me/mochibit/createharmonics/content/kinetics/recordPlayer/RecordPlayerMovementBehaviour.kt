@@ -13,12 +13,9 @@ import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import me.mochibit.createharmonics.audio.comp.PitchSupplierInterpolated
-import me.mochibit.createharmonics.audio.comp.SoundEventComposition
-import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.PlaybackState
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
-import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.getAudioUrl
 import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.playFromRecord
 import me.mochibit.createharmonics.event.contraption.ContraptionDisassembleEvent
 import me.mochibit.createharmonics.extension.onClient
@@ -26,9 +23,12 @@ import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.network.packet.setBlockData
 import me.mochibit.createharmonics.registry.ModPackets
+import net.createmod.catnip.math.VecHelper
 import net.minecraft.client.Minecraft
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos
+import net.minecraft.core.particles.ParticleTypes
+import net.minecraft.core.particles.ShriekParticleOption
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
@@ -36,6 +36,7 @@ import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.phys.Vec3
 import net.minecraftforge.eventbus.api.SubscribeEvent
 import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.network.PacketDistributor
@@ -284,6 +285,48 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         val playerId = uuid.toString()
 
         val player = getOrCreateAudioPlayer(playerId, context)
+
+        val r = context.world.getRandom()
+        val c = context.position
+        val v =
+            c.add(
+                VecHelper
+                    .offsetRandomly(Vec3.ZERO, r, .125f)
+                    .multiply(1.0, 5.0, 1.0),
+            )
+        if (r.nextInt(15) == 0) {
+            when (player.state) {
+                AudioPlayer.PlayState.LOADING -> {
+                    context.world.addParticle(
+                        ShriekParticleOption(2),
+                        false,
+                        v.x,
+                        v.y,
+                        v.z,
+                        0.0,
+                        12.5,
+                        0.0,
+                    )
+                }
+
+                AudioPlayer.PlayState.PLAYING -> {
+                    context.world.addParticle(
+                        ParticleTypes.NOTE,
+                        v.x,
+                        v.y,
+                        v.z,
+                        context.world.random
+                            .nextFloat()
+                            .toDouble(),
+                        0.0,
+                        0.0,
+                    )
+                }
+
+                else -> {
+                }
+            }
+        }
 
         if (player.state == AudioPlayer.PlayState.LOADING) {
             return
