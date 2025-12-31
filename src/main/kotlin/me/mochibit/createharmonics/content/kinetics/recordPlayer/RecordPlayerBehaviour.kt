@@ -1,7 +1,9 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
+import com.simibubi.create.content.contraptions.AbstractContraptionEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
+import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import me.mochibit.createharmonics.audio.comp.PitchSupplierInterpolated
@@ -11,15 +13,20 @@ import me.mochibit.createharmonics.audio.effect.getStreamDirectly
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.audio.stream.Ogg2PcmInputStream
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour.Companion.PLAYER_UUID_KEY
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.getAudioUrl
 import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.playFromRecord
 import me.mochibit.createharmonics.content.records.RecordCraftingHandler
+import me.mochibit.createharmonics.event.contraption.ContraptionDisassembleEvent
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.extension.remapTo
+import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.registry.ModConfigurations
+import me.mochibit.createharmonics.registry.ModPackets
 import net.createmod.catnip.nbt.NBTHelper
+import net.minecraft.client.Minecraft
 import net.minecraft.client.particle.NoteParticle
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.core.particles.ShriekParticleOption
@@ -32,8 +39,12 @@ import net.minecraft.world.SimpleContainer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.RecordItem
+import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.phys.Vec3
 import net.minecraftforge.common.util.LazyOptional
+import net.minecraftforge.eventbus.api.SubscribeEvent
+import net.minecraftforge.fml.common.Mod
+import net.minecraftforge.network.PacketDistributor
 import java.util.UUID
 import kotlin.math.abs
 
@@ -75,6 +86,10 @@ class RecordPlayerBehaviour(
          */
         private fun unregisterPlayer(playerUUID: String) {
             activePlayersByUUID.remove(playerUUID)
+            ModPackets.channel.send(
+                PacketDistributor.ALL.noArg(),
+                AudioPlayerContextStopPacket(playerUUID),
+            )
         }
     }
 
@@ -139,8 +154,9 @@ class RecordPlayerBehaviour(
 
     val pitchSupplierInterpolated = PitchSupplierInterpolated({ currentPitch }, 500)
 
-    private val audioPlayer: AudioPlayer by lazy {
-        AudioPlayerRegistry.getOrCreatePlayer(recordPlayerUUID.toString()) {
+    private val audioPlayer: AudioPlayer
+        get() =
+            AudioPlayerRegistry.getOrCreatePlayer(recordPlayerUUID.toString()) {
             AudioPlayer(
                 soundInstanceProvider = { streamId, stream ->
                     SimpleStreamSoundInstance(
@@ -155,7 +171,6 @@ class RecordPlayerBehaviour(
                 playerId = recordPlayerUUID.toString(),
             )
         }
-    }
 
     override fun getType(): BehaviourType<RecordPlayerBehaviour> = BEHAVIOUR_TYPE
 
@@ -326,14 +341,16 @@ class RecordPlayerBehaviour(
             setCurrentTime -> playTime = System.currentTimeMillis()
         }
 
-        when {
-            newState == PlaybackState.PLAYING && oldState != PlaybackState.PLAYING -> {
+        when (newState) {
+            PlaybackState.PLAYING if oldState != PlaybackState.PLAYING -> {
                 registerPlayer(recordPlayerUUID.toString(), be)
             }
 
-            newState == PlaybackState.STOPPED && oldState != PlaybackState.STOPPED -> {
+            PlaybackState.STOPPED if oldState != PlaybackState.STOPPED -> {
                 unregisterPlayer(recordPlayerUUID.toString())
             }
+
+            else -> {}
         }
 
         be.notifyUpdate()
@@ -379,19 +396,18 @@ class RecordPlayerBehaviour(
     }
 
     override fun unload() {
-        be.level?.onClient { level, virtual ->
-            if (AudioPlayerRegistry.containsStream(recordPlayerUUID.toString())) {
-                audioPlayer.dispose()
-            }
+        be.onServer {
+            unregisterPlayer(recordPlayerUUID.toString())
         }
-        unregisterPlayer(recordPlayerUUID.toString())
         lazyItemHandler.invalidate()
+        super.unload()
     }
 
     override fun destroy() {
-        super.destroy()
         stopPlayer()
         dropContent()
+        unregisterPlayer(recordPlayerUUID.toString())
+        super.destroy()
     }
 
     override fun write(
@@ -441,26 +457,30 @@ class RecordPlayerBehaviour(
 
             be.level?.onClient { level, virtual ->
                 if (oldPlaybackState != newPlaybackState) {
-                    when {
-                        newPlaybackState == PlaybackState.PLAYING &&
-                            (oldPlaybackState == PlaybackState.PAUSED || oldPlaybackState == PlaybackState.MANUALLY_PAUSED) -> {
+                    when (newPlaybackState) {
+                        PlaybackState.PLAYING if (
+                            oldPlaybackState == PlaybackState.PAUSED ||
+                                oldPlaybackState == PlaybackState.MANUALLY_PAUSED
+                        ) -> {
                             resumeClientPlayer()
                         }
 
-                        newPlaybackState == PlaybackState.PLAYING && oldPlaybackState == PlaybackState.STOPPED -> {
+                        PlaybackState.PLAYING if oldPlaybackState == PlaybackState.STOPPED -> {
                             val currentRecord = getRecord()
                             if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
                                 startClientPlayer(currentRecord)
                             }
                         }
 
-                        newPlaybackState == PlaybackState.PAUSED || newPlaybackState == PlaybackState.MANUALLY_PAUSED -> {
+                        PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
                             pauseClientPlayer()
                         }
 
-                        newPlaybackState == PlaybackState.STOPPED -> {
+                        PlaybackState.STOPPED -> {
                             stopClientPlayer()
                         }
+
+                        else -> {}
                     }
                 }
             }

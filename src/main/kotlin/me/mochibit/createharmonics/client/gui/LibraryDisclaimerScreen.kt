@@ -12,6 +12,7 @@ import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 
+// TODO Asynchronous library download, which can run in background and when ready it can be used
 class LibraryDisclaimerScreen(private val parent: Screen?) : Screen(Component.literal("Library Setup")) {
 
     private data class LibInfo(val name: String, val desc: String, val url: String)

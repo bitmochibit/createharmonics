@@ -101,18 +101,16 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         @JvmStatic
         @SubscribeEvent
         fun onContraptionDisassemble(event: ContraptionDisassembleEvent) {
-            val level = Minecraft.getInstance().level ?: return
-            val contraption: AbstractContraptionEntity =
-                level.getEntity(event.contraptionId) as? AbstractContraptionEntity ?: return
-
-            contraption.contraption.actors.forEach { actor ->
-                val ctx = actor.value
-                val playerUUID = ctx.blockEntityData.getUUID(PLAYER_UUID_KEY) ?: return
-                ModPackets.channel.send(
-                    PacketDistributor.ALL.noArg(),
-                    AudioPlayerContextStopPacket(playerUUID.toString()),
-                )
-                unregisterPlayer(playerUUID.toString())
+            val level = event.level
+            level.onServer {
+                event.blockEntityDataMap.forEach { (pos, blockEntityData) ->
+                    val playerUUID = blockEntityData.getUUID(PLAYER_UUID_KEY) ?: return@forEach
+                    ModPackets.channel.send(
+                        PacketDistributor.ALL.noArg(),
+                        AudioPlayerContextStopPacket(playerUUID.toString()),
+                    )
+                    unregisterPlayer(playerUUID.toString())
+                }
             }
         }
     }

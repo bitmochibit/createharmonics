@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
+import me.mochibit.createharmonics.extension.onServer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.JukeboxBlock
 import net.minecraftforge.items.ItemStackHandler
@@ -14,18 +15,21 @@ class RecordPlayerItemHandler(
     }
 
     override fun onLoad() {
-        behaviour.blockEntity.notifyUpdate()
+        behaviour.be.onServer {
+            behaviour.blockEntity.notifyUpdate()
+        }
     }
 
     override fun onContentsChanged(slot: Int) {
-        super.onContentsChanged(slot)
-        val hasDisc = !getStackInSlot(MAIN_RECORD_SLOT).isEmpty
-        val be = behaviour.blockEntity
-        be.level?.setBlockAndUpdate(
-            be.blockPos,
-            be.blockState.setValue(JukeboxBlock.HAS_RECORD, hasDisc),
-        )
-        be.notifyUpdate()
+        behaviour.be.onServer {
+            val hasDisc = !getStackInSlot(MAIN_RECORD_SLOT).isEmpty
+            val be = behaviour.blockEntity
+            be.level?.setBlockAndUpdate(
+                be.blockPos,
+                be.blockState.setValue(JukeboxBlock.HAS_RECORD, hasDisc),
+            )
+            be.notifyUpdate()
+        }
     }
 
     override fun isItemValid(

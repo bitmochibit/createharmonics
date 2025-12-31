@@ -94,16 +94,6 @@ abstract class RecordPlayerBlock(
         return InteractionResult.SUCCESS
     }
 
-    override fun onRemove(
-        pState: BlockState,
-        pLevel: Level,
-        pPos: BlockPos,
-        pNewState: BlockState,
-        pIsMoving: Boolean,
-    ) {
-        super.onRemove(pState, pLevel, pPos, pNewState, pIsMoving)
-    }
-
     override fun hasShaftTowards(
         world: LevelReader?,
         pos: BlockPos?,

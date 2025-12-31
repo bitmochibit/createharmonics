@@ -46,7 +46,6 @@ abstract class RecordPlayerBlockEntity(
 
     override fun tick() {
         super.tick()
-
         if (level?.isClientSide == true && !VisualizationManager.supportsVisualization(level)) {
             visualSpeed = visualSpeed.lerpTo(this.speed, visualSpeedSmoothFactor)
         }
