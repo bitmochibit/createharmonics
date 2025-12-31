@@ -19,6 +19,7 @@ import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.PlaybackState
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.getAudioUrl
+import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.playFromRecord
 import me.mochibit.createharmonics.event.contraption.ContraptionDisassembleEvent
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
@@ -182,8 +183,6 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             val storage =
                 context.contraption.storage.allItemStorages[context.localPos] as? RecordPlayerMountedStorage ?: return
             val damaged = getRecordItem(context)
-            // Damage only if it has url
-            getAudioUrl(damaged) ?: return@onServer
             val broken = damaged.hurt(1, RandomSource.create(), null)
 
             if (broken) {
@@ -354,31 +353,14 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                     }
 
                     AudioPlayer.PlayState.STOPPED -> {
-                        // Get audio URL only when we need to start playback
                         val record = getRecordItemClient(context)
-                        val audioUrl = getAudioUrl(record)
+                        val offsetSeconds =
+                            if (playTime > 0) (System.currentTimeMillis() - playTime) / 1000.0 else 0.0
 
-                        if (audioUrl != null) {
-                            val offsetSeconds =
-                                if (playTime > 0) (System.currentTimeMillis() - playTime) / 1000.0 else 0.0
-
-                            val recordProps = (record.item as EtherealRecordItem).recordType.properties
-                            val soundEvents = recordProps.soundEventCompProvider()
-                            for (event in soundEvents) {
-                                if (context.temporaryData is PitchSupplierInterpolated) {
-                                    val tmp = context.temporaryData as PitchSupplierInterpolated
-                                    event.pitchSupplier = { tmp.getPitch() }
-                                }
-                            }
-
-                            player.play(
-                                audioUrl,
-                                EffectChain(recordProps.audioEffectsProvider()),
-                                SoundEventComposition(soundEvents),
-                                offsetSeconds,
-                            )
-                        } else {
-                            Logger.warn("Client: Cannot start playback, no valid audio URL")
+                        player.playFromRecord(record, offsetSeconds) {
+                            val pitchFunction =
+                                context.temporaryData as? PitchSupplierInterpolated ?: return@playFromRecord 1f
+                            pitchFunction.getPitch()
                         }
                     }
 

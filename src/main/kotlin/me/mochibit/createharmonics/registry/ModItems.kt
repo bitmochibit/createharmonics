@@ -4,6 +4,7 @@ import com.tterrag.registrate.util.entry.ItemEntry
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.cRegistrate
+import me.mochibit.createharmonics.content.records.BaseRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordType
 import net.minecraft.world.item.Item
@@ -14,9 +15,9 @@ import java.util.EnumMap
 object ModItems : AutoRegistrable {
     override val registrationOrder = 3
 
-    val BASE_RECORD: ItemEntry<Item> =
+    val BASE_RECORD: ItemEntry<BaseRecordItem> =
         cRegistrate()
-            .item("ethereal_record_base") { Item(Item.Properties().stacksTo(16)) }
+            .item("ethereal_record_base") { BaseRecordItem(Item.Properties().stacksTo(16)) }
             .model { ctx, prov ->
                 prov.generated(ctx, prov.modLoc("item/ethereal_record_base/base"))
             }.register()
@@ -36,7 +37,6 @@ object ModItems : AutoRegistrable {
             .item(name) {
                 val properties = Item.Properties().stacksTo(1)
                 val recordProperties = recordType.properties
-                // Record type with 0 uses is indestructible
                 if (recordProperties.uses > 0) {
                     properties.durability(recordProperties.uses + 1)
                 }

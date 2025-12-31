@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.audio
+package me.mochibit.createharmonics.audio.stream
 
 import net.minecraft.client.sounds.AudioStream
 import java.io.IOException

@@ -7,10 +7,14 @@ import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import me.mochibit.createharmonics.audio.comp.PitchSupplierInterpolated
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
+import me.mochibit.createharmonics.audio.effect.getStreamDirectly
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
+import me.mochibit.createharmonics.audio.stream.Ogg2PcmInputStream
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.getAudioUrl
+import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.playFromRecord
+import me.mochibit.createharmonics.content.records.RecordCraftingHandler
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.extension.remapTo
@@ -24,6 +28,7 @@ import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.item.RecordItem
 import net.minecraftforge.common.util.LazyOptional
 import java.util.UUID
 import kotlin.math.abs
@@ -195,8 +200,6 @@ class RecordPlayerBehaviour(
     fun handleRecordUse() {
         be.level?.onServer { level ->
             val damaged = getRecord()
-            // Damage only if it has a url set
-            getAudioUrl(damaged) ?: return@onServer
             val broken = damaged.hurt(1, RandomSource.create(), null)
 
             if (broken) {
@@ -296,10 +299,7 @@ class RecordPlayerBehaviour(
         be.notifyUpdate()
     }
 
-    private fun startClientPlayer(
-        audioUrl: String,
-        currentRecord: ItemStack,
-    ) {
+    private fun startClientPlayer(currentRecord: ItemStack) {
         val offsetSeconds =
             if (playTime > 0) {
                 (System.currentTimeMillis() - this.playTime) / 1000.0
@@ -307,20 +307,12 @@ class RecordPlayerBehaviour(
                 0.0
             }
 
-        val recordProps = (currentRecord.item as EtherealRecordItem).recordType.properties
-        val soundEvents = recordProps.soundEventCompProvider()
-        for (event in soundEvents) {
-            event.pitchSupplier = { pitchSupplierInterpolated.getPitch() }
-        }
-
-        audioPlayer.play(
-            audioUrl,
-            EffectChain(
-                recordProps.audioEffectsProvider(),
-            ),
-            SoundEventComposition(soundEvents),
+        audioPlayer.playFromRecord(
+            currentRecord,
             offsetSeconds,
-        )
+        ) {
+            pitchSupplierInterpolated.getPitch()
+        }
     }
 
     private fun resumeClientPlayer() {
@@ -418,10 +410,7 @@ class RecordPlayerBehaviour(
                         newPlaybackState == PlaybackState.PLAYING && oldPlaybackState == PlaybackState.STOPPED -> {
                             val currentRecord = getRecord()
                             if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
-                                val audioUrl = getAudioUrl(currentRecord)
-                                if (!audioUrl.isNullOrEmpty()) {
-                                    startClientPlayer(audioUrl, currentRecord)
-                                }
+                                startClientPlayer(currentRecord)
                             }
                         }
 

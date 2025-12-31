@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.audio
+package me.mochibit.createharmonics.audio.stream
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -7,6 +7,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
+import java.io.IOException
 import java.io.InputStream
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -256,7 +257,7 @@ class AudioEffectInputStream(
 
         return try {
             readInternal(b, off, len)
-        } catch (_: java.io.IOException) {
+        } catch (_: IOException) {
             isClosed = true
             -1
         }
@@ -338,7 +339,7 @@ class AudioEffectInputStream(
 
         return try {
             audioStream.available()
-        } catch (_: java.io.IOException) {
+        } catch (_: IOException) {
             0
         }
     }
