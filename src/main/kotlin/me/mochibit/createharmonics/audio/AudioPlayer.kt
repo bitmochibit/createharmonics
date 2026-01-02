@@ -437,20 +437,14 @@ class AudioPlayer(
         }
     }
 
+    /** TODO Integrate this to audioSources directly
+     * HTTP integration is discontinued, due to some possible vulnerabilities
+     */
+    @Deprecated("This will be removed, audio source will validate the url")
     private fun resolveAudioSource(url: String): AudioSource? =
         when {
             url.contains("youtube.com") || url.contains("youtu.be") -> {
                 YoutubeAudioSource(url)
-            }
-
-            url.startsWith("http://") || url.startsWith("https://") -> {
-                val acceptedDomains = CommonConfig.getAcceptedHttpDomains()
-                if (acceptedDomains.any { domain -> url.contains(domain) }) {
-                    HttpAudioSource(url)
-                } else {
-                    Logger.err("HTTP audio URL domain not in accepted list: $url")
-                    null
-                }
             }
 
             else -> {

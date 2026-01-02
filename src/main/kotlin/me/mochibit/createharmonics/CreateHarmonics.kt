@@ -59,16 +59,6 @@ class CreateHarmonicsMod(
         @JvmStatic
         @SubscribeEvent
         fun onLoadComplete(event: FMLLoadCompleteEvent) {
-            instance.context.registerExtensionPoint(
-                ConfigScreenFactory::class.java,
-            ) {
-                ConfigScreenFactory { mc: Minecraft, previousScreen: Screen ->
-                    BaseConfigScreen(
-                        previousScreen,
-                        MOD_ID,
-                    )
-                }
-            }
         }
 
         @JvmStatic

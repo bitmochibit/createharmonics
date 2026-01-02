@@ -1,6 +1,8 @@
 package me.mochibit.createharmonics.content.records
 
 import me.mochibit.createharmonics.audio.AudioPlayer
+import me.mochibit.createharmonics.audio.binProvider.FFMPEGProvider
+import me.mochibit.createharmonics.audio.binProvider.YTDLProvider
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.effect.getStreamDirectly
@@ -75,7 +77,7 @@ class EtherealRecordItem(
                 event.pitchSupplier = compPitchSupplier
             }
 
-            if (url.isNotBlank()) {
+            if (url.isNotBlank() && FFMPEGProvider.isAvailable() && YTDLProvider.isAvailable()) {
                 return this.play(
                     url,
                     EffectChain(

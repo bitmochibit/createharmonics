@@ -16,12 +16,59 @@ object CommonConfig : ConfigBase() {
     lateinit var playbackBufferSeconds: ConfigFloat
         private set
 
-    lateinit var acceptedHttpDomains: CValue<String, ForgeConfigSpec.ConfigValue<String>>
-        private set
-
     private val recordDurabilities: MutableMap<RecordType, ConfigInt> = mutableMapOf()
 
+    lateinit var mainMenuLibButtonRow: ConfigInt
+    lateinit var mainMenuLibButtonOffsetX: ConfigInt
+
+    lateinit var ingameMenuLibButtonRow: ConfigInt
+    lateinit var ingameMenuLibButtonOffsetX: ConfigInt
+
     override fun registerAll(builder: ForgeConfigSpec.Builder) {
+        mainMenuLibButtonRow =
+            i(
+                3,
+                0,
+                4,
+                "mainMenuLibButtonRow",
+                "",
+                "Choose the menu row that the Lib Download menu button appears on in the main menu",
+                "Set to 0 to disable the button altogether",
+            )
+
+        mainMenuLibButtonOffsetX =
+            i(
+                -4,
+                Integer.MIN_VALUE,
+                Integer.MAX_VALUE,
+                "mainMenuLibButtonOffsetX",
+                "",
+                "Offset the Lib Download menu button in the main menu by this many pixels on the X axis",
+                "The sign (-/+) of this value determines what side of the row the button appears on (left/right)",
+            )
+
+        ingameMenuLibButtonRow =
+            i(
+                4,
+                0,
+                5,
+                "ingameMenuLibButtonRow",
+                "",
+                "Choose the menu row that the Lib Download menu button appears on in the main menu",
+                "Set to 0 to disable the button altogether",
+            )
+
+        ingameMenuLibButtonOffsetX =
+            i(
+                -4,
+                Integer.MIN_VALUE,
+                Integer.MAX_VALUE,
+                "ingameMenuLibButtonOffsetX",
+                "",
+                "Offset the Lib Download menu button in the main menu by this many pixels on the X axis",
+                "The sign (-/+) of this value determines what side of the row the button appears on (left/right)",
+            )
+
         audioSourceGroup(builder)
         recordGroup()
         super.registerAll(builder)
@@ -32,14 +79,6 @@ object CommonConfig : ConfigBase() {
         minPitch = f(0.5f, 0.1f, 1.0f, "minPitch")
         maxPitch = f(2.0f, 1.0f, 4.0f, "maxPitch")
         playbackBufferSeconds = f(0.05f, 0.01f, 30.0f, "playbackBufferSeconds")
-        acceptedHttpDomains =
-            CValue(
-                "acceptedHttpDomains",
-                {
-                    builder.define("acceptedHttpDomains", "youtube.com, youtu.be, soundcloud.com")
-                },
-                "List of accepted HTTP domains for audio sources, separated by commas.",
-            )
     }
 
     fun recordGroup() {
@@ -55,11 +94,6 @@ object CommonConfig : ConfigBase() {
         val configInt = recordDurabilities[recordType] ?: return null
         val value = configInt.get()
         return if (value == 0) null else value
-    }
-
-    fun getAcceptedHttpDomains(): List<String> {
-        val raw = acceptedHttpDomains.get()
-        return raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
     }
 
     override fun getName(): String = "common"
