@@ -4,29 +4,38 @@ import com.simibubi.create.foundation.networking.BlockEntityConfigurationPacket
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.network.FriendlyByteBuf
+import kotlin.properties.Delegates
 
 class ConfigureRecordPressBasePacket : BlockEntityConfigurationPacket<RecordPressBaseBlockEntity> {
-    private lateinit var audioUrl: String
-    private lateinit var recordName: String
+    private lateinit var audioUrls: MutableList<String>
+    private var randomMode: Boolean = false
 
-    constructor(pos: BlockPos, audioUrl: String, recordName: String = "") : super(pos) {
-        this.audioUrl = audioUrl
-        this.recordName = recordName
+    constructor(pos: BlockPos, audioUrls: List<String>, randomMode: Boolean) : super(pos) {
+        this.audioUrls = audioUrls.toMutableList()
+        this.randomMode = randomMode
     }
 
     constructor(buffer: FriendlyByteBuf) : super(buffer)
 
     override fun writeSettings(buffer: FriendlyByteBuf) {
-        buffer.writeUtf(audioUrl)
-        buffer.writeUtf(recordName)
+        buffer.writeInt(audioUrls.size)
+        for (url in audioUrls) {
+            buffer.writeUtf(url)
+        }
+        buffer.writeBoolean(randomMode)
     }
 
     override fun readSettings(buffer: FriendlyByteBuf) {
-        audioUrl = buffer.readUtf()
-        recordName = buffer.readUtf()
+        val size = buffer.readInt()
+        audioUrls = mutableListOf()
+        repeat(size) {
+            audioUrls.add(buffer.readUtf())
+        }
+        randomMode = buffer.readBoolean()
     }
 
     override fun applySettings(be: RecordPressBaseBlockEntity) {
-        be.urlTemplate = audioUrl
+        be.audioUrls = audioUrls
+        be.randomMode = randomMode
     }
 }

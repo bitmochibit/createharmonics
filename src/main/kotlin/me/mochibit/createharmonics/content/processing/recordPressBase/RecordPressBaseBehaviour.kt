@@ -44,8 +44,14 @@ class RecordPressBaseBehaviour(
     /** Queue of items that have arrived but haven't been placed on the base yet */
     private val incoming = mutableListOf<TransportedItemStack>()
 
-    /** The audio URL to be assigned to processed Ethereal Records */
-    var audioUrlTemplate: String = ""
+    /** List of audio URLs to be assigned to processed Ethereal Records */
+    var audioUrls: MutableList<String> = mutableListOf()
+
+    /** Selection mode: true = random, false = ordered */
+    var randomMode: Boolean = false
+
+    /** Current index for ordered mode */
+    private var currentUrlIndex: Int = 0
 
     /** Handles the transportation state for items on conveyor belts */
     private lateinit var transportedHandler: TransportedItemStackHandlerBehaviour
@@ -322,11 +328,28 @@ class RecordPressBaseBehaviour(
     /**
      * Assigns an audio URL to an Ethereal Record item after processing is complete.
      * This is called when the press finishes processing the item.
+     * The URL is selected from the list based on the selection mode:
+     * - Random mode: selects a random URL from the list
+     * - Ordered mode: cycles through URLs in order
      *
      * @param stack The item stack to assign the URL to
      */
     private fun assignUrlToItem(stack: ItemStack) {
-        EtherealRecordItem.setAudioUrl(stack, audioUrlTemplate)
+        if (audioUrls.isEmpty()) return
+
+        val selectedUrl =
+            if (randomMode) {
+                // Random mode: pick a random URL
+                audioUrls.random()
+            } else {
+                // Ordered mode: cycle through URLs
+                val url = audioUrls[currentUrlIndex % audioUrls.size]
+                currentUrlIndex++
+                if (currentUrlIndex >= audioUrls.size) currentUrlIndex = 0
+                url
+            }
+
+        EtherealRecordItem.setAudioUrl(stack, selectedUrl)
     }
 
     /**
@@ -360,7 +383,19 @@ class RecordPressBaseBehaviour(
     ) {
         super.write(compound, clientPacket)
         heldItem?.let { compound.put("HeldItem", it.serializeNBT()) }
-        compound.putString("AudioUrl", audioUrlTemplate)
+
+        // Save the list of URLs
+        val urlsTag = net.minecraft.nbt.ListTag()
+        for (url in audioUrls) {
+            urlsTag.add(
+                net.minecraft.nbt.StringTag
+                    .valueOf(url),
+            )
+        }
+        compound.put("AudioUrls", urlsTag)
+
+        compound.putBoolean("RandomMode", randomMode)
+        compound.putInt("CurrentUrlIndex", currentUrlIndex)
     }
 
     /**
@@ -378,8 +413,21 @@ class RecordPressBaseBehaviour(
             } else {
                 null
             }
-        if (compound.contains("AudioUrl")) {
-            audioUrlTemplate = compound.getString("AudioUrl")
+
+        // Load the list of URLs
+        audioUrls.clear()
+        if (compound.contains("AudioUrls")) {
+            val urlsTag = compound.getList("AudioUrls", 8) // 8 = String tag type
+            for (i in 0 until urlsTag.size) {
+                audioUrls.add(urlsTag.getString(i))
+            }
+        }
+
+        if (compound.contains("RandomMode")) {
+            randomMode = compound.getBoolean("RandomMode")
+        }
+        if (compound.contains("CurrentUrlIndex")) {
+            currentUrlIndex = compound.getInt("CurrentUrlIndex")
         }
     }
 

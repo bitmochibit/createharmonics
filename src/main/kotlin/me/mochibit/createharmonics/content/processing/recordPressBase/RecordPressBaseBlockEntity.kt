@@ -34,9 +34,26 @@ class RecordPressBaseBlockEntity(
     }
 
     var urlTemplate: String
-        get() = behaviour.audioUrlTemplate
+        get() = behaviour.audioUrls.firstOrNull() ?: ""
         set(value) {
-            behaviour.audioUrlTemplate = value
+            if (value.isNotEmpty()) {
+                behaviour.audioUrls.clear()
+                behaviour.audioUrls.add(value)
+            }
+            notifyUpdate()
+        }
+
+    var audioUrls: MutableList<String>
+        get() = behaviour.audioUrls
+        set(value) {
+            behaviour.audioUrls = value
+            notifyUpdate()
+        }
+
+    var randomMode: Boolean
+        get() = behaviour.randomMode
+        set(value) {
+            behaviour.randomMode = value
             notifyUpdate()
         }
 }
