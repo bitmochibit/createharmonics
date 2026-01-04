@@ -33,6 +33,9 @@ class RecordPressBaseBlockEntity(
         return super.getCapability(cap, side)
     }
 
+    val currentUrlIndex: Int
+        get() = behaviour.currentUrlIndex
+
     var urlTemplate: String
         get() = behaviour.audioUrls.firstOrNull() ?: ""
         set(value) {

@@ -51,7 +51,7 @@ class RecordPressBaseBehaviour(
     var randomMode: Boolean = false
 
     /** Current index for ordered mode */
-    private var currentUrlIndex: Int = 0
+    var currentUrlIndex: Int = 0
 
     /** Handles the transportation state for items on conveyor belts */
     private lateinit var transportedHandler: TransportedItemStackHandlerBehaviour
