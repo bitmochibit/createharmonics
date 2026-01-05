@@ -32,12 +32,13 @@ class RecordPressBaseScreen(
         private const val SCROLL_AREA_WIDTH = 220
         private const val SCROLL_AREA_HEIGHT = 129
 
-        private const val CARD_WIDTH = 160
+        private const val CARD_WIDTH = 180
         private const val CARD_HEADER_HEIGHT = 30
         private const val CARD_PADDING = 4
         private const val CARD_SPACING = 10
 
-        private const val URL_FIELD_WIDTH = 90
+        private const val URL_FIELD_WIDTH_RANDOM = 80
+        private const val URL_FIELD_WIDTH_SEQUENTIAL = 130
         private const val URL_FIELD_HEIGHT = 16
     }
 
@@ -53,6 +54,9 @@ class RecordPressBaseScreen(
     private val sequentialModeTexture = ModGuiTexture("record_press_base", 224, 224, 16, 16)
 
     private val noteStripTexture = ModGuiTexture("record_press_base", 13, 237, 9, 18)
+
+    private val linkArrowTextureLeft = ModGuiTexture("record_press_base", 112, 239, 10, 16)
+    private val percentageLabelTextureLeft = ModGuiTexture("record_press_base", 114, 221, 8, 16)
 
     // UI Components
     private lateinit var confirmButton: IconButton
@@ -99,6 +103,8 @@ class RecordPressBaseScreen(
 
     private val cardButtonPositions = mutableMapOf<Int, CardButtonPositions>()
 
+    private fun getUrlInputWidth() = if (configuration.randomMode) URL_FIELD_WIDTH_RANDOM else URL_FIELD_WIDTH_SEQUENTIAL
+
     override fun init() {
         setWindowSize(background.width, background.height)
         super.init()
@@ -141,6 +147,7 @@ class RecordPressBaseScreen(
                     configuration.randomMode = !configuration.randomMode
                     setIcon(if (configuration.randomMode) randomModeTexture else sequentialModeTexture)
                     updateModeButtonTooltip()
+                    rebuildUrlInputFields() // Rebuild to adjust card widths
                 }
                 addRenderableWidget(this)
             }
@@ -151,7 +158,7 @@ class RecordPressBaseScreen(
                 withCallback<IconButton> {
                     configuration.urls.add("")
                     configuration.weights.add(1f)
-                    configuration.currentUrlIndex = configuration.urls.size - 1
+                    // Don't change currentUrlIndex, keep it pointing to the same entry
                     rebuildUrlInputFields()
                 }
                 setToolTip(ModLang.translate("gui.record_press_base.url_add").component())
@@ -207,7 +214,7 @@ class RecordPressBaseScreen(
                     font,
                     0,
                     0, // Position will be set during render
-                    URL_FIELD_WIDTH,
+                    getUrlInputWidth(),
                     URL_FIELD_HEIGHT,
                     ModLang.translate("gui.record_press_base.url_input").component(),
                 ).apply {
@@ -232,9 +239,20 @@ class RecordPressBaseScreen(
                     value = String.format("%.2f", configuration.weights.getOrElse(index) { 1f })
                     setBordered(false)
                     setResponder { newValue ->
+                        if (newValue.isEmpty()) {
+                            return@setResponder
+                        }
                         try {
-                            val weight = newValue.toFloatOrNull()?.coerceIn(0f, 1f) ?: 1f
-                            configuration.weights[index] = weight
+                            var weight = newValue.toFloatOrNull()
+                            if (weight != null) {
+                                // Clamp between 0 and 1
+                                weight = weight.coerceIn(0f, 1f)
+                                configuration.weights[index] = weight
+                                // Update display to show clamped value
+                                if (newValue.toFloatOrNull() != weight) {
+                                    value = String.format("%.2f", weight)
+                                }
+                            }
                         } catch (e: Exception) {
                             // Keep previous value if parsing fails
                         }
@@ -466,6 +484,7 @@ class RecordPressBaseScreen(
         val cardWidth = CARD_WIDTH
         val cardHeader = CARD_HEADER_HEIGHT
         val cardHeight = cardHeader + CARD_PADDING
+        val urlInputWidth = getUrlInputWidth()
 
         val matrixStack = graphics.pose()
         val cardX = guiLeft + 25
@@ -486,7 +505,6 @@ class RecordPressBaseScreen(
 
         matrixStack.popPose()
 
-        val left = AllGuiTextures.SCHEDULE_CONDITION_LEFT
         val middle = AllGuiTextures.SCHEDULE_CONDITION_MIDDLE
         val right = AllGuiTextures.SCHEDULE_CONDITION_RIGHT
 
@@ -498,25 +516,22 @@ class RecordPressBaseScreen(
             graphics,
             inputX,
             inputY,
-            URL_FIELD_WIDTH,
+            urlInputWidth,
             URL_FIELD_HEIGHT,
             0,
             middle,
         )
-        left.render(graphics, cardX + 20, inputY)
-        right.render(graphics, cardX + URL_FIELD_WIDTH + 26, inputY)
+        linkArrowTextureLeft.render(graphics, cardX + 16, inputY)
+        right.render(graphics, cardX + urlInputWidth + 26, inputY)
 
         // Render EditBox inline (inside the same transform)
         if (index < urlInputFields.size) {
             val editBox = urlInputFields[index]
 
-            // Adjust URL field width if in random mode (to make room for weight input)
-            val urlFieldWidth = if (configuration.randomMode) URL_FIELD_WIDTH - 40 else URL_FIELD_WIDTH
-
             // Set EditBox position (within transformed space)
             editBox.x = inputX
             editBox.y = inputY + 4
-            editBox.setWidth(urlFieldWidth)
+            editBox.setWidth(urlInputWidth)
             editBox.height = URL_FIELD_HEIGHT
 
             // Render the EditBox now
@@ -528,7 +543,7 @@ class RecordPressBaseScreen(
                 WidgetPosition(
                     inputX,
                     inputY,
-                    urlFieldWidth,
+                    urlInputWidth,
                     URL_FIELD_HEIGHT,
                     scrolledY,
                 )
@@ -536,7 +551,7 @@ class RecordPressBaseScreen(
             // Render weight input field if in random mode
             if (configuration.randomMode && index < weightInputFields.size) {
                 val weightEditBox = weightInputFields[index]
-                val weightInputX = inputX + urlFieldWidth + 5 + 40
+                val weightInputX = inputX + urlInputWidth + 18
 
                 // Draw weight input background
                 UIRenderHelper.drawStretched(
@@ -548,6 +563,8 @@ class RecordPressBaseScreen(
                     0,
                     middle,
                 )
+                percentageLabelTextureLeft.render(graphics, weightInputX - 8, inputY)
+                right.render(graphics, weightInputX + 35, inputY)
 
                 // Set weight EditBox position
                 weightEditBox.x = weightInputX + 2
@@ -763,11 +780,11 @@ class RecordPressBaseScreen(
 
             // Check if any weight EditBox was clicked (only in random mode)
             if (configuration.randomMode && !clickedEditBox) {
+                val urlInputWidth = getUrlInputWidth()
                 editBoxPositions.forEach { (index, pos) ->
                     if (index < weightInputFields.size) {
                         val weightEditBox = weightInputFields[index]
-                        val urlFieldWidth = URL_FIELD_WIDTH - 40
-                        val weightInputX = pos.x + urlFieldWidth + 5
+                        val weightInputX = pos.x + urlInputWidth + 18
                         val wasWeightClicked =
                             mouseX >= weightInputX && mouseX <= weightInputX + 35 &&
                                 mouseY >= pos.scrolledY && mouseY <= pos.scrolledY + pos.height
