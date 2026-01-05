@@ -307,7 +307,7 @@ class RecordPressBaseScreen(
                 break
             }
 
-            // Render URL entry card
+            // Render URL entry card (including EditBox)
             val urlEntry = entries[i]
             val cardHeight = renderUrlEntry(graphics, i, urlEntry, yOffset, mouseX, mouseY, partialTicks, scrollOffset)
             yOffset += cardHeight
@@ -334,9 +334,6 @@ class RecordPressBaseScreen(
             }
             renderSelectionPointer(graphics, scrollOffset, pointerYOffset)
         }
-
-        // Render all EditBox widgets AFTER content with stencil clipping
-        renderEditBoxes(graphics, mouseX, mouseY, partialTicks)
     }
 
     private fun renderSelectionPointer(
@@ -390,33 +387,6 @@ class RecordPressBaseScreen(
         )
     }
 
-    private fun renderEditBoxes(
-        graphics: GuiGraphics,
-        mouseX: Int,
-        mouseY: Int,
-        partialTicks: Float,
-    ) {
-        val x = guiLeft
-        val y = guiTop
-
-        // Render all EditBoxes with stencil clipping
-        startStencil(
-            graphics,
-            (x + SCROLL_AREA_X).toFloat(),
-            (y + SCROLL_AREA_Y).toFloat(),
-            SCROLL_AREA_WIDTH.toFloat(),
-            SCROLL_AREA_HEIGHT.toFloat(),
-        )
-
-        urlInputFields.forEachIndexed { index, editBox ->
-            if (editBoxPositions.containsKey(index)) {
-                editBox.render(graphics, mouseX, mouseY, partialTicks)
-            }
-        }
-
-        endStencil()
-    }
-
     private fun renderUrlEntry(
         graphics: GuiGraphics,
         index: Int,
@@ -455,7 +425,7 @@ class RecordPressBaseScreen(
         val middle = AllGuiTextures.SCHEDULE_CONDITION_MIDDLE
         val right = AllGuiTextures.SCHEDULE_CONDITION_RIGHT
 
-        // Render input background (EditBox will be rendered later with stencil)
+        // Render input background
         val inputX = cardX + 26
         val inputY = cardY + URL_FIELD_HEIGHT - URL_FIELD_HEIGHT / 4
 
@@ -471,26 +441,29 @@ class RecordPressBaseScreen(
         left.render(graphics, cardX + 20, inputY)
         right.render(graphics, cardX + URL_FIELD_WIDTH + 26, inputY)
 
-        // Track EditBox position for later rendering and interaction
+        // Render EditBox inline (inside the same transform)
         if (index < urlInputFields.size) {
             val editBox = urlInputFields[index]
-            val absoluteY = (inputY + scrollOffset).toInt()
 
-            // Store position for rendering and interaction
+            // Set EditBox position (within transformed space)
+            editBox.x = inputX
+            editBox.y = inputY
+            editBox.setWidth(URL_FIELD_WIDTH)
+            editBox.height = URL_FIELD_HEIGHT
+
+            // Render the EditBox now
+            editBox.render(graphics, mouseX, mouseY, partialTicks)
+
+            // Track position for interaction (with scroll applied)
+            val scrolledY = (inputY + scrollOffset).toInt()
             editBoxPositions[index] =
                 WidgetPosition(
                     inputX,
                     inputY,
                     URL_FIELD_WIDTH,
                     URL_FIELD_HEIGHT,
-                    absoluteY,
+                    scrolledY,
                 )
-
-            // Set EditBox position (will be rendered later)
-            editBox.x = inputX
-            editBox.y = absoluteY
-            editBox.setWidth(URL_FIELD_WIDTH)
-            editBox.height = URL_FIELD_HEIGHT
         }
 
         return cardHeight
