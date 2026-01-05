@@ -33,8 +33,12 @@ class RecordPressBaseBlockEntity(
         return super.getCapability(cap, side)
     }
 
-    val currentUrlIndex: Int
+    var currentUrlIndex: Int
         get() = behaviour.currentUrlIndex
+        set(value) {
+            behaviour.currentUrlIndex = value
+            notifyUpdate()
+        }
 
     var urlTemplate: String
         get() = behaviour.audioUrls.firstOrNull() ?: ""
@@ -50,6 +54,13 @@ class RecordPressBaseBlockEntity(
         get() = behaviour.audioUrls
         set(value) {
             behaviour.audioUrls = value
+            notifyUpdate()
+        }
+
+    var urlWeights: MutableList<Float>
+        get() = behaviour.urlWeights
+        set(value) {
+            behaviour.urlWeights = value
             notifyUpdate()
         }
 

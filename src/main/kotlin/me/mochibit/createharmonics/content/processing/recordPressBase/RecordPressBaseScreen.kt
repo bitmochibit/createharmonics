@@ -61,6 +61,7 @@ class RecordPressBaseScreen(
     private lateinit var increaseIndexButton: IconButton
     private lateinit var decreaseIndexButton: IconButton
     private val urlInputFields = mutableListOf<EditBox>()
+    private val weightInputFields = mutableListOf<EditBox>()
 
     // State
     private val scroll = LerpedFloat.linear().startWithValue(0.0)
@@ -68,7 +69,8 @@ class RecordPressBaseScreen(
 
     data class Configuration(
         val urls: MutableList<String> = mutableListOf(),
-        var sequentialMode: Boolean = true,
+        val weights: MutableList<Float> = mutableListOf(),
+        var randomMode: Boolean = false,
         var currentUrlIndex: Int = 0,
     )
 
@@ -102,6 +104,19 @@ class RecordPressBaseScreen(
         super.init()
         clearWidgets()
 
+        // Load existing data from block entity
+        if (configuration.urls.isEmpty()) {
+            configuration.urls.addAll(be.audioUrls)
+            configuration.weights.addAll(be.urlWeights)
+            configuration.randomMode = be.randomMode
+            configuration.currentUrlIndex = be.currentUrlIndex
+
+            // Ensure weights list is properly sized
+            while (configuration.weights.size < configuration.urls.size) {
+                configuration.weights.add(1f)
+            }
+        }
+
         // Initialize buttons
         initializeButtons()
 
@@ -120,11 +135,11 @@ class RecordPressBaseScreen(
             IconButton(
                 guiLeft + 10,
                 guiTop + background.height - 24,
-                if (configuration.sequentialMode) sequentialModeTexture else randomModeTexture,
+                if (configuration.randomMode) randomModeTexture else sequentialModeTexture,
             ).apply {
                 withCallback<IconButton> {
-                    configuration.sequentialMode = !configuration.sequentialMode
-                    setIcon(if (configuration.sequentialMode) sequentialModeTexture else randomModeTexture)
+                    configuration.randomMode = !configuration.randomMode
+                    setIcon(if (configuration.randomMode) randomModeTexture else sequentialModeTexture)
                     updateModeButtonTooltip()
                 }
                 addRenderableWidget(this)
@@ -135,11 +150,12 @@ class RecordPressBaseScreen(
             AdvancedIconButton(0, 0, addUrlIcon).apply {
                 withCallback<IconButton> {
                     configuration.urls.add("")
+                    configuration.weights.add(1f)
                     configuration.currentUrlIndex = configuration.urls.size - 1
                     rebuildUrlInputFields()
                 }
                 setToolTip(ModLang.translate("gui.record_press_base.url_add").component())
-                // Don't add as renderable widget - it will be manually rendered inside stencil
+                // render in stencil
             }
 
         increaseIndexButton =
@@ -174,6 +190,15 @@ class RecordPressBaseScreen(
     private fun rebuildUrlInputFields() {
         // Clear old input fields (don't need to remove from widgets since they're not added)
         urlInputFields.clear()
+        weightInputFields.clear()
+
+        // Ensure weights list is properly sized
+        while (configuration.weights.size < configuration.urls.size) {
+            configuration.weights.add(1f)
+        }
+        while (configuration.weights.size > configuration.urls.size) {
+            configuration.weights.removeAt(configuration.weights.size - 1)
+        }
 
         // Create new input fields for each URL
         configuration.urls.forEachIndexed { index, url ->
@@ -193,6 +218,29 @@ class RecordPressBaseScreen(
                     }
                 }
             urlInputFields.add(editBox)
+
+            // Create weight input field for random mode
+            val weightEditBox =
+                EditBox(
+                    font,
+                    0,
+                    0, // Position will be set during render
+                    30, // Small width for weight input
+                    URL_FIELD_HEIGHT,
+                    ModLang.translate("gui.record_press_base.weight_input").component(),
+                ).apply {
+                    value = String.format("%.2f", configuration.weights.getOrElse(index) { 1f })
+                    setBordered(false)
+                    setResponder { newValue ->
+                        try {
+                            val weight = newValue.toFloatOrNull()?.coerceIn(0f, 1f) ?: 1f
+                            configuration.weights[index] = weight
+                        } catch (e: Exception) {
+                            // Keep previous value if parsing fails
+                        }
+                    }
+                }
+            weightInputFields.add(weightEditBox)
             // Don't add as renderable widget - we'll handle rendering and interaction manually
         }
     }
@@ -462,10 +510,13 @@ class RecordPressBaseScreen(
         if (index < urlInputFields.size) {
             val editBox = urlInputFields[index]
 
+            // Adjust URL field width if in random mode (to make room for weight input)
+            val urlFieldWidth = if (configuration.randomMode) URL_FIELD_WIDTH - 40 else URL_FIELD_WIDTH
+
             // Set EditBox position (within transformed space)
             editBox.x = inputX
-            editBox.y = inputY
-            editBox.setWidth(URL_FIELD_WIDTH)
+            editBox.y = inputY + 4
+            editBox.setWidth(urlFieldWidth)
             editBox.height = URL_FIELD_HEIGHT
 
             // Render the EditBox now
@@ -477,10 +528,36 @@ class RecordPressBaseScreen(
                 WidgetPosition(
                     inputX,
                     inputY,
-                    URL_FIELD_WIDTH,
+                    urlFieldWidth,
                     URL_FIELD_HEIGHT,
                     scrolledY,
                 )
+
+            // Render weight input field if in random mode
+            if (configuration.randomMode && index < weightInputFields.size) {
+                val weightEditBox = weightInputFields[index]
+                val weightInputX = inputX + urlFieldWidth + 5 + 40
+
+                // Draw weight input background
+                UIRenderHelper.drawStretched(
+                    graphics,
+                    weightInputX,
+                    inputY,
+                    35,
+                    URL_FIELD_HEIGHT,
+                    0,
+                    middle,
+                )
+
+                // Set weight EditBox position
+                weightEditBox.x = weightInputX + 2
+                weightEditBox.y = inputY + 4
+                weightEditBox.setWidth(30)
+                weightEditBox.height = URL_FIELD_HEIGHT
+
+                // Render the weight EditBox
+                weightEditBox.render(graphics, mouseX, mouseY, partialTicks)
+            }
         }
 
         return cardHeight
@@ -573,18 +650,16 @@ class RecordPressBaseScreen(
             )
     }
 
-    override fun render(
-        graphics: GuiGraphics,
-        mouseX: Int,
-        mouseY: Int,
-        partialTicks: Float,
-    ) {
-        super.render(graphics, mouseX, mouseY, partialTicks)
-    }
-
     override fun tick() {
         scroll.tickChaser()
         urlInputFields.forEach { it.tick() }
+        weightInputFields.forEach { it.tick() }
+
+        // Sync currentUrlIndex from block entity to GUI (for real-time updates during processing)
+        if (be.currentUrlIndex != configuration.currentUrlIndex) {
+            configuration.currentUrlIndex = be.currentUrlIndex
+        }
+
         super.tick()
     }
 
@@ -677,10 +752,35 @@ class RecordPressBaseScreen(
                     if (wasClicked) {
                         // Unfocus all other EditBoxes first
                         urlInputFields.forEach { it.isFocused = false }
+                        weightInputFields.forEach { it.isFocused = false }
                         // Focus and click this EditBox
                         editBox.isFocused = true
                         editBox.onClick(mouseX, mouseY)
                         clickedEditBox = true
+                    }
+                }
+            }
+
+            // Check if any weight EditBox was clicked (only in random mode)
+            if (configuration.randomMode && !clickedEditBox) {
+                editBoxPositions.forEach { (index, pos) ->
+                    if (index < weightInputFields.size) {
+                        val weightEditBox = weightInputFields[index]
+                        val urlFieldWidth = URL_FIELD_WIDTH - 40
+                        val weightInputX = pos.x + urlFieldWidth + 5
+                        val wasWeightClicked =
+                            mouseX >= weightInputX && mouseX <= weightInputX + 35 &&
+                                mouseY >= pos.scrolledY && mouseY <= pos.scrolledY + pos.height
+
+                        if (wasWeightClicked) {
+                            // Unfocus all other EditBoxes first
+                            urlInputFields.forEach { it.isFocused = false }
+                            weightInputFields.forEach { it.isFocused = false }
+                            // Focus and click this weight EditBox
+                            weightEditBox.isFocused = true
+                            weightEditBox.onClick(mouseX, mouseY)
+                            clickedEditBox = true
+                        }
                     }
                 }
             }
@@ -691,6 +791,7 @@ class RecordPressBaseScreen(
         } else {
             // Click outside scroll area - unfocus all EditBoxes
             urlInputFields.forEach { it.isFocused = false }
+            weightInputFields.forEach { it.isFocused = false }
         }
 
         return super.mouseClicked(mouseX, mouseY, button)
@@ -701,8 +802,25 @@ class RecordPressBaseScreen(
         scanCode: Int,
         modifiers: Int,
     ): Boolean {
+        // Check if any EditBox is focused
+        val hasEditBoxFocused = urlInputFields.any { it.isFocused } || weightInputFields.any { it.isFocused }
+
+        // If an EditBox is focused, prevent inventory key from closing the screen
+        if (hasEditBoxFocused) {
+            val inventoryKey = minecraft?.options?.keyInventory
+            if (inventoryKey != null && inventoryKey.matches(keyCode, scanCode)) {
+                // Don't close the screen, let the EditBox handle the key
+                return false
+            }
+        }
+
         // Forward key events to focused EditBox
         urlInputFields.forEach { editBox ->
+            if (editBox.isFocused && editBox.keyPressed(keyCode, scanCode, modifiers)) {
+                return true
+            }
+        }
+        weightInputFields.forEach { editBox ->
             if (editBox.isFocused && editBox.keyPressed(keyCode, scanCode, modifiers)) {
                 return true
             }
@@ -716,6 +834,11 @@ class RecordPressBaseScreen(
     ): Boolean {
         // Forward character input to focused EditBox
         urlInputFields.forEach { editBox ->
+            if (editBox.isFocused && editBox.charTyped(codePoint, modifiers)) {
+                return true
+            }
+        }
+        weightInputFields.forEach { editBox ->
             if (editBox.isFocused && editBox.charTyped(codePoint, modifiers)) {
                 return true
             }
@@ -736,6 +859,11 @@ class RecordPressBaseScreen(
                 return editBox.mouseDragged(mouseX, mouseY, button, dragX, dragY)
             }
         }
+        weightInputFields.forEach { editBox ->
+            if (editBox.isFocused) {
+                return editBox.mouseDragged(mouseX, mouseY, button, dragX, dragY)
+            }
+        }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY)
     }
 
@@ -746,6 +874,9 @@ class RecordPressBaseScreen(
     private fun removeUrlEntry(index: Int) {
         if (index >= 0 && index < configuration.urls.size) {
             configuration.urls.removeAt(index)
+            if (index < configuration.weights.size) {
+                configuration.weights.removeAt(index)
+            }
 
             // Adjust currentUrlIndex if needed
             if (configuration.currentUrlIndex >= configuration.urls.size && configuration.urls.isNotEmpty()) {
@@ -767,6 +898,13 @@ class RecordPressBaseScreen(
             configuration.urls[index] = configuration.urls[index - 1]
             configuration.urls[index - 1] = temp
 
+            // Swap weights too
+            if (index < configuration.weights.size && index - 1 < configuration.weights.size) {
+                val tempWeight = configuration.weights[index]
+                configuration.weights[index] = configuration.weights[index - 1]
+                configuration.weights[index - 1] = tempWeight
+            }
+
             // Update currentUrlIndex if it was pointing to one of the swapped entries
             when (configuration.currentUrlIndex) {
                 index -> configuration.currentUrlIndex = index - 1
@@ -784,6 +922,13 @@ class RecordPressBaseScreen(
             configuration.urls[index] = configuration.urls[index + 1]
             configuration.urls[index + 1] = temp
 
+            // Swap weights too
+            if (index < configuration.weights.size && index + 1 < configuration.weights.size) {
+                val tempWeight = configuration.weights[index]
+                configuration.weights[index] = configuration.weights[index + 1]
+                configuration.weights[index + 1] = tempWeight
+            }
+
             // Update currentUrlIndex if it was pointing to one of the swapped entries
             when (configuration.currentUrlIndex) {
                 index -> configuration.currentUrlIndex = index + 1
@@ -799,7 +944,9 @@ class RecordPressBaseScreen(
             ConfigureRecordPressBasePacket(
                 be.blockPos,
                 configuration.urls,
-                configuration.sequentialMode,
+                configuration.weights,
+                configuration.randomMode,
+                configuration.currentUrlIndex,
             ),
         )
     }

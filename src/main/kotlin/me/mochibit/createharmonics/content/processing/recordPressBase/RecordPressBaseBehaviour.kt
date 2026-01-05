@@ -47,6 +47,9 @@ class RecordPressBaseBehaviour(
     /** List of audio URLs to be assigned to processed Ethereal Records */
     var audioUrls: MutableList<String> = mutableListOf()
 
+    /** Weights for each URL in random mode (0.0 to 1.0, default 1.0 for equal probability) */
+    var urlWeights: MutableList<Float> = mutableListOf()
+
     /** Selection mode: true = random, false = ordered */
     var randomMode: Boolean = false
 
@@ -339,8 +342,10 @@ class RecordPressBaseBehaviour(
 
         val selectedUrl =
             if (randomMode) {
-                // Random mode: pick a random URL
-                audioUrls.random()
+                // Random mode: pick a random URL using weighted selection
+                val randomIndex = selectWeightedRandomIndex()
+                currentUrlIndex = randomIndex
+                audioUrls[randomIndex]
             } else {
                 // Ordered mode: cycle through URLs
                 val url = audioUrls[currentUrlIndex % audioUrls.size]
@@ -350,6 +355,51 @@ class RecordPressBaseBehaviour(
             }
 
         EtherealRecordItem.setAudioUrl(stack, selectedUrl)
+    }
+
+    /**
+     * Selects a random index from the audioUrls list using weighted probability.
+     * If weights are not properly initialized, defaults to uniform distribution.
+     */
+    private fun selectWeightedRandomIndex(): Int {
+        // Ensure weights list is same size as URLs
+        ensureWeightsInitialized()
+
+        // Calculate total weight
+        val totalWeight = urlWeights.sum()
+
+        // If no valid weights, return random index
+        if (totalWeight <= 0f) {
+            return audioUrls.indices.random()
+        }
+
+        // Select random value between 0 and totalWeight
+        val randomValue = Math.random().toFloat() * totalWeight
+
+        // Find the index that corresponds to this random value
+        var cumulativeWeight = 0f
+        for (i in audioUrls.indices) {
+            cumulativeWeight += urlWeights[i]
+            if (randomValue <= cumulativeWeight) {
+                return i
+            }
+        }
+
+        // Fallback (should never reach here)
+        return audioUrls.indices.last()
+    }
+
+    /**
+     * Ensures the weights list has the same size as URLs list.
+     * Fills missing weights with 1.0 (equal probability).
+     */
+    private fun ensureWeightsInitialized() {
+        while (urlWeights.size < audioUrls.size) {
+            urlWeights.add(1f)
+        }
+        while (urlWeights.size > audioUrls.size) {
+            urlWeights.removeAt(urlWeights.size - 1)
+        }
     }
 
     /**
@@ -394,6 +444,17 @@ class RecordPressBaseBehaviour(
         }
         compound.put("AudioUrls", urlsTag)
 
+        // Save the list of weights
+        val weightsTag = net.minecraft.nbt.ListTag()
+        ensureWeightsInitialized()
+        for (weight in urlWeights) {
+            weightsTag.add(
+                net.minecraft.nbt.FloatTag
+                    .valueOf(weight),
+            )
+        }
+        compound.put("UrlWeights", weightsTag)
+
         compound.putBoolean("RandomMode", randomMode)
         compound.putInt("CurrentUrlIndex", currentUrlIndex)
     }
@@ -422,6 +483,18 @@ class RecordPressBaseBehaviour(
                 audioUrls.add(urlsTag.getString(i))
             }
         }
+
+        // Load the list of weights
+        urlWeights.clear()
+        if (compound.contains("UrlWeights")) {
+            val weightsTag = compound.getList("UrlWeights", 5) // 5 = Float tag type
+            for (i in 0 until weightsTag.size) {
+                urlWeights.add(weightsTag.getFloat(i))
+            }
+        }
+
+        // Ensure weights are initialized if missing
+        ensureWeightsInitialized()
 
         if (compound.contains("RandomMode")) {
             randomMode = compound.getBoolean("RandomMode")
