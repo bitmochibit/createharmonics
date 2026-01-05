@@ -33,7 +33,7 @@ class RecordPressBaseScreen(
         private const val SCROLL_AREA_HEIGHT = 129
 
         private const val CARD_WIDTH = 160
-        private const val CARD_HEADER_HEIGHT = 40
+        private const val CARD_HEADER_HEIGHT = 30
         private const val CARD_PADDING = 4
         private const val CARD_SPACING = 10
 
@@ -48,6 +48,11 @@ class RecordPressBaseScreen(
     private val addUrlIcon = ModGuiTexture("record_press_base", 79, 239, 16, 16)
     private val youtubeIcon = ModGuiTexture("record_press_base", 79, 239, 16, 16)
     private val anyUrlIcon = ModGuiTexture("record_press_base", 79, 239, 16, 16)
+
+    private val randomModeTexture = ModGuiTexture("record_press_base", 224, 240, 16, 16)
+    private val sequentialModeTexture = ModGuiTexture("record_press_base", 224, 224, 16, 16)
+
+    private val noteStripTexture = ModGuiTexture("record_press_base", 13, 237, 9, 18)
 
     // UI Components
     private lateinit var confirmButton: IconButton
@@ -83,6 +88,15 @@ class RecordPressBaseScreen(
     private val editBoxPositions = mutableMapOf<Int, WidgetPosition>()
     private var insertButtonPosition: WidgetPosition? = null
 
+    // Track card button positions for interaction
+    private data class CardButtonPositions(
+        val removeButton: WidgetPosition?,
+        val moveUpButton: WidgetPosition?,
+        val moveDownButton: WidgetPosition?,
+    )
+
+    private val cardButtonPositions = mutableMapOf<Int, CardButtonPositions>()
+
     override fun init() {
         setWindowSize(background.width, background.height)
         super.init()
@@ -97,15 +111,20 @@ class RecordPressBaseScreen(
 
     private fun initializeButtons() {
         confirmButton =
-            IconButton(guiLeft + background.width - 42, guiTop + background.height - 30, AllIcons.I_CONFIRM).apply {
+            IconButton(guiLeft + background.width - 33, guiTop + background.height - 24, AllIcons.I_CONFIRM).apply {
                 withCallback<IconButton> { minecraft?.player?.closeContainer() }
                 addRenderableWidget(this)
             }
 
         modeButton =
-            IconButton(guiLeft + 21, guiTop + background.height - 30, AllIcons.I_TUNNEL_RANDOMIZE).apply {
+            IconButton(
+                guiLeft + 10,
+                guiTop + background.height - 24,
+                if (configuration.sequentialMode) sequentialModeTexture else randomModeTexture,
+            ).apply {
                 withCallback<IconButton> {
                     configuration.sequentialMode = !configuration.sequentialMode
+                    setIcon(if (configuration.sequentialMode) sequentialModeTexture else randomModeTexture)
                     updateModeButtonTooltip()
                 }
                 addRenderableWidget(this)
@@ -124,7 +143,7 @@ class RecordPressBaseScreen(
             }
 
         increaseIndexButton =
-            IconButton(guiLeft + 45, guiTop + background.height - 30, AllIcons.I_PRIORITY_LOW).apply {
+            IconButton(guiLeft + 50, guiTop + background.height - 24, AllIcons.I_PRIORITY_LOW).apply {
                 withCallback<IconButton> {
                     if (configuration.urls.isNotEmpty()) {
                         configuration.currentUrlIndex = (configuration.currentUrlIndex + 1) % configuration.urls.size
@@ -135,7 +154,7 @@ class RecordPressBaseScreen(
             }
 
         decreaseIndexButton =
-            IconButton(guiLeft + 69, guiTop + background.height - 30, AllIcons.I_PRIORITY_HIGH).apply {
+            IconButton(guiLeft + 70, guiTop + background.height - 24, AllIcons.I_PRIORITY_HIGH).apply {
                 withCallback<IconButton> {
                     if (configuration.urls.isNotEmpty()) {
                         configuration.currentUrlIndex =
@@ -252,6 +271,7 @@ class RecordPressBaseScreen(
         var yOffset = 25
         totalContentHeight = yOffset
         editBoxPositions.clear()
+        cardButtonPositions.clear()
 
         for (i in 0..entries.size) {
             // Start stencil for clipping
@@ -325,12 +345,9 @@ class RecordPressBaseScreen(
         // Render pointer for current selection AFTER all content (on top layer)
         if (configuration.currentUrlIndex < entries.size && entries.isNotEmpty()) {
             // Calculate yOffset for the selected entry
-            var pointerYOffset = 25
+            var pointerYOffset = 27
             for (i in 0 until configuration.currentUrlIndex) {
-                pointerYOffset += CARD_HEADER_HEIGHT + CARD_PADDING
-                if (i + 1 < configuration.currentUrlIndex) {
-                    pointerYOffset += CARD_SPACING
-                }
+                pointerYOffset += CARD_HEADER_HEIGHT + CARD_PADDING + CARD_SPACING
             }
             renderSelectionPointer(graphics, scrollOffset, pointerYOffset)
         }
@@ -351,11 +368,11 @@ class RecordPressBaseScreen(
             Mth.clamp(
                 expectedY,
                 (y + SCROLL_AREA_Y).toFloat(),
-                (y + SCROLL_AREA_Y + SCROLL_AREA_HEIGHT - 10).toFloat(),
+                (y + SCROLL_AREA_Y + SCROLL_AREA_HEIGHT - 15).toFloat(),
             )
         matrixStack.translate(0f, actualY, 0f)
         (if (expectedY == actualY) pointerTexture else pointerOffscreenTexture)
-            .render(graphics, x, 0)
+            .render(graphics, x - 14, 0)
         matrixStack.popPose()
     }
 
@@ -412,12 +429,12 @@ class RecordPressBaseScreen(
         // Draw card background
         renderCardBackground(graphics, cardWidth, cardHeight, cardHeader, zLevel)
 
-        // Draw card action buttons
-        renderCardButtons(graphics, index, cardWidth, cardHeight, cardHeader)
+        // Draw card action buttons and track positions
+        renderCardButtons(graphics, index, cardX, cardY, cardWidth, cardHeight, cardHeader, scrollOffset)
 
         // Draw left strip
         UIRenderHelper.drawStretched(graphics, 8, 0, 3, cardHeight + 10, zLevel, AllGuiTextures.SCHEDULE_STRIP_LIGHT)
-        AllGuiTextures.SCHEDULE_STRIP_ACTION.render(graphics, 4, 6)
+        noteStripTexture.render(graphics, 5, CARD_SPACING)
 
         matrixStack.popPose()
 
@@ -427,7 +444,7 @@ class RecordPressBaseScreen(
 
         // Render input background
         val inputX = cardX + 26
-        val inputY = cardY + URL_FIELD_HEIGHT - URL_FIELD_HEIGHT / 4
+        val inputY = cardY - 2 + CARD_SPACING
 
         UIRenderHelper.drawStretched(
             graphics,
@@ -490,25 +507,70 @@ class RecordPressBaseScreen(
     private fun renderCardButtons(
         graphics: GuiGraphics,
         index: Int,
+        cardX: Int,
+        cardY: Int,
         cardWidth: Int,
         cardHeight: Int,
         cardHeader: Int,
+        scrollOffset: Float,
     ) {
-        // Remove button
+        // Button dimensions (from AllGuiTextures)
+        val buttonSize = 16
+
+        // Remove button (top-right of card)
+        val removeX = cardX + cardWidth - 14
+        val removeY = cardY + 2
         AllGuiTextures.SCHEDULE_CARD_REMOVE.render(graphics, cardWidth - 14, 2)
+        val removeButton =
+            WidgetPosition(
+                removeX,
+                removeY,
+                buttonSize,
+                buttonSize,
+                (removeY + scrollOffset).toInt(),
+            )
 
-        // Duplicate button
-        AllGuiTextures.SCHEDULE_CARD_DUPLICATE.render(graphics, cardWidth - 14, cardHeight - 14)
+        // Move up button (right side, above header)
+        val moveUpButton =
+            if (index > 0) {
+                val upX = cardX + cardWidth
+                val upY = cardY + cardHeader - 14
+                AllGuiTextures.SCHEDULE_CARD_MOVE_UP.render(graphics, cardWidth, cardHeader - 14)
+                WidgetPosition(
+                    upX,
+                    upY,
+                    buttonSize,
+                    buttonSize,
+                    (upY + scrollOffset).toInt(),
+                )
+            } else {
+                null
+            }
 
-        // Move up button
-        if (index > 0) {
-            AllGuiTextures.SCHEDULE_CARD_MOVE_UP.render(graphics, cardWidth, cardHeader - 14)
-        }
+        // Move down button (right side, below header)
+        val moveDownButton =
+            if (index < configuration.urls.size - 1) {
+                val downX = cardX + cardWidth
+                val downY = cardY + cardHeader
+                AllGuiTextures.SCHEDULE_CARD_MOVE_DOWN.render(graphics, cardWidth, cardHeader)
+                WidgetPosition(
+                    downX,
+                    downY,
+                    buttonSize,
+                    buttonSize,
+                    (downY + scrollOffset).toInt(),
+                )
+            } else {
+                null
+            }
 
-        // Move down button
-        if (index < configuration.urls.size - 1) {
-            AllGuiTextures.SCHEDULE_CARD_MOVE_DOWN.render(graphics, cardWidth, cardHeader)
-        }
+        // Track button positions
+        cardButtonPositions[index] =
+            CardButtonPositions(
+                removeButton = removeButton,
+                moveUpButton = moveUpButton,
+                moveDownButton = moveDownButton,
+            )
     }
 
     override fun render(
@@ -567,6 +629,39 @@ class RecordPressBaseScreen(
                 ) {
                     insertButton.onClick(mouseX, mouseY)
                     return true
+                }
+            }
+
+            // Check if any card button was clicked
+            cardButtonPositions.forEach { (index, buttons) ->
+                // Check remove button
+                buttons.removeButton?.let { pos ->
+                    if (mouseX >= pos.x && mouseX <= pos.x + pos.width &&
+                        mouseY >= pos.scrolledY && mouseY <= pos.scrolledY + pos.height
+                    ) {
+                        removeUrlEntry(index)
+                        return true
+                    }
+                }
+
+                // Check move up button
+                buttons.moveUpButton?.let { pos ->
+                    if (mouseX >= pos.x && mouseX <= pos.x + pos.width &&
+                        mouseY >= pos.scrolledY && mouseY <= pos.scrolledY + pos.height
+                    ) {
+                        moveUrlEntryUp(index)
+                        return true
+                    }
+                }
+
+                // Check move down button
+                buttons.moveDownButton?.let { pos ->
+                    if (mouseX >= pos.x && mouseX <= pos.x + pos.width &&
+                        mouseY >= pos.scrolledY && mouseY <= pos.scrolledY + pos.height
+                    ) {
+                        moveUrlEntryDown(index)
+                        return true
+                    }
                 }
             }
 
@@ -646,6 +741,57 @@ class RecordPressBaseScreen(
 
     override fun removed() {
         sendPacket()
+    }
+
+    private fun removeUrlEntry(index: Int) {
+        if (index >= 0 && index < configuration.urls.size) {
+            configuration.urls.removeAt(index)
+
+            // Adjust currentUrlIndex if needed
+            if (configuration.currentUrlIndex >= configuration.urls.size && configuration.urls.isNotEmpty()) {
+                configuration.currentUrlIndex = configuration.urls.size - 1
+            } else if (configuration.urls.isEmpty()) {
+                configuration.currentUrlIndex = 0
+            } else if (configuration.currentUrlIndex > index) {
+                configuration.currentUrlIndex--
+            }
+
+            rebuildUrlInputFields()
+        }
+    }
+
+    private fun moveUrlEntryUp(index: Int) {
+        if (index > 0 && index < configuration.urls.size) {
+            // Swap with previous entry
+            val temp = configuration.urls[index]
+            configuration.urls[index] = configuration.urls[index - 1]
+            configuration.urls[index - 1] = temp
+
+            // Update currentUrlIndex if it was pointing to one of the swapped entries
+            when (configuration.currentUrlIndex) {
+                index -> configuration.currentUrlIndex = index - 1
+                index - 1 -> configuration.currentUrlIndex = index
+            }
+
+            rebuildUrlInputFields()
+        }
+    }
+
+    private fun moveUrlEntryDown(index: Int) {
+        if (index >= 0 && index < configuration.urls.size - 1) {
+            // Swap with next entry
+            val temp = configuration.urls[index]
+            configuration.urls[index] = configuration.urls[index + 1]
+            configuration.urls[index + 1] = temp
+
+            // Update currentUrlIndex if it was pointing to one of the swapped entries
+            when (configuration.currentUrlIndex) {
+                index -> configuration.currentUrlIndex = index + 1
+                index + 1 -> configuration.currentUrlIndex = index
+            }
+
+            rebuildUrlInputFields()
+        }
     }
 
     private fun sendPacket() {
