@@ -27,10 +27,10 @@ class RecordPressBaseScreen(
     ScreenWithStencils {
     // Constants
     companion object {
-        private const val SCROLL_AREA_X = 16
+        private const val SCROLL_AREA_X = 3
         private const val SCROLL_AREA_Y = 16
         private const val SCROLL_AREA_WIDTH = 220
-        private const val SCROLL_AREA_HEIGHT = 173
+        private const val SCROLL_AREA_HEIGHT = 129
 
         private const val CARD_WIDTH = 160
         private const val CARD_HEADER_HEIGHT = 40
@@ -71,6 +71,18 @@ class RecordPressBaseScreen(
 
     private var totalContentHeight = 0
 
+    // Track positions for interaction handling
+    private data class WidgetPosition(
+        val x: Int,
+        val y: Int,
+        val width: Int,
+        val height: Int,
+        val scrolledY: Int, // Y position with scroll applied
+    )
+
+    private val editBoxPositions = mutableMapOf<Int, WidgetPosition>()
+    private var insertButtonPosition: WidgetPosition? = null
+
     override fun init() {
         setWindowSize(background.width, background.height)
         super.init()
@@ -91,7 +103,7 @@ class RecordPressBaseScreen(
             }
 
         modeButton =
-            IconButton(guiLeft + 21, guiTop + 196, AllIcons.I_TUNNEL_RANDOMIZE).apply {
+            IconButton(guiLeft + 21, guiTop + background.height - 30, AllIcons.I_TUNNEL_RANDOMIZE).apply {
                 withCallback<IconButton> {
                     configuration.sequentialMode = !configuration.sequentialMode
                     updateModeButtonTooltip()
@@ -108,11 +120,11 @@ class RecordPressBaseScreen(
                     rebuildUrlInputFields()
                 }
                 setToolTip(ModLang.translate("gui.record_press_base.url_add").component())
-                addRenderableWidget(this)
+                // Don't add as renderable widget - it will be manually rendered inside stencil
             }
 
         increaseIndexButton =
-            IconButton(guiLeft + 45, guiTop + 196, AllIcons.I_PRIORITY_LOW).apply {
+            IconButton(guiLeft + 45, guiTop + background.height - 30, AllIcons.I_PRIORITY_LOW).apply {
                 withCallback<IconButton> {
                     if (configuration.urls.isNotEmpty()) {
                         configuration.currentUrlIndex = (configuration.currentUrlIndex + 1) % configuration.urls.size
@@ -123,7 +135,7 @@ class RecordPressBaseScreen(
             }
 
         decreaseIndexButton =
-            IconButton(guiLeft + 73, guiTop + 196, AllIcons.I_PRIORITY_HIGH).apply {
+            IconButton(guiLeft + 69, guiTop + background.height - 30, AllIcons.I_PRIORITY_HIGH).apply {
                 withCallback<IconButton> {
                     if (configuration.urls.isNotEmpty()) {
                         configuration.currentUrlIndex =
@@ -141,8 +153,7 @@ class RecordPressBaseScreen(
     }
 
     private fun rebuildUrlInputFields() {
-        // Remove old input fields
-        urlInputFields.forEach { removeWidget(it) }
+        // Clear old input fields (don't need to remove from widgets since they're not added)
         urlInputFields.clear()
 
         // Create new input fields for each URL
@@ -163,7 +174,7 @@ class RecordPressBaseScreen(
                     }
                 }
             urlInputFields.add(editBox)
-            addRenderableWidget(editBox)
+            // Don't add as renderable widget - we'll handle rendering and interaction manually
         }
     }
 
@@ -199,11 +210,11 @@ class RecordPressBaseScreen(
         val rendererFrameBuffer = UIRenderHelper.framebuffer ?: return
         UIRenderHelper.swapAndBlitColor(mcRenderTarget, rendererFrameBuffer)
 
-        // Draw background strip
+        // Draw background strip (vertical strip at x+33)
         UIRenderHelper.drawStretched(
             graphics,
             x + 33,
-            y + 16,
+            y + SCROLL_AREA_Y,
             3,
             SCROLL_AREA_HEIGHT,
             200,
@@ -240,13 +251,9 @@ class RecordPressBaseScreen(
 
         var yOffset = 25
         totalContentHeight = yOffset
+        editBoxPositions.clear()
 
         for (i in 0..entries.size) {
-            // Render pointer for current selection
-            if (configuration.currentUrlIndex == i && entries.isNotEmpty()) {
-                renderSelectionPointer(graphics, scrollOffset, yOffset)
-            }
-
             // Start stencil for clipping
             startStencil(
                 graphics,
@@ -276,9 +283,24 @@ class RecordPressBaseScreen(
             if (i == entries.size) {
                 if (i > 0) yOffset += 9
                 AllGuiTextures.SCHEDULE_STRIP_END.render(graphics, x + 29, y + yOffset)
-                insertButton.x = x + 49
-                insertButton.y = y + yOffset
+
+                // Render the insert button manually inside the transformed space
+                val buttonX = x + 49
+                val buttonY = y + yOffset
+                insertButton.x = buttonX
+                insertButton.y = buttonY
                 insertButton.render(graphics, mouseX, mouseY, partialTicks)
+
+                // Track button position for interaction
+                insertButtonPosition =
+                    WidgetPosition(
+                        buttonX,
+                        buttonY,
+                        insertButton.width,
+                        insertButton.height,
+                        (buttonY + scrollOffset).toInt(),
+                    )
+
                 totalContentHeight = yOffset + 20
                 matrixStack.popPose()
                 endStencil()
@@ -299,6 +321,22 @@ class RecordPressBaseScreen(
             matrixStack.popPose()
             endStencil()
         }
+
+        // Render pointer for current selection AFTER all content (on top layer)
+        if (configuration.currentUrlIndex < entries.size && entries.isNotEmpty()) {
+            // Calculate yOffset for the selected entry
+            var pointerYOffset = 25
+            for (i in 0 until configuration.currentUrlIndex) {
+                pointerYOffset += CARD_HEADER_HEIGHT + CARD_PADDING
+                if (i + 1 < configuration.currentUrlIndex) {
+                    pointerYOffset += CARD_SPACING
+                }
+            }
+            renderSelectionPointer(graphics, scrollOffset, pointerYOffset)
+        }
+
+        // Render all EditBox widgets AFTER content with stencil clipping
+        renderEditBoxes(graphics, mouseX, mouseY, partialTicks)
     }
 
     private fun renderSelectionPointer(
@@ -312,7 +350,12 @@ class RecordPressBaseScreen(
 
         matrixStack.pushPose()
         val expectedY = scrollOffset + y + yOffset + 4
-        val actualY = Mth.clamp(expectedY, (y + 18).toFloat(), (y + 170).toFloat())
+        val actualY =
+            Mth.clamp(
+                expectedY,
+                (y + SCROLL_AREA_Y).toFloat(),
+                (y + SCROLL_AREA_Y + SCROLL_AREA_HEIGHT - 10).toFloat(),
+            )
         matrixStack.translate(0f, actualY, 0f)
         (if (expectedY == actualY) pointerTexture else pointerOffscreenTexture)
             .render(graphics, x, 0)
@@ -326,9 +369,9 @@ class RecordPressBaseScreen(
 
         // Top gradient
         graphics.fillGradient(
-            x + 3,
+            x + SCROLL_AREA_X,
             y + SCROLL_AREA_Y,
-            x + SCROLL_AREA_X + SCROLL_AREA_WIDTH - 13,
+            x + SCROLL_AREA_X + SCROLL_AREA_WIDTH,
             y + SCROLL_AREA_Y + 10,
             zLevel,
             0x77000000,
@@ -337,14 +380,41 @@ class RecordPressBaseScreen(
 
         // Bottom gradient
         graphics.fillGradient(
-            x + 3,
-            y + 135,
-            x + SCROLL_AREA_X + SCROLL_AREA_WIDTH - 13,
-            y + 145,
+            x + SCROLL_AREA_X,
+            y + SCROLL_AREA_Y + SCROLL_AREA_HEIGHT - 10,
+            x + SCROLL_AREA_X + SCROLL_AREA_WIDTH,
+            y + SCROLL_AREA_Y + SCROLL_AREA_HEIGHT,
             zLevel,
             0x00000000,
             0x77000000,
         )
+    }
+
+    private fun renderEditBoxes(
+        graphics: GuiGraphics,
+        mouseX: Int,
+        mouseY: Int,
+        partialTicks: Float,
+    ) {
+        val x = guiLeft
+        val y = guiTop
+
+        // Render all EditBoxes with stencil clipping
+        startStencil(
+            graphics,
+            (x + SCROLL_AREA_X).toFloat(),
+            (y + SCROLL_AREA_Y).toFloat(),
+            SCROLL_AREA_WIDTH.toFloat(),
+            SCROLL_AREA_HEIGHT.toFloat(),
+        )
+
+        urlInputFields.forEachIndexed { index, editBox ->
+            if (editBoxPositions.containsKey(index)) {
+                editBox.render(graphics, mouseX, mouseY, partialTicks)
+            }
+        }
+
+        endStencil()
     }
 
     private fun renderUrlEntry(
@@ -380,36 +450,48 @@ class RecordPressBaseScreen(
         AllGuiTextures.SCHEDULE_STRIP_ACTION.render(graphics, 4, 6)
 
         matrixStack.popPose()
-        matrixStack.pushPose()
 
         val left = AllGuiTextures.SCHEDULE_CONDITION_LEFT
         val middle = AllGuiTextures.SCHEDULE_CONDITION_MIDDLE
         val right = AllGuiTextures.SCHEDULE_CONDITION_RIGHT
 
-        // Position and render the URL input field with absolute coordinates
+        // Render input background (EditBox will be rendered later with stencil)
+        val inputX = cardX + 26
+        val inputY = cardY + URL_FIELD_HEIGHT - URL_FIELD_HEIGHT / 4
+
+        UIRenderHelper.drawStretched(
+            graphics,
+            inputX,
+            inputY,
+            URL_FIELD_WIDTH,
+            URL_FIELD_HEIGHT,
+            0,
+            middle,
+        )
+        left.render(graphics, cardX + 20, inputY)
+        right.render(graphics, cardX + URL_FIELD_WIDTH + 26, inputY)
+
+        // Track EditBox position for later rendering and interaction
         if (index < urlInputFields.size) {
             val editBox = urlInputFields[index]
-            // Calculate absolute position considering scroll offset
-            val absoluteY = (cardY + URL_FIELD_HEIGHT + scrollOffset).toInt()
-            UIRenderHelper.drawStretched(
-                graphics,
-                cardX + 26,
-                cardY + URL_FIELD_HEIGHT - URL_FIELD_HEIGHT / 4,
-                URL_FIELD_WIDTH,
-                URL_FIELD_HEIGHT,
-                0,
-                middle,
-            )
-            left.render(graphics, cardX + 20, cardY + URL_FIELD_HEIGHT - URL_FIELD_HEIGHT / 4)
-            right.render(graphics, cardX + URL_FIELD_WIDTH + 26, cardY + URL_FIELD_HEIGHT - URL_FIELD_HEIGHT / 4)
+            val absoluteY = (inputY + scrollOffset).toInt()
 
-            editBox.x = cardX + 26
+            // Store position for rendering and interaction
+            editBoxPositions[index] =
+                WidgetPosition(
+                    inputX,
+                    inputY,
+                    URL_FIELD_WIDTH,
+                    URL_FIELD_HEIGHT,
+                    absoluteY,
+                )
+
+            // Set EditBox position (will be rendered later)
+            editBox.x = inputX
             editBox.y = absoluteY
             editBox.setWidth(URL_FIELD_WIDTH)
             editBox.height = URL_FIELD_HEIGHT
         }
-
-        matrixStack.popPose()
 
         return cardHeight
     }
@@ -489,6 +571,104 @@ class RecordPressBaseScreen(
         }
 
         return super.mouseScrolled(mouseX, mouseY, delta)
+    }
+
+    override fun mouseClicked(
+        mouseX: Double,
+        mouseY: Double,
+        button: Int,
+    ): Boolean {
+        // Check if click is within scroll area
+        val scrollAreaLeft = guiLeft + SCROLL_AREA_X
+        val scrollAreaTop = guiTop + SCROLL_AREA_Y
+        val scrollAreaRight = scrollAreaLeft + SCROLL_AREA_WIDTH
+        val scrollAreaBottom = scrollAreaTop + SCROLL_AREA_HEIGHT
+
+        if (mouseX >= scrollAreaLeft && mouseX <= scrollAreaRight &&
+            mouseY >= scrollAreaTop && mouseY <= scrollAreaBottom
+        ) {
+            // Check if insertButton was clicked (with scroll adjustment)
+            insertButtonPosition?.let { pos ->
+                if (mouseX >= pos.x && mouseX <= pos.x + pos.width &&
+                    mouseY >= pos.scrolledY && mouseY <= pos.scrolledY + pos.height
+                ) {
+                    insertButton.onClick(mouseX, mouseY)
+                    return true
+                }
+            }
+
+            // Check if any EditBox was clicked
+            var clickedEditBox = false
+            editBoxPositions.forEach { (index, pos) ->
+                if (index < urlInputFields.size) {
+                    val editBox = urlInputFields[index]
+                    val wasClicked =
+                        mouseX >= pos.x && mouseX <= pos.x + pos.width &&
+                            mouseY >= pos.scrolledY && mouseY <= pos.scrolledY + pos.height
+
+                    if (wasClicked) {
+                        // Unfocus all other EditBoxes first
+                        urlInputFields.forEach { it.isFocused = false }
+                        // Focus and click this EditBox
+                        editBox.isFocused = true
+                        editBox.onClick(mouseX, mouseY)
+                        clickedEditBox = true
+                    }
+                }
+            }
+
+            if (clickedEditBox) {
+                return true
+            }
+        } else {
+            // Click outside scroll area - unfocus all EditBoxes
+            urlInputFields.forEach { it.isFocused = false }
+        }
+
+        return super.mouseClicked(mouseX, mouseY, button)
+    }
+
+    override fun keyPressed(
+        keyCode: Int,
+        scanCode: Int,
+        modifiers: Int,
+    ): Boolean {
+        // Forward key events to focused EditBox
+        urlInputFields.forEach { editBox ->
+            if (editBox.isFocused && editBox.keyPressed(keyCode, scanCode, modifiers)) {
+                return true
+            }
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers)
+    }
+
+    override fun charTyped(
+        codePoint: Char,
+        modifiers: Int,
+    ): Boolean {
+        // Forward character input to focused EditBox
+        urlInputFields.forEach { editBox ->
+            if (editBox.isFocused && editBox.charTyped(codePoint, modifiers)) {
+                return true
+            }
+        }
+        return super.charTyped(codePoint, modifiers)
+    }
+
+    override fun mouseDragged(
+        mouseX: Double,
+        mouseY: Double,
+        button: Int,
+        dragX: Double,
+        dragY: Double,
+    ): Boolean {
+        // Forward drag events to focused EditBox for text selection
+        urlInputFields.forEach { editBox ->
+            if (editBox.isFocused) {
+                return editBox.mouseDragged(mouseX, mouseY, button, dragX, dragY)
+            }
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY)
     }
 
     override fun removed() {
