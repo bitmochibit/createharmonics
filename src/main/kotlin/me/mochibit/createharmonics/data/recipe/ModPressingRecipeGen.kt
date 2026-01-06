@@ -19,8 +19,8 @@ class ModPressingRecipeGen(
             create<PressingRecipe>("ethereal_record/${it.name.lowercase()}") { builder ->
                 builder
                     .require { ModItems.getEtherealRecordItem(it).get() }
-                    .output(0.3f, { ItemStack(Items.AMETHYST_SHARD, 2).item })
-                    .output(1f, { ItemStack(Items.AMETHYST_SHARD, 1).item })
+                    .output(0.3f) { ItemStack(Items.AMETHYST_SHARD, 2).item }
+                    .output(1f) { ItemStack(Items.AMETHYST_SHARD, 1).item }
             }
         }
 }

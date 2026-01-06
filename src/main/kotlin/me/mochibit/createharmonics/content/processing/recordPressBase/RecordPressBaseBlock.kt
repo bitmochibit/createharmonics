@@ -76,6 +76,21 @@ class RecordPressBaseBlock(
         pHit: BlockHitResult,
     ): InteractionResult {
         if (AllItems.WRENCH.isIn(pPlayer.getItemInHand(pHand))) return InteractionResult.PASS
+
+        if (pPlayer.isShiftKeyDown) {
+            if (pLevel.isClientSide) {
+                return InteractionResult.SUCCESS
+            }
+
+            var handled = false
+            withBlockEntityDo(pLevel, pPos) { be: RecordPressBaseBlockEntity ->
+                handled = be.behaviour.onPlayerInteract(pPlayer, pHand)
+            }
+
+            return if (handled) InteractionResult.SUCCESS else InteractionResult.PASS
+        }
+
+        // Normal click opens GUI
         DistExecutor.unsafeRunWhenOn(
             Dist.CLIENT,
         ) {

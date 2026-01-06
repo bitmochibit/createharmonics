@@ -11,7 +11,7 @@ import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerRen
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerVisual
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
-import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseVisual
+import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseRenderer
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
@@ -36,13 +36,12 @@ object ModBlockEntities : AutoRegistrable {
     val RECORD_PRESS_BASE: BlockEntityEntry<RecordPressBaseBlockEntity> =
         cRegistrate()
             .blockEntity("record_press_base", ::RecordPressBaseBlockEntity)
-            .visual({
-                SimpleBlockEntityVisualizer.Factory { ctx, be, pt ->
-                    RecordPressBaseVisual(ctx, be, pt)
-                }
-            }, false)
             .validBlocks(ModBlocks.RECORD_PRESS_BASE)
-            .register()
+            .renderer {
+                NonNullFunction { ctx ->
+                    RecordPressBaseRenderer(ctx)
+                }
+            }.register()
 
     override fun register(
         eventBus: IEventBus,

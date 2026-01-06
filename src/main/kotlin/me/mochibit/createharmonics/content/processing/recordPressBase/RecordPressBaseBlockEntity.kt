@@ -15,7 +15,8 @@ class RecordPressBaseBlockEntity(
     pos: BlockPos,
     state: BlockState,
 ) : SmartBlockEntity(type, pos, state) {
-    private lateinit var behaviour: RecordPressBaseBehaviour
+    lateinit var behaviour: RecordPressBaseBehaviour
+        private set
 
     override fun addBehaviours(behaviours: MutableList<BlockEntityBehaviour>) {
         behaviour = RecordPressBaseBehaviour(this)
