@@ -84,7 +84,7 @@ class RecordPressBaseBlock(
 
             var handled = false
             withBlockEntityDo(pLevel, pPos) { be: RecordPressBaseBlockEntity ->
-                handled = be.behaviour.onPlayerInteract(pPlayer, pHand)
+                handled = be.behaviour.onPlayerInteract(pPlayer)
             }
 
             return if (handled) InteractionResult.SUCCESS else InteractionResult.PASS

@@ -10,7 +10,6 @@ import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import net.createmod.catnip.math.VecHelper
 import net.minecraft.core.Direction
 import net.minecraft.nbt.CompoundTag
-import net.minecraft.world.InteractionHand
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.phys.Vec3
@@ -20,12 +19,10 @@ import net.minecraftforge.items.IItemHandler
 /**
  *
  * This behaviour handles:
- * - Accepting items from belt conveyors and other sources
- * - Holding items while they are being processed by the press above
- * - Ejecting processed items back onto conveyors
- * - Assigning audio URLs to processed Ethereal Records
+ * - Accepting Ethereal Records from belt conveyors and other sources
+ * - Assigning audio URLs to Ethereal Records
+ * - Ejecting processed records back onto conveyors
  */
-// TODO Maybe for less repeated code, inherit from DepotBehaviour and override necessary methods?
 class RecordPressBaseBehaviour(
     private val be: RecordPressBaseBlockEntity,
 ) : BlockEntityBehaviour(be) {
@@ -33,8 +30,9 @@ class RecordPressBaseBehaviour(
         @JvmStatic
         val BEHAVIOUR_TYPE = BehaviourType<RecordPressBaseBehaviour>()
 
-        /** Speed at which items move on the base (1/8 block per tick) */
-        private const val MOVEMENT_SPEED = 1f / 8f
+        /** Speed at which items move on the base (matches belt speed, easing handles deceleration) */
+        private const val MOVEMENT_SPEED =
+            1f / 24f // Distance traveled per tick, easing makes it look like deceleration
 
         /** Position constants for item animation */
         private const val POSITION_EDGE = 1.0f // Item at the edge (entering)
@@ -63,7 +61,7 @@ class RecordPressBaseBehaviour(
     /** Current index for ordered mode */
     var currentUrlIndex: Int = 0
 
-    /** Handles the transportation state for items on conveyor belts */
+    /** Handles the transportation state for items being processed by the press */
     private lateinit var transportedHandler: TransportedItemStackHandlerBehaviour
 
     /** Convenience property to get the actual ItemStack being held */
@@ -176,8 +174,8 @@ class RecordPressBaseBehaviour(
 
     /**
      * Attempts to insert an item from a belt or conveyor into the base.
-     * Items are added to the incoming queue and will be placed on the base
-     * when the current held item is removed.
+     * - Ethereal Records: Added to incoming queue and will be processed
+     * - Other items: Immediately pass through without processing
      *
      * @param transportedStack The item being inserted
      * @param side The direction from which the item is being inserted
@@ -199,6 +197,7 @@ class RecordPressBaseBehaviour(
         }
 
         // Create a copy and animate it from the edge to the center
+        // Works for both Ethereal Records and other items
         val newStack = transportedStack.copy()
         newStack.insertedFrom = side
         newStack.prevSideOffset = newStack.sideOffset
@@ -243,18 +242,28 @@ class RecordPressBaseBehaviour(
 
     /**
      * Updates the animation state of an outgoing item, moving it from center to edge.
+     * Preserves the rotation angle and side offset to prevent visual twitching.
      *
      * @return true when the item has reached the edge and is ready to be ejected
      */
     private fun tickOutgoing(transportedStack: TransportedItemStack): Boolean {
+        // Preserve the rotation state before updating positions
+        val preservedAngle = transportedStack.angle
+        val preservedSideOffset = transportedStack.sideOffset
+        val preservedPrevSideOffset = transportedStack.prevSideOffset
+
         transportedStack.prevBeltPosition = transportedStack.beltPosition
-        transportedStack.prevSideOffset = transportedStack.sideOffset
 
         // Animate from center to far edge
         if (transportedStack.beltPosition > POSITION_FAR_EDGE) {
             transportedStack.beltPosition =
                 (transportedStack.beltPosition - MOVEMENT_SPEED).coerceAtLeast(POSITION_FAR_EDGE)
         }
+
+        // Restore all rotation-related properties after position updates to lock the visual rotation
+        transportedStack.angle = preservedAngle
+        transportedStack.sideOffset = preservedSideOffset
+        transportedStack.prevSideOffset = preservedPrevSideOffset
 
         return transportedStack.beltPosition <= POSITION_FAR_EDGE
     }
@@ -272,8 +281,7 @@ class RecordPressBaseBehaviour(
 
     /**
      * Processes items in the incoming queue, animating them towards the center.
-     * When an item reaches the center, only ONE item is taken from the stack
-     * and placed as the held item. The rest remains in the incoming queue.
+     * When an item reaches the center, the entire stack is moved to the held item.
      */
     private fun processIncomingItems() {
         // Only animate incoming items if the held slot is empty
@@ -290,22 +298,17 @@ class RecordPressBaseBehaviour(
                 // Only place items on server side
                 if (world.isClientSide && !be.isVirtual) continue
 
-                // Split off one item from the stack
-                val singleItem = item.stack.split(1)
-                val heldTransported = TransportedItemStack(singleItem)
-                heldTransported.insertedFrom = item.insertedFrom
+                // Move the entire stack to held item
+                val heldTransported = item.copy() // Preserve rotation and other properties
                 heldTransported.beltPosition = POSITION_CENTER
                 heldTransported.prevBeltPosition = POSITION_CENTER
                 heldItem = heldTransported
 
-                // If there are more items in the stack, reset animation to edge
-                if (!item.stack.isEmpty) {
-                    item.beltPosition = POSITION_EDGE
-                    item.prevBeltPosition = POSITION_EDGE
-                }
+                // Mark the incoming item as empty so it gets removed
+                item.stack = ItemStack.EMPTY
 
                 be.notifyUpdate()
-                // Break after placing one item - next item will be processed next tick
+                // Break after placing the stack
                 break
             } else {
                 // Held slot is occupied - keep items stationary at the edge
@@ -329,6 +332,13 @@ class RecordPressBaseBehaviour(
      */
     private fun processOutgoingItems() {
         for (item in outgoing) {
+            // Check if item was already ejected (marked with negative position)
+            if (item.beltPosition < 0f) {
+                // This item was successfully ejected last frame, mark for removal
+                item.locked = true
+                continue
+            }
+
             // Continue animation if item hasn't reached edge
             if (!tickOutgoing(item)) continue
 
@@ -347,8 +357,10 @@ class RecordPressBaseBehaviour(
             val ejected = tryEjectToNextBelt(item, item.insertedFrom)
 
             if (ejected) {
-                // Successfully ejected, mark for removal
-                item.locked = true // Use locked as a flag to mark for removal
+                // Successfully ejected! Keep item visible at edge for one more frame to prevent flicker
+                // Mark with negative position to signal removal next frame
+                item.beltPosition = -0.001f
+                item.prevBeltPosition = POSITION_FAR_EDGE
             } else {
                 // Blocked! Keep item at edge position (don't animate further)
                 item.beltPosition = POSITION_FAR_EDGE
@@ -356,11 +368,11 @@ class RecordPressBaseBehaviour(
             }
         }
 
-        // Remove successfully ejected items
+        // Remove successfully ejected items (marked with locked flag)
         val iterator = outgoing.iterator()
         while (iterator.hasNext()) {
             val item = iterator.next()
-            if (item.locked) { // Item was successfully ejected
+            if (item.locked) { // Item was successfully ejected last frame
                 iterator.remove()
                 be.notifyUpdate()
             }
@@ -369,7 +381,8 @@ class RecordPressBaseBehaviour(
 
     /**
      * Processes the held item by communicating with the press above.
-     * Since incoming items are split into singles, this always processes one item at a time.
+     * - Ethereal Records: Pressed by the press above, then assigned URL
+     * - Other items: Pass through immediately without processing
      */
     private fun processHeldItem() {
         val currHeldItem = heldItem ?: return
@@ -380,6 +393,18 @@ class RecordPressBaseBehaviour(
         // Only process on server side
         if (world.isClientSide) return
 
+        // Check if this is an Ethereal Record
+        val isEtherealRecord = currHeldItem.stack.item is EtherealRecordItem
+
+        if (!isEtherealRecord) {
+            // Non-Ethereal items pass through immediately
+            if (!currHeldItem.locked) {
+                ejectItem(currHeldItem)
+            }
+            return
+        }
+
+        // Ethereal Record processing with press interaction
         // Look for the record press 2 blocks above this base
         val processingBehaviour =
             get(
@@ -388,10 +413,11 @@ class RecordPressBaseBehaviour(
                 BeltProcessingBehaviour.TYPE,
             )
 
-        // If no processing behavior exists, just eject the item
+        // If no processing behavior exists, just assign URL and eject
         if (processingBehaviour == null) {
             if (!currHeldItem.locked) {
-                ejectItem(currHeldItem, currHeldItem.insertedFrom)
+                assignUrlToItem(currHeldItem.stack)
+                ejectItem(currHeldItem)
             }
             return
         }
@@ -415,7 +441,6 @@ class RecordPressBaseBehaviour(
             }
 
         // Verify item wasn't extracted by chute/funnel during processing
-        // This prevents processing "air" if the item was removed mid-operation
         if (heldItem == null) {
             return
         }
@@ -450,24 +475,28 @@ class RecordPressBaseBehaviour(
 
         // If item is not locked, eject it from the base
         if (!currHeldItem.locked) {
-            ejectItem(currHeldItem, currHeldItem.insertedFrom)
+            ejectItem(currHeldItem)
         }
     }
 
     /**
      * Prepares an item for ejection by adding it to the outgoing animation queue.
-     * Items exit in the same direction they entered from.
+     * Items exit in the same direction they entered from (preserved from the item's insertedFrom field).
+     * The entire stack moves together as one unit.
      *
      * @param item The item to eject
-     * @param direction The direction to eject the item (same as insertion direction)
      */
-    private fun ejectItem(
-        item: TransportedItemStack,
-        direction: Direction,
-    ) {
+    private fun ejectItem(item: TransportedItemStack) {
         // Prepare item for exit animation (starts at center)
+        // Use copy() to preserve all properties including rotation angle
         val outgoingItem = item.copy()
-        outgoingItem.insertedFrom = direction
+
+        // Explicitly lock all rotation-related properties to prevent any changes during animation
+        outgoingItem.angle = item.angle
+        outgoingItem.sideOffset = item.sideOffset
+        outgoingItem.prevSideOffset = item.prevSideOffset
+
+        // Note: insertedFrom is already correct from the copy, no need to reset it
         outgoingItem.prevBeltPosition = POSITION_CENTER
         outgoingItem.beltPosition = POSITION_CENTER
 
@@ -502,27 +531,13 @@ class RecordPressBaseBehaviour(
     }
 
     /**
-     * Drops an item into the world at the specified position.
-     */
-    private fun dropItemInWorld(
-        stack: ItemStack,
-        position: Vec3,
-    ) {
-        val entity = ItemEntity(world, position.x, position.y + 0.5, position.z, stack)
-        world.addFreshEntity(entity)
-    }
-
-    /**
      * Handles player interaction with the press base.
      * - If pressing shift: picks up all items and allows placing an item
      * - If not pressing shift: opens GUI
      *
      * @return true if the interaction was handled
      */
-    fun onPlayerInteract(
-        player: net.minecraft.world.entity.player.Player,
-        hand: InteractionHand,
-    ): Boolean {
+    fun onPlayerInteract(player: net.minecraft.world.entity.player.Player): Boolean {
         fun playSound() {
             world.playSound(
                 null,
@@ -636,8 +651,8 @@ class RecordPressBaseBehaviour(
      * Registers the sub-behaviours that enable this block to interact with Create's systems.
      *
      * This sets up:
-     * - DirectBeltInputBehaviour: Allows belts to insert items into this block
-     * - TransportedItemStackHandlerBehaviour: Manages the visual and state representation of transported items
+     * - DirectBeltInputBehaviour: Allows belts to insert Ethereal Records into this block
+     * - TransportedItemStackHandlerBehaviour: Required for press interaction
      *
      * @param behaviours The list to add behaviours to
      */
@@ -648,7 +663,6 @@ class RecordPressBaseBehaviour(
                 .considerOccupiedWhen { !heldItemStack.isEmpty },
         )
 
-        // Handle recipe processing for non-Ethereal Record items
         transportedHandler =
             TransportedItemStackHandlerBehaviour(be, this::applyRecipeProcessing)
                 .withStackPlacement { VecHelper.getCenterOf(pos) }
@@ -656,58 +670,18 @@ class RecordPressBaseBehaviour(
     }
 
     /**
-     * Applies recipe processing to items on the base.
-     * This is called by the TransportedItemStackHandlerBehaviour to handle recipe outputs.
-     *
-     * For Ethereal Records, we skip recipe processing since they use custom URL assignment.
-     * For other items, this allows normal pressing recipes to work.
+     * Handles recipe processing callback for TransportedItemStackHandlerBehaviour.
+     * This is required for the press to interact with items, but we don't use it
+     * since Ethereal Records get URL assignment instead of recipe processing.
+     * Non-Ethereal items pass through without processing.
      */
+    @Suppress("UNUSED_PARAMETER")
     private fun applyRecipeProcessing(
         maxDistanceFromCentre: Float,
         processFunction: java.util.function.Function<TransportedItemStack, TransportedItemStackHandlerBehaviour.TransportedResult>,
     ) {
-        val held = heldItem ?: return
-
-        // Only process items that are centered
-        if (POSITION_CENTER - held.beltPosition > maxDistanceFromCentre) return
-
-        // Skip recipe processing for Ethereal Records (they use custom URL system)
-        if (held.stack.item is EtherealRecordItem) return
-
-        // Apply the recipe processing function
-        val stackBefore = held.stack.copy()
-        val result = processFunction.apply(held)
-
-        // Check if anything changed
-        if (result.didntChangeFrom(stackBefore)) return
-
-        // Clear the held item slot
-        heldItem = null
-
-        // Set the new held output if present
-        if (result.hasHeldOutput()) {
-            val output = result.heldOutput
-            output?.let {
-                it.beltPosition = POSITION_CENTER
-                it.prevBeltPosition = POSITION_CENTER
-                heldItem = it
-            }
-        }
-
-        // Handle additional outputs (if recipe produces multiple items)
-        for (additionalOutput in result.outputs) {
-            if (heldItem == null) {
-                // If no held item, place this as the held item
-                additionalOutput.beltPosition = POSITION_CENTER
-                additionalOutput.prevBeltPosition = POSITION_CENTER
-                heldItem = additionalOutput
-            } else {
-                // Otherwise drop into world
-                dropItemInWorld(additionalOutput.stack, VecHelper.getCenterOf(pos))
-            }
-        }
-
-        be.notifyUpdate()
+        // No-op: We handle Ethereal Record processing directly in processHeldItem
+        // and non-Ethereal items pass through immediately
     }
 
     /**
