@@ -17,11 +17,41 @@ import net.minecraft.world.phys.AABB
 import kotlin.jvm.optionals.getOrNull
 
 object PonderScenes {
+    fun recordPressBase(
+        builder: SceneBuilder,
+        util: SceneBuildingUtil,
+    ) {
+        // Ponder scene size 9 x 6 x 9
+        val scene = CreateSceneBuilder(builder)
+        scene.title(
+            "record_press_base",
+            "Using Record Press Bases",
+        )
+
+        val plateSize = 5
+        val pressBase = util.grid().at(4, 1, 4)
+        val pressTop = util.vector().topOf(pressBase)
+
+        scene.configureBasePlate(pressBase.x - plateSize / 2, pressBase.z - plateSize / 2, plateSize)
+        scene.addKeyframe()
+        scene.showBasePlate()
+        scene.idle(5)
+        scene.world().showSection(util.select().position(pressBase), Direction.DOWN)
+        scene
+            .overlay()
+            .showText(60)
+            .text("Record Press Bases are depot-like blocks used for setting urls on Ethereal Records")
+            .placeNearTarget()
+            .pointAt(pressTop)
+        scene.idle(70)
+
+        scene.markAsFinished()
+    }
+
     fun andesiteJukebox(
         builder: SceneBuilder,
         util: SceneBuildingUtil,
     ) {
-        // Ponder scene size 5 x 7 x 5
         val scene = CreateSceneBuilder(builder)
         scene.title(
             "andesite_jukebox",

@@ -39,6 +39,13 @@ object ModPonders : AutoRegistrable {
             PonderScenes::andesiteJukebox,
             AllCreatePonderTags.KINETIC_APPLIANCES,
         )
+
+        helper.addStoryBoard(
+            ModBlocks.RECORD_PRESS_BASE,
+            "record_press_base",
+            PonderScenes::recordPressBase,
+            AllCreatePonderTags.KINETIC_APPLIANCES,
+        )
     }
 
     override fun register(
