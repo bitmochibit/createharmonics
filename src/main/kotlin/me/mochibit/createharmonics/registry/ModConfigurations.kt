@@ -14,6 +14,8 @@ import java.util.EnumMap
 
 @Mod.EventBusSubscriber(modid = CreateHarmonicsMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
 object ModConfigurations : AutoRegistrable {
+    override val registrationOrder: Int = 1
+
     val configs: EnumMap<ModConfig.Type, ConfigBase> = EnumMap(ModConfig.Type::class.java)
 
     val common: CommonConfig = registerConfig({ CommonConfig }, ModConfig.Type.COMMON) as CommonConfig

@@ -103,6 +103,13 @@ class EtherealRecordItem(
         }
     }
 
+    override fun getMaxDamage(stack: ItemStack): Int {
+        val uses = recordType.uses
+        return if (uses > 0) uses + 1 else 0
+    }
+
+    override fun isDamageable(stack: ItemStack): Boolean = recordType.uses > 0
+
     override fun getDefaultInstance(): ItemStack {
         val default = super.getDefaultInstance()
         RecordCraftingHandler.setCraftedWithDisc(default, ItemStack(musicDiscs.random()))

@@ -84,8 +84,24 @@ object CommonConfig : ConfigBase() {
     fun recordGroup() {
         group(1, "records", "Configuration for ethereal records")
         for (type in RecordType.entries) {
+            val defaultDurability =
+                when (type) {
+                    RecordType.STONE -> 20
+                    RecordType.GOLD -> 1
+                    RecordType.EMERALD -> 800
+                    RecordType.DIAMOND -> 1500
+                    RecordType.NETHERITE -> 2000
+                    RecordType.BRASS -> 250
+                }
             val configName = "maxUses_${type.name.lowercase()}"
-            val c = i(60, 0, 1000, configName, "Maximum uses for ${type.name} record. Set to 0 for unbreakable.")
+            val c =
+                i(
+                    defaultDurability,
+                    0,
+                    30000,
+                    configName,
+                    "Maximum uses for ${type.name} record. Set to 0 for unbreakable.",
+            )
             recordDurabilities[type] = c
         }
     }

@@ -36,10 +36,6 @@ object ModItems : AutoRegistrable {
         return cRegistrate()
             .item(name) {
                 val properties = Item.Properties().stacksTo(1)
-                val recordProperties = recordType.properties
-                if (recordProperties.uses > 0) {
-                    properties.durability(recordProperties.uses + 1)
-                }
                 EtherealRecordItem(recordType, properties)
             }.model { ctx, prov ->
                 prov.generated(ctx, prov.modLoc("item/ethereal_record/$typeName"))

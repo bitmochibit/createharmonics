@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.content.records
 
 import com.simibubi.create.AllItems
+import me.mochibit.createharmonics.CommonConfig
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.BitCrushEffect
@@ -12,13 +13,13 @@ import net.minecraft.sounds.SoundEvents
 import net.minecraft.util.RandomSource
 import net.minecraft.world.item.crafting.Ingredient
 import net.minecraftforge.common.Tags
+import kotlin.text.get
 
 enum class RecordType(
     val properties: Properties,
 ) {
     STONE(
         Properties(
-            uses = 20,
             recipe =
                 Properties.Recipe(
                     secondaryIngredientProvider = { Ingredient.of(Tags.Items.STONE) },
@@ -43,7 +44,6 @@ enum class RecordType(
 
     GOLD(
         Properties(
-            uses = 1,
             recipe =
                 Properties.Recipe(
                     secondaryIngredientProvider = { Ingredient.of(Tags.Items.INGOTS_GOLD) },
@@ -53,7 +53,6 @@ enum class RecordType(
 
     EMERALD(
         Properties(
-            uses = 800,
             recipe =
                 Properties.Recipe(
                     secondaryIngredientProvider = { Ingredient.of(Tags.Items.GEMS_EMERALD) },
@@ -80,7 +79,6 @@ enum class RecordType(
 
     DIAMOND(
         Properties(
-            uses = 1500,
             recipe =
                 Properties.Recipe(
                     secondaryIngredientProvider = { Ingredient.of(Tags.Items.GEMS_DIAMOND) },
@@ -101,7 +99,6 @@ enum class RecordType(
 
     NETHERITE(
         Properties(
-            uses = 2000,
             recipe =
                 Properties.Recipe(
                     { Ingredient.of(ModItems.getEtherealRecordItem(DIAMOND)) },
@@ -110,7 +107,6 @@ enum class RecordType(
             audioEffectsProvider = {
                 listOf(
                     EqualizerEffect(
-                        // Bass boost 🪩
                         bands =
                             listOf(
                                 EQBand(frequency = 60f, quality = 0.7f, gain = 6f),
@@ -139,8 +135,11 @@ enum class RecordType(
     ),
     ;
 
+    // Get uses from config
+    val uses: Int
+        get() = CommonConfig.getRecordDurability(this) ?: 100
+
     data class Properties(
-        val uses: Int = 100,
         val recipe: Recipe? = null,
         val audioEffectsProvider: () -> List<AudioEffect> = { listOf() },
         val soundEventCompProvider: () -> List<SoundEventComposition.SoundEventDef> = { listOf() },

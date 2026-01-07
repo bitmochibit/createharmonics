@@ -94,6 +94,8 @@ class RecordPressBaseScreen(
     private val editBoxPositions = mutableMapOf<Int, WidgetPosition>()
     private var insertButtonPosition: WidgetPosition? = null
 
+    private var changedIndexOnce = false
+
     // Track card button positions for interaction
     private data class CardButtonPositions(
         val removeButton: WidgetPosition?,
@@ -169,6 +171,9 @@ class RecordPressBaseScreen(
             IconButton(guiLeft + 50, guiTop + background.height - 24, AllIcons.I_PRIORITY_LOW).apply {
                 withCallback<IconButton> {
                     if (configuration.urls.isNotEmpty()) {
+                        if (!changedIndexOnce) {
+                            changedIndexOnce = true
+                        }
                         configuration.currentUrlIndex = (configuration.currentUrlIndex + 1) % configuration.urls.size
                     }
                 }
@@ -180,6 +185,9 @@ class RecordPressBaseScreen(
             IconButton(guiLeft + 70, guiTop + background.height - 24, AllIcons.I_PRIORITY_HIGH).apply {
                 withCallback<IconButton> {
                     if (configuration.urls.isNotEmpty()) {
+                        if (!changedIndexOnce) {
+                            changedIndexOnce = true
+                        }
                         configuration.currentUrlIndex =
                             (configuration.currentUrlIndex - 1 + configuration.urls.size) % configuration.urls.size
                     }
@@ -220,6 +228,7 @@ class RecordPressBaseScreen(
                 ).apply {
                     value = url
                     setBordered(false)
+                    setMaxLength(1024)
                     setResponder { newValue ->
                         configuration.urls[index] = newValue
                     }
@@ -238,6 +247,7 @@ class RecordPressBaseScreen(
                 ).apply {
                     value = String.format("%.2f", configuration.weights.getOrElse(index) { 1f })
                     setBordered(false)
+                    setMaxLength(6) // Allow decimal values like "0.12"
                     setResponder { newValue ->
                         if (newValue.isEmpty()) {
                             return@setResponder
@@ -673,7 +683,7 @@ class RecordPressBaseScreen(
         weightInputFields.forEach { it.tick() }
 
         // Sync currentUrlIndex from block entity to GUI (for real-time updates during processing)
-        if (be.currentUrlIndex != configuration.currentUrlIndex) {
+        if (be.currentUrlIndex != configuration.currentUrlIndex && !changedIndexOnce) {
             configuration.currentUrlIndex = be.currentUrlIndex
         }
 
