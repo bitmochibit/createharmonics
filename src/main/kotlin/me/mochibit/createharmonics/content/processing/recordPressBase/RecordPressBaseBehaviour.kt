@@ -106,7 +106,9 @@ class RecordPressBaseBehaviour(
                     newHeldItem.prevBeltPosition = POSITION_CENTER
                     newHeldItem.beltPosition = POSITION_CENTER
                     newHeldItem.insertedFrom = Direction.UP
+                    newHeldItem.locked = false // Ensure item is not locked so it can be processed
                     heldItem = newHeldItem
+
                     be.notifyUpdate()
                 }
                 return ItemStack.EMPTY
@@ -326,9 +328,10 @@ class RecordPressBaseBehaviour(
 
     /**
      * Processes items in the outgoing queue, animating them towards the edge.
-     * When an item reaches the edge, it tries to eject in the original direction.
+     * When an item reaches the edge, it tries to eject:
+     * - Items with horizontal insertedFrom: eject in that direction
+     * - Items with vertical insertedFrom: no belt available, stay at edge for manual extraction
      * If blocked, the item stays at the edge until the blockage is cleared.
-     * Items inserted from above/below cannot be ejected to belts and must be extracted by other means.
      */
     private fun processOutgoingItems() {
         for (item in outgoing) {
@@ -345,26 +348,70 @@ class RecordPressBaseBehaviour(
             // Only try to eject on server side
             if (world.isClientSide && !be.isVirtual) continue
 
-            // Items from vertical directions cannot eject to belts
+            // If still vertical, no belt was available - keep at edge for manual extraction
             if (item.insertedFrom.axis.isVertical) {
-                // Keep item at edge, waiting for mechanical arm/funnel extraction
                 item.beltPosition = POSITION_FAR_EDGE
                 item.prevBeltPosition = POSITION_FAR_EDGE
                 continue
             }
 
-            // Item is at the edge - try to eject in the original direction only
+            // Try to eject to adjacent belt (tunnels and funnels are handled by DirectBeltInputBehaviour)
             val ejected = tryEjectToNextBelt(item, item.insertedFrom)
 
             if (ejected) {
                 // Successfully ejected! Keep item visible at edge for one more frame to prevent flicker
-                // Mark with negative position to signal removal next frame
                 item.beltPosition = -0.001f
                 item.prevBeltPosition = POSITION_FAR_EDGE
             } else {
-                // Blocked! Keep item at edge position (don't animate further)
-                item.beltPosition = POSITION_FAR_EDGE
-                item.prevBeltPosition = POSITION_FAR_EDGE
+                // Ejection failed - check if we should eject into world or keep at edge
+                // Only eject into world if item came from a horizontal belt (not from vertical insertion)
+                val shouldEjectToWorld = item.insertedFrom.axis.isHorizontal
+
+                if (shouldEjectToWorld) {
+                    // Check if there's no solid block in the way
+                    val nextPos = pos.relative(item.insertedFrom)
+                    val nextState = world.getBlockState(nextPos)
+
+                    if (!nextState.isSolidRender(world, nextPos)) {
+                        // Eject item into the world (like Item Drain does)
+                        val outPos =
+                            VecHelper
+                                .getCenterOf(pos)
+                                .add(Vec3.atLowerCornerOf(item.insertedFrom.normal).scale(0.75))
+                        val movementSpeed = MOVEMENT_SPEED
+                        val outMotion =
+                            Vec3
+                                .atLowerCornerOf(item.insertedFrom.normal)
+                                .scale(movementSpeed.toDouble())
+                                .add(0.0, 1.0 / 8.0, 0.0)
+
+                        val entity =
+                            ItemEntity(
+                                world,
+                                outPos.x,
+                                outPos.y + 6.0 / 16.0,
+                                outPos.z,
+                                item.stack,
+                            )
+                        entity.deltaMovement = outMotion
+                        entity.setDefaultPickUpDelay()
+                        entity.hurtMarked = true
+                        world.addFreshEntity(entity)
+
+                        // Mark item for removal
+                        item.beltPosition = -0.001f
+                        item.prevBeltPosition = POSITION_FAR_EDGE
+                        item.locked = true
+                    } else {
+                        // Solid block in the way, keep at edge
+                        item.beltPosition = POSITION_FAR_EDGE
+                        item.prevBeltPosition = POSITION_FAR_EDGE
+                    }
+                } else {
+                    // Item came from vertical insertion, keep at edge for manual extraction
+                    item.beltPosition = POSITION_FAR_EDGE
+                    item.prevBeltPosition = POSITION_FAR_EDGE
+                }
             }
         }
 
@@ -482,11 +529,12 @@ class RecordPressBaseBehaviour(
     /**
      * Prepares an item for ejection by adding it to the outgoing animation queue.
      * Items exit in the same direction they entered from (preserved from the item's insertedFrom field).
+     * For items inserted vertically, finds an available horizontal belt direction before animating.
      * The entire stack moves together as one unit.
      *
      * @param item The item to eject
      */
-    private fun ejectItem(item: TransportedItemStack) {
+    fun ejectItem(item: TransportedItemStack) {
         // Prepare item for exit animation (starts at center)
         // Use copy() to preserve all properties including rotation angle
         val outgoingItem = item.copy()
@@ -496,7 +544,22 @@ class RecordPressBaseBehaviour(
         outgoingItem.sideOffset = item.sideOffset
         outgoingItem.prevSideOffset = item.prevSideOffset
 
-        // Note: insertedFrom is already correct from the copy, no need to reset it
+        // For items inserted vertically, find target belt direction NOW before animation starts
+        if (item.insertedFrom.axis.isVertical) {
+            val targetDirection = findAvailableBeltDirection()
+            if (targetDirection != null) {
+                // Update to horizontal direction so animation works
+                outgoingItem.insertedFrom = targetDirection
+            } else {
+                // No belt found, keep vertical direction (item will stay at edge)
+                outgoingItem.insertedFrom = item.insertedFrom
+            }
+        } else {
+            // Horizontal insertion - preserve original direction
+            outgoingItem.insertedFrom = item.insertedFrom
+        }
+
+        // Set position to center, ensuring prev position is also center to prevent visual jump
         outgoingItem.prevBeltPosition = POSITION_CENTER
         outgoingItem.beltPosition = POSITION_CENTER
 
@@ -528,6 +591,26 @@ class RecordPressBaseBehaviour(
         }
 
         return false
+    }
+
+    /**
+     * Finds an available horizontal belt direction adjacent to this block that can accept items.
+     * Tries all four horizontal directions to find an accepting belt (similar to Item Drain behavior).
+     *
+     * @return The direction of an available belt, or null if none found
+     */
+    private fun findAvailableBeltDirection(): Direction? {
+        // Try all horizontal directions
+        for (direction in Direction.Plane.HORIZONTAL) {
+            val nextPos = pos.relative(direction)
+            val nextBehaviour = get(world, nextPos, DirectBeltInputBehaviour.TYPE)
+
+            if (nextBehaviour != null && nextBehaviour.canInsertFromSide(direction)) {
+                // Found a belt that can accept the item
+                return direction
+            }
+        }
+        return null
     }
 
     /**

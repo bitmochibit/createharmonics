@@ -1,20 +1,24 @@
 package me.mochibit.createharmonics.foundation.ponder
 
 import com.simibubi.create.content.kinetics.mechanicalArm.ArmBlockEntity
+import com.simibubi.create.content.kinetics.press.MechanicalPressBlockEntity
+import com.simibubi.create.content.kinetics.press.PressingBehaviour
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlockEntity
+import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.registry.ModItems
 import net.createmod.catnip.math.Pointing
 import net.createmod.ponder.api.PonderPalette
 import net.createmod.ponder.api.scene.SceneBuilder
 import net.createmod.ponder.api.scene.SceneBuildingUtil
-import net.createmod.ponder.foundation.element.WorldSectionElementImpl
 import net.minecraft.core.Direction
+import net.minecraft.world.entity.Entity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.LeverBlock
 import net.minecraft.world.phys.AABB
-import kotlin.jvm.optionals.getOrNull
+import thedarkcolour.kotlinforforge.forge.vectorutil.v3d.toVec3
+import java.util.function.Consumer
 
 object PonderScenes {
     fun recordPressBase(
@@ -28,11 +32,14 @@ object PonderScenes {
             "Using Record Press Bases",
         )
 
-        val plateSize = 5
+        val plateSize = 7
         val pressBase = util.grid().at(4, 1, 4)
         val pressTop = util.vector().topOf(pressBase)
 
-        scene.configureBasePlate(pressBase.x - plateSize / 2, pressBase.z - plateSize / 2, plateSize)
+        val plateOffsetX = pressBase.x - plateSize / 2
+        val plateOffsetZ = pressBase.z - plateSize / 2
+
+        scene.configureBasePlate(plateOffsetX, plateOffsetZ, plateSize)
         scene.addKeyframe()
         scene.showBasePlate()
         scene.idle(5)
@@ -44,6 +51,83 @@ object PonderScenes {
             .placeNearTarget()
             .pointAt(pressTop)
         scene.idle(70)
+
+        scene.addKeyframe()
+        val fallingItem = ItemStack(ModItems.getEtherealRecordItem(RecordType.EMERALD).get())
+        val fallingItemLink =
+            scene.world().createItemEntity(util.vector().centerOf(4, 4, 4), util.vector().of(.0, -0.1, .0), fallingItem)
+        scene.idle(9)
+        scene.world().modifyEntity(fallingItemLink, Entity::discard)
+        scene.world().createItemOnBeltLike(pressBase, Direction.UP, fallingItem)
+        scene.idle(20)
+        scene
+            .overlay()
+            .showText(40)
+            .text("Ethereal Records can be dropped on top of the press base")
+            .placeNearTarget()
+            .pointAt(pressTop)
+        scene.idle(50)
+        val beltSelection1 = util.select().fromTo(2, 1, 4, 3, 1, 4)
+        val beltSelection2 = util.select().fromTo(5, 1, 4, 8, 1, 4)
+        scene.world().showSection(beltSelection1, Direction.DOWN)
+        scene.idle(5)
+        scene.world().showSection(beltSelection2, Direction.DOWN)
+        scene
+            .overlay()
+            .showText(40)
+            .text("Or be sledded in using conveyor belts")
+            .placeNearTarget()
+            .pointAt(pressTop)
+        scene.idle(10)
+        scene.world().modifyBlockEntity(pressBase, RecordPressBaseBlockEntity::class.java) { be ->
+            be.behaviour.heldItem?.let { be.behaviour.ejectItem(it) }
+        }
+        scene.idle(50)
+        scene.addKeyframe()
+        scene
+            .overlay()
+            .showControls(pressTop, Pointing.DOWN, 20)
+            .rightClick()
+        scene
+            .overlay()
+            .showText(50)
+            .text("Right-Click to open the configuration interface")
+            .placeNearTarget()
+            .pointAt(pressTop)
+        scene.idle(60)
+        scene
+            .overlay()
+            .showText(50)
+            .text("You can create a list of urls to be set, and choose the mode of selection")
+            .placeNearTarget()
+            .pointAt(pressTop)
+        scene.idle(60)
+        val pressPos = util.grid().at(4, 3, 4)
+        scene.addKeyframe()
+        scene.world().showSection(util.select().position(pressPos), Direction.DOWN)
+        scene.idle(10)
+        scene.world().modifyBlockEntity(pressPos, MechanicalPressBlockEntity::class.java) { be ->
+            be.pressingBehaviour.start(PressingBehaviour.Mode.BELT)
+        }
+        scene.idle(10)
+        scene.world().modifyBlockEntity(
+            pressPos,
+            MechanicalPressBlockEntity::class.java,
+        ) { pte: MechanicalPressBlockEntity ->
+            pte
+                .getPressingBehaviour()
+                .makePressingParticleEffect(
+                    util.vector().centerOf(pressBase).add(0.0, (8 / 16f).toDouble(), 0.0),
+                    ItemStack(ModItems.getEtherealRecordItem(RecordType.GOLD).get()),
+                )
+        }
+        scene
+            .overlay()
+            .showText(70)
+            .text("When a record is present, a mechanical press must be used to inprint the url onto it")
+            .placeNearTarget()
+            .pointAt(pressTop)
+        scene.idle(80)
 
         scene.markAsFinished()
     }
