@@ -3,6 +3,7 @@ package me.mochibit.createharmonics.audio
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import me.mochibit.createharmonics.CommonConfig
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
@@ -190,12 +191,14 @@ class AudioPlayer(
      * @param audioName Optional name for the audio source
      * @param effectChain Chain of audio effects to apply
      * @param soundEventComposition Composition of sound events
+     * @param offsetSeconds Starting offset in seconds to skip in the stream
      */
     fun playFromStream(
         inputStream: InputStream,
         audioName: String = "Stream",
         effectChain: EffectChain = EffectChain.empty(),
         soundEventComposition: SoundEventComposition = SoundEventComposition(),
+        offsetSeconds: Double = 0.0,
     ) {
         launchModCoroutine(Dispatchers.IO) {
             stateMutex.withLock {
@@ -206,7 +209,7 @@ class AudioPlayer(
                 }
 
                 playState = PlayState.LOADING
-                val context = PlaybackContext(source, effectChain, soundEventComposition, 0.0)
+                val context = PlaybackContext(source, effectChain, soundEventComposition, offsetSeconds)
                 playbackContext = context
 
                 runCatching {
@@ -286,6 +289,35 @@ class AudioPlayer(
         // Update audio name
         if (audioName != "Unknown" && audioName.isNotBlank()) {
             ModPackets.channel.sendToServer(UpdateAudioNamePacket(playerId, audioName))
+        }
+
+        // Skip bytes if offset is specified
+        if (context.offsetSeconds > 0.0) {
+            // For 48kHz mono PCM: 48000 samples/sec * 2 bytes/sample = 96000 bytes/sec
+            val bytesPerSecond = sampleRate * 2L // 2 bytes per sample for 16-bit PCM
+            val bytesToSkip = (context.offsetSeconds * bytesPerSecond).toLong()
+
+            var totalSkipped = 0L
+            var remaining = bytesToSkip
+
+            while (remaining > 0) {
+                val skipped =
+                    withContext(Dispatchers.IO) {
+                        inputStream.skip(remaining)
+                    }
+                if (skipped <= 0) {
+                    // End of stream or unable to skip
+                    Logger.warn("AudioPlayer $playerId: Could only skip $totalSkipped of $bytesToSkip bytes (reached end of stream)")
+                    break
+                }
+                totalSkipped += skipped
+                remaining -= skipped
+            }
+
+            if (totalSkipped > 0) {
+                val secondsSkipped = totalSkipped / bytesPerSecond.toDouble()
+                Logger.info("AudioPlayer $playerId: Skipped $totalSkipped bytes ($secondsSkipped seconds) from input stream")
+            }
         }
 
         // Create effect stream directly from input (no FFmpeg)

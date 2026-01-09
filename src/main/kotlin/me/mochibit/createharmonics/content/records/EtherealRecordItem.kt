@@ -99,6 +99,7 @@ class EtherealRecordItem(
                     recordProps.audioEffectsProvider(),
                 ),
                 SoundEventComposition(soundEvents),
+                offsetSeconds,
             )
         }
     }
