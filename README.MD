@@ -9,10 +9,10 @@
 
 <h4 align="center"> Required dependencies 
 <br><br>
-    <a href="">
+    <a href="https://www.curseforge.com/minecraft/mc-mods/kotlin-for-forge">
         <img alt="KotlinForForgeDependency" src="https://img.shields.io/badge/KOTLIN%20FOR%20FORGE-REQUIRED-7f52ff?logo=kotlin&labelColor=white&style=for-the-badge">
     </a>
-    <a href="">
+    <a href="https://www.curseforge.com/minecraft/mc-mods/create">
         <img alt="CreateModDependency" src="https://img.shields.io/badge/Create Mod-REQUIRED-ecaf89?logo=CurseForge&labelColor=white&style=for-the-badge">
     </a>
 </h4>
