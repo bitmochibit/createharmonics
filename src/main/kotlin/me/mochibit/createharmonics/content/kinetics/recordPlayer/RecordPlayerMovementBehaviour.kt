@@ -22,6 +22,7 @@ import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.network.packet.setBlockData
+import me.mochibit.createharmonics.registry.ModConfigurations
 import me.mochibit.createharmonics.registry.ModPackets
 import net.createmod.catnip.math.VecHelper
 import net.minecraft.client.Minecraft
@@ -76,8 +77,6 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
          * After stopping, the player will automatically restart on the next tick if conditions are met (has record and moving).
          */
         fun stopMovingPlayer(context: MovementContext) {
-            Logger.info("Server: Stopping moving player (audio ended), resetting play time to 0")
-
             // Reset play time to 0 in context.data
             context.data.putLong(PLAY_TIME_KEY, 0)
 
@@ -121,7 +120,6 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
     private fun updateServerData(context: MovementContext) {
         // Check if we should skip this update (e.g., just after stopMovingPlayer was called)
         if (context.data.getBoolean(SKIP_NEXT_UPDATE_KEY)) {
-            Logger.info("Server: Skipping update to preserve play time reset")
             context.data.remove(SKIP_NEXT_UPDATE_KEY)
             return
         }
@@ -226,7 +224,6 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         if (currentPlayTime > 0 && newPlayTime == 0L && newHasRecord) {
             // Mark that audio ended so we can trigger a clean restart
             context.data.putBoolean(AUDIO_ENDED_KEY, true)
-            Logger.info("Client: Detected audio end (playTime reset: $currentPlayTime -> $newPlayTime)")
         }
 
         // Update play time if changed
@@ -244,6 +241,11 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         if (context.temporaryData !is PitchSupplierInterpolated) {
             context.temporaryData =
                 PitchSupplierInterpolated({
+                    // Check if speed-based pitch is enabled in client config
+                    if (!ModConfigurations.client.enableSpeedBasedPitch.get()) {
+                        return@PitchSupplierInterpolated 1.0f
+                    }
+
                     val speed = abs(context.animationSpeed) / 100
 
                     val minSpeed = 3.6f
@@ -389,7 +391,6 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             PlaybackState.PLAYING -> {
                 when (player.state) {
                     AudioPlayer.PlayState.PAUSED -> {
-                        Logger.info("Client: resuming playback")
                         player.resume()
                     }
 

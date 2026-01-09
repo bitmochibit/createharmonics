@@ -227,6 +227,7 @@ class RecordPressBaseScreen(
                     ModLang.translate("gui.record_press_base.url_input").component(),
                 ).apply {
                     value = url
+                    @Suppress("UsePropertyAccessSyntax")
                     setBordered(false)
                     setMaxLength(1024)
                     setResponder { newValue ->
@@ -246,6 +247,7 @@ class RecordPressBaseScreen(
                     ModLang.translate("gui.record_press_base.weight_input").component(),
                 ).apply {
                     value = String.format("%.2f", configuration.weights.getOrElse(index) { 1f })
+                    @Suppress("UsePropertyAccessSyntax")
                     setBordered(false)
                     setMaxLength(6) // Allow decimal values like "0.12"
                     setResponder { newValue ->
@@ -675,6 +677,125 @@ class RecordPressBaseScreen(
                 moveUpButton = moveUpButton,
                 moveDownButton = moveDownButton,
             )
+    }
+
+    override fun render(
+        graphics: GuiGraphics,
+        mouseX: Int,
+        mouseY: Int,
+        partialTicks: Float,
+    ) {
+        super.render(graphics, mouseX, mouseY, partialTicks)
+
+        // Render tooltips for card buttons
+        val scrollAreaLeft = guiLeft + SCROLL_AREA_X
+        val scrollAreaTop = guiTop + SCROLL_AREA_Y
+        val scrollAreaRight = scrollAreaLeft + SCROLL_AREA_WIDTH
+        val scrollAreaBottom = scrollAreaTop + SCROLL_AREA_HEIGHT
+
+        if (mouseX >= scrollAreaLeft && mouseX <= scrollAreaRight &&
+            mouseY >= scrollAreaTop && mouseY <= scrollAreaBottom
+        ) {
+            // Tooltip for insert button
+            insertButtonPosition?.let { pos ->
+                if (mouseX >= pos.x && mouseX <= pos.x + pos.width &&
+                    mouseY >= pos.scrolledY && mouseY <= pos.scrolledY + pos.height
+                ) {
+                    graphics.renderTooltip(
+                        font,
+                        ModLang.translate("gui.record_press_base.url_add").component(),
+                        mouseX,
+                        mouseY,
+                    )
+                    return
+                }
+            }
+
+            cardButtonPositions.forEach { (index, buttons) ->
+                // Remove button tooltip
+                buttons.removeButton?.let { pos ->
+                    if (mouseX >= pos.x && mouseX <= pos.x + pos.width &&
+                        mouseY >= pos.scrolledY && mouseY <= pos.scrolledY + pos.height
+                    ) {
+                        graphics.renderTooltip(
+                            font,
+                            ModLang.translate("gui.record_press_base.url_remove").component(),
+                            mouseX,
+                            mouseY,
+                        )
+                        return
+                    }
+                }
+
+                // Move up button tooltip
+                buttons.moveUpButton?.let { pos ->
+                    if (mouseX >= pos.x && mouseX <= pos.x + pos.width &&
+                        mouseY >= pos.scrolledY && mouseY <= pos.scrolledY + pos.height
+                    ) {
+                        graphics.renderTooltip(
+                            font,
+                            ModLang.translate("gui.record_press_base.url_move_up").component(),
+                            mouseX,
+                            mouseY,
+                        )
+                        return
+                    }
+                }
+
+                // Move down button tooltip
+                buttons.moveDownButton?.let { pos ->
+                    if (mouseX >= pos.x && mouseX <= pos.x + pos.width &&
+                        mouseY >= pos.scrolledY && mouseY <= pos.scrolledY + pos.height
+                    ) {
+                        graphics.renderTooltip(
+                            font,
+                            ModLang.translate("gui.record_press_base.url_move_down").component(),
+                            mouseX,
+                            mouseY,
+                        )
+                        return
+                    }
+                }
+            }
+
+            // Tooltip for URL input fields
+            editBoxPositions.forEach { (index, pos) ->
+                if (index < urlInputFields.size) {
+                    if (mouseX >= pos.x && mouseX <= pos.x + pos.width &&
+                        mouseY >= pos.scrolledY && mouseY <= pos.scrolledY + pos.height
+                    ) {
+                        graphics.renderTooltip(
+                            font,
+                            ModLang.translate("gui.record_press_base.url_input_tooltip").component(),
+                            mouseX,
+                            mouseY,
+                        )
+                        return
+                    }
+                }
+            }
+
+            // Tooltip for weight input fields
+            if (configuration.randomMode) {
+                val urlInputWidth = getUrlInputWidth()
+                editBoxPositions.forEach { (index, pos) ->
+                    if (index < weightInputFields.size) {
+                        val weightInputX = pos.x + urlInputWidth + 18
+                        if (mouseX >= weightInputX && mouseX <= weightInputX + 35 &&
+                            mouseY >= pos.scrolledY && mouseY <= pos.scrolledY + pos.height
+                        ) {
+                            graphics.renderTooltip(
+                                font,
+                                ModLang.translate("gui.record_press_base.weight_input_tooltip").component(),
+                                mouseX,
+                                mouseY,
+                            )
+                            return
+                        }
+                    }
+                }
+            }
+        }
     }
 
     override fun tick() {

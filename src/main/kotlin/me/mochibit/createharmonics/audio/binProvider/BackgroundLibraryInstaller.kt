@@ -3,6 +3,7 @@ package me.mochibit.createharmonics.audio.binProvider
 import kotlinx.coroutines.Dispatchers
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
+import me.mochibit.createharmonics.registry.ModLang
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.components.toasts.SystemToast
 import net.minecraft.network.chat.Component
@@ -17,13 +18,24 @@ object BackgroundLibraryInstaller {
         FFMPEG("FFmpeg"),
     }
 
+    enum class Status {
+        PENDING,
+        NOT_INSTALLED,
+        DOWNLOADING,
+        EXTRACTING,
+        INSTALLED,
+        ALREADY_INSTALLED,
+        FAILED,
+        ERROR,
+    }
+
     data class InstallationStatus(
         val library: LibraryType,
         val isInstalling: Boolean = false,
         val isComplete: Boolean = false,
         val isFailed: Boolean = false,
         val progress: Float = 0.0f,
-        val status: String = "Pending",
+        val status: Status = Status.PENDING,
         val speed: String = "",
     )
 
@@ -33,7 +45,13 @@ object BackgroundLibraryInstaller {
     init {
         // Initialize statuses
         LibraryType.entries.forEach { type ->
-            updateStatus(type, isInstalling = false, isComplete = isLibraryInstalled(type))
+            val isInstalled = isLibraryInstalled(type)
+            updateStatus(
+                type,
+                isInstalling = false,
+                isComplete = isInstalled,
+                status = if (isInstalled) Status.INSTALLED else Status.NOT_INSTALLED,
+            )
         }
     }
 
@@ -87,17 +105,15 @@ object BackgroundLibraryInstaller {
                 if (!isLibraryInstalled(LibraryType.YTDLP)) {
                     installLibrary(LibraryType.YTDLP)
                 } else {
-                    updateStatus(LibraryType.YTDLP, isComplete = true, status = "Already Installed")
+                    updateStatus(LibraryType.YTDLP, isComplete = true, status = Status.ALREADY_INSTALLED)
                 }
 
                 // Install FFmpeg
                 if (!isLibraryInstalled(LibraryType.FFMPEG)) {
                     installLibrary(LibraryType.FFMPEG)
                 } else {
-                    updateStatus(LibraryType.FFMPEG, isComplete = true, status = "Already Installed")
+                    updateStatus(LibraryType.FFMPEG, isComplete = true, status = Status.ALREADY_INSTALLED)
                 }
-
-                Logger.info("Background library installation completed")
             } catch (e: Exception) {
                 Logger.err("Background installation failed: ${e.message}")
                 e.printStackTrace()
@@ -109,7 +125,7 @@ object BackgroundLibraryInstaller {
 
     private fun installLibrary(library: LibraryType) {
         Logger.info("Installing ${library.displayName}...")
-        updateStatus(library, isInstalling = true, status = "Downloading", progress = 0.0f)
+        updateStatus(library, isInstalling = true, status = Status.DOWNLOADING, progress = 0.0f)
 
         try {
             val provider =
@@ -119,11 +135,20 @@ object BackgroundLibraryInstaller {
                 }
 
             val success =
-                provider.install { status, progress, speed ->
+                provider.install { statusString, progress, speed ->
+                    val status =
+                        when (statusString) {
+                            "downloading" -> Status.DOWNLOADING
+                            "extracting" -> Status.EXTRACTING
+                            "completed" -> Status.INSTALLED
+                            "already_installed" -> Status.ALREADY_INSTALLED
+                            "failed" -> Status.FAILED
+                            else -> Status.PENDING
+                        }
                     updateStatus(
                         library,
                         isInstalling = true,
-                        status = formatStatus(status),
+                        status = status,
                         progress = progress,
                         speed = speed,
                     )
@@ -131,17 +156,17 @@ object BackgroundLibraryInstaller {
 
             if (success) {
                 Logger.info("${library.displayName} installed successfully")
-                updateStatus(library, isComplete = true, isFailed = false, status = "Installed", progress = 1.0f)
+                updateStatus(library, isComplete = true, isFailed = false, status = Status.INSTALLED, progress = 1.0f)
                 showToast(library, success = true)
             } else {
                 Logger.err("${library.displayName} installation failed")
-                updateStatus(library, isComplete = false, isFailed = true, status = "Failed", progress = 0.0f)
+                updateStatus(library, isComplete = false, isFailed = true, status = Status.FAILED, progress = 0.0f)
                 showToast(library, success = false)
             }
         } catch (e: Exception) {
             Logger.err("Error installing ${library.displayName}: ${e.message}")
             e.printStackTrace()
-            updateStatus(library, isComplete = false, isFailed = true, status = "Error", progress = 0.0f)
+            updateStatus(library, isComplete = false, isFailed = true, status = Status.ERROR, progress = 0.0f)
             showToast(library, success = false)
         }
     }
@@ -152,7 +177,7 @@ object BackgroundLibraryInstaller {
         isComplete: Boolean = false,
         isFailed: Boolean = false,
         progress: Float = 0.0f,
-        status: String = "Pending",
+        status: Status = Status.PENDING,
         speed: String = "",
     ) {
         installationStatuses[library] =
@@ -167,16 +192,6 @@ object BackgroundLibraryInstaller {
             )
     }
 
-    private fun formatStatus(raw: String): String =
-        when (raw) {
-            "downloading" -> "Downloading"
-            "extracting" -> "Extracting"
-            "completed" -> "Completed"
-            "already_installed" -> "Already Installed"
-            "failed" -> "Failed"
-            else -> raw.replaceFirstChar { it.uppercase() }
-        }
-
     private fun showToast(
         library: LibraryType,
         success: Boolean,
@@ -190,8 +205,10 @@ object BackgroundLibraryInstaller {
                     SystemToast.multiline(
                         minecraft,
                         SystemToast.SystemToastIds.TUTORIAL_HINT,
-                        Component.literal("${library.displayName} Ready"),
-                        Component.literal("${library.displayName} has been installed successfully!"),
+                        Component.literal(library.displayName).append(
+                            ModLang.translate("library_installer.toast.success_title").component(),
+                        ),
+                        ModLang.translate("library_installer.toast.success_desc").component(),
                     ),
                 )
             } else {
@@ -199,8 +216,10 @@ object BackgroundLibraryInstaller {
                     SystemToast.multiline(
                         minecraft,
                         SystemToast.SystemToastIds.TUTORIAL_HINT,
-                        Component.literal("${library.displayName} Failed"),
-                        Component.literal("Failed to install ${library.displayName}. Check logs."),
+                        Component.literal(library.displayName).append(
+                            ModLang.translate("library_installer.toast.failure_title").component(),
+                        ),
+                        ModLang.translate("library_installer.toast.failure_desc").component(),
                     ),
                 )
             }

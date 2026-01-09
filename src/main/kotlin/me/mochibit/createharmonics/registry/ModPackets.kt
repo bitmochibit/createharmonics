@@ -47,7 +47,6 @@ object ModPackets : AutoRegistrable {
         eventBus: IEventBus,
         context: FMLJavaModLoadingContext,
     ) {
-        Logger.info("Registering Mod Network Channel")
         var id = 0
         clientToServer.forEach { it.register(channel, id++, NetworkDirection.PLAY_TO_SERVER) }
         serverToClient.forEach { it.register(channel, id++, NetworkDirection.PLAY_TO_CLIENT) }

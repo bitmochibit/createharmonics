@@ -10,17 +10,14 @@ import net.minecraftforge.fml.common.Mod.EventBusSubscriber
 
 @EventBusSubscriber(modid = MOD_ID, bus = EventBusSubscriber.Bus.FORGE)
 object CommandRegistry {
-
     @SubscribeEvent
     @JvmStatic
     fun registerCommands(event: RegisterCommandsEvent) {
-        Logger.info("Registering commands...")
         SetRecordUrlCommand.register(event.dispatcher)
     }
 
     @SubscribeEvent
     @JvmStatic
     fun registerClientCommands(event: RegisterClientCommandsEvent) {
-        Logger.info("Registering client commands...")
     }
 }

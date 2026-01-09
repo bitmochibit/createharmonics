@@ -14,7 +14,6 @@ object ModMenuTypes : AutoRegistrable {
         eventBus: IEventBus,
         context: FMLJavaModLoadingContext,
     ) {
-        Logger.info("Registering menu types for ${CreateHarmonicsMod.MOD_ID}")
         MENUS.register(eventBus)
     }
 }

@@ -98,14 +98,14 @@ class OpenLibMenuButton(
             when (screen) {
                 is TitleScreen -> {
                     menu = MenuRows.MAIN_MENU
-                    rowIdx = ModConfigurations.common.mainMenuLibButtonRow.get()
-                    offsetX = ModConfigurations.common.mainMenuLibButtonOffsetX.get()
+                    rowIdx = ModConfigurations.client.mainMenuLibButtonRow.get()
+                    offsetX = ModConfigurations.client.mainMenuLibButtonOffsetX.get()
                 }
 
                 is PauseScreen -> {
                     menu = MenuRows.INGAME_MENU
-                    rowIdx = ModConfigurations.common.ingameMenuLibButtonRow.get()
-                    offsetX = ModConfigurations.common.ingameMenuLibButtonOffsetX.get()
+                    rowIdx = ModConfigurations.client.ingameMenuLibButtonRow.get()
+                    offsetX = ModConfigurations.client.ingameMenuLibButtonOffsetX.get()
                 }
 
                 else -> {
@@ -147,7 +147,7 @@ class OpenLibMenuButton(
     companion object {
         @Suppress("UNUSED_PARAMETER")
         fun click(b: Button?) {
-            ScreenOpener.open(LibraryDisclaimerScreen(Minecraft.getInstance().screen))
+            ScreenOpener.open(HarmonicsMenuScreen(Minecraft.getInstance().screen))
         }
     }
 }

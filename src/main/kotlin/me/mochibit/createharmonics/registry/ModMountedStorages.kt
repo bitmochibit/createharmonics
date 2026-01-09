@@ -26,7 +26,6 @@ object ModMountedStorages : AutoRegistrable {
         eventBus: IEventBus,
         context: FMLJavaModLoadingContext,
     ) {
-        Logger.info("Registering mounted storages for ${CreateHarmonicsMod.MOD_ID}")
     }
 
     class RecordPlayerMountedStorageType : MountedItemStorageType<RecordPlayerMountedStorage>(RecordPlayerMountedStorage.CODEC) {

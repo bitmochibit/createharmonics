@@ -52,7 +52,11 @@ class CreateHarmonicsMod(
         @SubscribeEvent
         fun onClientSetup(event: FMLClientSetupEvent) {
             BaseConfigScreen.setDefaultActionFor(MOD_ID) { base ->
-                base.withSpecs(null, ModConfigurations.common.specification, null)
+                base.withSpecs(
+                    ModConfigurations.client.specification,
+                    ModConfigurations.common.specification,
+                    ModConfigurations.server.specification,
+                )
             }
         }
 

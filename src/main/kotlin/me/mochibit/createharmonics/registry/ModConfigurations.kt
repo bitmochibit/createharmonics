@@ -1,7 +1,9 @@
 package me.mochibit.createharmonics.registry
 
+import me.mochibit.createharmonics.ClientConfig
 import me.mochibit.createharmonics.CommonConfig
 import me.mochibit.createharmonics.CreateHarmonicsMod
+import me.mochibit.createharmonics.ServerConfig
 import net.createmod.catnip.config.ConfigBase
 import net.minecraftforge.common.ForgeConfigSpec
 import net.minecraftforge.eventbus.api.IEventBus
@@ -19,6 +21,8 @@ object ModConfigurations : AutoRegistrable {
     val configs: EnumMap<ModConfig.Type, ConfigBase> = EnumMap(ModConfig.Type::class.java)
 
     val common: CommonConfig = registerConfig({ CommonConfig }, ModConfig.Type.COMMON) as CommonConfig
+    val client: ClientConfig = registerConfig({ ClientConfig }, ModConfig.Type.CLIENT) as ClientConfig
+    val server: ServerConfig = registerConfig({ ServerConfig }, ModConfig.Type.SERVER) as ServerConfig
 
     fun registerConfig(
         factory: () -> ConfigBase,

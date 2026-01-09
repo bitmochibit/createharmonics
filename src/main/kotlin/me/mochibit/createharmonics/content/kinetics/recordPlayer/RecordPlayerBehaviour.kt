@@ -94,11 +94,11 @@ class RecordPlayerBehaviour(
     }
 
     private val maxPitch =
-        ModConfigurations.common.maxPitch
+        ModConfigurations.client.maxPitch
             .get()
             .toFloat()
     private val minPitch =
-        ModConfigurations.common.minPitch
+        ModConfigurations.client.minPitch
             .get()
             .toFloat()
 
@@ -157,20 +157,20 @@ class RecordPlayerBehaviour(
     private val audioPlayer: AudioPlayer
         get() =
             AudioPlayerRegistry.getOrCreatePlayer(recordPlayerUUID.toString()) {
-            AudioPlayer(
-                soundInstanceProvider = { streamId, stream ->
-                    SimpleStreamSoundInstance(
-                        stream,
-                        streamId,
-                        SoundEvents.EMPTY,
-                        { be.blockPos },
-                        radiusSupplier = { soundRadius },
-                        pitchSupplier = { pitchSupplierInterpolated.getPitch() },
-                    )
-                },
-                playerId = recordPlayerUUID.toString(),
-            )
-        }
+                AudioPlayer(
+                    soundInstanceProvider = { streamId, stream ->
+                        SimpleStreamSoundInstance(
+                            stream,
+                            streamId,
+                            SoundEvents.EMPTY,
+                            { be.blockPos },
+                            radiusSupplier = { soundRadius },
+                            pitchSupplier = { pitchSupplierInterpolated.getPitch() },
+                        )
+                    },
+                    playerId = recordPlayerUUID.toString(),
+                )
+            }
 
     override fun getType(): BehaviourType<RecordPlayerBehaviour> = BEHAVIOUR_TYPE
 

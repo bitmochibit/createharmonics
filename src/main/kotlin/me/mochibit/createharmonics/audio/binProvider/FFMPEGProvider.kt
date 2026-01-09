@@ -1,17 +1,19 @@
 package me.mochibit.createharmonics.audio.binProvider
 
-object FFMPEGProvider: DownloadableBinProvider(
-    "ffmpeg"
+object FFMPEGProvider : DownloadableBinProvider(
+    "ffmpeg",
 ) {
-    override fun getDownloadUrl(): String {
-        return when {
+    override fun getDownloadUrl(): String =
+        when {
             isWindows -> {
                 "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.0-latest-win64-lgpl-8.0.zip"
             }
+
             isMac -> {
                 // macOS - use static builds from evermeet.cx
                 "https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip"
             }
+
             isLinux -> {
                 // Linux static builds
                 if (isArm) {
@@ -20,7 +22,9 @@ object FFMPEGProvider: DownloadableBinProvider(
                     "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
                 }
             }
-            else -> throw UnsupportedOperationException("Unsupported OS: ${System.getProperty("os.name")}")
+
+            else -> {
+                throw UnsupportedOperationException("Unsupported OS: ${System.getProperty("os.name")}")
+            }
         }
-    }
 }

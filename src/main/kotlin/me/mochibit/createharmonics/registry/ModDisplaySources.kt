@@ -18,6 +18,5 @@ object ModDisplaySources : AutoRegistrable {
         eventBus: IEventBus,
         context: FMLJavaModLoadingContext,
     ) {
-        Logger.info("Registering display sources")
     }
 }

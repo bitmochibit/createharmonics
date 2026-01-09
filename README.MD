@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="./src/main/resources/icon.png" alt="Logo" height="160">
+    <img src="./src/main/resources/assets/createharmonics/textures/gui/logo_small.png" alt="Logo">
 </p>
 <h1 align="center"> Create: Harmonics <br><br>
     <a href=""><img alt="CurseForge Page" src="https://img.shields.io/badge/Harmonics-CurseForge?logo=CurseForge&label=CurseForge&color=%23F16436&style=for-the-badge"></a>

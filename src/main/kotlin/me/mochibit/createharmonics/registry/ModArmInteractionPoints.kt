@@ -26,7 +26,6 @@ object ModArmInteractionPoints : AutoRegistrable {
         eventBus: IEventBus,
         context: FMLJavaModLoadingContext,
     ) {
-        Logger.info("Registering Arm Interaction Points...")
     }
 
     class RecordPlayerType : AllArmInteractionPointTypes.JukeboxType() {

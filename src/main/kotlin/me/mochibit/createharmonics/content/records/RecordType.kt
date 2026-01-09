@@ -13,7 +13,6 @@ import net.minecraft.sounds.SoundEvents
 import net.minecraft.util.RandomSource
 import net.minecraft.world.item.crafting.Ingredient
 import net.minecraftforge.common.Tags
-import kotlin.text.get
 
 enum class RecordType(
     val properties: Properties,

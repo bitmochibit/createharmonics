@@ -150,14 +150,12 @@ class AudioPlayer(
                 val source = PlaybackSource.Url(url)
 
                 if (isAlreadyPlayingSameContent(source, effectChain)) {
-                    Logger.info("AudioPlayer $playerId: Already playing requested content")
                     return@launchModCoroutine
                 }
 
                 if (playState == PlayState.LOADING) {
                     val currentSource = playbackContext?.source
                     if (currentSource == source && playbackContext?.effectChain == effectChain) {
-                        Logger.info("AudioPlayer $playerId: Already loading requested content")
                         return@launchModCoroutine
                     }
                 }
@@ -174,7 +172,6 @@ class AudioPlayer(
                     initializeUrlPlayback(url, context)
                 }.onSuccess {
                     playState = PlayState.PLAYING
-                    Logger.info("AudioPlayer $playerId: Successfully started URL playback")
                 }.onFailure { e ->
                     Logger.err("AudioPlayer $playerId: Error during playback: ${e.message}")
                     e.printStackTrace()
@@ -216,7 +213,6 @@ class AudioPlayer(
                     initializeStreamPlayback(inputStream, audioName, context)
                 }.onSuccess {
                     playState = PlayState.PLAYING
-                    Logger.info("AudioPlayer $playerId: Successfully started stream playback")
                 }.onFailure { e ->
                     Logger.err("AudioPlayer $playerId: Error during stream playback: ${e.message}")
                     e.printStackTrace()
@@ -329,7 +325,6 @@ class AudioPlayer(
     }
 
     private fun handleStreamEnd() {
-        Logger.info("AudioPlayer $playerId: Stream ended naturally")
         launchModCoroutine {
             stateMutex.withLock {
                 if (playState == PlayState.PLAYING) {
@@ -367,7 +362,6 @@ class AudioPlayer(
                     }
                     cleanupResourcesInternal()
                 }.onSuccess {
-                    Logger.info("AudioPlayer $playerId: Successfully stopped playback")
                 }.onFailure { e ->
                     Logger.err("AudioPlayer $playerId: Error during stop: ${e.message}")
                     e.printStackTrace()
@@ -395,7 +389,6 @@ class AudioPlayer(
                     }
                     playState = PlayState.PAUSED
                 }.onSuccess {
-                    Logger.info("AudioPlayer $playerId: Paused playback")
                 }.onFailure { e ->
                     Logger.err("AudioPlayer $playerId: Error during pause: ${e.message}")
                     e.printStackTrace()
@@ -428,7 +421,6 @@ class AudioPlayer(
                     }
                     playState = PlayState.PLAYING
                 }.onSuccess {
-                    Logger.info("AudioPlayer $playerId: Resumed playback")
                 }.onFailure { e ->
                     Logger.err("AudioPlayer $playerId: Error during resume: ${e.message}")
                     e.printStackTrace()
@@ -474,7 +466,6 @@ class AudioPlayer(
     }
 
     private fun notifyStreamFailure() {
-        Logger.info("AudioPlayer $playerId: Sending stream end packet due to failure")
         ModPackets.channel.sendToServer(AudioPlayerStreamEndPacket(playerId))
     }
 
@@ -488,7 +479,6 @@ class AudioPlayer(
         launchModCoroutine {
             stateMutex.withLock {
                 cleanupResourcesInternal()
-                Logger.info("AudioPlayer $playerId: Disposed")
             }
         }
     }
@@ -512,8 +502,7 @@ class AudioPlayer(
                 } catch (e: Exception) {
                     Logger.err("AudioPlayer $playerId: Error stopping sound: ${e.message}")
                 }
-
-                Logger.info("AudioPlayer $playerId: Sound stopped immediately")
+                context.cleanup()
             }
         } catch (e: Exception) {
             Logger.err("AudioPlayer $playerId: Error in stopSoundImmediately: ${e.message}")
