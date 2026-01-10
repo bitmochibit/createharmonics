@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "AQA",
+    "WTW",
+    "AWA"
+  ],
+  "key": {
+    "A": {
+      "item": "create:andesite_alloy"
+    },
+    "Q": {
+      "item": "create:polished_rose_quartz"
+    },
+    "T": {
+      "item": "create:transmitter"
+    },
+    "W": {
+      "tag": "minecraft:wool"
+    }
+  },
+  "result": {
+    "item": "createharmonics:andesite_jukebox"
+  }
+}

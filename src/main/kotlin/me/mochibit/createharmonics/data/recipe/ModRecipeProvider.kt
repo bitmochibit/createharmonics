@@ -23,6 +23,7 @@ class ModRecipeProvider(
                 listOf(
                     ModDeployingRecipeGen(output),
                     ModPressingRecipeGen(output),
+                    ModMechanicalCraftingRecipeGen(output),
                 )
 
             gen.addProvider(

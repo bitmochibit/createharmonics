@@ -8,11 +8,10 @@ import me.mochibit.createharmonics.registry.ModItems
 import net.minecraft.data.PackOutput
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
-import net.minecraft.world.item.crafting.Ingredient
 
 class ModPressingRecipeGen(
     output: PackOutput,
-) : PressingRecipeGen(output, CreateHarmonicsMod.Companion.MOD_ID) {
+) : PressingRecipeGen(output, CreateHarmonicsMod.MOD_ID) {
     val discPressingRecipes: List<GeneratedRecipe> =
         RecordType.entries.map {
             // Simply create a recipe that returns itself, useful for the record stamping base
