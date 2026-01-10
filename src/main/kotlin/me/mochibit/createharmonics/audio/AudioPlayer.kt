@@ -295,28 +295,44 @@ class AudioPlayer(
         if (context.offsetSeconds > 0.0) {
             // For 48kHz mono PCM: 48000 samples/sec * 2 bytes/sample = 96000 bytes/sec
             val bytesPerSecond = sampleRate * 2L // 2 bytes per sample for 16-bit PCM
-            val bytesToSkip = (context.offsetSeconds * bytesPerSecond).toLong()
+            var bytesToSkip = (context.offsetSeconds * bytesPerSecond).toLong()
+
+            // CRITICAL: Ensure we skip an even number of bytes to maintain sample alignment
+            // 16-bit PCM samples are 2 bytes each, so we must skip in multiples of 2
+            if (bytesToSkip % 2 != 0L) {
+                bytesToSkip += 1 // Round up to next even number
+                Logger.warn("AudioPlayer $playerId: Adjusted skip to $bytesToSkip bytes for sample alignment")
+            }
 
             var totalSkipped = 0L
-            var remaining = bytesToSkip
+            val skipBuffer = ByteArray(8192) // Use read buffer instead of skip() for reliability
 
-            while (remaining > 0) {
-                val skipped =
-                    withContext(Dispatchers.IO) {
-                        inputStream.skip(remaining)
+            withContext(Dispatchers.IO) {
+                var remaining = bytesToSkip
+
+                while (remaining > 0) {
+                    val toRead = minOf(remaining, skipBuffer.size.toLong()).toInt()
+                    val bytesRead = inputStream.read(skipBuffer, 0, toRead)
+
+                    if (bytesRead <= 0) {
+                        // End of stream or read error
+                        Logger.warn("AudioPlayer $playerId: Could only skip $totalSkipped of $bytesToSkip bytes (reached end of stream)")
+                        break
                     }
-                if (skipped <= 0) {
-                    // End of stream or unable to skip
-                    Logger.warn("AudioPlayer $playerId: Could only skip $totalSkipped of $bytesToSkip bytes (reached end of stream)")
-                    break
+
+                    totalSkipped += bytesRead
+                    remaining -= bytesRead
                 }
-                totalSkipped += skipped
-                remaining -= skipped
             }
 
             if (totalSkipped > 0) {
                 val secondsSkipped = totalSkipped / bytesPerSecond.toDouble()
                 Logger.info("AudioPlayer $playerId: Skipped $totalSkipped bytes ($secondsSkipped seconds) from input stream")
+
+                // Verify alignment was maintained
+                if (totalSkipped % 2 != 0L) {
+                    Logger.err("AudioPlayer $playerId: WARNING - Sample misalignment detected! Skipped odd number of bytes: $totalSkipped")
+                }
             }
         }
 

@@ -50,6 +50,7 @@
   "createharmonics.gui.main_menu.go_back_btn": "Go Back",
   "createharmonics.display_source.no_record": "No Record",
   "createharmonics.display_source.unknown_audio_name": "Unknown Audio",
+  "createharmonics.display_source.read_music_name": "Playback song title",
   "createharmonics.item_group": "Create Harmonics"
 }
 

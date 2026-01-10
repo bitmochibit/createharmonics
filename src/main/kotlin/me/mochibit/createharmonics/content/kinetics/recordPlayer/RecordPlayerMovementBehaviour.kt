@@ -1,14 +1,13 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.api.behaviour.movement.MovementBehaviour
-import com.simibubi.create.content.contraptions.AbstractContraptionEntity
+import com.simibubi.create.content.contraptions.ControlledContraptionEntity
 import com.simibubi.create.content.contraptions.behaviour.MovementContext
 import com.simibubi.create.content.contraptions.render.ActorVisual
 import com.simibubi.create.content.contraptions.render.ContraptionMatrices
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import dev.engine_room.flywheel.api.visualization.VisualizationContext
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
-import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
@@ -17,7 +16,8 @@ import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.PlaybackState
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.playFromRecord
-import me.mochibit.createharmonics.event.contraption.ContraptionDisassembleEvent
+import me.mochibit.createharmonics.coroutine.MinecraftClientDispatcher
+import me.mochibit.createharmonics.coroutine.launchDelayed
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
@@ -25,7 +25,6 @@ import me.mochibit.createharmonics.network.packet.setBlockData
 import me.mochibit.createharmonics.registry.ModConfigurations
 import me.mochibit.createharmonics.registry.ModPackets
 import net.createmod.catnip.math.VecHelper
-import net.minecraft.client.Minecraft
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ParticleTypes
@@ -33,18 +32,14 @@ import net.minecraft.core.particles.ShriekParticleOption
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
-import net.minecraft.world.Containers
-import net.minecraft.world.SimpleContainer
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
-import net.minecraftforge.eventbus.api.SubscribeEvent
-import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.network.PacketDistributor
 import java.util.UUID
 import kotlin.math.abs
+import kotlin.time.Duration.Companion.seconds
 
 class RecordPlayerMovementBehaviour : MovementBehaviour {
     companion object {
@@ -97,26 +92,33 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         }
     }
 
-    @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE, modid = CreateHarmonicsMod.MOD_ID)
-    object DisassembleHandler {
-        @JvmStatic
-        @SubscribeEvent
-        fun onContraptionDisassemble(event: ContraptionDisassembleEvent) {
-            val level = event.level
-            level.onServer {
-                event.blockEntityDataMap.forEach { (pos, blockEntityData) ->
-                    val playerUUID = blockEntityData.getUUID(PLAYER_UUID_KEY) ?: return@forEach
-                    ModPackets.channel.send(
-                        PacketDistributor.ALL.noArg(),
-                        AudioPlayerContextStopPacket(playerUUID.toString()),
-                    )
-                    unregisterPlayer(playerUUID.toString())
+    override fun stopMoving(context: MovementContext) {
+        val level = context.world
+        level.onServer {
+            val contraptionEntity = context.contraption.entity
+            if (contraptionEntity is ControlledContraptionEntity) {
+                launchDelayed(MinecraftClientDispatcher, .1.seconds) {
+                    val contraptionEntity = context.contraption.entity
+                    if (!contraptionEntity.isAlive) {
+                        stopMovingPlayer(context)
+                        stopClientAudio(context)
+                    }
                 }
+            } else {
+                stopMovingPlayer(context)
+                stopClientAudio(context)
             }
         }
     }
 
-    override fun stopMoving(context: MovementContext) {
+    private fun stopClientAudio(context: MovementContext) {
+        val playerUUID = getPlayerUUID(context) ?: return
+        ModPackets.channel.send(
+            PacketDistributor.ALL.noArg(),
+            AudioPlayerContextStopPacket(playerUUID.toString()),
+        )
+        unregisterPlayer(playerUUID.toString())
+        context.data.remove("PendingAudioStop")
     }
 
     private fun updateServerData(context: MovementContext) {
@@ -205,7 +207,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                     val itemEntity = ItemEntity(level, dropPos.x, dropPos.y, dropPos.z, itemStack)
 
                     // Launch in the rotated facing direction
-                    itemEntity.setDeltaMovement(worldDirection.scale(0.3))
+                    itemEntity.deltaMovement = worldDirection.scale(0.3)
 
                     level.addFreshEntity(itemEntity)
                     level.playSound(null, pos, SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, .7f, 1.7f)
@@ -221,7 +223,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             updateServerData(context)
         }
 
-        context.world.onClient { level, virtual ->
+        context.world.onClient { _, _ ->
             updateClientState(context)
             handleClientPlayback(context)
         }
@@ -264,38 +266,113 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                         return@PitchSupplierInterpolated 1.0f
                     }
 
-                    val speed = abs(context.animationSpeed) / 100
-
-                    val minSpeed = 3.6f
-                    val midSpeed = 6.0f
-                    val maxSpeed = 36.0f
-
-                    val pitch =
-                        when {
-                            speed < minSpeed -> {
-                                val t = (speed / minSpeed).coerceIn(0f, 1f)
-                                0.5f + (0.5f * t)
-                            }
-
-                            speed in minSpeed..midSpeed -> {
-                                1.0f
-                            }
-
-                            speed > midSpeed -> {
-                                val t = ((speed - midSpeed) / (maxSpeed - midSpeed)).coerceIn(0f, 1f)
-                                1.0f + (1.0f * t)
-                            }
-
-                            else -> {
-                                1.0f
-                            }
+                    when (context.contraption.entity) {
+                        is ControlledContraptionEntity -> {
+                            calculateControlledContraptionPitch(context)
                         }
 
-                    pitch
+                        else -> {
+                            // Fallback to animation speed for other contraption types
+                            calculateDefaultPitch(context.animationSpeed)
+                        }
+                    }
                 }, 500)
         }
 
         return { (context.temporaryData as PitchSupplierInterpolated).getPitch() }
+    }
+
+    private fun calculateControlledContraptionPitch(context: MovementContext): Float {
+        // Get min and max pitch from config
+        val minPitch =
+            ModConfigurations.client.minPitch
+                .get()
+                .toFloat()
+        val maxPitch =
+            ModConfigurations.client.maxPitch
+                .get()
+                .toFloat()
+
+        // Use animation speed as a proxy for rotation speed
+        val rotationSpeed = abs(context.animationSpeed)
+
+        // Define speed thresholds based on actual train animation speed values
+        // Observed values: min ~100, half max ~600, max ~1100
+        val maxSpeed = 1200f // Slightly higher than max to leave headroom
+        val relativeSpeed = (rotationSpeed / maxSpeed).coerceIn(0f, 1f)
+
+        // Define the curve: rise from 0-25%, plateau 25-75%, rise 75-100%
+        val lowerThreshold = 0.25f // Reach pitch 1.0 at 25% speed (~300 animation speed)
+        val upperThreshold = 0.75f // Start rising to maxPitch at 75% speed (~900 animation speed)
+
+        return when {
+            // Rising phase: 0-25% speed -> minPitch to 1.0
+            relativeSpeed < lowerThreshold -> {
+                val t = (relativeSpeed / lowerThreshold).coerceIn(0f, 1f)
+                minPitch + ((1.0f - minPitch) * t)
+            }
+
+            // Plateau phase: 25-75% speed -> stay at 1.0
+            relativeSpeed in lowerThreshold..upperThreshold -> {
+                1.0f
+            }
+
+            // Rising phase: 75-100% speed -> 1.0 to maxPitch
+            relativeSpeed > upperThreshold -> {
+                val t = ((relativeSpeed - upperThreshold) / (1.0f - upperThreshold)).coerceIn(0f, 1f)
+                1.0f + ((maxPitch - 1.0f) * t)
+            }
+
+            else -> {
+                1.0f
+            }
+        }
+    }
+
+    private fun calculateDefaultPitch(animationSpeed: Float): Float {
+        // Get min and max pitch from config
+        val minPitch =
+            ModConfigurations.client.minPitch
+                .get()
+                .toFloat()
+        val maxPitch =
+            ModConfigurations.client.maxPitch
+                .get()
+                .toFloat()
+
+        val speed = abs(animationSpeed)
+
+        // Define speed thresholds based on actual animation speed values
+        // Observed values for trains: min ~100, half max ~600, max ~1100
+        val maxSpeed = 1200f // Slightly higher than max to leave headroom
+        val relativeSpeed = (speed / maxSpeed).coerceIn(0f, 1f)
+
+        // Define the curve: rise from 0-25%, plateau 25-75%, rise 75-100%
+        val lowerThreshold = 0.25f // Reach pitch 1.0 at 25% speed (~300 animation speed)
+        val upperThreshold = 0.65f // Start rising to maxPitch at 75% speed (~900 animation speed)
+
+        return when {
+            // Rising phase: 0-25% speed -> minPitch to 1.0
+            relativeSpeed < lowerThreshold -> {
+                val t = (relativeSpeed / lowerThreshold).coerceIn(0f, 1f)
+                minPitch + ((1.0f - minPitch) * t)
+            }
+
+            // Plateau phase: 25-75% speed -> stay at 1.0
+            relativeSpeed in lowerThreshold..upperThreshold -> {
+                1.0f
+            }
+
+            // Rising phase: 75-100% speed -> 1.0 to maxPitch
+            relativeSpeed > upperThreshold -> {
+                val t = ((relativeSpeed - upperThreshold) / (1.0f - upperThreshold)).coerceIn(0f, 1f)
+                1.0f + ((maxPitch - 1.0f) * t)
+            }
+
+            else -> {
+                1.0f
+            }
+        }
     }
 
     private fun handleClientPlayback(context: MovementContext) {
@@ -449,8 +526,30 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
     private fun getOrCreateAudioPlayer(
         playerId: String,
         context: MovementContext,
-    ): AudioPlayer =
-        AudioPlayerRegistry.getOrCreatePlayer(playerId) {
+    ): AudioPlayer {
+        // Check if we've already initialized the player for this context
+        val playerInitializedKey = "PlayerInitialized"
+        val isInitialized = context.data.getBoolean(playerInitializedKey)
+        val playerExists = AudioPlayerRegistry.containsStream(playerId)
+
+        // Need to initialize if: not initialized yet, OR initialized but player was destroyed
+        if (!isInitialized || !playerExists) {
+            // Clean up any stale player (shouldn't exist, but just in case)
+            if (playerExists) {
+                val existingPlayer = AudioPlayerRegistry.getPlayer(playerId)
+                existingPlayer?.stopSoundImmediately()
+                AudioPlayerRegistry.destroyPlayer(playerId)
+            }
+
+            // Reset play time and other state when creating a fresh player
+            context.data.putLong(PLAY_TIME_KEY, 0)
+            context.data.remove(AUDIO_ENDED_KEY)
+            context.data.remove(PAUSE_REQUESTED_TICK_KEY)
+
+            context.data.putBoolean(playerInitializedKey, true)
+        }
+
+        return AudioPlayerRegistry.getOrCreatePlayer(playerId) {
             Logger.info("Creating audio player for moving contraption: $playerId at ${context.localPos}")
             AudioPlayer(
                 { streamId, stream ->
@@ -465,6 +564,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                 playerId,
             )
         }
+    }
 
     private fun hasRecord(context: MovementContext): Boolean {
         val record = getRecordItem(context)
