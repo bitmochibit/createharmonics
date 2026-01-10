@@ -2,17 +2,22 @@ package me.mochibit.createharmonics.audio.process
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import me.mochibit.createharmonics.Logger.err
 import me.mochibit.createharmonics.audio.binProvider.YTDLProvider
 
 class YTdlpExecutor {
-    data class YoutubeAudioInfo(
+    data class AudioUrlInfo(
         val audioUrl: String,
         val durationSeconds: Int,
         val title: String,
+        val httpHeaders: Map<String, String> = emptyMap(),
     )
 
-    suspend fun extractAudioInfo(youtubeUrl: String): YoutubeAudioInfo? =
+    suspend fun extractAudioInfo(youtubeUrl: String): AudioUrlInfo? =
         withContext(Dispatchers.IO) {
             try {
                 if (!YTDLProvider.isAvailable()) {
@@ -26,14 +31,12 @@ class YTdlpExecutor {
                 val command =
                     listOf(
                         ytdlPath,
-                        // Format selection - use fastest format selection
-                        // Prefer opus/m4a/webm audio, exclude HLS/DASH streaming (slower to parse)
+                        // Format selection - explicitly avoid HLS/DASH/m3u8 formats
+                        // Prefer direct HTTP progressive downloads
                         "-f",
-                        "bestaudio[ext=opus]/bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
-                        // Output options - only what we need (order matters: title, url, duration)
-                        "--get-title",
-                        "--get-url",
-                        "--get-duration",
+                        "bestaudio[protocol^=http][protocol!*=m3u8]/bestaudio[protocol=https]/bestaudio[ext!=m3u8]/bestaudio/best",
+                        // Output in JSON format to get all metadata including HTTP headers
+                        "-j",
                         // Performance optimizations
                         "--no-playlist", // Don't process playlists
                         "--no-check-certificates", // Skip SSL cert validation for speed
@@ -75,24 +78,38 @@ class YTdlpExecutor {
                         return@withContext null
                     }
 
-                    val lines = output.trim().lines()
-                    // Output order: title, url, duration (based on flag order: --get-title, --get-url, --get-duration)
-                    if (lines.size < 3) {
-                        err("Failed to parse yt-dlp output. Expected 3 lines (title, url, duration), got ${lines.size}. Lines: $lines")
-                        return@withContext null
+                    // Parse JSON output
+                    val json = Json { ignoreUnknownKeys = true }
+                    val jsonElement = json.parseToJsonElement(output)
+                    val jsonObject = jsonElement.jsonObject
+
+                    val title = jsonObject["title"]?.jsonPrimitive?.content ?: "Unknown"
+                    val audioUrl =
+                        jsonObject["url"]?.jsonPrimitive?.content
+                            ?: throw IllegalStateException("No URL found in yt-dlp output")
+
+                    // Duration can be either int or double, convert to int seconds
+                    val duration =
+                        try {
+                            jsonObject["duration"]?.jsonPrimitive?.int ?: 0
+                        } catch (e: Exception) {
+                            // Try parsing as double and convert to int
+                            jsonObject["duration"]
+                                ?.jsonPrimitive
+                                ?.content
+                                ?.toDoubleOrNull()
+                                ?.toInt() ?: 0
+                        }
+
+                    // Extract HTTP headers if available
+                    val httpHeaders = mutableMapOf<String, String>()
+                    jsonObject["http_headers"]?.jsonObject?.let { headers ->
+                        headers.forEach { (key, value) ->
+                            httpHeaders[key] = value.jsonPrimitive.content
+                        }
                     }
 
-                    val title = lines[0].ifBlank { "Unknown" }
-                    val audioUrl = lines[1]
-                    val durationStr = lines[2] // Format: HH:MM:SS or MM:SS or SS
-
-                    if (!audioUrl.startsWith("http")) {
-                        err("Failed to parse yt-dlp output. URL doesn't start with http: $audioUrl")
-                        return@withContext null
-                    }
-
-                    val durationSeconds = parseDuration(durationStr)
-                    YoutubeAudioInfo(audioUrl, durationSeconds, title)
+                    AudioUrlInfo(audioUrl, duration, title, httpHeaders)
                 } finally {
                     ProcessLifecycleManager.destroyProcess(processId)
                 }
@@ -102,20 +119,4 @@ class YTdlpExecutor {
                 null
             }
         }
-
-    private fun parseDuration(duration: String): Int {
-        val parts = duration.split(":").map { it.toIntOrNull() ?: 0 }
-        return when (parts.size) {
-            3 -> parts[0] * 3600 + parts[1] * 60 + parts[2]
-
-            // HH:MM:SS
-            2 -> parts[0] * 60 + parts[1]
-
-            // MM:SS
-            1 -> parts[0]
-
-            // SS
-            else -> 0
-        }
-    }
 }

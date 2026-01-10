@@ -32,4 +32,10 @@ interface AudioSource {
      * Returns "Unknown" by default if not available.
      */
     suspend fun getAudioName(): String = "Unknown"
+
+    /**
+     * Get HTTP headers required for streaming this audio source.
+     * Returns empty map by default if no special headers are needed.
+     */
+    suspend fun getHttpHeaders(): Map<String, String> = emptyMap()
 }

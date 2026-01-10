@@ -17,6 +17,7 @@ object YoutubeCache {
         val durationSeconds: Int,
         val timestamp: Long = System.currentTimeMillis(),
         val title: String,
+        val httpHeaders: Map<String, String> = emptyMap(),
     )
 
     private val cache = mutableMapOf<String, YoutubeAudioInfo>()
@@ -53,6 +54,7 @@ object YoutubeCache {
                     audioUrl = extractedInfo.audioUrl,
                     durationSeconds = extractedInfo.durationSeconds,
                     title = extractedInfo.title,
+                    httpHeaders = extractedInfo.httpHeaders,
                 )
 
             synchronized(cache) {

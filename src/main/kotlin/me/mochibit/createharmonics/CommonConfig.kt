@@ -28,6 +28,7 @@ object CommonConfig : ConfigBase() {
                     RecordType.DIAMOND -> 1500
                     RecordType.NETHERITE -> 2000
                     RecordType.BRASS -> 250
+                    else -> 0
                 }
             val configName = "maxUses_${type.name.lowercase()}"
             val c =

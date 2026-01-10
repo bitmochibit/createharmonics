@@ -132,6 +132,12 @@ enum class RecordType(
             },
         ),
     ),
+
+    CREATIVE(
+        Properties(
+            recipe = null,
+        ),
+    ),
     ;
 
     // Get uses from config, with fallback defaults matching config defaults
@@ -144,6 +150,7 @@ enum class RecordType(
                 DIAMOND -> 1500
                 NETHERITE -> 2000
                 BRASS -> 250
+                else -> 0
             }
 
     data class Properties(

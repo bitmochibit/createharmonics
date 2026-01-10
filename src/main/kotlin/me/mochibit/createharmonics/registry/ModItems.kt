@@ -8,6 +8,7 @@ import me.mochibit.createharmonics.content.records.BaseRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordType
 import net.minecraft.world.item.Item
+import net.minecraft.world.item.Rarity
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 import java.util.EnumMap
@@ -36,6 +37,9 @@ object ModItems : AutoRegistrable {
         return cRegistrate()
             .item(name) {
                 val properties = Item.Properties().stacksTo(1)
+                if (recordType == RecordType.CREATIVE) {
+                    properties.rarity(Rarity.EPIC)
+                }
                 EtherealRecordItem(recordType, properties)
             }.model { ctx, prov ->
                 prov.generated(ctx, prov.modLoc("item/ethereal_record/$typeName"))

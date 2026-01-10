@@ -36,6 +36,14 @@ class YoutubeAudioSource(
         return cachedInfo!!.title
     }
 
+    override suspend fun getHttpHeaders(): Map<String, String> {
+        if (cachedInfo == null) {
+            cachedInfo = YoutubeCache.getAudioInfo(youtubeUrl)
+                ?: return emptyMap()
+        }
+        return cachedInfo!!.httpHeaders
+    }
+
     override fun getMetadata(): Map<String, Any> =
         mapOf(
             "source" to "youtube",

@@ -4,14 +4,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import me.mochibit.createharmonics.CommonConfig
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.process.FFmpegExecutor
 import me.mochibit.createharmonics.audio.source.AudioSource
-import me.mochibit.createharmonics.audio.source.HttpAudioSource
 import me.mochibit.createharmonics.audio.source.YoutubeAudioSource
+import me.mochibit.createharmonics.audio.source.YtdlpAudioSource
 import me.mochibit.createharmonics.audio.stream.AudioEffectInputStream
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import me.mochibit.createharmonics.coroutine.withClientContext
@@ -262,6 +261,7 @@ class AudioPlayer(
         context.ffmpegExecutor = ffmpegExecutor
 
         val effectiveUrl = audioSource.resolveAudioUrl()
+
         if (!ffmpegExecutor.createStream(effectiveUrl, sampleRate, context.offsetSeconds)) {
             throw IllegalStateException("FFmpeg stream initialization failed")
         }
@@ -477,10 +477,11 @@ class AudioPlayer(
         }
     }
 
-    /** TODO Integrate this to audioSources directly
-     * HTTP integration is discontinued, due to some possible vulnerabilities
+    /**
+     * Resolves the appropriate audio source for the given URL.
+     * - YouTube URLs use YoutubeAudioSource (with caching)
+     * - All other URLs use YtdlpAudioSource (supports 1000+ sites)
      */
-    @Deprecated("This will be removed, audio source will validate the url")
     private fun resolveAudioSource(url: String): AudioSource? =
         when {
             url.contains("youtube.com") || url.contains("youtu.be") -> {
@@ -488,7 +489,7 @@ class AudioPlayer(
             }
 
             else -> {
-                null
+                YtdlpAudioSource(url)
             }
         }
 
