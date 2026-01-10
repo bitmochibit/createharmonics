@@ -4,7 +4,6 @@ import me.mochibit.createharmonics.audio.process.YTdlpExecutor
 
 /**
  * Generic audio source implementation for any yt-dlp compatible URL.
- * This includes SoundCloud, Spotify, Twitch, and hundreds of other sites.
  *
  * For YouTube URLs specifically, prefer using YoutubeAudioSource which has caching.
  * This source extracts info on-demand for maximum compatibility.
