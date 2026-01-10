@@ -134,9 +134,17 @@ enum class RecordType(
     ),
     ;
 
-    // Get uses from config
+    // Get uses from config, with fallback defaults matching config defaults
     val uses: Int
-        get() = CommonConfig.getRecordDurability(this) ?: 100
+        get() =
+            CommonConfig.getRecordDurability(this) ?: when (this) {
+                STONE -> 20
+                GOLD -> 1
+                EMERALD -> 800
+                DIAMOND -> 1500
+                NETHERITE -> 2000
+                BRASS -> 250
+            }
 
     data class Properties(
         val recipe: Recipe? = null,

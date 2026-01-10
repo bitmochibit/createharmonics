@@ -22,7 +22,7 @@ object ModCreativeTabs : AutoRegistrable {
         CREATIVE_MODE_TABS.register("main") {
             CreativeModeTab
                 .builder()
-                .title(Component.translatable("itemGroup.${CreateHarmonicsMod.MOD_ID}"))
+                .title(ModLang.translate("item_group").component())
                 .icon { ItemStack(Items.MUSIC_DISC_13) }
                 .displayItems { _, output ->
                     output.acceptAll(CreateHarmonics.getRegistrate().getAll(Registries.ITEM).map { it.get().defaultInstance })

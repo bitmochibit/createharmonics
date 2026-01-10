@@ -162,13 +162,23 @@ class SoundEventComposition(
         }
 
     fun stopComposition() {
+        // Stop all sound instances first
         for (soundInstance in soundInstances) {
-            Minecraft.getInstance().soundManager.stop(soundInstance)
+            try {
+                Minecraft.getInstance().soundManager.stop(soundInstance)
+            } catch (e: Exception) {
+                // Log but continue to stop other sounds
+            }
         }
         soundInstances.clear()
 
+        // Cancel all coroutine jobs
         for (job in probabilityJobs) {
-            job.cancel()
+            try {
+                job.cancel()
+            } catch (e: Exception) {
+                // Log but continue to cancel other jobs
+            }
         }
         probabilityJobs.clear()
     }

@@ -199,7 +199,11 @@ class RecordPressBaseScreen(
 
     private fun updateModeButtonTooltip() {
         modeButton.toolTip.clear()
-        modeButton.toolTip.add(ModLang.translate("gui.record_press_base.url_select_mode").component())
+        if (configuration.randomMode) {
+            modeButton.toolTip.add(ModLang.translate("gui.record_press_base.url_random_mode").component())
+        } else {
+            modeButton.toolTip.add(ModLang.translate("gui.record_press_base.url_sequential_mode").component())
+        }
     }
 
     private fun rebuildUrlInputFields() {

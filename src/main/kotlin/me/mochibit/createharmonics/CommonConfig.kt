@@ -44,8 +44,14 @@ object CommonConfig : ConfigBase() {
 
     fun getRecordDurability(recordType: RecordType): Int? {
         val configInt = recordDurabilities[recordType] ?: return null
-        val value = configInt.get()
-        return if (value == 0) null else value
+        // Return null during data generation (config not loaded)
+        return try {
+            val value = configInt.get()
+            if (value == 0) null else value
+        } catch (_: IllegalStateException) {
+            // Config not loaded (e.g., during data generation)
+            null
+        }
     }
 
     override fun getName(): String = "common"

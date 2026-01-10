@@ -523,18 +523,26 @@ class AudioPlayer(
         try {
             val context = playbackContext
             if (context != null) {
+                // Always stop composition first, even if other operations fail
                 try {
                     context.soundComposition.stopComposition()
                 } catch (e: Exception) {
                     Logger.err("AudioPlayer $playerId: Error stopping composition: ${e.message}")
                 }
 
+                // Try to stop the sound instance
                 try {
                     context.soundInstance?.let { soundManager.stop(it) }
                 } catch (e: Exception) {
                     Logger.err("AudioPlayer $playerId: Error stopping sound: ${e.message}")
                 }
-                context.cleanup()
+
+                // Cleanup resources
+                try {
+                    context.cleanup()
+                } catch (e: Exception) {
+                    Logger.err("AudioPlayer $playerId: Error during cleanup: ${e.message}")
+                }
             }
         } catch (e: Exception) {
             Logger.err("AudioPlayer $playerId: Error in stopSoundImmediately: ${e.message}")

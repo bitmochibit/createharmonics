@@ -94,6 +94,22 @@ abstract class RecordPlayerBlock(
         return InteractionResult.SUCCESS
     }
 
+    @Deprecated("Deprecated in Java")
+    override fun onRemove(
+        pState: BlockState,
+        pLevel: Level,
+        pPos: BlockPos,
+        pNewState: BlockState,
+        pIsMoving: Boolean,
+    ) {
+        // Only do cleanup if the block is actually being removed (not just state change)
+        if (!pState.`is`(pNewState.block)) {
+            val blockEntity = pLevel.getBlockEntity(pPos) as? RecordPlayerBlockEntity
+            blockEntity?.playerBehaviour?.stopPlayer()
+        }
+        super.onRemove(pState, pLevel, pPos, pNewState, pIsMoving)
+    }
+
     override fun hasShaftTowards(
         world: LevelReader?,
         pos: BlockPos?,

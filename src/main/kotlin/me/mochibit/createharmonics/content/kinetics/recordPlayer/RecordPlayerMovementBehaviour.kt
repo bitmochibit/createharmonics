@@ -35,8 +35,10 @@ import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
 import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
+import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
 import net.minecraftforge.eventbus.api.SubscribeEvent
 import net.minecraftforge.fml.common.Mod
@@ -179,20 +181,36 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         context.world?.onServer { level ->
             val storage =
                 context.contraption.storage.allItemStorages[context.localPos] as? RecordPlayerMountedStorage ?: return
-            val damaged = getRecordItem(context)
-            val broken = damaged.hurt(1, RandomSource.create(), null)
+            val record = getRecordItem(context)
+            val result = EtherealRecordItem.handleRecordUse(record, RandomSource.create())
 
-            if (broken) {
-                storage.setRecord(ItemStack.EMPTY)
-                val inv = SimpleContainer(1)
-                inv.setItem(0, ItemStack(Items.AMETHYST_SHARD))
+            when {
+                result.shouldReplace -> {
+                    result.replacementStack?.let { storage.setRecord(it) }
+                }
 
-                val pos = BlockPos.containing(context.position)
+                result.isBroken -> {
+                    storage.setRecord(ItemStack.EMPTY)
+                    val itemStack = (result as EtherealRecordItem.Companion.RecordUseResult.Broken).dropStack.copy()
 
-                Containers.dropContents(level, pos, inv)
-                level.playSound(null, pos, SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, 1.0f, 1.0f)
-            } else {
-                storage.setRecord(damaged)
+                    val pos = BlockPos.containing(context.position)
+                    val facing = context.state.getValue(BlockStateProperties.FACING)
+
+                    // Transform the facing direction through the contraption's rotation
+                    val localDirection = Vec3(facing.stepX.toDouble(), facing.stepY.toDouble(), facing.stepZ.toDouble())
+                    val worldDirection = context.rotation.apply(localDirection).normalize()
+
+                    val dropPos = Vec3.atCenterOf(pos).add(worldDirection.scale(0.7))
+
+                    val itemEntity = ItemEntity(level, dropPos.x, dropPos.y, dropPos.z, itemStack)
+
+                    // Launch in the rotated facing direction
+                    itemEntity.setDeltaMovement(worldDirection.scale(0.3))
+
+                    level.addFreshEntity(itemEntity)
+                    level.playSound(null, pos, SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, .7f, 1.7f)
+                    level.playSound(null, pos, SoundEvents.SMALL_AMETHYST_BUD_BREAK, SoundSource.PLAYERS)
+                }
             }
         }
     }

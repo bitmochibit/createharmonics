@@ -59,6 +59,84 @@ class EtherealRecordItem(
         }
 
         /**
+         * Handles record usage by applying durability damage.
+         * @param stack The ethereal record item stack
+         * @param random Random source for durability calculations
+         * @return RecordUseResult containing the result of the usage
+         */
+        fun handleRecordUse(
+            stack: ItemStack,
+            random: net.minecraft.util.RandomSource,
+        ): RecordUseResult {
+            if (stack.item !is EtherealRecordItem) {
+                return RecordUseResult.Invalid
+            }
+
+            val etherealRecord = stack.item as EtherealRecordItem
+
+            // If not damageable (infinite uses), return the same stack
+            if (!etherealRecord.isDamageable(stack)) {
+                return RecordUseResult.NotDamageable(stack)
+            }
+
+            // Apply damage
+            val damaged = stack.copy()
+            val broken = damaged.hurt(1, random, null)
+
+            return if (broken) {
+                // Get the crafted-from record
+                val craftedWithDisc = RecordCraftingHandler.getCraftedWithDisc(stack)
+
+                // Create a BaseRecordItem with the craftedWith data preserved
+                val baseRecordStack =
+                    ItemStack(
+                        me.mochibit.createharmonics.registry.ModItems.BASE_RECORD
+                            .get(),
+                    )
+                if (!craftedWithDisc.isEmpty) {
+                    RecordCraftingHandler.setCraftedWithDisc(baseRecordStack, craftedWithDisc)
+                }
+
+                RecordUseResult.Broken(baseRecordStack)
+            } else {
+                RecordUseResult.Damaged(damaged)
+            }
+        }
+
+        /**
+         * Result of handling record use
+         */
+        sealed class RecordUseResult {
+            /** The record is not damageable (infinite uses) */
+            data class NotDamageable(
+                val stack: ItemStack,
+            ) : RecordUseResult()
+
+            /** The record was damaged but not broken */
+            data class Damaged(
+                val stack: ItemStack,
+            ) : RecordUseResult()
+
+            /** The record broke and should drop the base record */
+            data class Broken(
+                val dropStack: ItemStack,
+            ) : RecordUseResult()
+
+            /** Invalid input (not an ethereal record) */
+            data object Invalid : RecordUseResult()
+
+            val isBroken: Boolean get() = this is Broken
+            val shouldReplace: Boolean get() = this is Damaged || this is NotDamageable
+            val replacementStack: ItemStack?
+                get() =
+                    when (this) {
+                        is Damaged -> stack
+                        is NotDamageable -> stack
+                        else -> null
+                    }
+        }
+
+        /**
          * Play the audio directly from a record item stack
          * @param etherealRecord The record used for gathering information about the audio to play
          * @param offsetSeconds Playback offset, used mainly for synchronization

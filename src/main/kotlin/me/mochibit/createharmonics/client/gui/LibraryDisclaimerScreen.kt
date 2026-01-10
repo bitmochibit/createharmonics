@@ -241,14 +241,20 @@ class LibraryDisclaimerScreen(
             accentColor,
         )
 
-        // Draw Info Text
-        drawCenteredString(
-            gfx,
-            ModLang.translate("gui.library_setup.library_disclaimer_info").component().getString(128),
-            cx,
-            68,
-            ChatFormatting.GRAY.color ?: 0xAAAAAA,
-        )
+        val disclaimerInfoText =
+            wrapText(
+                ModLang.translate("gui.library_setup.library_disclaimer_info").component().getString(256),
+                400,
+            )
+        for (i in disclaimerInfoText.indices) {
+            drawCenteredString(
+                gfx,
+                disclaimerInfoText[i],
+                cx,
+                68 + i * 11,
+                ChatFormatting.GRAY.color ?: 0xAAAAAA,
+            )
+        }
 
         // Compact cards - much smaller
         val cardWidth = 280
@@ -295,7 +301,7 @@ class LibraryDisclaimerScreen(
         screenCenterY: Int,
     ) {
         val tooltipWidth = 320
-        val tooltipHeight = 70
+        val tooltipHeight = 90
         val tooltipX = screenCenterX - tooltipWidth / 2
         val tooltipY = screenCenterY - tooltipHeight / 2 - 20
 
@@ -402,10 +408,24 @@ class LibraryDisclaimerScreen(
         cy: Int,
     ) {
         val cardWidth = 340
-        val cardHeight = 60 // Reduced from 75 to 60
+        val installingCardHeight = 60 // Full height for cards with progress bars
+        val compactCardHeight = 50 // Compact height for completed/failed/pending cards
         val cardGap = 10 // Reduced from 12 to 10
         val libraryCount = BackgroundLibraryInstaller.LibraryType.entries.size
-        val totalCardsHeight = (cardHeight * libraryCount) + (cardGap * (libraryCount - 1))
+
+        // Calculate total height based on each library's state
+        var totalCardsHeight = 0
+        BackgroundLibraryInstaller.LibraryType.entries.forEach { library ->
+            val status = BackgroundLibraryInstaller.getStatus(library)
+            val height =
+                if (status.isInstalling || (status.progress > 0 && !status.isComplete)) {
+                    installingCardHeight
+                } else {
+                    compactCardHeight
+                }
+            totalCardsHeight += height
+        }
+        totalCardsHeight += cardGap * (libraryCount - 1)
 
         // Calculate positioning with proper margins - 75px from top, 70px from bottom for buttons
         val topPadding = 75
@@ -424,6 +444,14 @@ class LibraryDisclaimerScreen(
 
         BackgroundLibraryInstaller.LibraryType.entries.forEach { library ->
             val status = BackgroundLibraryInstaller.getStatus(library)
+
+            // Determine card height based on status
+            val cardHeight =
+                if (status.isInstalling || (status.progress > 0 && !status.isComplete)) {
+                    installingCardHeight
+                } else {
+                    compactCardHeight
+                }
 
             val bgColor =
                 when {
@@ -504,7 +532,7 @@ class LibraryDisclaimerScreen(
                     gfx.drawString(font, progressText, cx - font.width(progressText) / 2, barY + 10, 0xBBBBBB, false)
                 }
             } else {
-                // Status message when not installing
+                // Status message when not installing - centered vertically in compact card
                 val message =
                     when {
                         status.isComplete -> {
@@ -534,7 +562,9 @@ class LibraryDisclaimerScreen(
                         status.isFailed -> 0xFF8888
                         else -> 0xBBBBBB
                     }
-                gfx.drawString(font, message, cx - font.width(message) / 2, currentY + 35, messageColor, false)
+                // Center the message vertically in the card (accounting for library name at top)
+                val messageY = currentY + 8 + font.lineHeight + 3
+                gfx.drawString(font, message, cx - font.width(message) / 2, messageY, messageColor, false)
             }
 
             currentY += cardHeight + cardGap

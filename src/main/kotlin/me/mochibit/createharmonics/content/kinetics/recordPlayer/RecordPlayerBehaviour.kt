@@ -28,6 +28,7 @@ import me.mochibit.createharmonics.registry.ModPackets
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.client.Minecraft
 import net.minecraft.client.particle.NoteParticle
+import net.minecraft.core.Direction
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.core.particles.ShriekParticleOption
 import net.minecraft.nbt.CompoundTag
@@ -36,10 +37,12 @@ import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
 import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
+import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.RecordItem
 import net.minecraft.world.item.context.BlockPlaceContext
+import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
 import net.minecraftforge.common.util.LazyOptional
 import net.minecraftforge.eventbus.api.SubscribeEvent
@@ -254,21 +257,43 @@ class RecordPlayerBehaviour(
 
     fun handleRecordUse() {
         be.level?.onServer { level ->
-            val damaged = getRecord()
-            val broken = damaged.hurt(1, RandomSource.create(), null)
+            val record = getRecord()
+            val result = EtherealRecordItem.handleRecordUse(record, RandomSource.create())
 
-            if (broken) {
-                setRecord(ItemStack.EMPTY)
-
-                val inv = SimpleContainer(itemHandler.slots)
-                for (i in 0 until itemHandler.slots) {
-                    inv.setItem(i, ItemStack(Items.AMETHYST_SHARD))
+            when {
+                result.shouldReplace -> {
+                    result.replacementStack?.let { setRecord(it) }
                 }
 
-                Containers.dropContents(level, be.blockPos, inv)
-                level.playSound(null, be.blockPos, SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, 1.0f, 1.0f)
-            } else {
-                setRecord(damaged)
+                result.isBroken -> {
+                    setRecord(ItemStack.EMPTY)
+
+                    val facing = be.blockState.getValue(BlockStateProperties.FACING)
+
+                    val dropPos =
+                        Vec3.atCenterOf(be.blockPos).add(
+                            facing.stepX * 0.7,
+                            facing.stepY * 0.7,
+                            facing.stepZ * 0.7,
+                        )
+
+                    for (i in 0 until itemHandler.slots) {
+                        val itemStack = (result as EtherealRecordItem.Companion.RecordUseResult.Broken).dropStack.copy()
+                        val itemEntity = ItemEntity(level, dropPos.x, dropPos.y, dropPos.z, itemStack)
+
+                        // Launch in the facing direction
+                        itemEntity.setDeltaMovement(
+                            facing.stepX * 0.3,
+                            facing.stepY * 0.3,
+                            facing.stepZ * 0.3,
+                        )
+
+                        level.addFreshEntity(itemEntity)
+                    }
+
+                    level.playSound(null, be.blockPos, SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, .7f, 1.7f)
+                    level.playSound(null, be.blockPos, SoundEvents.SMALL_AMETHYST_BUD_BREAK, SoundSource.PLAYERS)
+                }
             }
         }
     }
@@ -312,6 +337,7 @@ class RecordPlayerBehaviour(
             else -> {
                 updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = true)
                 audioPlayCount += 1
+                handleRecordUse()
             }
         }
     }
@@ -381,6 +407,7 @@ class RecordPlayerBehaviour(
     }
 
     private fun stopClientPlayer() {
+        audioPlayer.stopSoundImmediately()
         audioPlayer.stop()
     }
 
@@ -399,6 +426,9 @@ class RecordPlayerBehaviour(
         be.onServer {
             unregisterPlayer(recordPlayerUUID.toString())
         }
+        be.onClient {
+            audioPlayer.stopSoundImmediately()
+        }
         lazyItemHandler.invalidate()
         super.unload()
     }
@@ -407,6 +437,9 @@ class RecordPlayerBehaviour(
         stopPlayer()
         dropContent()
         unregisterPlayer(recordPlayerUUID.toString())
+        be.onClient {
+            audioPlayer.stopSoundImmediately()
+        }
         super.destroy()
     }
 

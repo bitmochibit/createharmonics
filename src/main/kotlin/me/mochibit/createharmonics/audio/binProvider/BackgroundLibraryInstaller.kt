@@ -206,9 +206,9 @@ object BackgroundLibraryInstaller {
                         minecraft,
                         SystemToast.SystemToastIds.TUTORIAL_HINT,
                         Component.literal(library.displayName).append(
-                            ModLang.translate("library_installer.toast.success_title").component(),
+                            ModLang.translate("gui.library_installer.toast.success_title").component(),
                         ),
-                        ModLang.translate("library_installer.toast.success_desc").component(),
+                        ModLang.translate("gui.library_installer.toast.success_desc").component(),
                     ),
                 )
             } else {
@@ -217,9 +217,9 @@ object BackgroundLibraryInstaller {
                         minecraft,
                         SystemToast.SystemToastIds.TUTORIAL_HINT,
                         Component.literal(library.displayName).append(
-                            ModLang.translate("library_installer.toast.failure_title").component(),
+                            ModLang.translate("gui.library_installer.toast.failure_title").component(),
                         ),
-                        ModLang.translate("library_installer.toast.failure_desc").component(),
+                        ModLang.translate("gui.library_installer.toast.failure_desc").component(),
                     ),
                 )
             }

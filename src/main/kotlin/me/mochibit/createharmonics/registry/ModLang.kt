@@ -30,7 +30,7 @@ internal object ModLang : Lang() {
     fun fluidName(stack: FluidStack): LangBuilder =
         builder().add(
             stack
-                .getDisplayName()
+                .displayName
                 .copy(),
         )
 
