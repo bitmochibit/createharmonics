@@ -32,7 +32,8 @@ else you can think of!
 
 ### Features
 
-- You can play music from urls, currently YouTube (and YoutubeMusic) are directly supported
+- You can play music from urls, currently YouTube (and YoutubeMusic) are directly supported, but other sources should
+  work fine
 - For the Andesite Jukebox, playback pitch depends on the input rotation speed, half the maximum speed plays at normal
   pitch
 - For adding music from URLs, you must use a Record Press Base
@@ -49,7 +50,8 @@ else you can think of!
 ### Planned features
 
 - A lot more record types with unique audio effects
-- More supported music platforms
+- Programmable Ethereal Record, with custom audio effects
+- More directly supported platforms
 - Brass jukebox, with configurable pitch, range and record collections
 - Speakers and audio routing, for more controlled audio systems
 
