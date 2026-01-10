@@ -1,24 +1,22 @@
 package me.mochibit.createharmonics.audio.source
 
-import me.mochibit.createharmonics.audio.process.YTdlpExecutor
+import me.mochibit.createharmonics.audio.cache.AudioInfoCache
 
 /**
  * Generic audio source implementation for any yt-dlp compatible URL.
  *
- * For YouTube URLs specifically, prefer using YoutubeAudioSource which has caching.
- * This source extracts info on-demand for maximum compatibility.
+ * Now uses caching to reduce redundant yt-dlp calls, just like YoutubeAudioSource.
  */
 class YtdlpAudioSource(
     private val url: String,
 ) : AudioSource {
-    private val ytdlpExecutor = YTdlpExecutor()
-    private var cachedInfo: YTdlpExecutor.AudioUrlInfo? = null
+    private var cachedInfo: AudioInfoCache.AudioInfo? = null
 
     override fun getIdentifier(): String = url
 
     override suspend fun resolveAudioUrl(): String {
         if (cachedInfo == null) {
-            cachedInfo = ytdlpExecutor.extractAudioInfo(url)
+            cachedInfo = AudioInfoCache.getAudioInfo(url)
                 ?: throw IllegalStateException("Failed to extract audio URL from: $url")
         }
         return cachedInfo!!.audioUrl
@@ -26,7 +24,7 @@ class YtdlpAudioSource(
 
     override suspend fun getDurationSeconds(): Int {
         if (cachedInfo == null) {
-            cachedInfo = ytdlpExecutor.extractAudioInfo(url)
+            cachedInfo = AudioInfoCache.getAudioInfo(url)
                 ?: throw IllegalStateException("Failed to extract audio info from: $url")
         }
         return cachedInfo!!.durationSeconds
@@ -34,7 +32,7 @@ class YtdlpAudioSource(
 
     override suspend fun getAudioName(): String {
         if (cachedInfo == null) {
-            cachedInfo = ytdlpExecutor.extractAudioInfo(url)
+            cachedInfo = AudioInfoCache.getAudioInfo(url)
                 ?: return "Unknown"
         }
         return cachedInfo!!.title
@@ -42,7 +40,7 @@ class YtdlpAudioSource(
 
     override suspend fun getHttpHeaders(): Map<String, String> {
         if (cachedInfo == null) {
-            cachedInfo = ytdlpExecutor.extractAudioInfo(url)
+            cachedInfo = AudioInfoCache.getAudioInfo(url)
                 ?: return emptyMap()
         }
         return cachedInfo!!.httpHeaders

@@ -1,20 +1,21 @@
 package me.mochibit.createharmonics.audio.source
 
-import me.mochibit.createharmonics.audio.cache.YoutubeCache
+import me.mochibit.createharmonics.audio.cache.AudioInfoCache
 
 /**
  * Audio source implementation for YouTube videos.
+ * Uses caching to reduce redundant yt-dlp calls.
  */
 class YoutubeAudioSource(
     private val youtubeUrl: String,
 ) : AudioSource {
-    private var cachedInfo: YoutubeCache.YoutubeAudioInfo? = null
+    private var cachedInfo: AudioInfoCache.AudioInfo? = null
 
     override fun getIdentifier(): String = youtubeUrl
 
     override suspend fun resolveAudioUrl(): String {
         if (cachedInfo == null) {
-            cachedInfo = YoutubeCache.getAudioInfo(youtubeUrl)
+            cachedInfo = AudioInfoCache.getAudioInfo(youtubeUrl)
                 ?: throw IllegalStateException("Failed to extract audio URL from: $youtubeUrl")
         }
         return cachedInfo!!.audioUrl
@@ -22,7 +23,7 @@ class YoutubeAudioSource(
 
     override suspend fun getDurationSeconds(): Int {
         if (cachedInfo == null) {
-            cachedInfo = YoutubeCache.getAudioInfo(youtubeUrl)
+            cachedInfo = AudioInfoCache.getAudioInfo(youtubeUrl)
                 ?: throw IllegalStateException("Failed to extract audio info from: $youtubeUrl")
         }
         return cachedInfo!!.durationSeconds
@@ -30,7 +31,7 @@ class YoutubeAudioSource(
 
     override suspend fun getAudioName(): String {
         if (cachedInfo == null) {
-            cachedInfo = YoutubeCache.getAudioInfo(youtubeUrl)
+            cachedInfo = AudioInfoCache.getAudioInfo(youtubeUrl)
                 ?: return "Unknown"
         }
         return cachedInfo!!.title
@@ -38,7 +39,7 @@ class YoutubeAudioSource(
 
     override suspend fun getHttpHeaders(): Map<String, String> {
         if (cachedInfo == null) {
-            cachedInfo = YoutubeCache.getAudioInfo(youtubeUrl)
+            cachedInfo = AudioInfoCache.getAudioInfo(youtubeUrl)
                 ?: return emptyMap()
         }
         return cachedInfo!!.httpHeaders

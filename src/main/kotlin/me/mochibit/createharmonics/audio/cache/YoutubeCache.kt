@@ -1,16 +1,16 @@
 package me.mochibit.createharmonics.audio.cache
 
-import me.mochibit.createharmonics.Logger.err
-import me.mochibit.createharmonics.Logger.info
-import me.mochibit.createharmonics.audio.process.YTdlpExecutor
-import kotlin.time.Duration.Companion.minutes
-
 /**
  * Cache specifically for YouTube audio URLs and metadata extracted by yt-dlp.
  * Reduces redundant yt-dlp calls and speeds up YouTube audio processing.
  *
- * Note: This cache is YouTube-specific and should not be used for other audio sources.
+ * @deprecated Use AudioInfoCache instead, which supports all yt-dlp compatible URLs.
+ * This class is now a wrapper around AudioInfoCache for backward compatibility.
  */
+@Deprecated(
+    "Use AudioInfoCache instead",
+    ReplaceWith("AudioInfoCache", "me.mochibit.createharmonics.audio.cache.AudioInfoCache"),
+)
 object YoutubeCache {
     data class YoutubeAudioInfo(
         val audioUrl: String,
@@ -20,77 +20,37 @@ object YoutubeCache {
         val httpHeaders: Map<String, String> = emptyMap(),
     )
 
-    private val cache = mutableMapOf<String, YoutubeAudioInfo>()
-    private val CACHE_TTL_MS = 5.minutes.inWholeMilliseconds // Increased from 2 to 5 minutes
-    private val ytdlpWrapper = YTdlpExecutor()
-
     /**
      * Get YouTube audio info from cache or extract it using yt-dlp.
+     * This now delegates to AudioInfoCache for unified caching.
      */
     suspend fun getAudioInfo(youtubeUrl: String): YoutubeAudioInfo? {
-        // Check cache first
-        synchronized(cache) {
-            cache[youtubeUrl]?.let { entry ->
-                if (System.currentTimeMillis() - entry.timestamp < CACHE_TTL_MS) {
-                    info("YoutubeCache: Cache hit for $youtubeUrl")
-                    return entry
-                } else {
-                    info("YoutubeCache: Cache entry expired for $youtubeUrl")
-                    cache.remove(youtubeUrl)
-                }
-            }
-        }
-
-        // Extract URL and duration using yt-dlp
-        info("YoutubeCache: Extracting audio info for $youtubeUrl")
-        val startTime = System.currentTimeMillis()
-        val extractedInfo = ytdlpWrapper.extractAudioInfo(youtubeUrl)
-        val extractionTimeMs = System.currentTimeMillis() - startTime
-        info("YoutubeCache: yt-dlp extraction took ${extractionTimeMs}ms")
-
-        if (extractedInfo != null) {
-            val audioInfo =
-                YoutubeAudioInfo(
-                    audioUrl = extractedInfo.audioUrl,
-                    durationSeconds = extractedInfo.durationSeconds,
-                    title = extractedInfo.title,
-                    httpHeaders = extractedInfo.httpHeaders,
-                )
-
-            synchronized(cache) {
-                cache[youtubeUrl] = audioInfo
-            }
-            info("YoutubeCache: Cached audio info for $youtubeUrl (duration: ${audioInfo.durationSeconds}s)")
-            return audioInfo
-        } else {
-            err("YoutubeCache: Failed to extract audio info for $youtubeUrl")
-            return null
-        }
+        val audioInfo = AudioInfoCache.getAudioInfo(youtubeUrl) ?: return null
+        return YoutubeAudioInfo(
+            audioUrl = audioInfo.audioUrl,
+            durationSeconds = audioInfo.durationSeconds,
+            timestamp = audioInfo.timestamp,
+            title = audioInfo.title,
+            httpHeaders = audioInfo.httpHeaders,
+        )
     }
 
     /**
      * Invalidate a specific cache entry (useful when URL expires/fails).
      */
     fun invalidate(youtubeUrl: String) {
-        synchronized(cache) {
-            if (cache.remove(youtubeUrl) != null) {
-                info("YoutubeCache: Invalidated cache for $youtubeUrl")
-            }
-        }
+        AudioInfoCache.invalidate(youtubeUrl)
     }
 
     /**
      * Clear the entire cache.
      */
     fun clear() {
-        synchronized(cache) {
-            cache.clear()
-        }
-        info("YoutubeCache: Cache cleared")
+        AudioInfoCache.clear()
     }
 
     /**
      * Get the number of entries in the cache.
      */
-    fun size(): Int = synchronized(cache) { cache.size }
+    fun size(): Int = AudioInfoCache.size()
 }
