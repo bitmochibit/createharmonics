@@ -479,8 +479,6 @@ class AudioPlayer(
 
     /**
      * Resolves the appropriate audio source for the given URL.
-     * - YouTube URLs use YoutubeAudioSource (with caching)
-     * - All other URLs use YtdlpAudioSource (supports 1000+ sites)
      */
     private fun resolveAudioSource(url: String): AudioSource? =
         when {
