@@ -14,7 +14,7 @@ class SimpleStreamSoundInstance(
     posSupplier: () -> BlockPos,
     volumeSupplier: () -> Float = { 1.0f },
     pitchSupplier: () -> Float = { 1.0f },
-    radiusSupplier: () -> Int = { 16 },
+    radiusSupplier: () -> Int = { 64 },
     randomSource: RandomSource = RandomSource.create(),
     soundSource: SoundSource = SoundSource.RECORDS,
     looping: Boolean = false, // TODO: Implement a wrapper to PCMAudioStream which can be looped

@@ -14,6 +14,9 @@ import net.createmod.catnip.gui.ScreenOpener
 import net.minecraft.client.player.LocalPlayer
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.sounds.SoundSource
+import net.minecraft.util.RandomSource
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.entity.Entity
@@ -42,6 +45,10 @@ class RecordPressBaseBlock(
 ) : HorizontalKineticBlock(properties),
     IBE<RecordPressBaseBlockEntity>,
     ProperWaterloggedBlock {
+    companion object {
+        private val RANDOM = RandomSource.create()
+    }
+
     init {
         registerDefaultState(
             defaultBlockState().setValue(WATERLOGGED, false),
@@ -77,7 +84,64 @@ class RecordPressBaseBlock(
     ): InteractionResult {
         if (AllItems.WRENCH.isIn(pPlayer.getItemInHand(pHand))) return InteractionResult.PASS
 
+        // Shift + click opens configuration GUI
         if (pPlayer.isShiftKeyDown) {
+            DistExecutor.unsafeRunWhenOn(
+                Dist.CLIENT,
+            ) {
+                Runnable {
+                    withBlockEntityDo(
+                        pLevel,
+                        pPos,
+                    ) { be: RecordPressBaseBlockEntity -> this.displayScreen(be, pPlayer) }
+                }
+            }
+            return InteractionResult.SUCCESS
+        }
+
+        // Only allow item interactions on the top face
+        if (pHit.direction != Direction.UP) {
+            return InteractionResult.PASS
+        }
+
+        val clickItem = pPlayer.getItemInHand(pHand)
+
+        if (!clickItem.isEmpty) {
+            // Normal click with item on top face: insert item
+            if (pLevel.isClientSide) {
+                return InteractionResult.SUCCESS
+            }
+
+            val handledRef = booleanArrayOf(false)
+            withBlockEntityDo(pLevel, pPos) { be: RecordPressBaseBlockEntity ->
+                be.behaviour.invProvider.ifPresent { inventory ->
+                    // Make a copy of the stack to insert
+                    val stackToInsert = clickItem.copy()
+                    val remainder = inventory.insertItem(0, stackToInsert, false)
+
+                    if (remainder.isEmpty || remainder.count < stackToInsert.count) {
+                        // Successfully inserted at least some items
+                        val insertedCount = stackToInsert.count - remainder.count
+                        clickItem.shrink(insertedCount)
+
+                        // Play insertion sound
+                        pLevel.playSound(
+                            null,
+                            pPos,
+                            SoundEvents.ITEM_FRAME_ADD_ITEM,
+                            SoundSource.PLAYERS,
+                            0.2f,
+                            1f + RANDOM.nextFloat(),
+                        )
+
+                        handledRef[0] = true
+                    }
+                }
+            }
+
+            return if (handledRef[0]) InteractionResult.SUCCESS else InteractionResult.PASS
+        } else {
+            // Normal click with empty hand on top face: remove items
             if (pLevel.isClientSide) {
                 return InteractionResult.SUCCESS
             }
@@ -89,19 +153,6 @@ class RecordPressBaseBlock(
 
             return if (handled) InteractionResult.SUCCESS else InteractionResult.PASS
         }
-
-        // Normal click opens GUI
-        DistExecutor.unsafeRunWhenOn(
-            Dist.CLIENT,
-        ) {
-            Runnable {
-                withBlockEntityDo(
-                    pLevel,
-                    pPos,
-                ) { be: RecordPressBaseBlockEntity -> this.displayScreen(be, pPlayer) }
-            }
-        }
-        return InteractionResult.SUCCESS
     }
 
     override fun getStateForPlacement(context: BlockPlaceContext): BlockState = withWater(super.getStateForPlacement(context), context)

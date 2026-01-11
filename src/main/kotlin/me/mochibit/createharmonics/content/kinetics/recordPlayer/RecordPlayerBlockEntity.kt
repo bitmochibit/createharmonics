@@ -2,14 +2,19 @@ package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
+import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.INamedIconOptions
+import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollOptionBehaviour
+import com.simibubi.create.foundation.gui.AllIcons
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
 import me.mochibit.createharmonics.extension.lerpTo
 import net.createmod.catnip.math.AngleHelper
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.network.chat.Component
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraftforge.common.capabilities.Capability
 import net.minecraftforge.common.capabilities.ForgeCapabilities
 import net.minecraftforge.common.util.LazyOptional
@@ -35,7 +40,28 @@ abstract class RecordPlayerBlockEntity(
         }
     }
 
+    enum class PlaybackMode : INamedIconOptions {
+        PLAY(AllIcons.I_PLAY),
+        PAUSE(AllIcons.I_PAUSE),
+        ;
+
+        private val translationKey: String
+        private val icon: AllIcons
+
+        constructor(icon: AllIcons) {
+            this.icon = icon
+            this.translationKey = "createharmonics.record_player.playback_mode." + name.lowercase()
+        }
+
+        override fun getIcon(): AllIcons = icon
+
+        override fun getTranslationKey(): String = translationKey
+    }
+
     lateinit var playerBehaviour: RecordPlayerBehaviour
+        private set
+
+    lateinit var playbackMode: ScrollOptionBehaviour<PlaybackMode>
         private set
 
     var visualSpeed = 0f
@@ -63,6 +89,22 @@ abstract class RecordPlayerBlockEntity(
     override fun addBehaviours(behaviours: MutableList<BlockEntityBehaviour>) {
         playerBehaviour = RecordPlayerBehaviour(this)
         behaviours.add(playerBehaviour)
+
+        playbackMode =
+            ScrollOptionBehaviour(
+                PlaybackMode::class.java,
+                Component.translatable("createharmonics.record_player.playback_mode"),
+                this,
+                RecordPlayerValueBoxTransform { blockState, direction ->
+                    val axis: Direction.Axis = direction.axis
+                    val beAxis: Direction.Axis =
+                        blockState
+                            .getValue(BlockStateProperties.FACING)
+                            .axis
+                    beAxis !== axis
+                },
+            )
+        behaviours.add(playbackMode)
     }
 
     override fun <T> getCapability(

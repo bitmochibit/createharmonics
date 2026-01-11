@@ -229,6 +229,11 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         }
     }
 
+    override fun writeExtraData(context: MovementContext) {
+        // TODO This doesn't work, PLAY_TIME_KEY must be set in context.temporaryData and taken from there
+        context.data.putLong(PLAY_TIME_KEY, context.data.getLong(PLAY_TIME_KEY))
+    }
+
     private fun updateClientState(context: MovementContext) {
         val blockNbt = context.contraption.blocks[context.localPos]?.nbt ?: return
 
@@ -490,7 +495,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                     }
 
                     AudioPlayer.PlayState.STOPPED -> {
-                        val record = getRecordItemClient(context)
+                        val record = getRecordItem(context)
                         val offsetSeconds =
                             if (playTime > 0) (System.currentTimeMillis() - playTime) / 1000.0 else 0.0
 
@@ -550,7 +555,6 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         }
 
         return AudioPlayerRegistry.getOrCreatePlayer(playerId) {
-            Logger.info("Creating audio player for moving contraption: $playerId at ${context.localPos}")
             AudioPlayer(
                 { streamId, stream ->
                     SimpleStreamSoundInstance(
@@ -559,6 +563,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                         SoundEvents.EMPTY,
                         posSupplier = { BlockPos.containing(context.position) },
                         pitchSupplier = buildPitchSupplier(context),
+                        radiusSupplier = { 16 },
                     )
                 },
                 playerId,
@@ -602,13 +607,5 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             context.contraption.storage.allItemStorages[context.localPos] as? RecordPlayerMountedStorage
                 ?: return ItemStack.EMPTY
         return handler.getRecord()
-    }
-
-    private fun getRecordItemClient(context: MovementContext): ItemStack {
-        val be =
-            context.contraption.presentBlockEntities[context.localPos] as? RecordPlayerBlockEntity
-                ?: return ItemStack.EMPTY
-        val record: ItemStack = be.playerBehaviour.getRecord()
-        return record
     }
 }

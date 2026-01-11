@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
+import com.simibubi.create.Create
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
@@ -133,7 +134,7 @@ class RecordPlayerBehaviour(
         }
 
     // TODO: make this adjustable with a wrench
-    var soundRadius: Int = 16
+    var soundRadius: Int = 32
 
     @Volatile
     var playbackState: PlaybackState = PlaybackState.STOPPED
@@ -150,6 +151,15 @@ class RecordPlayerBehaviour(
     @Volatile
     var audioPlayingTitle: String? = null
         private set
+
+    // Track previous playback mode to detect user changes
+    private var previousPlaybackMode: RecordPlayerBlockEntity.PlaybackMode? = null
+
+    // Track if playback ended naturally (to prevent auto-restart)
+    private var playbackEndedNaturally = false
+
+    // Flag to request restart on next tick (for redstone looping)
+    private var shouldRestartOnNextTick = false
 
     val itemHandler = RecordPlayerItemHandler(this, 1)
     val lazyItemHandler: LazyOptional<RecordPlayerItemHandler> = LazyOptional.of { itemHandler }
@@ -184,6 +194,23 @@ class RecordPlayerBehaviour(
             val currentSpeed = abs(be.speed)
             val hasDisc = hasRecord()
             val isPowered = level.hasNeighborSignal(be.blockPos)
+            val playbackMode = be.playbackMode.get()
+
+            // Handle restart request (for looping)
+            if (shouldRestartOnNextTick) {
+                shouldRestartOnNextTick = false
+                if (hasDisc && currentSpeed > 0.0f) {
+                    // Start playing from the beginning
+                    updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = true)
+                    audioPlayCount += 1
+                    handleRecordUse()
+                }
+                return@onServer
+            }
+
+            // Track mode changes
+            val playbackModeChanged = previousPlaybackMode != playbackMode
+            previousPlaybackMode = playbackMode
 
             when {
                 !hasDisc -> {
@@ -192,25 +219,74 @@ class RecordPlayerBehaviour(
                         audioPlayCount = 0
                         audioPlayingTitle = null
                     }
+                    // Reset flags when record is removed
+                    playbackEndedNaturally = false
                 }
 
                 currentSpeed == 0.0f -> {
+                    // No RPM power - pause if playing
                     if (playbackState == PlaybackState.PLAYING) {
                         updatePlaybackState(PlaybackState.PAUSED, resetTime = false)
                     }
                 }
 
                 currentSpeed > 0.0f -> {
-                    if (isPowered) {
-                        if (playbackState != PlaybackState.PLAYING) {
-                            updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = true)
-                            audioPlayCount += 1
-                            handleRecordUse()
+                    // Has RPM power - determine behavior based on mode and redstone
+
+                    if (playbackMode == RecordPlayerBlockEntity.PlaybackMode.PLAY) {
+                        // PLAY MODE
+                        if (isPowered) {
+                            // Play mode + Redstone: Always play and loop
+                            playbackEndedNaturally = false
+                            if (playbackState != PlaybackState.PLAYING) {
+                                updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = true)
+                                audioPlayCount += 1
+                                handleRecordUse()
+                            }
+                        } else {
+                            // Play mode + No redstone: Play once then stop
+                            when (playbackState) {
+                                PlaybackState.STOPPED -> {
+                                    // Start playing if just inserted or mode changed (but not after natural end)
+                                    if (!playbackEndedNaturally) {
+                                        updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = true)
+                                        audioPlayCount += 1
+                                        handleRecordUse()
+                                    }
+                                }
+
+                                PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
+                                    // Resume if mode changed to PLAY
+                                    if (playbackModeChanged) {
+                                        updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = false)
+                                    }
+                                }
+
+                                PlaybackState.PLAYING -> {
+                                    // Already playing, continue
+                                }
+                            }
                         }
                     } else {
-                        if (playbackState == PlaybackState.PAUSED) {
-                            updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = true)
-                            handleRecordUse()
+                        // PAUSE MODE
+                        if (isPowered) {
+                            // Pause mode + Redstone: Redstone controls playback (play/loop when powered)
+                            playbackEndedNaturally = false
+                            if (playbackState != PlaybackState.PLAYING) {
+                                // Redstone powered - start or resume playing
+                                val shouldResetTime = playbackState == PlaybackState.STOPPED
+                                updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = shouldResetTime)
+                                if (shouldResetTime) {
+                                    audioPlayCount += 1
+                                    handleRecordUse()
+                                }
+                            }
+                        } else {
+                            // Pause mode + No redstone: Stay paused (don't auto-play on insert)
+                            if (playbackState == PlaybackState.PLAYING) {
+                                updatePlaybackState(PlaybackState.MANUALLY_PAUSED, resetTime = false)
+                            }
+                            // If STOPPED, stay STOPPED (don't auto-start)
                         }
                     }
                 }
@@ -302,6 +378,7 @@ class RecordPlayerBehaviour(
     fun insertRecord(discItem: ItemStack): Boolean {
         if (hasRecord()) return false
         itemHandler.insertItem(MAIN_RECORD_SLOT, discItem.copy(), false)
+        playbackEndedNaturally = false // Allow the newly inserted record to play
         return true
     }
 
@@ -315,6 +392,10 @@ class RecordPlayerBehaviour(
 
     fun setRecord(discItem: ItemStack) {
         itemHandler.setStackInSlot(MAIN_RECORD_SLOT, discItem)
+        // Reset the flag when a new record is inserted (not when removing)
+        if (!discItem.isEmpty) {
+            playbackEndedNaturally = false
+        }
     }
 
     fun getRecordItem(): EtherealRecordItem? {
@@ -521,7 +602,24 @@ class RecordPlayerBehaviour(
     }
 
     fun onPlaybackEnd(endedPlayerId: String) {
-        this.stopPlayer()
+        val level = be.level ?: return
+        val isPowered = level.hasNeighborSignal(be.blockPos)
+
+        // Determine if we should loop:
+        // Loop if redstone powered (works for both Play and Pause modes)
+        // Don't loop if no redstone
+        val shouldLoop = isPowered
+
+        if (shouldLoop) {
+            // Loop: stop and flag for immediate restart
+            playbackEndedNaturally = false
+            updatePlaybackState(PlaybackState.STOPPED, resetTime = true)
+            shouldRestartOnNextTick = true
+        } else {
+            // Don't loop: stop after one play
+            playbackEndedNaturally = true
+            stopPlayer()
+        }
     }
 
     fun onAudioTitleUpdate(audioTitle: String) {

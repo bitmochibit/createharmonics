@@ -56,7 +56,7 @@ object ClientConfig : ConfigBase() {
 
         mainMenuLibButtonOffsetX =
             i(
-                -4,
+                -28,
                 Integer.MIN_VALUE,
                 Integer.MAX_VALUE,
                 "mainMenuLibButtonOffsetX",
@@ -78,7 +78,7 @@ object ClientConfig : ConfigBase() {
 
         ingameMenuLibButtonOffsetX =
             i(
-                -4,
+                -28,
                 Integer.MIN_VALUE,
                 Integer.MAX_VALUE,
                 "ingameMenuLibButtonOffsetX",

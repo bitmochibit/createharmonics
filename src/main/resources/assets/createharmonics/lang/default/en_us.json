@@ -51,6 +51,9 @@
   "createharmonics.display_source.no_record": "No Record",
   "createharmonics.display_source.unknown_audio_name": "Unknown Audio",
   "createharmonics.display_source.read_music_name": "Playback song title",
+  "createharmonics.record_player.playback_mode": "Playback Mode",
+  "createharmonics.record_player.playback_mode.play": "Play",
+  "createharmonics.record_player.playback_mode.pause": "Pause",
   "createharmonics.item_group": "Create Harmonics"
 }
 

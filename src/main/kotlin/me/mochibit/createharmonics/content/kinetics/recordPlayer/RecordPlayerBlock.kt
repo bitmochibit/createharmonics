@@ -8,6 +8,9 @@ import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.extension.onServer
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.sounds.SoundSource
+import net.minecraft.util.RandomSource
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.entity.player.Player
@@ -25,6 +28,10 @@ import net.minecraft.world.phys.shapes.VoxelShape
 abstract class RecordPlayerBlock(
     properties: Properties,
 ) : DirectionalKineticBlock(properties) {
+    companion object {
+        private val RANDOM = RandomSource.create()
+    }
+
     init {
         registerDefaultState(
             stateDefinition
@@ -57,37 +64,53 @@ abstract class RecordPlayerBlock(
             return InteractionResult.PASS
         }
 
+        // Only allow interactions on the FACING direction (the head/slot side)
+        val facing = pState.getValue(FACING)
+        if (pHit.direction != facing) {
+            return InteractionResult.PASS
+        }
+
         if (!clickItem.isEmpty && clickItem.item !is EtherealRecordItem) {
             return InteractionResult.PASS
         }
 
         pLevel.onServer {
-            val isPowered = pLevel.hasNeighborSignal(pPos)
+            if (clickItem.item is EtherealRecordItem && !blockEntity.playerBehaviour.hasRecord()) {
+                // Click with record: insert and play
+                blockEntity.playerBehaviour.insertRecord(clickItem)
+                clickItem.shrink(1)
 
-            if (pPlayer.isShiftKeyDown) {
-                if (!blockEntity.playerBehaviour.hasRecord()) {
-                    return InteractionResult.PASS
-                }
+                // Play insertion sound
+                pLevel.playSound(
+                    null,
+                    pPos,
+                    SoundEvents.ITEM_FRAME_ADD_ITEM,
+                    SoundSource.PLAYERS,
+                    0.2f,
+                    1f + RANDOM.nextFloat(),
+                )
 
+                return InteractionResult.SUCCESS
+            }
+
+            if (clickItem.isEmpty && blockEntity.playerBehaviour.hasRecord()) {
+                // Click with empty hand: remove record
                 val disc = blockEntity.playerBehaviour.popRecord() ?: return@onServer
                 pPlayer.addItem(disc)
 
                 blockEntity.playerBehaviour.stopPlayer()
 
-                return InteractionResult.SUCCESS
-            }
+                // Play removal sound
+                pLevel.playSound(
+                    null,
+                    pPos,
+                    SoundEvents.ITEM_PICKUP,
+                    SoundSource.PLAYERS,
+                    0.2f,
+                    1f + RANDOM.nextFloat(),
+                )
 
-            if (clickItem.item is EtherealRecordItem && !blockEntity.playerBehaviour.hasRecord()) {
-                blockEntity.playerBehaviour.insertRecord(clickItem)
-                clickItem.shrink(1)
                 return InteractionResult.SUCCESS
-            }
-
-            if (blockEntity.playerBehaviour.hasRecord() && !isPowered) {
-                when (blockEntity.playerBehaviour.playbackState) {
-                    RecordPlayerBehaviour.PlaybackState.PLAYING -> blockEntity.playerBehaviour.pausePlayer()
-                    else -> blockEntity.playerBehaviour.startPlayer()
-                }
             }
         }
 

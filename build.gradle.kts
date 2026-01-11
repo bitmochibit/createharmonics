@@ -214,6 +214,7 @@ tasks.named<Jar>("jar") {
                 "Implementation-Version" to archiveVersion,
                 "Implementation-Vendor" to modAuthors,
                 "Implementation-Timestamp" to SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").format(Date()),
+                "MixinConfigs" to "$modId.mixins.json",
             ),
         )
     }
@@ -227,6 +228,21 @@ tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJ
 
     dependencies {
         // Add specific dependencies to shade here if needed
+    }
+
+    manifest {
+        attributes(
+            mapOf(
+                "Specification-Title" to modId,
+                "Specification-Vendor" to modAuthors,
+                "Specification-Version" to "1",
+                "Implementation-Title" to project.name,
+                "Implementation-Version" to archiveVersion,
+                "Implementation-Vendor" to modAuthors,
+                "Implementation-Timestamp" to SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").format(Date()),
+                "MixinConfigs" to "$modId.mixins.json",
+            ),
+        )
     }
 
     finalizedBy("reobfShadowJar")
@@ -244,6 +260,13 @@ tasks.named("build") {
 
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
+    options.compilerArgs.addAll(
+        listOf(
+            "-AreobfSrgFile=${project.file("build/createSrgToMcp/output.srg").absolutePath}",
+            "-AoutSrgFile=${project.file("build/createSrgToMcp/output.srg").absolutePath}",
+            "-AoutRefMapFile=${project.file("build/resources/main/$modId.refmap.json").absolutePath}",
+        ),
+    )
 }
 
 kotlin {

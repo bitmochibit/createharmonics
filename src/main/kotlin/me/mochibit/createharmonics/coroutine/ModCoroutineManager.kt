@@ -32,7 +32,6 @@ object ModCoroutineManager : CoroutineScope {
     @SubscribeEvent
     @JvmStatic
     fun onServerStopping(event: ServerStoppingEvent) {
-        Logger.info("Server stopping - cancelling all coroutines...")
         cancelAll()
     }
 
@@ -40,7 +39,6 @@ object ModCoroutineManager : CoroutineScope {
     @JvmStatic
     @OnlyIn(Dist.CLIENT)
     fun onClientDisconnect(event: ClientPlayerNetworkEvent.LoggingOut) {
-        Logger.info("Client disconnecting - cancelling all coroutines...")
         cancelAll()
     }
 

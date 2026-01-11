@@ -147,6 +147,7 @@ class EtherealRecordItem(
             offsetSeconds: Double,
             compPitchSupplier: () -> Float = { 1f },
         ) {
+            if (etherealRecord.item !is EtherealRecordItem) return
             val url = getAudioUrl(etherealRecord) ?: ""
 
             val recordProps = (etherealRecord.item as EtherealRecordItem).recordType.properties

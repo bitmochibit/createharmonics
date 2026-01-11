@@ -70,8 +70,10 @@ class RecordPlayerActorVisual(
             }
 
     private fun getRecord(): EtherealRecordItem? {
-        val be = context.contraption.presentBlockEntities[context.localPos] as? RecordPlayerBlockEntity ?: return null
-        val record: ItemStack = be.playerBehaviour.getRecord()
+        val handler =
+            context.contraption.storage.allItemStorages[context.localPos] as? RecordPlayerMountedStorage
+                ?: return null
+        val record: ItemStack = handler.getRecord()
         if (record.isEmpty || record.item !is EtherealRecordItem) return null
         return record.item as EtherealRecordItem
     }

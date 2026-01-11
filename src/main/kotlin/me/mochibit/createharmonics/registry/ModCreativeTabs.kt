@@ -2,6 +2,8 @@ package me.mochibit.createharmonics.registry
 
 import me.mochibit.createharmonics.CreateHarmonics
 import me.mochibit.createharmonics.CreateHarmonicsMod
+import me.mochibit.createharmonics.content.records.RecordType
+import me.mochibit.createharmonics.registry.ModItems.etherealRecord
 import net.minecraft.core.registries.Registries
 import net.minecraft.network.chat.Component
 import net.minecraft.world.item.CreativeModeTab
@@ -23,7 +25,7 @@ object ModCreativeTabs : AutoRegistrable {
             CreativeModeTab
                 .builder()
                 .title(ModLang.translate("item_group").component())
-                .icon { ItemStack(Items.MUSIC_DISC_13) }
+                .icon { ItemStack(ModItems etherealRecord RecordType.BRASS) }
                 .displayItems { _, output ->
                     output.acceptAll(CreateHarmonics.getRegistrate().getAll(Registries.ITEM).map { it.get().defaultInstance })
                 }.build()

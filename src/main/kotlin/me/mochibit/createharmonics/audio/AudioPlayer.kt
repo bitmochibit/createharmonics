@@ -248,13 +248,16 @@ class AudioPlayer(
             ModPackets.channel.sendToServer(UpdateAudioNamePacket(playerId, audioName))
         }
 
-        // Validate offset against duration
+        // Wrap offset around duration if it exceeds
         val duration = audioSource.getDurationSeconds()
-        if (duration > 0 && context.offsetSeconds >= duration) {
-            throw IllegalArgumentException(
-                "Offset (${context.offsetSeconds}s) exceeds duration (${duration}s)",
-            )
-        }
+        val effectiveOffset =
+            if (duration > 0 && context.offsetSeconds >= duration) {
+                val wrappedOffset = context.offsetSeconds % duration
+                Logger.info("AudioPlayer $playerId: Offset ${context.offsetSeconds}s wrapped to ${wrappedOffset}s (duration: ${duration}s)")
+                wrappedOffset
+            } else {
+                context.offsetSeconds
+            }
 
         // Initialize FFmpeg executor
         val ffmpegExecutor = FFmpegExecutor()
@@ -262,7 +265,7 @@ class AudioPlayer(
 
         val effectiveUrl = audioSource.resolveAudioUrl()
 
-        if (!ffmpegExecutor.createStream(effectiveUrl, sampleRate, context.offsetSeconds)) {
+        if (!ffmpegExecutor.createStream(effectiveUrl, sampleRate, effectiveOffset)) {
             throw IllegalStateException("FFmpeg stream initialization failed")
         }
 
@@ -326,10 +329,6 @@ class AudioPlayer(
             }
 
             if (totalSkipped > 0) {
-                val secondsSkipped = totalSkipped / bytesPerSecond.toDouble()
-                Logger.info("AudioPlayer $playerId: Skipped $totalSkipped bytes ($secondsSkipped seconds) from input stream")
-
-                // Verify alignment was maintained
                 if (totalSkipped % 2 != 0L) {
                     Logger.err("AudioPlayer $playerId: WARNING - Sample misalignment detected! Skipped odd number of bytes: $totalSkipped")
                 }
@@ -375,9 +374,16 @@ class AudioPlayer(
     private fun handleStreamEnd() {
         launchModCoroutine {
             stateMutex.withLock {
+                // Only cleanup and notify if we're actually playing
+                // If we're paused, keep resources for potential resume
                 if (playState == PlayState.PLAYING) {
                     cleanupResourcesInternal()
                     notifyStreamEnd()
+                } else if (playState == PlayState.PAUSED) {
+                    // Stream ended while paused - this is likely due to corruption
+                    // We should still cleanup but not notify (it's not a natural end)
+                    Logger.warn("AudioPlayer $playerId: Stream ended while paused, cleaning up")
+                    cleanupResourcesInternal()
                 }
             }
         }
@@ -455,8 +461,15 @@ class AudioPlayer(
                 if (playState != PlayState.PAUSED) return@launchModCoroutine
 
                 val context = playbackContext
-                if (context?.soundInstance == null) {
-                    Logger.err("AudioPlayer $playerId: Cannot resume, no active sound instance")
+                if (context == null) {
+                    Logger.err("AudioPlayer $playerId: Cannot resume, no playback context")
+                    playState = PlayState.STOPPED
+                    return@launchModCoroutine
+                }
+
+                if (context.soundInstance == null || context.processingAudioStream == null) {
+                    Logger.err("AudioPlayer $playerId: Cannot resume, resources were cleaned up (likely due to stream error)")
+                    cleanupResourcesInternal()
                     return@launchModCoroutine
                 }
 
@@ -472,6 +485,8 @@ class AudioPlayer(
                 }.onFailure { e ->
                     Logger.err("AudioPlayer $playerId: Error during resume: ${e.message}")
                     e.printStackTrace()
+                    // If resume failed, cleanup resources
+                    cleanupResourcesInternal()
                 }
             }
         }

@@ -13,6 +13,9 @@ import me.mochibit.createharmonics.registry.ModMountedStorages
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.sounds.SoundSource
+import net.minecraft.util.RandomSource
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntity
@@ -30,6 +33,8 @@ class RecordPlayerMountedStorage(
     ),
     SyncedMountedStorage {
     companion object {
+        private val RANDOM = RandomSource.create()
+
         @JvmStatic
         val CODEC: Codec<RecordPlayerMountedStorage> =
             CreateCodecs.ITEM_STACK_HANDLER
@@ -76,23 +81,48 @@ class RecordPlayerMountedStorage(
         info: StructureTemplate.StructureBlockInfo,
     ): Boolean {
         val itemInHand = player.mainHandItem
+        val level = player.level() as ServerLevel
 
-        if (player.isShiftKeyDown) {
+        if (itemInHand.item is EtherealRecordItem && getRecord().isEmpty) {
+            // Click with record: insert and play
+            setRecord(itemInHand.copy())
+            itemInHand.shrink(1)
+
+            // Play insertion sound
+            level.playSound(
+                null,
+                player.blockPosition(),
+                SoundEvents.ITEM_FRAME_ADD_ITEM,
+                SoundSource.PLAYERS,
+                0.2f,
+                1f + RANDOM.nextFloat(),
+            )
+
+            return true
+        }
+
+        if (itemInHand.isEmpty && !getRecord().isEmpty) {
+            // Click with empty hand: remove record
             val discItem = getRecord().copy()
-            if (discItem.isEmpty) return false
             setRecord(ItemStack.EMPTY)
             if (!player.inventory.add(discItem)) {
                 player.drop(discItem, false)
             }
-        } else {
-            val discItem = getRecord().copy()
-            if (!discItem.isEmpty) return false
-            if (itemInHand.item is EtherealRecordItem) {
-                setRecord(itemInHand.copy())
-                itemInHand.shrink(1)
-            }
+
+            // Play removal sound
+            level.playSound(
+                null,
+                player.blockPosition(),
+                SoundEvents.ITEM_PICKUP,
+                SoundSource.PLAYERS,
+                0.2f,
+                1f + RANDOM.nextFloat(),
+            )
+
+            return true
         }
-        return true
+
+        return false
     }
 
     override fun playOpeningSound(
@@ -115,7 +145,7 @@ class RecordPlayerMountedStorage(
         contraption: Contraption,
         localPos: BlockPos,
     ) {
-        val be = contraption.presentBlockEntities[localPos]
+        val be = contraption.getBlockEntityClientSide(localPos)
         if (be is RecordPlayerBlockEntity) {
             be.playerBehaviour.setRecord(this.getRecord())
         }

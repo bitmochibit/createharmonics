@@ -16,7 +16,7 @@ import java.util.Collections;
 
 @Mixin(ShapelessRecipe.class)
 public abstract class ShapelessRecipeMixin {
-    @Inject(method = "assemble*", at = @At("RETURN"))
+    @Inject(method = "assemble(Lnet/minecraft/world/Container;Lnet/minecraft/core/RegistryAccess;)Lnet/minecraft/world/item/ItemStack;", at = @At("RETURN"))
     private void onRecipeAssembled(Container container, RegistryAccess reg, CallbackInfoReturnable<ItemStack> cir) {
         ItemStack result = cir.getReturnValue();
         if (!result.isEmpty()) {

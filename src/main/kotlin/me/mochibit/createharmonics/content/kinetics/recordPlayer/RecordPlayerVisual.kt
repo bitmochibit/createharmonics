@@ -25,7 +25,7 @@ class RecordPlayerVisual(
     context: VisualizationContext,
     blockEntity: RecordPlayerBlockEntity,
     partialTick: Float,
-) : com.simibubi.create.content.kinetics.base.OrientedRotatingVisual<RecordPlayerBlockEntity>(
+) : OrientedRotatingVisual<RecordPlayerBlockEntity>(
         context,
         blockEntity,
         partialTick,
@@ -42,6 +42,9 @@ class RecordPlayerVisual(
 
     private var currentSpeed = 0.0f
     private val speedSmoothingFactor = 0.1f
+
+    private var targetSpeed = 0.0f
+    private val decelerationFactor = 0.05f // Slower deceleration for gradual stop
 
     private var currentModel: PartialModel =
         ModPartialModels.getRecordModel(blockEntity.playerBehaviour.getRecordItem()?.recordType ?: RecordType.BRASS)
@@ -91,7 +94,22 @@ class RecordPlayerVisual(
 
         previousRotation = rotation
 
-        currentSpeed = currentSpeed.lerpTo(blockEntity.speed, speedSmoothingFactor)
+        // Determine target speed based on playback state
+        val playbackState = blockEntity.playerBehaviour.playbackState
+        targetSpeed =
+            when (playbackState) {
+                RecordPlayerBehaviour.PlaybackState.PLAYING -> blockEntity.speed
+
+                RecordPlayerBehaviour.PlaybackState.PAUSED,
+                RecordPlayerBehaviour.PlaybackState.MANUALLY_PAUSED,
+                RecordPlayerBehaviour.PlaybackState.STOPPED,
+                -> 0.0f
+            }
+
+        // Smoothly interpolate to target speed
+        // Use slower deceleration when stopping, faster acceleration when starting
+        val smoothingFactor = if (targetSpeed < currentSpeed) decelerationFactor else speedSmoothingFactor
+        currentSpeed = currentSpeed.lerpTo(targetSpeed, smoothingFactor)
 
         val deg: Float = currentSpeed * 5
 

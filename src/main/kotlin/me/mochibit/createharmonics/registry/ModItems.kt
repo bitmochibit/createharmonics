@@ -54,4 +54,6 @@ object ModItems : AutoRegistrable {
     ) {
         info("Registering items for ${CreateHarmonicsMod.MOD_ID}")
     }
+
+    infix fun ModItems.etherealRecord(recordType: RecordType): EtherealRecordItem = getEtherealRecordItem(recordType).get()
 }

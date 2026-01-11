@@ -2,7 +2,6 @@ package me.mochibit.createharmonics.content.processing.recordPressBase
 
 import com.simibubi.create.foundation.gui.AllGuiTextures
 import com.simibubi.create.foundation.gui.AllIcons
-import com.simibubi.create.foundation.gui.ScreenWithStencils
 import com.simibubi.create.foundation.gui.widget.IconButton
 import me.mochibit.createharmonics.foundation.gui.ModGuiTexture
 import me.mochibit.createharmonics.foundation.gui.widget.AdvancedIconButton
@@ -23,8 +22,7 @@ import kotlin.math.max
 
 class RecordPressBaseScreen(
     val be: RecordPressBaseBlockEntity,
-) : AbstractSimiScreen(ModLang.translate("gui.record_press_base.title").component()),
-    ScreenWithStencils {
+) : AbstractSimiScreen(ModLang.translate("gui.record_press_base.title").component()) {
     // Constants
     companion object {
         private const val SCROLL_AREA_X = 3
@@ -356,13 +354,12 @@ class RecordPressBaseScreen(
         cardButtonPositions.clear()
 
         for (i in 0..entries.size) {
-            // Start stencil for clipping
-            startStencil(
-                graphics,
-                (x + SCROLL_AREA_X).toFloat(),
-                (y + SCROLL_AREA_Y).toFloat(),
-                SCROLL_AREA_WIDTH.toFloat(),
-                SCROLL_AREA_HEIGHT.toFloat(),
+            // Start scissor for clipping
+            graphics.enableScissor(
+                x + SCROLL_AREA_X,
+                y + SCROLL_AREA_Y,
+                x + SCROLL_AREA_X + SCROLL_AREA_WIDTH,
+                y + SCROLL_AREA_Y + SCROLL_AREA_HEIGHT,
             )
 
             matrixStack.pushPose()
@@ -405,7 +402,7 @@ class RecordPressBaseScreen(
 
                 totalContentHeight = yOffset + 20
                 matrixStack.popPose()
-                endStencil()
+                graphics.disableScissor()
                 break
             }
 
@@ -421,7 +418,7 @@ class RecordPressBaseScreen(
             }
 
             matrixStack.popPose()
-            endStencil()
+            graphics.disableScissor()
         }
 
         // Render pointer for current selection AFTER all content (on top layer)
