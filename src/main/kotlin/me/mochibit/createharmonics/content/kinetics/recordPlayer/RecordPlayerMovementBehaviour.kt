@@ -42,16 +42,34 @@ import kotlin.math.abs
 import kotlin.time.Duration.Companion.seconds
 
 class RecordPlayerMovementBehaviour : MovementBehaviour {
+    /**
+     * Data class to hold temporary context data that persists during runtime.
+     * This is stored in context.temporaryData on both client and server.
+     * Only playTime and hasRecord are persisted to context.data for saves/loads.
+     * Other fields are runtime-only flags that don't need persistence.
+     */
+    data class RecordPlayerContextData(
+        var pitchSupplier: PitchSupplierInterpolated? = null,
+        var playTime: Long = 0L,
+        var hasRecord: Boolean = false,
+        var isPaused: Boolean = false, // Track if currently paused
+        var pauseStartTime: Long = 0L, // Track when pause started (milliseconds)
+        var totalPausedTime: Long = 0L, // Total accumulated paused time (milliseconds)
+        var pausedAtOffset: Double = 0.0, // Track playback position (in seconds) when paused [DEPRECATED - kept for compatibility]
+        // Runtime flags (not persisted to disk)
+        var audioEnded: Boolean = false,
+        var pauseRequestedTick: Long = -1L,
+        var playerInitialized: Boolean = false,
+        var skipNextUpdate: Boolean = false,
+        var lastSyncTick: Long = 0L, // Track when we last synced to force periodic updates
+    )
+
     companion object {
         private const val PLAY_TIME_KEY = "PlayTime"
         const val PLAYER_UUID_KEY = "RecordPlayerUUID"
         private const val SPEED_THRESHOLD = 0.01f // Minimum speed to consider as "moving"
         private const val HAS_RECORD_KEY = "HasRecord"
         private const val PAUSE_GRACE_PERIOD_TICKS = 5 // Wait 5 ticks (0.25s) before actually pausing
-        private const val PAUSE_REQUESTED_TICK_KEY = "PauseRequestedTick"
-        private const val AUDIO_ENDED_KEY = "AudioEnded"
-        private const val SKIP_NEXT_UPDATE_KEY =
-            "SkipNextUpdate" // Server-side flag to prevent overwriting play time reset
 
         private val activePlayerContextByUUID = mutableMapOf<String, MovementContext>()
 
@@ -74,11 +92,14 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
          * After stopping, the player will automatically restart on the next tick if conditions are met (has record and moving).
          */
         fun stopMovingPlayer(context: MovementContext) {
-            // Reset play time to 0 in context.data
-            context.data.putLong(PLAY_TIME_KEY, 0)
+            // Get or create temporaryData
+            val tempData = context.temporaryData as? RecordPlayerContextData
+
+            // Reset play time to 0
+            tempData?.playTime = 0L
 
             // Set flag to prevent updateServerData from overwriting this on the next tick
-            context.data.putBoolean(SKIP_NEXT_UPDATE_KEY, true)
+            tempData?.skipNextUpdate = true
 
             // Also update the block NBT to sync to clients
             val block = context.contraption.blocks[context.localPos]
@@ -118,13 +139,15 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             AudioPlayerContextStopPacket(playerUUID.toString()),
         )
         unregisterPlayer(playerUUID.toString())
-        context.data.remove("PendingAudioStop")
     }
 
     private fun updateServerData(context: MovementContext) {
+        // Get or create temporaryData
+        val tempData = getOrCreateTemporaryData(context)
+
         // Check if we should skip this update (e.g., just after stopMovingPlayer was called)
-        if (context.data.getBoolean(SKIP_NEXT_UPDATE_KEY)) {
-            context.data.remove(SKIP_NEXT_UPDATE_KEY)
+        if (tempData.skipNextUpdate) {
+            tempData.skipNextUpdate = false
             return
         }
 
@@ -134,47 +157,94 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
         // Determine if contraption should be "playing" (has record and is moving or stalled)
         val shouldBePlaying = hasRecord && (currentSpeed >= SPEED_THRESHOLD || isStalled)
+        val shouldBePaused = hasRecord && !shouldBePlaying
 
         // Track old values to detect changes
-        val oldPlayTime = context.data.getLong(PLAY_TIME_KEY)
-        val oldHasRecord = context.data.getBoolean(HAS_RECORD_KEY)
+        val oldPlayTime = tempData.playTime
+        val oldHasRecord = tempData.hasRecord
+        val oldIsPaused = tempData.isPaused
 
         var dataChanged = false
 
-        // Update playTime continuously while playing
+        // Update playTime: set to current time when starting playback, otherwise keep existing value
         val newPlayTime =
             if (shouldBePlaying) {
-                System.currentTimeMillis()
+                // Only set playTime when starting playback (was 0), otherwise keep the existing start time
+                if (oldPlayTime == 0L) {
+                    System.currentTimeMillis()
+                } else {
+                    oldPlayTime // Keep the original start time
+                }
             } else if (!hasRecord) {
                 // Only reset playTime when record is removed
-                // Keep playTime alive during temporary stops (e.g., mining interruptions)
                 0L
             } else {
-                oldPlayTime // Keep existing playTime
+                oldPlayTime // Keep existing playTime during pauses
             }
+
+        // Update pause state
+        if (oldIsPaused != shouldBePaused) {
+            dataChanged = true
+
+            if (shouldBePaused) {
+                // Entering pause state
+                tempData.isPaused = true
+                if (newPlayTime > 0L) {
+                    // Record when the pause started
+                    tempData.pauseStartTime = System.currentTimeMillis()
+                }
+            } else {
+                // Exiting pause state (resuming)
+                tempData.isPaused = false
+                if (tempData.pauseStartTime > 0L) {
+                    // Accumulate the paused duration
+                    tempData.totalPausedTime += (System.currentTimeMillis() - tempData.pauseStartTime)
+                    tempData.pauseStartTime = 0L
+                }
+            }
+        }
 
         // Check if data actually changed
         if (oldPlayTime != newPlayTime) {
-            if (hasRecord && oldPlayTime == 0L) {
+            // If we're starting playback (oldPlayTime was 0 and newPlayTime is now set)
+            if (hasRecord && newPlayTime > 0L && oldPlayTime == 0L) {
+                // Starting fresh playback - reset all pause tracking
+                tempData.pauseStartTime = 0L
+                tempData.totalPausedTime = 0L
                 handleRecordUse(context)
             }
-            context.data.putLong(PLAY_TIME_KEY, newPlayTime)
+            tempData.playTime = newPlayTime
             dataChanged = true
         }
 
         if (oldHasRecord != hasRecord) {
-            context.data.putBoolean(HAS_RECORD_KEY, hasRecord)
+            tempData.hasRecord = hasRecord
+            // Reset pause tracking when record is removed
+            if (!hasRecord) {
+                tempData.pauseStartTime = 0L
+                tempData.totalPausedTime = 0L
+            }
             dataChanged = true
         }
 
-        // Only sync to contraption block data if something changed
-        if (dataChanged) {
+        // Force periodic sync even if nothing changed locally (for rejoining clients)
+        // Sync at least every 20 ticks (1 second) when playing
+        val currentTick = context.world.gameTime
+        val shouldForcSync = shouldBePlaying && (currentTick - tempData.lastSyncTick) >= 20
+
+        // Sync to contraption block data if something changed OR periodic sync is needed
+        if (dataChanged || shouldForcSync) {
             val block = context.contraption.blocks[context.localPos]
             val nbt = block?.nbt
             if (block != null && nbt != null) {
-                nbt.putLong(PLAY_TIME_KEY, newPlayTime)
+                nbt.putLong(PLAY_TIME_KEY, tempData.playTime)
                 nbt.putBoolean(HAS_RECORD_KEY, hasRecord)
+                nbt.putBoolean("IsPaused", tempData.isPaused)
+                nbt.putLong("PauseStartTime", tempData.pauseStartTime)
+                nbt.putLong("TotalPausedTime", tempData.totalPausedTime)
+                nbt.put("HeldRecordItem", getRecordItem(context).serializeNBT())
                 context.contraption.entity.setBlockData(context.localPos, block)
+                tempData.lastSyncTick = currentTick
             }
         }
     }
@@ -230,8 +300,16 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
     }
 
     override fun writeExtraData(context: MovementContext) {
-        // TODO This doesn't work, PLAY_TIME_KEY must be set in context.temporaryData and taken from there
-        context.data.putLong(PLAY_TIME_KEY, context.data.getLong(PLAY_TIME_KEY))
+        // Save data from temporaryData to persistent storage
+        val tempData = context.temporaryData as? RecordPlayerContextData
+        if (tempData != null) {
+            context.data.putLong(PLAY_TIME_KEY, tempData.playTime)
+            context.data.putBoolean(HAS_RECORD_KEY, tempData.hasRecord)
+            context.data.putBoolean("IsPaused", tempData.isPaused)
+            context.data.putLong("PauseStartTime", tempData.pauseStartTime)
+            context.data.putLong("TotalPausedTime", tempData.totalPausedTime)
+            context.data.put("HeldRecordItem", getRecordItem(context).serializeNBT())
+        }
     }
 
     private fun updateClientState(context: MovementContext) {
@@ -239,32 +317,85 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
         val newPlayTime = blockNbt.getLong(PLAY_TIME_KEY)
         val newHasRecord = blockNbt.getBoolean(HAS_RECORD_KEY)
+        val newIsPaused = blockNbt.getBoolean("IsPaused")
+        val newPauseStartTime = blockNbt.getLong("PauseStartTime")
+        val newTotalPausedTime = blockNbt.getLong("TotalPausedTime")
+
+        // Get or create temporaryData
+        val tempData = getOrCreateTemporaryData(context)
 
         // Get current values BEFORE updating
-        val currentPlayTime = context.data.getLong(PLAY_TIME_KEY)
-        val currentHasRecord = context.data.getBoolean(HAS_RECORD_KEY)
+        val currentPlayTime = tempData.playTime
+        val currentHasRecord = tempData.hasRecord
 
         // Detect if play time was reset to 0 (indicates audio ended and should restart)
         // This happens when the server receives the stream end packet
         if (currentPlayTime > 0 && newPlayTime == 0L && newHasRecord) {
             // Mark that audio ended so we can trigger a clean restart
-            context.data.putBoolean(AUDIO_ENDED_KEY, true)
+            tempData.audioEnded = true
         }
 
-        // Update play time if changed
+        // Update play time in temporaryData if changed
         if (currentPlayTime != newPlayTime) {
-            context.data.putLong(PLAY_TIME_KEY, newPlayTime)
+            tempData.playTime = newPlayTime
         }
 
         // Update hasRecord if changed
         if (currentHasRecord != newHasRecord) {
-            context.data.putBoolean(HAS_RECORD_KEY, newHasRecord)
+            tempData.hasRecord = newHasRecord
+        }
+
+        // Update pause state
+        tempData.isPaused = newIsPaused
+        tempData.pauseStartTime = newPauseStartTime
+        tempData.totalPausedTime = newTotalPausedTime
+
+        // Update HeldRecordItem if present in block NBT
+        if (blockNbt.contains("HeldRecordItem")) {
+            val itemNbt = blockNbt.getCompound("HeldRecordItem")
+            val recordStack = ItemStack.of(itemNbt)
+            // Update the block entity's record display
+            val be = context.contraption.getBlockEntityClientSide(context.localPos) as? RecordPlayerBlockEntity
+            be?.playerBehaviour?.setRecord(recordStack)
         }
     }
 
-    private fun buildPitchSupplier(context: MovementContext): () -> Float {
-        if (context.temporaryData !is PitchSupplierInterpolated) {
+    private fun getOrCreateTemporaryData(context: MovementContext): RecordPlayerContextData {
+        if (context.temporaryData !is RecordPlayerContextData) {
+            // Initialize temporaryData with saved data from context.data (only used on contraption load)
+            val savedPlayTime = context.data.getLong(PLAY_TIME_KEY)
+            val savedHasRecord = context.data.getBoolean(HAS_RECORD_KEY)
+            val savedIsPaused = context.data.getBoolean("IsPaused")
+            val savedPauseStartTime = context.data.getLong("PauseStartTime")
+            val savedTotalPausedTime = context.data.getLong("TotalPausedTime")
             context.temporaryData =
+                RecordPlayerContextData(
+                    pitchSupplier = null,
+                    playTime = savedPlayTime,
+                    hasRecord = savedHasRecord,
+                    isPaused = savedIsPaused,
+                    pauseStartTime = savedPauseStartTime,
+                    totalPausedTime = savedTotalPausedTime,
+                )
+
+            // On client side, also load the saved HeldRecordItem into the block entity for display
+            context.world.onClient { _, _ ->
+                if (context.data.contains("HeldRecordItem")) {
+                    val itemNbt = context.data.getCompound("HeldRecordItem")
+                    val recordStack = ItemStack.of(itemNbt)
+                    val be = context.contraption.getBlockEntityClientSide(context.localPos) as? RecordPlayerBlockEntity
+                    be?.playerBehaviour?.setRecord(recordStack)
+                }
+            }
+        }
+        return context.temporaryData as RecordPlayerContextData
+    }
+
+    private fun buildPitchSupplier(context: MovementContext): () -> Float {
+        val tempData = getOrCreateTemporaryData(context)
+
+        if (tempData.pitchSupplier == null) {
+            tempData.pitchSupplier =
                 PitchSupplierInterpolated({
                     // Check if speed-based pitch is enabled in client config
                     if (!ModConfigurations.client.enableSpeedBasedPitch.get()) {
@@ -284,7 +415,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                 }, 500)
         }
 
-        return { (context.temporaryData as PitchSupplierInterpolated).getPitch() }
+        return { tempData.pitchSupplier!!.getPitch() }
     }
 
     private fun calculateControlledContraptionPitch(context: MovementContext): Float {
@@ -433,15 +564,16 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         }
 
         // Calculate desired playback state based on current local contraption state
-        val hasRecord = context.data.getBoolean(HAS_RECORD_KEY)
-        val playTime = context.data.getLong(PLAY_TIME_KEY)
+        val tempData = getOrCreateTemporaryData(context)
+        val hasRecord = tempData.hasRecord
+        val playTime = tempData.playTime
         val currentSpeed = abs(context.animationSpeed)
         val isStalled = context.stall
         val currentTick = context.world.gameTime
 
-        val wasAudioEnded = context.data.contains(AUDIO_ENDED_KEY)
+        val wasAudioEnded = tempData.audioEnded
         if (wasAudioEnded) {
-            context.data.remove(AUDIO_ENDED_KEY)
+            tempData.audioEnded = false
         }
 
         // Determine raw desired state (before grace period)
@@ -464,12 +596,12 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         val desiredState: PlaybackState
 
         if (rawDesiredState == PlaybackState.PAUSED) {
-            if (!context.data.contains(PAUSE_REQUESTED_TICK_KEY)) {
-                context.data.putLong(PAUSE_REQUESTED_TICK_KEY, currentTick)
+            if (tempData.pauseRequestedTick < 0) {
+                tempData.pauseRequestedTick = currentTick
                 return
             } else {
                 // We've been wanting to pause for a while - check if grace period expired
-                val pauseRequestedTick = context.data.getLong(PAUSE_REQUESTED_TICK_KEY)
+                val pauseRequestedTick = tempData.pauseRequestedTick
                 val ticksSincePauseRequested = currentTick - pauseRequestedTick
 
                 if (ticksSincePauseRequested < PAUSE_GRACE_PERIOD_TICKS) {
@@ -478,12 +610,12 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                 } else {
                     // Grace period expired - actually pause now
                     desiredState = PlaybackState.PAUSED
-                    context.data.remove(PAUSE_REQUESTED_TICK_KEY)
+                    tempData.pauseRequestedTick = -1L
                 }
             }
         } else {
             // Not trying to pause, or already paused/stopped - clear grace period
-            context.data.remove(PAUSE_REQUESTED_TICK_KEY)
+            tempData.pauseRequestedTick = -1L
             desiredState = rawDesiredState
         }
 
@@ -497,7 +629,22 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                     AudioPlayer.PlayState.STOPPED -> {
                         val record = getRecordItem(context)
                         val offsetSeconds =
-                            if (playTime > 0) (System.currentTimeMillis() - playTime) / 1000.0 else 0.0
+                            if (playTime > 0) {
+                                // Calculate elapsed time minus any accumulated pause time
+                                val elapsedTime = System.currentTimeMillis() - playTime
+                                val adjustedTime = elapsedTime - tempData.totalPausedTime
+                                val offset = adjustedTime / 1000.0
+
+                                // Safety check: if offset is negative or absurdly large (>1 hour),
+                                // the playTime hasn't been properly synced yet, so start from 0
+                                if (offset < 0 || offset > 3600) {
+                                    Logger.warn("Invalid playTime offset detected: $offset seconds. Waiting for server sync.")
+                                    return // Wait for next tick with proper sync
+                                }
+                                offset
+                            } else {
+                                0.0
+                            }
 
                         player.playFromRecord(record, offsetSeconds) {
                             val pitchFunction =
@@ -532,13 +679,13 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         playerId: String,
         context: MovementContext,
     ): AudioPlayer {
-        // Check if we've already initialized the player for this context
-        val playerInitializedKey = "PlayerInitialized"
-        val isInitialized = context.data.getBoolean(playerInitializedKey)
+        // Get or create temporaryData
+        val tempData = getOrCreateTemporaryData(context)
+
         val playerExists = AudioPlayerRegistry.containsStream(playerId)
 
         // Need to initialize if: not initialized yet, OR initialized but player was destroyed
-        if (!isInitialized || !playerExists) {
+        if (!tempData.playerInitialized || !playerExists) {
             // Clean up any stale player (shouldn't exist, but just in case)
             if (playerExists) {
                 val existingPlayer = AudioPlayerRegistry.getPlayer(playerId)
@@ -546,12 +693,12 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                 AudioPlayerRegistry.destroyPlayer(playerId)
             }
 
-            // Reset play time and other state when creating a fresh player
-            context.data.putLong(PLAY_TIME_KEY, 0)
-            context.data.remove(AUDIO_ENDED_KEY)
-            context.data.remove(PAUSE_REQUESTED_TICK_KEY)
+            // Only reset state flags, but keep playTime if it exists (e.g., when rejoining)
+            // This allows the audio to resume from where it left off
+            tempData.audioEnded = false
+            tempData.pauseRequestedTick = -1L
 
-            context.data.putBoolean(playerInitializedKey, true)
+            tempData.playerInitialized = true
         }
 
         return AudioPlayerRegistry.getOrCreatePlayer(playerId) {
@@ -603,6 +750,12 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
     }
 
     private fun getRecordItem(context: MovementContext): ItemStack {
+        if (context.world.isClientSide) {
+            val be =
+                context.contraption.getBlockEntityClientSide(context.localPos) as? RecordPlayerBlockEntity
+                    ?: return ItemStack.EMPTY
+            return be.playerBehaviour.getRecord()
+        }
         val handler =
             context.contraption.storage.allItemStorages[context.localPos] as? RecordPlayerMountedStorage
                 ?: return ItemStack.EMPTY

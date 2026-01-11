@@ -94,7 +94,7 @@ class SoundEventComposition(
             // If sound has probabilitySupplier and is NOT looping, use coroutine-based probability system
             if (hasProbabilitySupplier && !isLooping) {
                 val job =
-                    launchRepeating(context = MinecraftClientDispatcher, Duration.ZERO, 1.seconds) {
+                    launchRepeating(context = MinecraftClientDispatcher, Duration.ZERO, 30.seconds) {
                         val probability = soundEvent.probabilitySupplier?.invoke() ?: 0f
                         val randomValue = Random.nextFloat()
 

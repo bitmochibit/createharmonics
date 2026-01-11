@@ -72,12 +72,9 @@ class RecordPlayerRenderer(
             matrices: ContraptionMatrices,
             buffer: MultiBufferSource,
         ) {
-            val handler =
-                context.contraption.storage.allItemStorages[context.localPos] as? RecordPlayerMountedStorage
-                    ?: return
             val be =
                 context.contraption.getBlockEntityClientSide(context.localPos) as? RecordPlayerBlockEntity ?: return
-            val record = handler.getRecord()
+            val record = be.playerBehaviour.getRecord()
 
             if (record.isEmpty || record.item !is EtherealRecordItem) return
             val item = record.item as? EtherealRecordItem ?: return

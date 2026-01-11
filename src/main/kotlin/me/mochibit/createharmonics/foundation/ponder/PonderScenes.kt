@@ -231,16 +231,42 @@ object PonderScenes {
         scene.world().multiplyKineticSpeed(util.select().everywhere(), 1 / 4f)
         scene.idle(70)
 
+        // Jukebox modes
+        scene.addKeyframe()
+        scene.rotateCameraY(90f)
+        scene.world().hideSection(util.select().fromTo(16, 2, 17, 16, 2, 20), Direction.UP)
+        scene.idle(5)
+        scene.world().multiplyKineticSpeed(util.select().everywhere(), 2f)
+        scene
+            .overlay()
+            .showText(60)
+            .text("Andesite jukeboxes have 2 modes, play and pause")
+            .pointAt(topOfPlayer)
+        scene.idle(70)
+
+        scene
+            .overlay()
+            .showText(60)
+            .colored(PonderPalette.GREEN)
+            .text("When in play mode, the audio will play once and stop when finished")
+            .pointAt(topOfPlayer)
+
+        scene.idle(80)
+
+        scene
+            .overlay()
+            .showText(60)
+            .colored(PonderPalette.BLUE)
+            .text("In pause mode the playback will be simply manually paused, and can be resumed resetting to play mode")
+            .pointAt(topOfPlayer)
+        scene.idle(80)
+
         // Redstone loop mode
         scene.addKeyframe()
         val redstoneBB =
             AABB(recordPlayer)
                 .inflate((-1 / 32f).toDouble(), (-1 / 32f).toDouble(), (-1 / 32f).toDouble())
 
-        scene.rotateCameraY(90f)
-        scene.world().hideSection(util.select().fromTo(16, 2, 17, 16, 2, 20), Direction.UP)
-        scene.idle(5)
-        scene.world().multiplyKineticSpeed(util.select().everywhere(), 2f)
         scene.world().showSection(util.select().position(recordLever), Direction.DOWN)
         scene.idle(10)
         scene.world().modifyBlock(recordLever, { s -> s.cycle(LeverBlock.POWERED) }, false)
@@ -250,9 +276,25 @@ object PonderScenes {
             .overlay()
             .showText(60)
             .colored(PonderPalette.RED)
-            .text("Andesite jukeboxes can be put to loop-mode when redstone powered")
+            .text("When powered they behave differently depending on the mode")
             .pointAt(topOfPlayer)
         scene.idle(70)
+
+        scene
+            .overlay()
+            .showText(70)
+            .colored(PonderPalette.GREEN)
+            .text("In play mode, they will loop the playback until unpowered")
+            .pointAt(topOfPlayer)
+        scene.idle(80)
+
+        scene
+            .overlay()
+            .showText(70)
+            .colored(PonderPalette.BLUE)
+            .text("In pause mode, redstone controls the playback, so power to play, unpower to pause")
+            .pointAt(topOfPlayer)
+        scene.idle(80)
         scene.world().modifyBlock(recordLever, { s -> s.cycle(LeverBlock.POWERED) }, false)
 
         // Mechanical Arm Feature

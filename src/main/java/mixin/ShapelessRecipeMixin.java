@@ -2,7 +2,7 @@ package mixin;
 
 import me.mochibit.createharmonics.event.crafting.RecipeAssembledEvent;
 import net.minecraft.core.RegistryAccess;
-import net.minecraft.world.Container;
+import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.ShapelessRecipe;
 import net.minecraftforge.common.MinecraftForge;
@@ -16,8 +16,8 @@ import java.util.Collections;
 
 @Mixin(ShapelessRecipe.class)
 public abstract class ShapelessRecipeMixin {
-    @Inject(method = "assemble(Lnet/minecraft/world/Container;Lnet/minecraft/core/RegistryAccess;)Lnet/minecraft/world/item/ItemStack;", at = @At("RETURN"))
-    private void onRecipeAssembled(Container container, RegistryAccess reg, CallbackInfoReturnable<ItemStack> cir) {
+    @Inject(method = "assemble(Lnet/minecraft/world/inventory/CraftingContainer;Lnet/minecraft/core/RegistryAccess;)Lnet/minecraft/world/item/ItemStack;", at = @At("RETURN"))
+    private void onRecipeAssembled(CraftingContainer container, RegistryAccess reg, CallbackInfoReturnable<ItemStack> cir) {
         ItemStack result = cir.getReturnValue();
         if (!result.isEmpty()) {
             var ingredients = new ArrayList<ItemStack>();

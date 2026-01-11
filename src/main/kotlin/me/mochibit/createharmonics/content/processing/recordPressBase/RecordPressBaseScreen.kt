@@ -304,11 +304,6 @@ class RecordPressBaseScreen(
             false,
         )
 
-        // Setup framebuffer for stencil rendering
-        val mcRenderTarget = minecraft?.mainRenderTarget ?: return
-        val rendererFrameBuffer = UIRenderHelper.framebuffer ?: return
-        UIRenderHelper.swapAndBlitColor(mcRenderTarget, rendererFrameBuffer)
-
         // Draw background strip (vertical strip at x+33)
         UIRenderHelper.drawStretched(
             graphics,
@@ -316,7 +311,7 @@ class RecordPressBaseScreen(
             y + SCROLL_AREA_Y,
             3,
             SCROLL_AREA_HEIGHT,
-            200,
+            0,
             AllGuiTextures.SCHEDULE_STRIP_DARK,
         )
 
@@ -325,8 +320,6 @@ class RecordPressBaseScreen(
 
         // Render gradients for scroll indication
         renderScrollGradients(graphics)
-
-        UIRenderHelper.swapAndBlitColor(rendererFrameBuffer, mcRenderTarget)
 
         // Render 3D item
         GuiGameElement
@@ -353,19 +346,19 @@ class RecordPressBaseScreen(
         editBoxPositions.clear()
         cardButtonPositions.clear()
 
+        // Enable scissor ONCE for the entire scrollable area
+        graphics.enableScissor(
+            x + SCROLL_AREA_X,
+            y + SCROLL_AREA_Y,
+            x + SCROLL_AREA_X + SCROLL_AREA_WIDTH,
+            y + SCROLL_AREA_Y + SCROLL_AREA_HEIGHT,
+        )
+
         for (i in 0..entries.size) {
-            // Start scissor for clipping
-            graphics.enableScissor(
-                x + SCROLL_AREA_X,
-                y + SCROLL_AREA_Y,
-                x + SCROLL_AREA_X + SCROLL_AREA_WIDTH,
-                y + SCROLL_AREA_Y + SCROLL_AREA_HEIGHT,
-            )
-
             matrixStack.pushPose()
-            matrixStack.translate(0f, scrollOffset, 0f)
+            matrixStack.translate(0f, scrollOffset, 100f)
 
-            // Draw top strip for first item
+            // Draw top strip light ONLY for first item
             if (i == 0 || entries.isEmpty()) {
                 UIRenderHelper.drawStretched(
                     graphics,
@@ -373,7 +366,7 @@ class RecordPressBaseScreen(
                     y + 16,
                     3,
                     10,
-                    -100,
+                    0,
                     AllGuiTextures.SCHEDULE_STRIP_LIGHT,
                 )
             }
@@ -402,7 +395,6 @@ class RecordPressBaseScreen(
 
                 totalContentHeight = yOffset + 20
                 matrixStack.popPose()
-                graphics.disableScissor()
                 break
             }
 
@@ -410,6 +402,9 @@ class RecordPressBaseScreen(
             val urlEntry = entries[i]
             val cardHeight = renderUrlEntry(graphics, i, urlEntry, yOffset, mouseX, mouseY, partialTicks, scrollOffset)
             yOffset += cardHeight
+            matrixStack.popPose()
+            matrixStack.pushPose()
+            matrixStack.translate(0f, scrollOffset, 200f)
 
             // Draw separator between entries
             if (i + 1 < entries.size) {
@@ -418,10 +413,12 @@ class RecordPressBaseScreen(
             }
 
             matrixStack.popPose()
-            graphics.disableScissor()
         }
 
-        // Render pointer for current selection AFTER all content (on top layer)
+        // Disable scissor after all content is rendered
+        graphics.disableScissor()
+
+        // Render pointer for current selection AFTER scissor is disabled (on top layer)
         if (configuration.currentUrlIndex < entries.size && entries.isNotEmpty()) {
             // Calculate yOffset for the selected entry
             var pointerYOffset = 27
@@ -458,7 +455,7 @@ class RecordPressBaseScreen(
     private fun renderScrollGradients(graphics: GuiGraphics) {
         val x = guiLeft
         val y = guiTop
-        val zLevel = 200
+        val zLevel = 2000
 
         // Top gradient
         graphics.fillGradient(
@@ -493,7 +490,7 @@ class RecordPressBaseScreen(
         partialTicks: Float,
         scrollOffset: Float,
     ): Int {
-        val zLevel = -100
+        val zLevel = 50
         val cardWidth = CARD_WIDTH
         val cardHeader = CARD_HEADER_HEIGHT
         val cardHeight = cardHeader + CARD_PADDING
@@ -509,11 +506,17 @@ class RecordPressBaseScreen(
         // Draw card background
         renderCardBackground(graphics, cardWidth, cardHeight, cardHeader, zLevel)
 
+        matrixStack.popPose()
+        matrixStack.pushPose()
+        matrixStack.translate(cardX.toFloat(), cardY.toFloat(), 50f)
+
         // Draw card action buttons and track positions
         renderCardButtons(graphics, index, cardX, cardY, cardWidth, cardHeight, cardHeader, scrollOffset)
+        UIRenderHelper.drawStretched(graphics, 8, 0, 3, cardHeight + 10, 0, AllGuiTextures.SCHEDULE_STRIP_LIGHT)
 
-        // Draw left strip
-        UIRenderHelper.drawStretched(graphics, 8, 0, 3, cardHeight + 10, zLevel, AllGuiTextures.SCHEDULE_STRIP_LIGHT)
+        matrixStack.popPose()
+        matrixStack.pushPose()
+        matrixStack.translate(cardX.toFloat(), cardY.toFloat(), 1000f)
         noteStripTexture.render(graphics, 5, CARD_SPACING)
 
         matrixStack.popPose()
@@ -531,11 +534,19 @@ class RecordPressBaseScreen(
             inputY,
             urlInputWidth,
             URL_FIELD_HEIGHT,
-            0,
+            150,
             middle,
         )
+        matrixStack.pushPose()
+        matrixStack.translate(0f, 0f, 150f)
+
         linkArrowTextureLeft.render(graphics, cardX + 16, inputY)
         right.render(graphics, cardX + urlInputWidth + 26, inputY)
+
+        matrixStack.popPose()
+
+        matrixStack.pushPose()
+        matrixStack.translate(0f, 0f, 200f)
 
         // Render EditBox inline (inside the same transform)
         if (index < urlInputFields.size) {
@@ -589,6 +600,7 @@ class RecordPressBaseScreen(
                 weightEditBox.render(graphics, mouseX, mouseY, partialTicks)
             }
         }
+        matrixStack.popPose()
 
         return cardHeight
     }
@@ -687,6 +699,10 @@ class RecordPressBaseScreen(
         partialTicks: Float,
     ) {
         super.render(graphics, mouseX, mouseY, partialTicks)
+
+        val pose = graphics.pose()
+        pose.pushPose()
+        pose.translate(0f, 0f, 5000f)
 
         // Render tooltips for card buttons
         val scrollAreaLeft = guiLeft + SCROLL_AREA_X
@@ -797,6 +813,7 @@ class RecordPressBaseScreen(
                 }
             }
         }
+        pose.popPose()
     }
 
     override fun tick() {

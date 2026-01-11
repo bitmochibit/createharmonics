@@ -86,7 +86,7 @@ enum class RecordType(
                 listOf(
                     SoundEventComposition.SoundEventDef(
                         ModSounds.GLITTER.get(),
-                        looping = true,
+                        looping = false,
                         relative = false,
                         volumeSupplier = { 0.7f },
                         probabilitySupplier = { 0.1f },

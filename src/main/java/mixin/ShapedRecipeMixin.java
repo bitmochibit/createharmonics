@@ -2,7 +2,7 @@ package mixin;
 
 import me.mochibit.createharmonics.event.crafting.RecipeAssembledEvent;
 import net.minecraft.core.RegistryAccess;
-import net.minecraft.world.Container;
+import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraftforge.common.MinecraftForge;
@@ -16,17 +16,18 @@ import java.util.Collections;
 
 @Mixin(ShapedRecipe.class)
 public abstract class ShapedRecipeMixin {
-    @Inject(method = "assemble(Lnet/minecraft/world/Container;Lnet/minecraft/core/RegistryAccess;)Lnet/minecraft/world/item/ItemStack;", at = @At("RETURN"))
-    private void onRecipeAssembled(Container container, RegistryAccess reg, CallbackInfoReturnable<ItemStack> cir) {
+    @Inject(method = "assemble(Lnet/minecraft/world/inventory/CraftingContainer;Lnet/minecraft/core/RegistryAccess;)Lnet/minecraft/world/item/ItemStack;", at = @At("RETURN"))
+    private void onRecipeAssembled(CraftingContainer pContainer, RegistryAccess pRegistryAccess, CallbackInfoReturnable<ItemStack> cir) {
         ItemStack result = cir.getReturnValue();
         if (!result.isEmpty()) {
             var ingredients = new ArrayList<ItemStack>();
-            for (int i = 0; i < container.getContainerSize(); i++) {
-                ingredients.add(container.getItem(i));
+            for (int i = 0; i < pContainer.getContainerSize(); i++) {
+                ingredients.add(pContainer.getItem(i));
             }
             RecipeAssembledEvent event = new RecipeAssembledEvent(ingredients, Collections.singletonList(result));
             MinecraftForge.EVENT_BUS.post(event);
         }
     }
+
 }
 

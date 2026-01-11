@@ -145,6 +145,14 @@ class RecordPlayerBehaviour(
         private set
 
     @Volatile
+    var pauseStartTime: Long = 0
+        private set
+
+    @Volatile
+    var totalPausedTime: Long = 0
+        private set
+
+    @Volatile
     var audioPlayCount: Long = 0
         private set
 
@@ -443,8 +451,39 @@ class RecordPlayerBehaviour(
         playbackState = newState
 
         when {
-            resetTime -> playTime = 0
-            setCurrentTime -> playTime = System.currentTimeMillis()
+            resetTime -> {
+                playTime = 0
+                pauseStartTime = 0
+                totalPausedTime = 0
+            }
+
+            setCurrentTime -> {
+                playTime = System.currentTimeMillis()
+                pauseStartTime = 0
+                totalPausedTime = 0
+            }
+        }
+
+        // Handle pause timing
+        when (newState) {
+            PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
+                if (oldState == PlaybackState.PLAYING) {
+                    // Started pausing, record when
+                    pauseStartTime = System.currentTimeMillis()
+                }
+            }
+
+            PlaybackState.PLAYING -> {
+                if (oldState == PlaybackState.PAUSED || oldState == PlaybackState.MANUALLY_PAUSED) {
+                    // Resumed from pause, accumulate the paused duration
+                    if (pauseStartTime > 0) {
+                        totalPausedTime += (System.currentTimeMillis() - pauseStartTime)
+                        pauseStartTime = 0
+                    }
+                }
+            }
+
+            else -> {}
         }
 
         when (newState) {
@@ -465,7 +504,10 @@ class RecordPlayerBehaviour(
     private fun startClientPlayer(currentRecord: ItemStack) {
         val offsetSeconds =
             if (playTime > 0) {
-                (System.currentTimeMillis() - this.playTime) / 1000.0
+                // Calculate elapsed time minus any accumulated pause time
+                val elapsedTime = System.currentTimeMillis() - playTime
+                val adjustedTime = elapsedTime - totalPausedTime
+                adjustedTime / 1000.0
             } else {
                 0.0
             }
@@ -531,6 +573,8 @@ class RecordPlayerBehaviour(
         NBTHelper.writeEnum(compound, "PlaybackState", playbackState)
         compound.putUUID("RecordPlayerUUID", recordPlayerUUID)
         compound.putLong("PlayTime", playTime)
+        compound.putLong("PauseStartTime", pauseStartTime)
+        compound.putLong("TotalPausedTime", totalPausedTime)
         compound.putLong("AudioPlayCount", audioPlayCount)
         audioPlayingTitle?.let {
             compound.putString("AudioPlayingTitle", it)
@@ -556,6 +600,14 @@ class RecordPlayerBehaviour(
             playTime = compound.getLong("PlayTime")
         }
 
+        if (compound.contains("PauseStartTime")) {
+            pauseStartTime = compound.getLong("PauseStartTime")
+        }
+
+        if (compound.contains("TotalPausedTime")) {
+            totalPausedTime = compound.getLong("TotalPausedTime")
+        }
+
         if (compound.contains("AudioPlayingTitle")) {
             audioPlayingTitle = compound.getString("AudioPlayingTitle")
         }
@@ -571,22 +623,24 @@ class RecordPlayerBehaviour(
             be.level?.onClient { level, virtual ->
                 if (oldPlaybackState != newPlaybackState) {
                     when (newPlaybackState) {
-                        PlaybackState.PLAYING if (
-                            oldPlaybackState == PlaybackState.PAUSED ||
-                                oldPlaybackState == PlaybackState.MANUALLY_PAUSED
-                        ) -> {
-                            resumeClientPlayer()
-                        }
-
-                        PlaybackState.PLAYING if oldPlaybackState == PlaybackState.STOPPED -> {
+                        PlaybackState.PLAYING -> {
                             val currentRecord = getRecord()
                             if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
-                                startClientPlayer(currentRecord)
+                                // Check the actual audio player state to decide whether to start or resume
+                                if (audioPlayer.state == AudioPlayer.PlayState.PAUSED) {
+                                    resumeClientPlayer()
+                                } else {
+                                    // Player is stopped or not initialized - start from offset
+                                    startClientPlayer(currentRecord)
+                                }
                             }
                         }
 
                         PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
-                            pauseClientPlayer()
+                            // Only pause if there's something playing
+                            if (audioPlayer.state == AudioPlayer.PlayState.PLAYING) {
+                                pauseClientPlayer()
+                            }
                         }
 
                         PlaybackState.STOPPED -> {
