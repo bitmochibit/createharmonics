@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.content.processing.recordPressBase
 
 import com.simibubi.create.AllItems
 import com.simibubi.create.AllShapes
+import com.simibubi.create.content.equipment.wrench.IWrenchable
 import com.simibubi.create.content.kinetics.base.HorizontalKineticBlock
 import com.simibubi.create.content.logistics.depot.SharedDepotBlockMethods
 import com.simibubi.create.content.redstone.thresholdSwitch.ThresholdSwitchBlockEntity
@@ -9,6 +10,7 @@ import com.simibubi.create.content.redstone.thresholdSwitch.ThresholdSwitchScree
 import com.simibubi.create.foundation.block.IBE
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock.WATERLOGGED
+import kotlinx.coroutines.Runnable
 import me.mochibit.createharmonics.registry.ModBlockEntities
 import net.createmod.catnip.gui.ScreenOpener
 import net.minecraft.client.player.LocalPlayer
@@ -42,8 +44,9 @@ import java.util.function.Supplier
 
 class RecordPressBaseBlock(
     properties: Properties,
-) : HorizontalKineticBlock(properties),
+) : Block(properties),
     IBE<RecordPressBaseBlockEntity>,
+    IWrenchable,
     ProperWaterloggedBlock {
     companion object {
         private val RANDOM = RandomSource.create()
@@ -58,8 +61,6 @@ class RecordPressBaseBlock(
     override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block?, BlockState?>) {
         super.createBlockStateDefinition(builder.add(WATERLOGGED))
     }
-
-    override fun getRotationAxis(state: BlockState?): Direction.Axis = Direction.UP.axis
 
     override fun getBlockEntityClass(): Class<RecordPressBaseBlockEntity> = RecordPressBaseBlockEntity::class.java
 
@@ -84,24 +85,16 @@ class RecordPressBaseBlock(
     ): InteractionResult {
         if (AllItems.WRENCH.isIn(pPlayer.getItemInHand(pHand))) return InteractionResult.PASS
 
-        // Shift + click opens configuration GUI
-        if (pPlayer.isShiftKeyDown) {
-            DistExecutor.unsafeRunWhenOn(
-                Dist.CLIENT,
-            ) {
+        // If clicked on any face except the top face, open the GUI
+        if (pHit.direction != Direction.UP) {
+            DistExecutor.unsafeRunWhenOn(Dist.CLIENT) {
                 Runnable {
-                    withBlockEntityDo(
-                        pLevel,
-                        pPos,
-                    ) { be: RecordPressBaseBlockEntity -> this.displayScreen(be, pPlayer) }
+                    withBlockEntityDo(pLevel, pPos) { be: RecordPressBaseBlockEntity ->
+                        this.displayScreen(be, pPlayer)
+                    }
                 }
             }
             return InteractionResult.SUCCESS
-        }
-
-        // Only allow item interactions on the top face
-        if (pHit.direction != Direction.UP) {
-            return InteractionResult.PASS
         }
 
         val clickItem = pPlayer.getItemInHand(pHand)

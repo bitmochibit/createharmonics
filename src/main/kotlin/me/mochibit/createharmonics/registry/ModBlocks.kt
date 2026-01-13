@@ -4,6 +4,7 @@ import com.simibubi.create.AllTags
 import com.simibubi.create.api.behaviour.display.DisplaySource.displaySource
 import com.simibubi.create.api.behaviour.movement.MovementBehaviour.movementBehaviour
 import com.simibubi.create.api.contraption.storage.item.MountedItemStorageType.mountedItemStorage
+import com.simibubi.create.foundation.data.AssetLookup
 import com.simibubi.create.foundation.data.BlockStateGen
 import com.simibubi.create.foundation.data.ModelGen.customItemModel
 import com.tterrag.registrate.util.entry.BlockEntry
@@ -46,9 +47,10 @@ object ModBlocks : AutoRegistrable {
                 p
                     .strength(2.0f, 6.0f)
                     .sound(SoundType.COPPER)
-            }.blockstate(BlockStateGen.horizontalBlockProvider(true))
-            .tag(AllTags.AllBlockTags.SAFE_NBT.tag)
-            .item()
+            }.tag(AllTags.AllBlockTags.SAFE_NBT.tag)
+            .blockstate { ctx, p ->
+                p.simpleBlock(ctx.entry, AssetLookup.partialBaseModel(ctx, p))
+            }.item()
             .transform(customItemModel())
             .register()
 

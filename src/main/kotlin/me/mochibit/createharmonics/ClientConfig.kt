@@ -67,7 +67,7 @@ object ClientConfig : ConfigBase() {
 
         ingameMenuLibButtonRow =
             i(
-                4,
+                3,
                 0,
                 5,
                 "ingameMenuLibButtonRow",
