@@ -54,6 +54,7 @@ else you can think of!
 - More directly supported platforms
 - Brass jukebox, with configurable pitch, range and record collections
 - Speakers and audio routing, for more controlled audio systems
+- Direct integration with Valkyrien Skies 2
 
 ### How it works
 
