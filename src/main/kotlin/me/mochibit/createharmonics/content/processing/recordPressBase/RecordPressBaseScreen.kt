@@ -133,13 +133,19 @@ class RecordPressBaseScreen(
 
     private fun initializeButtons() {
         confirmButton =
-            IconButton(guiLeft + background.width - 33, guiTop + background.height - 24, AllIcons.I_CONFIRM).apply {
+            AdvancedIconButton(
+                guiLeft + background.width - 33,
+                guiTop + background.height - 24,
+                AllIcons.I_CONFIRM,
+            ).apply {
                 withCallback<IconButton> { minecraft?.player?.closeContainer() }
+                zIndex = 100
+                toolTipZIndex = 6000
                 addRenderableWidget(this)
             }
 
         modeButton =
-            IconButton(
+            AdvancedIconButton(
                 guiLeft + 10,
                 guiTop + background.height - 24,
                 if (configuration.randomMode) randomModeTexture else sequentialModeTexture,
@@ -148,8 +154,10 @@ class RecordPressBaseScreen(
                     configuration.randomMode = !configuration.randomMode
                     setIcon(if (configuration.randomMode) randomModeTexture else sequentialModeTexture)
                     updateModeButtonTooltip()
-                    rebuildUrlInputFields() // Rebuild to adjust card widths
+                    rebuildUrlInputFields()
                 }
+                toolTipZIndex = 6000
+                zIndex = 100
                 addRenderableWidget(this)
             }
         updateModeButtonTooltip()
@@ -159,15 +167,13 @@ class RecordPressBaseScreen(
                 withCallback<IconButton> {
                     configuration.urls.add("")
                     configuration.weights.add(1f)
-                    // Don't change currentUrlIndex, keep it pointing to the same entry
                     rebuildUrlInputFields()
                 }
-                setToolTip(ModLang.translate("gui.record_press_base.url_add").component())
-                // render in stencil
+                defaultButton = false
             }
 
         increaseIndexButton =
-            IconButton(guiLeft + 50, guiTop + background.height - 24, AllIcons.I_PRIORITY_LOW).apply {
+            AdvancedIconButton(guiLeft + 50, guiTop + background.height - 24, AllIcons.I_PRIORITY_LOW).apply {
                 withCallback<IconButton> {
                     if (configuration.urls.isNotEmpty()) {
                         if (!changedIndexOnce) {
@@ -176,12 +182,14 @@ class RecordPressBaseScreen(
                         configuration.currentUrlIndex = (configuration.currentUrlIndex + 1) % configuration.urls.size
                     }
                 }
+                zIndex = 100
+                toolTipZIndex = 6000
                 setToolTip(ModLang.translate("gui.record_press_base.url_index_increase").component())
                 addRenderableWidget(this)
             }
 
         decreaseIndexButton =
-            IconButton(guiLeft + 70, guiTop + background.height - 24, AllIcons.I_PRIORITY_HIGH).apply {
+            AdvancedIconButton(guiLeft + 70, guiTop + background.height - 24, AllIcons.I_PRIORITY_HIGH).apply {
                 withCallback<IconButton> {
                     if (configuration.urls.isNotEmpty()) {
                         if (!changedIndexOnce) {
@@ -191,6 +199,8 @@ class RecordPressBaseScreen(
                             (configuration.currentUrlIndex - 1 + configuration.urls.size) % configuration.urls.size
                     }
                 }
+                zIndex = 100
+                toolTipZIndex = 6000
                 setToolTip(ModLang.translate("gui.record_press_base.url_index_decrease").component())
                 addRenderableWidget(this)
             }
@@ -220,16 +230,18 @@ class RecordPressBaseScreen(
 
         // Create new input fields for each URL
         configuration.urls.forEachIndexed { index, url ->
+            val urlInputWidth = getUrlInputWidth()
             val editBox =
                 EditBox(
                     font,
                     0,
                     0, // Position will be set during render
-                    getUrlInputWidth(),
+                    urlInputWidth,
                     URL_FIELD_HEIGHT,
                     ModLang.translate("gui.record_press_base.url_input").component(),
                 ).apply {
                     value = url
+                    setWidth(urlInputWidth)
                     @Suppress("UsePropertyAccessSyntax")
                     setBordered(false)
                     setMaxLength(2048)
@@ -553,10 +565,18 @@ class RecordPressBaseScreen(
         if (index < urlInputFields.size) {
             val editBox = urlInputFields[index]
 
+            // Sync value from configuration to prevent corruption
+            // Only update if not currently focused to avoid interfering with user input
+            if (!editBox.isFocused) {
+                val currentUrl = configuration.urls.getOrNull(index) ?: ""
+                if (editBox.value != currentUrl) {
+                    editBox.value = currentUrl
+                }
+            }
+
             // Set EditBox position (within transformed space)
             editBox.x = inputX
             editBox.y = inputY + 4
-            editBox.setWidth(urlInputWidth)
             editBox.height = URL_FIELD_HEIGHT
 
             // Render the EditBox now
@@ -783,21 +803,24 @@ class RecordPressBaseScreen(
                         mouseY >= pos.scrolledY && mouseY <= pos.scrolledY + pos.height
                     ) {
                         val fullUrl = configuration.urls.getOrNull(index) ?: ""
-                        val tooltip: MutableList<Component> =
+                        val tooltipLines =
                             mutableListOf(
-                                ModLang.translate("gui.record_press_base.url_input_tooltip").component(),
+                                ModLang
+                                    .translate("gui.record_press_base.url_input_tooltip")
+                                    .component()
+                                    .visualOrderText,
                             )
+
                         if (fullUrl.isNotEmpty()) {
-                            tooltip.add(
-                                Component
-                                    .literal(fullUrl)
-                                    .withStyle { it.withColor(0xAAAAAA) },
-                            )
+                            val maxWidth = 200
+                            val urlComponent = Component.literal(fullUrl).withStyle { it.withColor(0xAAAAAA) }
+                            val wrappedLines = font.split(urlComponent, maxWidth)
+                            tooltipLines.addAll(wrappedLines)
                         }
-                        // Join components with newlines
+
                         graphics.renderTooltip(
                             font,
-                            tooltip.map { it.visualOrderText },
+                            tooltipLines,
                             mouseX,
                             mouseY,
                         )
