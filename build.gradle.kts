@@ -120,6 +120,12 @@ minecraft {
     }
 }
 
+// Mixin configuration
+configure<org.spongepowered.asm.gradle.plugins.MixinExtension> {
+    add(sourceSets.main.get(), "$modId.refmap.json")
+    config("$modId.mixins.json")
+}
+
 sourceSets {
     main {
         ext["refMap"] = "$modId.refmap.json"

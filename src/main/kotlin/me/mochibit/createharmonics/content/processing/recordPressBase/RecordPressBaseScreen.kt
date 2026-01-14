@@ -16,6 +16,7 @@ import net.createmod.catnip.gui.UIRenderHelper
 import net.createmod.catnip.gui.element.GuiGameElement
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.EditBox
+import net.minecraft.network.chat.Component
 import net.minecraft.util.Mth
 import net.minecraft.world.item.ItemStack
 import kotlin.math.max
@@ -231,7 +232,7 @@ class RecordPressBaseScreen(
                     value = url
                     @Suppress("UsePropertyAccessSyntax")
                     setBordered(false)
-                    setMaxLength(1024)
+                    setMaxLength(2048)
                     setResponder { newValue ->
                         configuration.urls[index] = newValue
                     }
@@ -728,7 +729,7 @@ class RecordPressBaseScreen(
                 }
             }
 
-            cardButtonPositions.forEach { (index, buttons) ->
+            cardButtonPositions.forEach { (_, buttons) ->
                 // Remove button tooltip
                 buttons.removeButton?.let { pos ->
                     if (mouseX >= pos.x && mouseX <= pos.x + pos.width &&
@@ -781,9 +782,22 @@ class RecordPressBaseScreen(
                     if (mouseX >= pos.x && mouseX <= pos.x + pos.width &&
                         mouseY >= pos.scrolledY && mouseY <= pos.scrolledY + pos.height
                     ) {
+                        val fullUrl = configuration.urls.getOrNull(index) ?: ""
+                        val tooltip: MutableList<Component> =
+                            mutableListOf(
+                                ModLang.translate("gui.record_press_base.url_input_tooltip").component(),
+                            )
+                        if (fullUrl.isNotEmpty()) {
+                            tooltip.add(
+                                Component
+                                    .literal(fullUrl)
+                                    .withStyle { it.withColor(0xAAAAAA) },
+                            )
+                        }
+                        // Join components with newlines
                         graphics.renderTooltip(
                             font,
-                            ModLang.translate("gui.record_press_base.url_input_tooltip").component(),
+                            tooltip.map { it.visualOrderText },
                             mouseX,
                             mouseY,
                         )

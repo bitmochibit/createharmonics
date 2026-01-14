@@ -48,7 +48,6 @@ class YTdlpExecutor {
                         // Reduce unnecessary processing
                         "--no-warnings", // Don't print warnings
                         "--quiet", // Minimal output for faster execution
-                        "--no-call-home", // Don't check for updates
                         // Skip geo-bypass attempts (saves time)
                         "--no-geo-bypass",
                         // Skip checking if video needs login

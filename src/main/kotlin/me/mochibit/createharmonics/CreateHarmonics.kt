@@ -21,10 +21,12 @@ import net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory
 import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.eventbus.api.SubscribeEvent
 import net.minecraftforge.fml.DistExecutor
+import net.minecraftforge.fml.InterModComms
 import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent
 import net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent
+import net.minecraftforge.fml.event.lifecycle.InterModEnqueueEvent
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
 @Mod(MOD_ID)
@@ -96,6 +98,11 @@ class CreateHarmonicsMod(
         RegistryManager.registerAll(modEventBus, context)
 
         ModPackets.register(modEventBus, context)
+
+        InterModComms.sendTo(
+            "carryon",
+            "blacklistBlock",
+        ) { "createharmonics:*" }
 
         Runtime.getRuntime().addShutdownHook(
             Thread {

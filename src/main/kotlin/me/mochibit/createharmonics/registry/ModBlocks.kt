@@ -14,6 +14,11 @@ import me.mochibit.createharmonics.cRegistrate
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlock
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlock
+import net.createmod.ponder.foundation.registration.GenericMultiTagBuilder
+import net.minecraft.nbt.Tag
+import net.minecraft.resources.ResourceLocation
+import net.minecraft.tags.BlockTags
+import net.minecraft.tags.TagKey
 import net.minecraft.world.level.block.SoundType
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
@@ -31,8 +36,10 @@ object ModBlocks : AutoRegistrable {
                     .sound(SoundType.WOOD)
             }.blockstate(BlockStateGen.directionalBlockProvider(true))
             .onRegister(movementBehaviour(RecordPlayerMovementBehaviour()))
-            .tag(AllTags.AllBlockTags.SAFE_NBT.tag)
-            .tag(AllTags.AllBlockTags.SIMPLE_MOUNTED_STORAGE.tag)
+            .tag(
+                AllTags.AllBlockTags.SAFE_NBT.tag,
+                BlockTags.create(ResourceLocation.fromNamespaceAndPath("carryon", "block_blacklist")),
+            ).tag(AllTags.AllBlockTags.SIMPLE_MOUNTED_STORAGE.tag)
             .transform(mountedItemStorage(ModMountedStorages.SIMPLE_RECORD_PLAYER_STORAGE))
             .transform(displaySource(ModDisplaySources.AUDIO_NAME))
             .item()
@@ -47,8 +54,10 @@ object ModBlocks : AutoRegistrable {
                 p
                     .strength(2.0f, 6.0f)
                     .sound(SoundType.COPPER)
-            }.tag(AllTags.AllBlockTags.SAFE_NBT.tag)
-            .blockstate { ctx, p ->
+            }.tag(
+                AllTags.AllBlockTags.SAFE_NBT.tag,
+                BlockTags.create(ResourceLocation.fromNamespaceAndPath("carryon", "block_blacklist")),
+            ).blockstate { ctx, p ->
                 p.simpleBlock(ctx.entry, AssetLookup.partialBaseModel(ctx, p))
             }.item()
             .transform(customItemModel())

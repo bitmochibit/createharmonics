@@ -101,6 +101,7 @@ class SoundEventComposition(
                         if (randomValue <= probability) {
                             // Create and play the sound instance
                             val newSoundInstance = createSoundInstance(soundEvent, referenceSoundInstance, false)
+                            soundInstances.add(newSoundInstance)
                             Minecraft.getInstance().soundManager.play(newSoundInstance)
                         }
                     }
