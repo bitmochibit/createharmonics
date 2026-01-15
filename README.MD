@@ -3,7 +3,7 @@
 </p>
 <h1 align="center"> Create: Harmonics <br><br>
     <a href=""><img alt="CurseForge Page" src="https://img.shields.io/badge/Harmonics-CurseForge?logo=CurseForge&label=CurseForge&color=%23F16436&style=for-the-badge"></a>
-    <a href=""><img alt="Modrinth Page" src="https://img.shields.io/badge/Harmonics-Modrinth?logo=modrinth&label=Modrinth&color=%2300AF5C&style=for-the-badge"></a>
+    <a href="https://modrinth.com/mod/create-harmonics"><img alt="Modrinth Page" src="https://img.shields.io/badge/Harmonics-Modrinth?logo=modrinth&label=Modrinth&color=%2300AF5C&style=for-the-badge"></a>
     <a href=""><img alt="Github Page" src="https://img.shields.io/badge/GitHub-Source_Code-blue?logo=github&style=for-the-badge"></a>
 </h1>
 
