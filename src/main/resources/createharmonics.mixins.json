@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_17",
   "refmap": "createharmonics.refmap.json",
   "mixins": [
+    "AssemblyOperatorBlockItemMixin",
     "RecipeApplierMixin",
     "RecipeGridHandlerMixin",
     "ShapedRecipeMixin",

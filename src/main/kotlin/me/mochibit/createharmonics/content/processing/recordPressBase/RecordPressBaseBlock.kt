@@ -3,14 +3,10 @@ package me.mochibit.createharmonics.content.processing.recordPressBase
 import com.simibubi.create.AllItems
 import com.simibubi.create.AllShapes
 import com.simibubi.create.content.equipment.wrench.IWrenchable
-import com.simibubi.create.content.kinetics.base.HorizontalKineticBlock
 import com.simibubi.create.content.logistics.depot.SharedDepotBlockMethods
-import com.simibubi.create.content.redstone.thresholdSwitch.ThresholdSwitchBlockEntity
-import com.simibubi.create.content.redstone.thresholdSwitch.ThresholdSwitchScreen
 import com.simibubi.create.foundation.block.IBE
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock.WATERLOGGED
-import kotlinx.coroutines.Runnable
 import me.mochibit.createharmonics.registry.ModBlockEntities
 import net.createmod.catnip.gui.ScreenOpener
 import net.minecraft.client.player.LocalPlayer
@@ -28,7 +24,6 @@ import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelAccessor
 import net.minecraft.world.level.block.Block
-import net.minecraft.world.level.block.JukeboxBlock
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.StateDefinition
@@ -39,8 +34,6 @@ import net.minecraft.world.phys.shapes.VoxelShape
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.api.distmarker.OnlyIn
 import net.minecraftforge.fml.DistExecutor
-import java.util.function.Consumer
-import java.util.function.Supplier
 
 class RecordPressBaseBlock(
     properties: Properties,
@@ -161,6 +154,17 @@ class RecordPressBaseBlock(
     ): BlockState {
         updateWater(pLevel, pState, pPos)
         return pState
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onRemove(
+        state: BlockState,
+        worldIn: Level,
+        pos: BlockPos,
+        newState: BlockState,
+        isMoving: Boolean,
+    ) {
+        IBE.onRemove(state, worldIn, pos, newState)
     }
 
     @Deprecated("Deprecated in Java")

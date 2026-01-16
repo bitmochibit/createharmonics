@@ -1,5 +1,6 @@
 package mixin;
 
+import com.simibubi.create.content.processing.AssemblyOperatorBlockItem;
 import com.simibubi.create.foundation.recipe.RecipeApplier;
 import me.mochibit.createharmonics.event.crafting.RecipeAssembledEvent;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -46,3 +47,4 @@ public abstract class RecipeApplierMixin {
         }
     }
 }
+
