@@ -8,7 +8,6 @@ import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.seconds
 
-
 object ProcessLifecycleManager {
     private val processes = ConcurrentHashMap<Long, Process>()
 
@@ -19,24 +18,35 @@ object ProcessLifecycleManager {
         return pid
     }
 
-    fun destroyProcess(id: Long) = launchModCoroutine(Dispatchers.IO) {
-        processes.remove(id)?.let { process ->
-            try {
-                if (process.isAlive) {
-                    process.destroy()
-                    // Wait up to 2 seconds for graceful shutdown
-                    delay(2.seconds)
-                    if (process.isAlive) {
-                        info("Force killing process $id")
-                        process.destroyForcibly()
-                    }
-                }
-                info("Destroyed process $id (remaining: ${processes.size})")
-            } catch (e: Exception) {
-                err("Error destroying process $id: ${e.message}")
-            }
+    /**
+     * Unregister a process without attempting to destroy it.
+     * Use this when the process has already been terminated externally.
+     */
+    fun unregisterProcess(id: Long) {
+        if (processes.remove(id) != null) {
+            info("Unregistered process $id (remaining: ${processes.size})")
         }
     }
+
+    fun destroyProcess(id: Long) =
+        launchModCoroutine(Dispatchers.IO) {
+            processes.remove(id)?.let { process ->
+                try {
+                    if (process.isAlive) {
+                        process.destroy()
+                        // Wait up to 2 seconds for graceful shutdown
+                        delay(2.seconds)
+                        if (process.isAlive) {
+                            info("Force killing process $id")
+                            process.destroyForcibly()
+                        }
+                    }
+                    info("Destroyed process $id (remaining: ${processes.size})")
+                } catch (e: Exception) {
+                    err("Error destroying process $id: ${e.message}")
+                }
+            }
+        }
 
     /**
      * Synchronously destroy a process. Use this during shutdown to ensure cleanup completes.
@@ -72,4 +82,3 @@ object ProcessLifecycleManager {
         info("All managed processes shut down")
     }
 }
-

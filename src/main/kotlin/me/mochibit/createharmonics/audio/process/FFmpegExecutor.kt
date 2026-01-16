@@ -18,6 +18,7 @@ class FFmpegExecutor {
     private var process: Process? = null
     private var processId: Long? = null
     private var streamReadyChannel: Channel<Result<Unit>>? = null
+    private val errorMessages = mutableListOf<String>() // Capture error messages for diagnostics
 
     val inputStream: InputStream?
         get() = process?.inputStream
@@ -75,12 +76,13 @@ class FFmpegExecutor {
                 // Note: HTTP headers are intentionally not passed to FFmpeg as they cause
                 // formatting issues. yt-dlp already uses them to extract the URL.
 
+                // Network resilience parameters - aggressive timeouts to prevent hanging
                 add("-reconnect")
                 add("1")
                 add("-reconnect_streamed")
                 add("1")
                 add("-reconnect_delay_max")
-                add("5")
+                add("2")
                 add("-i")
                 add(url)
                 add("-f")
@@ -97,6 +99,7 @@ class FFmpegExecutor {
         // Create channel for stream ready signal
         val channel = Channel<Result<Unit>>(capacity = 1)
         streamReadyChannel = channel
+        errorMessages.clear() // Clear previous error messages
 
         val newProcess =
             try {
@@ -118,7 +121,41 @@ class FFmpegExecutor {
                 newProcess.errorStream.bufferedReader().use { reader ->
                     reader.lineSequence().forEach { line ->
                         if (line.isNotBlank()) {
-                            Logger.err("FFmpeg: $line")
+                            // Store error messages for later diagnosis
+                            synchronized(errorMessages) {
+                                errorMessages.add(line)
+                                // Keep only last 20 messages to prevent memory issues
+                                if (errorMessages.size > 20) {
+                                    errorMessages.removeAt(0)
+                                }
+                            }
+
+                            // Categorize errors for better debugging
+                            when {
+                                line.contains("Error parsing") -> {
+                                    Logger.err("FFmpeg [PARSE ERROR]: $line")
+                                }
+
+                                line.contains("Unable to read from socket") || line.contains("Connection") -> {
+                                    Logger.err("FFmpeg [NETWORK ERROR]: $line")
+                                }
+
+                                line.contains("Error submitting") || line.contains("Error muxing") -> {
+                                    Logger.err("FFmpeg [STREAM ERROR]: $line")
+                                }
+
+                                line.contains("Invalid argument") -> {
+                                    Logger.err("FFmpeg [INVALID ARG]: $line")
+                                }
+
+                                line.contains("403") || line.contains("Forbidden") -> {
+                                    Logger.err("FFmpeg [HTTP 403]: $line")
+                                }
+
+                                else -> {
+                                    Logger.err("FFmpeg: $line")
+                                }
+                            }
                         }
                     }
                 }
@@ -129,10 +166,16 @@ class FFmpegExecutor {
 
         // Monitor process lifecycle
         launchModCoroutine(Dispatchers.IO) {
+            val startTime = System.currentTimeMillis()
             val exitCode = newProcess.waitFor()
+            val runtime = System.currentTimeMillis() - startTime
+
             if (exitCode != 0) {
-                Logger.err("FFmpeg process exited with code $exitCode")
+                Logger.err("FFmpeg process exited with code $exitCode after ${runtime}ms")
+            } else {
+                Logger.info("FFmpeg process completed successfully after ${runtime}ms")
             }
+
             // Clean up when process exits naturally
             if (process == newProcess) {
                 processId?.let { ProcessLifecycleManager.destroyProcess(it) }
@@ -163,7 +206,18 @@ class FFmpegExecutor {
 
                 // Timeout or process died
                 if (!newProcess.isAlive) {
-                    channel.trySend(Result.failure(Exception("FFmpeg process terminated unexpectedly")))
+                    // Include error messages in the exception for diagnostics
+                    val recentErrors =
+                        synchronized(errorMessages) {
+                            errorMessages.takeLast(5).joinToString("; ")
+                        }
+                    val errorMsg =
+                        if (recentErrors.isNotEmpty()) {
+                            "FFmpeg process terminated unexpectedly: $recentErrors"
+                        } else {
+                            "FFmpeg process terminated unexpectedly"
+                        }
+                    channel.trySend(Result.failure(Exception(errorMsg)))
                 } else {
                     channel.trySend(Result.failure(Exception("Stream ready timeout")))
                 }
@@ -183,13 +237,63 @@ class FFmpegExecutor {
 
     fun isRunning(): Boolean = process?.isAlive == true
 
+    /**
+     * Destroys the FFmpeg process asynchronously.
+     * This method returns immediately and performs cleanup in the background.
+     */
     fun destroy() {
+        // Close channels immediately
         streamReadyChannel?.close()
         streamReadyChannel = null
-        processId?.let {
-            ProcessLifecycleManager.destroyProcess(it)
-            processId = null
-        }
+
+        val currentProcess = process
+        val currentProcessId = processId
+
+        // Clear references immediately
         process = null
+        processId = null
+
+        // Perform actual cleanup asynchronously to avoid blocking
+        if (currentProcess != null) {
+            launchModCoroutine(Dispatchers.IO) {
+                try {
+                    // Close streams first to signal shutdown
+                    try {
+                        currentProcess.inputStream?.close()
+                    } catch (_: Exception) {
+                        // Already closed or error, continue
+                    }
+
+                    try {
+                        currentProcess.errorStream?.close()
+                    } catch (_: Exception) {
+                        // Already closed or error, continue
+                    }
+
+                    // Attempt graceful termination if still alive
+                    if (currentProcess.isAlive) {
+                        currentProcess.destroy()
+
+                        // Wait briefly for graceful shutdown (100ms)
+                        if (!currentProcess.waitFor(100, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                            // Still alive, force kill
+                            currentProcess.destroyForcibly()
+                            // Wait a bit for force kill
+                            currentProcess.waitFor(50, java.util.concurrent.TimeUnit.MILLISECONDS)
+                        }
+                    }
+
+                    Logger.info("FFmpeg process ${currentProcessId ?: "unknown"} terminated")
+                } catch (e: Exception) {
+                    Logger.err("Error destroying FFmpeg process: ${e.message}")
+                }
+
+                // Unregister from ProcessLifecycleManager
+                currentProcessId?.let { id ->
+                    // Just remove from tracking (process is already terminated above)
+                    ProcessLifecycleManager.unregisterProcess(id)
+                }
+            }
+        }
     }
 }

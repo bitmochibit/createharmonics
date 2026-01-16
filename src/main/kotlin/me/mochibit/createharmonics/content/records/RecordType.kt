@@ -38,6 +38,7 @@ enum class RecordType(
                     ),
                 )
             },
+            defaultDurability = 20,
         ),
     ),
 
@@ -47,6 +48,7 @@ enum class RecordType(
                 Properties.Recipe(
                     secondaryIngredientProvider = { Ingredient.of(Tags.Items.INGOTS_GOLD) },
                 ),
+            defaultDurability = 1,
         ),
     ),
 
@@ -73,6 +75,7 @@ enum class RecordType(
                     ),
                 )
             },
+            defaultDurability = 800,
         ),
     ),
 
@@ -93,6 +96,7 @@ enum class RecordType(
                     ),
                 )
             },
+            defaultDurability = 1500,
         ),
     ),
 
@@ -116,6 +120,7 @@ enum class RecordType(
                     ),
                 )
             },
+            defaultDurability = 2000,
         ),
     ),
 
@@ -130,12 +135,14 @@ enum class RecordType(
                     BitCrushEffect(quality = 0.9f),
                 )
             },
+            defaultDurability = 250,
         ),
     ),
 
     CREATIVE(
         Properties(
             recipe = null,
+            defaultDurability = 0,
         ),
     ),
     ;
@@ -143,20 +150,13 @@ enum class RecordType(
     // Get uses from config, with fallback defaults matching config defaults
     val uses: Int
         get() =
-            CommonConfig.getRecordDurability(this) ?: when (this) {
-                STONE -> 20
-                GOLD -> 1
-                EMERALD -> 800
-                DIAMOND -> 1500
-                NETHERITE -> 2000
-                BRASS -> 250
-                else -> 0
-            }
+            CommonConfig.getRecordDurability(this) ?: this.properties.defaultDurability
 
     data class Properties(
         val recipe: Recipe? = null,
         val audioEffectsProvider: () -> List<AudioEffect> = { listOf() },
         val soundEventCompProvider: () -> List<SoundEventComposition.SoundEventDef> = { listOf() },
+        val defaultDurability: Int = 250,
     ) {
         data class Recipe(
             val primaryIngredientProvider: () -> Ingredient = { Ingredient.of(ModItems.BASE_RECORD.get()) },

@@ -20,20 +20,10 @@ object CommonConfig : ConfigBase() {
     private fun recordGroup() {
         group(1, "records", "Configuration for ethereal records")
         for (type in RecordType.entries) {
-            val defaultDurability =
-                when (type) {
-                    RecordType.STONE -> 20
-                    RecordType.GOLD -> 1
-                    RecordType.EMERALD -> 800
-                    RecordType.DIAMOND -> 1500
-                    RecordType.NETHERITE -> 2000
-                    RecordType.BRASS -> 250
-                    else -> 0
-                }
             val configName = "maxUses_${type.name.lowercase()}"
             val c =
                 i(
-                    defaultDurability,
+                    type.properties.defaultDurability,
                     0,
                     30000,
                     configName,
@@ -45,10 +35,8 @@ object CommonConfig : ConfigBase() {
 
     fun getRecordDurability(recordType: RecordType): Int? {
         val configInt = recordDurabilities[recordType] ?: return null
-        // Return null during data generation (config not loaded)
         return try {
-            val value = configInt.get()
-            if (value == 0) null else value
+            configInt.get()
         } catch (_: IllegalStateException) {
             // Config not loaded (e.g., during data generation)
             null

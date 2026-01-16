@@ -81,9 +81,9 @@ class RecordPressBaseBehaviour(
             override fun getSlots(): Int = 9 // 1 held + 8 outgoing slots (matching Depot's output buffer)
 
             override fun getStackInSlot(slot: Int): ItemStack =
-                when {
-                    slot == 0 -> heldItemStack
-                    slot in 1..8 -> outgoing.getOrNull(slot - 1)?.stack ?: ItemStack.EMPTY
+                when (slot) {
+                    0 -> heldItemStack
+                    in 1..8 -> outgoing.getOrNull(slot - 1)?.stack ?: ItemStack.EMPTY
                     else -> ItemStack.EMPTY
                 }
 
@@ -502,22 +502,14 @@ class RecordPressBaseBehaviour(
             }
 
             BeltProcessingBehaviour.ProcessingResult.HOLD -> {
-                // Item needs to stay for processing
                 currHeldItem.locked = true
             }
 
             BeltProcessingBehaviour.ProcessingResult.PASS -> {
-                // Processing is complete, allow item to pass through
                 currHeldItem.locked = false
             }
 
             else -> {}
-        }
-
-        // If processing just completed (was locked, now passing), assign the audio URL
-        if (result == BeltProcessingBehaviour.ProcessingResult.PASS && wasLocked) {
-            assignUrlToItem(currHeldItem.stack)
-            be.notifyUpdate()
         }
 
         // If item is not locked, eject it from the base
@@ -763,8 +755,21 @@ class RecordPressBaseBehaviour(
         maxDistanceFromCentre: Float,
         processFunction: java.util.function.Function<TransportedItemStack, TransportedItemStackHandlerBehaviour.TransportedResult>,
     ) {
-        // No-op: We handle Ethereal Record processing directly in processHeldItem
-        // and non-Ethereal items pass through immediately
+        val currHeldItem = heldItem ?: return
+        // Check if this is an Ethereal Record
+        if (currHeldItem.stack.item !is EtherealRecordItem) return
+
+        // Check if item is close enough to center to be processed
+        if (0.5f - currHeldItem.beltPosition > maxDistanceFromCentre) {
+            return
+        }
+
+        // Ethereal Record: assign URL immediately when pressed
+        if (currHeldItem.locked) {
+            // Item hasn't been processed yet, assign URL now
+            assignUrlToItem(currHeldItem.stack)
+            be.notifyUpdate()
+        }
     }
 
     /**

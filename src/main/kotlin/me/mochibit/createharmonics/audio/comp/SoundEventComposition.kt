@@ -1,7 +1,6 @@
 package me.mochibit.createharmonics.audio.comp
 
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.audio.instance.SimpleTickableSoundInstance
 import me.mochibit.createharmonics.coroutine.MinecraftClientDispatcher
@@ -163,17 +162,7 @@ class SoundEventComposition(
         }
 
     fun stopComposition() {
-        // Stop all sound instances first
-        for (soundInstance in soundInstances) {
-            try {
-                Minecraft.getInstance().soundManager.stop(soundInstance)
-            } catch (e: Exception) {
-                // Log but continue to stop other sounds
-            }
-        }
-        soundInstances.clear()
-
-        // Cancel all coroutine jobs
+        // Cancel all coroutine jobs immediately (can be done from any thread)
         for (job in probabilityJobs) {
             try {
                 job.cancel()
@@ -182,5 +171,21 @@ class SoundEventComposition(
             }
         }
         probabilityJobs.clear()
+
+        // Copy the list to avoid concurrent modification issues
+        val instancesToStop = soundInstances.toList()
+        soundInstances.clear()
+
+        // Stop all sound instances on the client thread (required by Minecraft)
+        // Launch async to avoid blocking the caller
+        launchModCoroutine(MinecraftClientDispatcher) {
+            for (soundInstance in instancesToStop) {
+                try {
+                    Minecraft.getInstance().soundManager.stop(soundInstance)
+                } catch (e: Exception) {
+                    // Log but continue to stop other sounds
+                }
+            }
+        }
     }
 }
