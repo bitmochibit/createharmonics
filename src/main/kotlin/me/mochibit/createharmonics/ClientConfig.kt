@@ -15,9 +15,6 @@ object ClientConfig : ConfigBase() {
     lateinit var playbackBufferSeconds: ConfigFloat
         private set
 
-    lateinit var enableSpeedBasedPitch: ConfigBool
-        private set
-
     lateinit var mainMenuLibButtonRow: ConfigInt
         private set
 
@@ -45,7 +42,7 @@ object ClientConfig : ConfigBase() {
 
         mainMenuLibButtonRow =
             i(
-                3,
+                2,
                 0,
                 4,
                 "mainMenuLibButtonRow",
@@ -95,15 +92,6 @@ object ClientConfig : ConfigBase() {
         maxPitch = f(2.0f, 1.0f, 4.0f, "maxPitch", "Maximum pitch for audio playback")
         playbackBufferSeconds =
             f(0.05f, 0.01f, 30.0f, "playbackBufferSeconds", "Buffer time in seconds for audio playback")
-
-        enableSpeedBasedPitch =
-            b(
-                true,
-                "enableSpeedBasedPitch",
-                "Enable pitch changes based on contraption speed",
-                "When enabled, the pitch of audio will change based on the rotational speed of the contraption",
-                "Disable this if you find the pitch changes annoying",
-            )
     }
 
     private fun libraryGroup(builder: ForgeConfigSpec.Builder) {

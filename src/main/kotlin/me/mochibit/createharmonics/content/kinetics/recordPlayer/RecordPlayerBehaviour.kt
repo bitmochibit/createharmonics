@@ -110,6 +110,11 @@ class RecordPlayerBehaviour(
 
     private val currentPitch: Float
         get() {
+            // Use static pitch (1.0f) if in static pitch mode
+            if (isStaticPitchMode()) {
+                return 1.0f
+            }
+
             val currSpeed = abs(be.speed)
 
             val minRpm = 16.0f
@@ -133,7 +138,6 @@ class RecordPlayerBehaviour(
             }
         }
 
-    // TODO: make this adjustable with a wrench
     var soundRadius: Int = 32
 
     @Volatile
@@ -194,6 +198,12 @@ class RecordPlayerBehaviour(
 
     override fun getType(): BehaviourType<RecordPlayerBehaviour> = BEHAVIOUR_TYPE
 
+    private fun isStaticPitchMode(): Boolean {
+        val playbackMode = be.playbackMode.get()
+        return playbackMode == RecordPlayerBlockEntity.PlaybackMode.PLAY_STATIC_PITCH ||
+            playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
+    }
+
     override fun tick() {
         super.tick()
 
@@ -241,8 +251,10 @@ class RecordPlayerBehaviour(
                 currentSpeed > 0.0f -> {
                     // Has RPM power - determine behavior based on mode and redstone
 
-                    if (playbackMode == RecordPlayerBlockEntity.PlaybackMode.PLAY) {
-                        // PLAY MODE
+                    if (playbackMode == RecordPlayerBlockEntity.PlaybackMode.PLAY ||
+                        playbackMode == RecordPlayerBlockEntity.PlaybackMode.PLAY_STATIC_PITCH
+                    ) {
+                        // PLAY MODE (normal or static pitch)
                         if (isPowered) {
                             // Play mode + Redstone: Always play and loop
                             playbackEndedNaturally = false
@@ -276,7 +288,7 @@ class RecordPlayerBehaviour(
                             }
                         }
                     } else {
-                        // PAUSE MODE
+                        // PAUSE MODE (normal or static pitch)
                         if (isPowered) {
                             // Pause mode + Redstone: Redstone controls playback (play/loop when powered)
                             playbackEndedNaturally = false

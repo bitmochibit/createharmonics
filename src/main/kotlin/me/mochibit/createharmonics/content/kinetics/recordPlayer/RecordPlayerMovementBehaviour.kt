@@ -25,6 +25,7 @@ import me.mochibit.createharmonics.network.packet.setBlockData
 import me.mochibit.createharmonics.registry.ModConfigurations
 import me.mochibit.createharmonics.registry.ModPackets
 import net.createmod.catnip.math.VecHelper
+import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ParticleTypes
@@ -230,10 +231,10 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         // Force periodic sync even if nothing changed locally (for rejoining clients)
         // Sync at least every 20 ticks (1 second) when playing
         val currentTick = context.world.gameTime
-        val shouldForcSync = shouldBePlaying && (currentTick - tempData.lastSyncTick) >= 20
+        val shouldForceSync = shouldBePlaying && (currentTick - tempData.lastSyncTick) >= 20
 
         // Sync to contraption block data if something changed OR periodic sync is needed
-        if (dataChanged || shouldForcSync) {
+        if (dataChanged || shouldForceSync) {
             val block = context.contraption.blocks[context.localPos]
             val nbt = block?.nbt
             if (block != null && nbt != null) {
@@ -394,14 +395,17 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
     private fun buildPitchSupplier(context: MovementContext): () -> Float {
         val tempData = getOrCreateTemporaryData(context)
 
+        val playbackMode = RecordPlayerBlockEntity.PlaybackMode.entries[context.blockEntityData.getInt("ScrollValue")]
+
         if (tempData.pitchSupplier == null) {
+            if (playbackMode == RecordPlayerBlockEntity.PlaybackMode.PLAY_STATIC_PITCH ||
+                playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
+            ) {
+                return { 1.0f }
+            }
+
             tempData.pitchSupplier =
                 PitchSupplierInterpolated({
-                    // Check if speed-based pitch is enabled in client config
-                    if (!ModConfigurations.client.enableSpeedBasedPitch.get()) {
-                        return@PitchSupplierInterpolated 1.0f
-                    }
-
                     when (context.contraption.entity) {
                         is ControlledContraptionEntity -> {
                             calculateControlledContraptionPitch(context)

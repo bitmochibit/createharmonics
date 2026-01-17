@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.content.processing.recordPressBase
 
+import com.simibubi.create.AllBlocks
 import com.simibubi.create.content.kinetics.belt.behaviour.BeltProcessingBehaviour
 import com.simibubi.create.content.kinetics.belt.behaviour.DirectBeltInputBehaviour
 import com.simibubi.create.content.kinetics.belt.behaviour.TransportedItemStackHandlerBehaviour
@@ -626,6 +627,8 @@ class RecordPressBaseBehaviour(
 
         // Pick up the held item if present
         heldItem?.let {
+            if (AllBlocks.MECHANICAL_ARM.isIn(it.stack)) return false
+
             player.inventory.placeItemBackInInventory(it.stack)
             heldItem = null
             playSound()

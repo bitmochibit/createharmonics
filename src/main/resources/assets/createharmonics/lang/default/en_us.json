@@ -54,6 +54,8 @@
   "createharmonics.record_player.playback_mode": "Playback Mode",
   "createharmonics.record_player.playback_mode.play": "Play",
   "createharmonics.record_player.playback_mode.pause": "Pause",
+  "createharmonics.record_player.playback_mode.play_static_pitch": "Play (Static Pitch)",
+  "createharmonics.record_player.playback_mode.pause_static_pitch": "Pause (Static Pitch)",
   "createharmonics.item_group": "Create Harmonics"
 }
 

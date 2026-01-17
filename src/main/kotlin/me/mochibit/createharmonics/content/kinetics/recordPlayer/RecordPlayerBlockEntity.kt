@@ -7,6 +7,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollOp
 import com.simibubi.create.foundation.gui.AllIcons
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
 import me.mochibit.createharmonics.extension.lerpTo
+import me.mochibit.createharmonics.registry.ModIcons
 import net.createmod.catnip.math.AngleHelper
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -43,6 +44,8 @@ abstract class RecordPlayerBlockEntity(
     enum class PlaybackMode : INamedIconOptions {
         PLAY(AllIcons.I_PLAY),
         PAUSE(AllIcons.I_PAUSE),
+        PLAY_STATIC_PITCH(ModIcons.I_PLAY_PITCH_STATIC),
+        PAUSE_STATIC_PITCH(ModIcons.I_PAUSE_PITCH_STATIC),
         ;
 
         private val translationKey: String
