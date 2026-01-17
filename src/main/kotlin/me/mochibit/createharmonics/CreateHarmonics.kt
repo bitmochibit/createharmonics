@@ -1,6 +1,9 @@
 package me.mochibit.createharmonics
 
 import com.simibubi.create.foundation.data.CreateRegistrate
+import com.simibubi.create.foundation.item.ItemDescription
+import com.simibubi.create.foundation.item.KineticStats
+import com.simibubi.create.foundation.item.TooltipModifier
 import me.mochibit.createharmonics.CreateHarmonicsMod.Companion.MOD_ID
 import me.mochibit.createharmonics.Logger.err
 import me.mochibit.createharmonics.Logger.info
@@ -12,6 +15,7 @@ import me.mochibit.createharmonics.registry.ModPackets
 import me.mochibit.createharmonics.registry.ModPartialModels
 import me.mochibit.createharmonics.registry.RegistryManager
 import net.createmod.catnip.config.ui.BaseConfigScreen
+import net.createmod.catnip.lang.FontHelper
 import net.createmod.ponder.foundation.PonderIndex
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
@@ -41,7 +45,12 @@ class CreateHarmonicsMod(
             private set
     }
 
-    private val registrate: CreateRegistrate = CreateRegistrate.create(MOD_ID)
+    private val registrate: CreateRegistrate =
+        CreateRegistrate.create(MOD_ID).setTooltipModifierFactory { item ->
+            ItemDescription
+                .Modifier(item, FontHelper.Palette.STANDARD_CREATE)
+                .andThen(TooltipModifier.mapNull(KineticStats.create(item)))
+        }
 
     init {
         instance = this

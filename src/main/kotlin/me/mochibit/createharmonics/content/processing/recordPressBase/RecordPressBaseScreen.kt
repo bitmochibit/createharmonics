@@ -3,6 +3,9 @@ package me.mochibit.createharmonics.content.processing.recordPressBase
 import com.simibubi.create.foundation.gui.AllGuiTextures
 import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
+import me.mochibit.createharmonics.extension.renderTooltip
+import me.mochibit.createharmonics.extension.toMultilineComponent
+import me.mochibit.createharmonics.extension.toMultilineFormattedCharSequence
 import me.mochibit.createharmonics.foundation.gui.ModGuiTexture
 import me.mochibit.createharmonics.foundation.gui.widget.AdvancedIconButton
 import me.mochibit.createharmonics.network.packet.ConfigureRecordPressBasePacket
@@ -17,7 +20,9 @@ import net.createmod.catnip.gui.element.GuiGameElement
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.EditBox
 import net.minecraft.network.chat.Component
+import net.minecraft.util.FormattedCharSequence
 import net.minecraft.util.Mth
+import net.minecraft.world.inventory.tooltip.TooltipComponent
 import net.minecraft.world.item.ItemStack
 import kotlin.math.max
 
@@ -208,11 +213,14 @@ class RecordPressBaseScreen(
 
     private fun updateModeButtonTooltip() {
         modeButton.toolTip.clear()
-        if (configuration.randomMode) {
-            modeButton.toolTip.add(ModLang.translate("gui.record_press_base.url_random_mode").component())
-        } else {
-            modeButton.toolTip.add(ModLang.translate("gui.record_press_base.url_sequential_mode").component())
-        }
+        val tooltipLines =
+            if (configuration.randomMode) {
+                ModLang.translate("gui.record_press_base.url_random_mode").component()
+            } else {
+                ModLang.translate("gui.record_press_base.url_sequential_mode").component()
+            }
+
+        modeButton.toolTip.addAll(tooltipLines.toMultilineComponent())
     }
 
     private fun rebuildUrlInputFields() {
@@ -804,18 +812,15 @@ class RecordPressBaseScreen(
                     ) {
                         val fullUrl = configuration.urls.getOrNull(index) ?: ""
                         val tooltipLines =
-                            mutableListOf(
-                                ModLang
-                                    .translate("gui.record_press_base.url_input_tooltip")
-                                    .component()
-                                    .visualOrderText,
-                            )
+                            ModLang
+                                .translate("gui.record_press_base.url_input_tooltip")
+                                .component()
+                                .toMultilineComponent()
+                                .toMutableList()
 
                         if (fullUrl.isNotEmpty()) {
-                            val maxWidth = 200
                             val urlComponent = Component.literal(fullUrl).withStyle { it.withColor(0xAAAAAA) }
-                            val wrappedLines = font.split(urlComponent, maxWidth)
-                            tooltipLines.addAll(wrappedLines)
+                            tooltipLines.addAll(urlComponent.toMultilineComponent())
                         }
 
                         graphics.renderTooltip(
@@ -840,7 +845,10 @@ class RecordPressBaseScreen(
                         ) {
                             graphics.renderTooltip(
                                 font,
-                                ModLang.translate("gui.record_press_base.weight_input_tooltip").component(),
+                                ModLang
+                                    .translate("gui.record_press_base.weight_input_tooltip")
+                                    .component()
+                                    .toMultilineComponent(),
                                 mouseX,
                                 mouseY,
                             )

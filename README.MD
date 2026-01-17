@@ -88,14 +88,19 @@ I do not condone unauthorized distribution of copyrighted material, nor I am res
 This mod is provided as-is, without any warranties or guarantees of any kind.
 By using this mod, you agree to use it responsibly and respect the rights of content creators.
 
-### Credits
+## Credits
 
+### Software
 - ffmpeg: https://ffmpeg.org/
     - Windows builds by BtbN: Bundle licensed under _LGPLV2.1+_
     - Linux (static) builds by John Van Sickle: Bundle licensed under _GNU GPLV3+_
     - Mac builds by evermeet.cx: Bundle licensed under _LGPLV2.1+_
 - ytdlp: https://github.com/yt-dlp/yt-dlp, licensed under _Unlicense_
 - Create: https://github.com/Creators-of-Create/Create, licensed under _MIT License_
+
+### Translations
+
+- Japanese: @Yurisan001
 
 Read the full license [here](LICENSE.MD)
 

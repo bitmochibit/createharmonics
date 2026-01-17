@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.registry
 
+import com.simibubi.create.api.stress.BlockStressValues
 import me.mochibit.createharmonics.ClientConfig
 import me.mochibit.createharmonics.CommonConfig
 import me.mochibit.createharmonics.CreateHarmonicsMod
@@ -47,6 +48,14 @@ object ModConfigurations : AutoRegistrable {
     ) {
         configs.forEach { (type, config) ->
             context.registerConfig(type, config.specification)
+        }
+
+        BlockStressValues.IMPACTS.registerProvider { block ->
+            server.modStress.getImpact(block)
+        }
+
+        BlockStressValues.CAPACITIES.registerProvider { block ->
+            server.modStress.getCapacity(block)
         }
     }
 

@@ -164,6 +164,10 @@ class RecordPlayerBehaviour(
     var audioPlayingTitle: String? = null
         private set
 
+    @Volatile
+    var speedInterrupted = false
+        private set
+
     // Track previous playback mode to detect user changes
     private var previousPlaybackMode: RecordPlayerBlockEntity.PlaybackMode? = null
 
@@ -245,6 +249,7 @@ class RecordPlayerBehaviour(
                     // No RPM power - pause if playing
                     if (playbackState == PlaybackState.PLAYING) {
                         updatePlaybackState(PlaybackState.PAUSED, resetTime = false)
+                        speedInterrupted = true
                     }
                 }
 
@@ -277,8 +282,15 @@ class RecordPlayerBehaviour(
 
                                 PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
                                     // Resume if mode changed to PLAY
-                                    if (playbackModeChanged) {
-                                        updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = false)
+                                    when {
+                                        playbackModeChanged -> {
+                                            updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = false)
+                                        }
+
+                                        speedInterrupted -> {
+                                            updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = false)
+                                            speedInterrupted = false
+                                        }
                                     }
                                 }
 
@@ -588,6 +600,7 @@ class RecordPlayerBehaviour(
         compound.putLong("PauseStartTime", pauseStartTime)
         compound.putLong("TotalPausedTime", totalPausedTime)
         compound.putLong("AudioPlayCount", audioPlayCount)
+        compound.putBoolean("SpeedInterrupted", speedInterrupted)
         audioPlayingTitle?.let {
             compound.putString("AudioPlayingTitle", it)
         }
@@ -606,6 +619,10 @@ class RecordPlayerBehaviour(
             if (!clientPacket) {
                 registerPlayer(recordPlayerUUID.toString(), be)
             }
+        }
+
+        if (compound.contains("SpeedInterrupted")) {
+            speedInterrupted = compound.getBoolean("SpeedInterrupted")
         }
 
         if (compound.contains("PlayTime")) {

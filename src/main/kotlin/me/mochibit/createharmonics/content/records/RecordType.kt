@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.content.records
 
 import com.simibubi.create.AllItems
 import me.mochibit.createharmonics.CommonConfig
+import me.mochibit.createharmonics.ServerConfig
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.BitCrushEffect
@@ -150,7 +151,7 @@ enum class RecordType(
     // Get uses from config, with fallback defaults matching config defaults
     val uses: Int
         get() =
-            CommonConfig.getRecordDurability(this) ?: this.properties.defaultDurability
+            ServerConfig.getRecordDurability(this) ?: this.properties.defaultDurability
 
     data class Properties(
         val recipe: Recipe? = null,
