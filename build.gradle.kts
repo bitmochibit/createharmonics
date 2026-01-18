@@ -82,6 +82,7 @@ minecraft {
             mods {
                 create(modId) {
                     source(sourceSets.main.get())
+                    source(sourceSets.test.get())
                 }
             }
         }
@@ -127,13 +128,21 @@ minecraft {
 // Mixin configuration
 configure<org.spongepowered.asm.gradle.plugins.MixinExtension> {
     add(sourceSets.main.get(), "$modId.refmap.json")
-    config("$modId.mixins.json")
 }
 
 sourceSets {
     main {
         ext["refMap"] = "$modId.refmap.json"
         resources.srcDir("src/generated/resources")
+    }
+
+    test {
+        java.srcDir("src/test/java")
+        kotlin.srcDir("src/test/kotlin")
+        resources.srcDir("src/test/resources")
+
+        compileClasspath += sourceSets.main.get().output
+        runtimeClasspath += sourceSets.main.get().output
     }
 }
 
@@ -178,7 +187,7 @@ dependencies {
     }
     implementation(fg.deobf("net.createmod.ponder:Ponder-Forge-$minecraftVersion:$ponderVersion"))
     compileOnly(fg.deobf("dev.engine-room.flywheel:flywheel-forge-api-$minecraftVersion:$flywheelVersion"))
-    runtimeOnly(fg.deobf("dev.engine-room.flywheel:flywheel-forge-$minecraftVersion:$flywheelVersion"))
+    runtimeOnly(fg.deobf("dev.engine-room.flywheel:flywheel-forge-$minecraftVersion:flywheelVersion"))
     implementation(fg.deobf("com.tterrag.registrate:Registrate:$registrateVersion"))
 
     // VS2
@@ -192,6 +201,15 @@ dependencies {
     implementation("org.valkyrienskies.core:util:$vsCoreVersion") {
         exclude(group = "org.joml")
     }
+
+    // test
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.1")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.1")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:5.10.1")
+    testImplementation("org.junit.platform:junit-platform-suite-api:1.10.1")
+    testRuntimeOnly("org.junit.platform:junit-platform-suite-engine:1.10.1")
+
+    testImplementation("io.mockk:mockk:1.13.8")
 
     // MixinExtras with JarJar
     compileOnly(annotationProcessor("io.github.llamalad7:mixinextras-common:0.4.1")!!)
@@ -263,4 +281,11 @@ tasks.withType<JavaCompile>().configureEach {
 
 kotlin {
     jvmToolchain(17)
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
+
+    systemProperty("forge.enabledGameTestNamespaces", modId)
+    systemProperty("forge.gameTestServer", "true")
 }
