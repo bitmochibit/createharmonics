@@ -17,7 +17,7 @@ class SimpleStreamSoundInstance(
     radiusSupplier: () -> Int = { 64 },
     randomSource: RandomSource = RandomSource.create(),
     soundSource: SoundSource = SoundSource.RECORDS,
-    looping: Boolean = false, // TODO: Implement a wrapper to PCMAudioStream which can be looped
+    looping: Boolean = false,
     delay: Int = 0,
     attenuation: SoundInstance.Attenuation = SoundInstance.Attenuation.LINEAR,
     relative: Boolean = false,

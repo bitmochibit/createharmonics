@@ -4,6 +4,7 @@ import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.world.Clearable
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraftforge.common.capabilities.Capability
@@ -14,7 +15,8 @@ class RecordPressBaseBlockEntity(
     type: BlockEntityType<*>,
     pos: BlockPos,
     state: BlockState,
-) : SmartBlockEntity(type, pos, state) {
+) : SmartBlockEntity(type, pos, state),
+    Clearable {
     lateinit var behaviour: RecordPressBaseBehaviour
         private set
 
@@ -71,4 +73,11 @@ class RecordPressBaseBlockEntity(
             behaviour.randomMode = value
             notifyUpdate()
         }
+
+    override fun clearContent() {
+        behaviour.heldItem = null
+        behaviour.outgoing.clear()
+        behaviour.incoming.clear()
+        notifyUpdate()
+    }
 }

@@ -1,53 +1,40 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
-import com.simibubi.create.Create
-import com.simibubi.create.content.contraptions.AbstractContraptionEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
-import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import me.mochibit.createharmonics.audio.comp.PitchSupplierInterpolated
-import me.mochibit.createharmonics.audio.comp.SoundEventComposition
-import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.audio.effect.getStreamDirectly
+import me.mochibit.createharmonics.audio.instance.SimpleShipStreamSoundInstance
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
-import me.mochibit.createharmonics.audio.stream.Ogg2PcmInputStream
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour.Companion.PLAYER_UUID_KEY
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
-import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.getAudioUrl
 import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.playFromRecord
-import me.mochibit.createharmonics.content.records.RecordCraftingHandler
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
-import me.mochibit.createharmonics.extension.remapTo
 import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.registry.ModConfigurations
 import me.mochibit.createharmonics.registry.ModPackets
 import net.createmod.catnip.nbt.NBTHelper
-import net.minecraft.client.Minecraft
-import net.minecraft.client.particle.NoteParticle
-import net.minecraft.core.Direction
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.core.particles.ShriekParticleOption
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
+import net.minecraft.world.Clearable
 import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.item.Items
-import net.minecraft.world.item.RecordItem
-import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
 import net.minecraftforge.common.util.LazyOptional
-import net.minecraftforge.eventbus.api.SubscribeEvent
-import net.minecraftforge.fml.common.Mod
+import net.minecraftforge.fml.ModList
 import net.minecraftforge.network.PacketDistributor
+import org.valkyrienskies.mod.common.ValkyrienSkiesMod
+import org.valkyrienskies.mod.common.config.VSGameConfig
+import org.valkyrienskies.mod.common.getShipManagingPos
 import java.util.UUID
 import kotlin.math.abs
 
@@ -66,6 +53,8 @@ class RecordPlayerBehaviour(
         val BEHAVIOUR_TYPE = BehaviourType<RecordPlayerBehaviour>()
 
         // Static tracking for active record players by their audio player UUID
+        // This prevents UUID conflicts when blocks are copied (Valkyrian Skies, WorldEdit, etc.)
+        // Each block entity must have a unique UUID to ensure only one audio player per block
         private val activePlayersByUUID = mutableMapOf<String, RecordPlayerBlockEntity>()
 
         /**
@@ -86,8 +75,13 @@ class RecordPlayerBehaviour(
 
         /**
          * Unregisters a record player when it stops playing.
+         * Only unregisters if the UUID is actually registered to the given block entity.
          */
-        private fun unregisterPlayer(playerUUID: String) {
+        private fun unregisterPlayer(
+            playerUUID: String,
+            blockEntity: RecordPlayerBlockEntity,
+        ) {
+            // Only unregister if this UUID is actually registered to this block entity
             activePlayersByUUID.remove(playerUUID)
             ModPackets.channel.send(
                 PacketDistributor.ALL.noArg(),
@@ -187,14 +181,45 @@ class RecordPlayerBehaviour(
             AudioPlayerRegistry.getOrCreatePlayer(recordPlayerUUID.toString()) {
                 AudioPlayer(
                     soundInstanceProvider = { streamId, stream ->
-                        SimpleStreamSoundInstance(
-                            stream,
-                            streamId,
-                            SoundEvents.EMPTY,
-                            { be.blockPos },
-                            radiusSupplier = { soundRadius },
-                            pitchSupplier = { pitchSupplierInterpolated.getPitch() },
-                        )
+                        if (ModList.get().isLoaded("valkyrienskies")) {
+                            val pos = be.blockPos
+                            val ship =
+                                this.be.level.getShipManagingPos(
+                                    pos.x.toDouble(),
+                                    pos.y.toDouble(),
+                                    pos.z.toDouble(),
+                                )
+
+                            if (ship != null) {
+                                SimpleShipStreamSoundInstance(
+                                    stream,
+                                    streamId,
+                                    SoundEvents.EMPTY,
+                                    posSupplier = { be.blockPos },
+                                    ship = ship,
+                                    radiusSupplier = { soundRadius },
+                                    pitchSupplier = { pitchSupplierInterpolated.getPitch() },
+                                )
+                            } else {
+                                SimpleStreamSoundInstance(
+                                    stream,
+                                    streamId,
+                                    SoundEvents.EMPTY,
+                                    { be.blockPos },
+                                    radiusSupplier = { soundRadius },
+                                    pitchSupplier = { pitchSupplierInterpolated.getPitch() },
+                                )
+                            }
+                        } else {
+                            SimpleStreamSoundInstance(
+                                stream,
+                                streamId,
+                                SoundEvents.EMPTY,
+                                { be.blockPos },
+                                radiusSupplier = { soundRadius },
+                                pitchSupplier = { pitchSupplierInterpolated.getPitch() },
+                            )
+                        }
                     },
                     playerId = recordPlayerUUID.toString(),
                 )
@@ -516,7 +541,7 @@ class RecordPlayerBehaviour(
             }
 
             PlaybackState.STOPPED if oldState != PlaybackState.STOPPED -> {
-                unregisterPlayer(recordPlayerUUID.toString())
+                unregisterPlayer(recordPlayerUUID.toString(), be)
             }
 
             else -> {}
@@ -569,23 +594,24 @@ class RecordPlayerBehaviour(
     }
 
     override fun unload() {
+        val uuidStr = recordPlayerUUID.toString()
+
         be.onServer {
-            unregisterPlayer(recordPlayerUUID.toString())
+            unregisterPlayer(uuidStr, be)
         }
-        be.onClient {
-            audioPlayer.stopSoundImmediately()
-        }
+
         lazyItemHandler.invalidate()
         super.unload()
     }
 
     override fun destroy() {
-        stopPlayer()
-        dropContent()
-        unregisterPlayer(recordPlayerUUID.toString())
-        be.onClient {
-            audioPlayer.stopSoundImmediately()
+        val uuidStr = recordPlayerUUID.toString()
+
+        be.onServer {
+            unregisterPlayer(uuidStr, be)
         }
+
+        dropContent()
         super.destroy()
     }
 
@@ -615,9 +641,48 @@ class RecordPlayerBehaviour(
         }
 
         if (compound.contains("RecordPlayerUUID")) {
-            recordPlayerUUID = compound.getUUID("RecordPlayerUUID")
+            val loadedUUID = compound.getUUID("RecordPlayerUUID")
+
             if (!clientPacket) {
-                registerPlayer(recordPlayerUUID.toString(), be)
+                // Server-side: Check if this UUID is already registered to a different block entity
+                val existingBlockEntity = getBlockEntityByPlayerUUID(loadedUUID.toString())
+
+                if (existingBlockEntity != null && existingBlockEntity != be) {
+                    // UUID conflict detected! This happens when blocks are copied (Valkyrian Skies, WorldEdit, etc.)
+                    val oldUUID = recordPlayerUUID
+
+                    // Unregister the old UUID first (if it was registered)
+                    unregisterPlayer(oldUUID.toString(), be)
+
+                    // Generate a new UUID for this copy
+                    recordPlayerUUID = UUID.randomUUID()
+
+                    // Register with the new UUID
+                    registerPlayer(recordPlayerUUID.toString(), be)
+                } else {
+                    // No conflict, use the loaded UUID
+                    val oldUUID = recordPlayerUUID
+
+                    // If UUID changed, unregister the old one first
+                    if (oldUUID != loadedUUID) {
+                        unregisterPlayer(oldUUID.toString(), be)
+                    }
+
+                    recordPlayerUUID = loadedUUID
+                    registerPlayer(recordPlayerUUID.toString(), be)
+                }
+            } else {
+                // Client packet - set the UUID and clean up any orphaned audio player
+                val oldUUID = recordPlayerUUID
+                recordPlayerUUID = loadedUUID
+
+                // If UUID changed, destroy BOTH old audio players to ensure cleanup
+                if (oldUUID != loadedUUID) {
+                    // Destroy the old UUID's player
+                    AudioPlayerRegistry.destroyPlayer(oldUUID.toString())
+                    // Also destroy any existing player with the new UUID to prevent conflicts
+                    AudioPlayerRegistry.destroyPlayer(loadedUUID.toString())
+                }
             }
         }
 

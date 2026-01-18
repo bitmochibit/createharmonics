@@ -68,8 +68,8 @@ ordering = "AFTER"
 side="BOTH"
 
 [[dependencies."${mod_id}"]]
-modId = "carryon"
+modId = "valkyrienskies"
 mandatory = false
-versionRange = "[2.1.2,)"
+versionRange = "[2.4.8,)"
 ordering = "AFTER"
 side = "BOTH"

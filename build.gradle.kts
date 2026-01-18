@@ -1,5 +1,6 @@
 import net.minecraftforge.gradle.userdev.UserDevExtension
 import org.gradle.api.artifacts.ExternalModuleDependency
+import org.gradle.internal.impldep.org.junit.experimental.categories.Categories.CategoryFilter.exclude
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -53,6 +54,9 @@ val registrateVersion = property("registrate_version") as String
 val jeiMinecraftVersion = property("jei_minecraft_version") as String
 val jeiVersion = property("jei_version") as String
 val kotlinVersion = property("kotlin_version") as String
+
+val vs2Version = property("vs2_version") as String
+val vsCoreVersion = property("vs_core_version") as String
 
 group = modGroupId
 version = modVersion
@@ -135,6 +139,7 @@ sourceSets {
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://repo.spongepowered.org/repository/maven-public/") }
     maven { url = uri("https://maven.createmod.net") }
     maven { url = uri("https://maven.ithundxr.dev/mirror") }
     maven { url = uri("https://raw.githubusercontent.com/Fuzss/modresources/main/maven/") }
@@ -151,6 +156,10 @@ repositories {
         // location of a maven mirror for JEI files, as a fallback
         name = "ModMaven"
         url = uri("https://modmaven.dev")
+    }
+    maven {
+        name = "Valkyrien Skies"
+        url = uri("https://maven.valkyrienskies.org")
     }
 }
 
@@ -171,6 +180,18 @@ dependencies {
     compileOnly(fg.deobf("dev.engine-room.flywheel:flywheel-forge-api-$minecraftVersion:$flywheelVersion"))
     runtimeOnly(fg.deobf("dev.engine-room.flywheel:flywheel-forge-$minecraftVersion:$flywheelVersion"))
     implementation(fg.deobf("com.tterrag.registrate:Registrate:$registrateVersion"))
+
+    // VS2
+    implementation(fg.deobf("org.valkyrienskies:valkyrienskies-120-forge:$vs2Version"))
+    implementation("org.valkyrienskies.core:api:$vsCoreVersion") {
+        exclude(group = "org.joml")
+    }
+    implementation("org.valkyrienskies.core:internal:$vsCoreVersion") {
+        exclude(group = "org.joml")
+    }
+    implementation("org.valkyrienskies.core:util:$vsCoreVersion") {
+        exclude(group = "org.joml")
+    }
 
     // MixinExtras with JarJar
     compileOnly(annotationProcessor("io.github.llamalad7:mixinextras-common:0.4.1")!!)

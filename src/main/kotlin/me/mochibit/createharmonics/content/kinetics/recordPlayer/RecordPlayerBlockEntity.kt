@@ -7,11 +7,13 @@ import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollOp
 import com.simibubi.create.foundation.gui.AllIcons
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
 import me.mochibit.createharmonics.extension.lerpTo
+import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.registry.ModIcons
 import net.createmod.catnip.math.AngleHelper
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.network.chat.Component
+import net.minecraft.world.Clearable
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
@@ -25,7 +27,8 @@ abstract class RecordPlayerBlockEntity(
     type: BlockEntityType<*>,
     pos: BlockPos,
     state: BlockState,
-) : KineticBlockEntity(type, pos, state) {
+) : KineticBlockEntity(type, pos, state),
+    Clearable {
     companion object {
         fun handlePlaybackEnd(playerId: String) {
             val blockEntity = RecordPlayerBehaviour.getBlockEntityByPlayerUUID(playerId)
@@ -89,6 +92,10 @@ abstract class RecordPlayerBlockEntity(
         return AngleHelper.angleLerp(partialTicks.toDouble(), previousRotation, accumulatedRotation)
     }
 
+    override fun remove() {
+        super.remove()
+    }
+
     override fun addBehaviours(behaviours: MutableList<BlockEntityBehaviour>) {
         playerBehaviour = RecordPlayerBehaviour(this)
         behaviours.add(playerBehaviour)
@@ -108,6 +115,12 @@ abstract class RecordPlayerBlockEntity(
                 },
             )
         behaviours.add(playbackMode)
+    }
+
+    override fun clearContent() {
+        for (i in 0 until itemHandler.slots) {
+            itemHandler.setStackInSlot(i, ItemStack.EMPTY)
+        }
     }
 
     override fun <T> getCapability(
