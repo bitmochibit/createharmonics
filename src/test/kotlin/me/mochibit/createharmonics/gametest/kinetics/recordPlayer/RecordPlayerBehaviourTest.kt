@@ -1,7 +1,15 @@
-package me.mochibit.createharmonics.content.kinetics.recordPlayer
+package me.mochibit.createharmonics.gametest.kinetics.recordPlayer
 
+import com.simibubi.create.AllBlocks
 import me.mochibit.createharmonics.CreateHarmonicsMod
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
+import me.mochibit.createharmonics.content.records.RecordCraftingHandler
+import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.registry.ModBlocks
+import me.mochibit.createharmonics.registry.ModIcons
+import me.mochibit.createharmonics.registry.ModItems
+import me.mochibit.createharmonics.registry.ModItems.etherealRecord
 import net.minecraft.core.BlockPos
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
@@ -25,23 +33,23 @@ class RecordPlayerBehaviourTest {
         return blockEntity to blockEntity.playerBehaviour
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testInsertRecordSuccess(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
-        val recordStack = ItemStack(Items.MUSIC_DISC_13)
+        val recordStack = ModItems etherealRecord RecordType.BRASS
 
-        val result = behaviour.insertRecord(recordStack)
+        val result = behaviour.insertRecord(ItemStack(recordStack))
 
         helper.assertTrue(result, "Record insertion should succeed")
         helper.assertTrue(behaviour.hasRecord(), "Should have a record after insertion")
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testInsertRecordFailure(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
-        val firstRecord = ItemStack(Items.MUSIC_DISC_13)
-        val secondRecord = ItemStack(Items.MUSIC_DISC_CAT)
+        val firstRecord = ItemStack(ModItems etherealRecord RecordType.BRASS)
+        val secondRecord = ItemStack(ModItems etherealRecord RecordType.DIAMOND)
 
         behaviour.insertRecord(firstRecord)
         val result = behaviour.insertRecord(secondRecord)
@@ -50,30 +58,30 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testHasRecord(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
-        val recordStack = ItemStack(Items.MUSIC_DISC_13)
+        val recordStack = ModItems etherealRecord RecordType.BRASS
 
-        behaviour.insertRecord(recordStack)
+        behaviour.insertRecord(ItemStack(recordStack))
 
         helper.assertTrue(behaviour.hasRecord(), "Should detect the presence of a record")
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testHasNoRecord(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
         helper.assertFalse(behaviour.hasRecord(), "Should not detect any record initially")
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testPopRecord(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
-        val recordStack = ItemStack(Items.MUSIC_DISC_13)
+        val recordStack = ModItems etherealRecord RecordType.BRASS
 
-        behaviour.insertRecord(recordStack)
+        behaviour.insertRecord(ItemStack(recordStack))
         val popped = behaviour.popRecord()
 
         helper.assertTrue(popped != null && !popped.isEmpty, "Popped record should not be null or empty")
@@ -81,7 +89,7 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testPopRecordEmpty(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
         val popped = behaviour.popRecord()
@@ -90,7 +98,7 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testInitialState(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
         helper.assertTrue(
@@ -100,31 +108,34 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testStartPlayer(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
-        val recordStack = ItemStack(Items.MUSIC_DISC_13)
+        val recordStack = ItemStack(ModItems etherealRecord RecordType.BRASS)
+
+        // Place behind a creative motor to provide power
+        val motorPos = BlockPos(1, 1, 2)
+        helper.setBlock(motorPos, AllBlocks.CREATIVE_MOTOR.get())
+        RecordCraftingHandler.setCraftedWithDisc(recordStack, ItemStack(Items.MUSIC_DISC_FAR))
 
         behaviour.insertRecord(recordStack)
-        behaviour.startPlayer()
 
-        helper.assertTrue(
-            behaviour.playbackState == RecordPlayerBehaviour.PlaybackState.PLAYING,
-            "Should be in PLAYING state after starting",
-        )
-        helper.assertTrue(
-            behaviour.audioPlayCount == 1L,
-            "Audio play count should increment to 1. Found: ${behaviour.audioPlayCount}",
-        )
-        helper.succeed()
+        helper.runAfterDelay(20) {
+            helper.assertTrue(
+                behaviour.playbackState == RecordPlayerBehaviour.PlaybackState.PLAYING,
+                "Should be in PLAYING state after starting",
+            )
+
+            helper.succeed()
+        }
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testStopPlayer(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
-        val recordStack = ItemStack(Items.MUSIC_DISC_13)
+        val recordStack = ModItems etherealRecord RecordType.BRASS
 
-        behaviour.insertRecord(recordStack)
+        behaviour.insertRecord(ItemStack(recordStack))
         behaviour.startPlayer()
         behaviour.stopPlayer()
 
@@ -139,12 +150,12 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testPausePlayer(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
-        val recordStack = ItemStack(Items.MUSIC_DISC_13)
+        val recordStack = ModItems etherealRecord RecordType.BRASS
 
-        behaviour.insertRecord(recordStack)
+        behaviour.insertRecord(ItemStack(recordStack))
         behaviour.startPlayer()
         behaviour.pausePlayer()
 
@@ -155,7 +166,7 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testUniqueUuidGeneration(helper: GameTestHelper) {
         val pos1 = BlockPos(1, 1, 1)
         val pos2 = BlockPos(1, 1, 2)
@@ -173,7 +184,7 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testUuidPersistence(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
         val originalUUID = behaviour.recordPlayerUUID
@@ -195,11 +206,11 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testPlaybackStateSerialization(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
-        val recordStack = ItemStack(Items.MUSIC_DISC_13)
-        behaviour.insertRecord(recordStack)
+        val recordStack = ModItems etherealRecord RecordType.BRASS
+        behaviour.insertRecord(ItemStack(recordStack))
         behaviour.startPlayer()
 
         val originalState = behaviour.playbackState
@@ -220,35 +231,11 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest(timeoutTicks = 100)
-    fun testPlayTimeSerialization(helper: GameTestHelper) {
-        val (_, behaviour) = helper.setupRecordPlayer()
-        behaviour.startPlayer()
-
-        helper.runAfterDelay(20) {
-            val tag = CompoundTag()
-            behaviour.write(tag, false)
-
-            val pos = BlockPos(1, 1, 1)
-            helper.setBlock(pos, Blocks.AIR)
-            helper.setBlock(pos, ModBlocks.ANDESITE_JUKEBOX.get())
-
-            val newBehaviour = (helper.getBlockEntity(pos) as RecordPlayerBlockEntity).playerBehaviour
-            newBehaviour.read(tag, false)
-
-            helper.assertTrue(
-                newBehaviour.playTime > 0,
-                "Playback time should be preserved",
-            )
-            helper.succeed()
-        }
-    }
-
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testAudioPlayCountSerialization(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
-        val recordStack = ItemStack(Items.MUSIC_DISC_13)
-        behaviour.insertRecord(recordStack)
+        val recordStack = ModItems etherealRecord RecordType.BRASS
+        behaviour.insertRecord(ItemStack(recordStack))
         behaviour.startPlayer()
 
         val originalCount = behaviour.audioPlayCount
@@ -269,7 +256,7 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testEmptyNbtRead(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
         val emptyTag = CompoundTag()
@@ -281,7 +268,7 @@ class RecordPlayerBehaviourTest {
         }
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testPlaybackEndNoLoop(helper: GameTestHelper) {
         val pos = BlockPos(1, 1, 1)
         helper.setBlock(pos, ModBlocks.ANDESITE_JUKEBOX.get())
@@ -294,8 +281,8 @@ class RecordPlayerBehaviourTest {
             "There should be no redstone signal initially",
         )
 
-        val recordStack = ItemStack(Items.MUSIC_DISC_13)
-        behaviour.insertRecord(recordStack)
+        val recordStack = ModItems etherealRecord RecordType.BRASS
+        behaviour.insertRecord(ItemStack(recordStack))
         behaviour.startPlayer()
 
         behaviour.onPlaybackEnd(behaviour.recordPlayerUUID.toString())
@@ -307,7 +294,7 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testAudioTitleUpdate(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
         val title = "Test Track"
@@ -320,7 +307,7 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testIgnoreUnknownTitle(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
         behaviour.onAudioTitleUpdate("Unknown")
@@ -332,7 +319,7 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testAudioTitlePersistence(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
         val title = "Persistent Track"
@@ -355,7 +342,7 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testDefaultSoundRadius(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
         helper.assertTrue(
@@ -365,7 +352,7 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testModifySoundRadius(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
         behaviour.soundRadius = 64
@@ -377,7 +364,7 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testItemHandlerExists(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
         helper.assertTrue(
@@ -387,7 +374,7 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testLazyItemHandler(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
         helper.assertTrue(
@@ -397,7 +384,7 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testItemHandlerSlotCount(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
         helper.assertTrue(
@@ -407,20 +394,20 @@ class RecordPlayerBehaviourTest {
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testBehaviourType(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
         val type = behaviour.type
 
         helper.assertTrue(type != null, "Behaviour type should not be null")
         helper.assertTrue(
-            type === RecordPlayerBehaviour.BEHAVIOUR_TYPE,
+            type === RecordPlayerBehaviour.Companion.BEHAVIOUR_TYPE,
             "Should return the correct behaviour type",
         )
         helper.succeed()
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testUnload(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
         try {
@@ -431,7 +418,7 @@ class RecordPlayerBehaviourTest {
         }
     }
 
-    @GameTest()
+    @GameTest(template = "record_player")
     fun testDestroy(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
         try {

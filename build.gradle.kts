@@ -89,6 +89,7 @@ minecraft {
 
         register("client") {
             property("forge.enabledGameTestNamespaces", modId)
+            property("forge.enableGameTest", "true")
         }
 
         register("debug") {
@@ -285,7 +286,4 @@ kotlin {
 
 tasks.withType<Test> {
     useJUnitPlatform()
-
-    systemProperty("forge.enabledGameTestNamespaces", modId)
-    systemProperty("forge.gameTestServer", "true")
 }
