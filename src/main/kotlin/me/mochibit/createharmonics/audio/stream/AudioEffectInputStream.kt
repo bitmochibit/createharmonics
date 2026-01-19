@@ -320,8 +320,6 @@ class AudioEffectInputStream(
         processingJob?.cancel()
         processingJob = null
 
-        preBufferChannel.close()
-
         try {
             audioStream.close()
         } catch (_: Exception) {
@@ -332,6 +330,8 @@ class AudioEffectInputStream(
             outputBuffer.clear()
         }
         effectChain.reset()
+
+        preBufferChannel.close()
     }
 
     override fun available(): Int {

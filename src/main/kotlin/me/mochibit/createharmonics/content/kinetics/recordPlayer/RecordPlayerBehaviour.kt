@@ -752,24 +752,24 @@ class RecordPlayerBehaviour(
         }
     }
 
-    fun onPlaybackEnd(endedPlayerId: String) {
+    fun onPlaybackEnd(
+        endedPlayerId: String,
+        failure: Boolean = false,
+    ) {
+        if (failure) return
+
         val level = be.level ?: return
         val isPowered = level.hasNeighborSignal(be.blockPos)
 
-        // Determine if we should loop:
-        // Loop if redstone powered (works for both Play and Pause modes)
-        // Don't loop if no redstone
         val shouldLoop = isPowered
 
         if (shouldLoop) {
-            // Loop: stop and flag for immediate restart
             playbackEndedNaturally = false
             updatePlaybackState(PlaybackState.STOPPED, resetTime = true)
             shouldRestartOnNextTick = true
         } else {
-            // Don't loop: stop after one play
             playbackEndedNaturally = true
-            stopPlayer()
+            updatePlaybackState(PlaybackState.STOPPED, resetTime = true)
         }
     }
 

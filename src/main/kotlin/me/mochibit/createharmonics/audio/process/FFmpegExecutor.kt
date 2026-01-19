@@ -1,8 +1,10 @@
 package me.mochibit.createharmonics.audio.process
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.binProvider.FFMPEGProvider
@@ -17,8 +19,8 @@ class FFmpegExecutor {
 
     private var process: Process? = null
     private var processId: Long? = null
-    private var streamReadyChannel: Channel<Result<Unit>>? = null
-    private val errorMessages = mutableListOf<String>() // Capture error messages for diagnostics
+
+    private val streamReady = CompletableDeferred<Result<Unit>>()
 
     val inputStream: InputStream?
         get() = process?.inputStream
@@ -96,73 +98,21 @@ class FFmpegExecutor {
                 add("pipe:1")
             }
 
-        // Create channel for stream ready signal
-        val channel = Channel<Result<Unit>>(capacity = 1)
-        streamReadyChannel = channel
-        errorMessages.clear() // Clear previous error messages
-
         val newProcess =
             try {
-                ProcessBuilder(command)
-                    .redirectErrorStream(false)
-                    .start()
+                withContext(Dispatchers.IO) {
+                    ProcessBuilder(command)
+                        .redirectErrorStream(false)
+                        .start()
+                }
             } catch (e: Exception) {
                 Logger.err("Failed to start FFmpeg process: ${e.message}")
-                channel.trySend(Result.failure(e))
+                streamReady.complete(Result.failure(e))
                 return false
             }
 
         process = newProcess
         processId = ProcessLifecycleManager.registerProcess(newProcess)
-
-        // Monitor error stream for debugging
-        launchModCoroutine(Dispatchers.IO) {
-            try {
-                newProcess.errorStream.bufferedReader().use { reader ->
-                    reader.lineSequence().forEach { line ->
-                        if (line.isNotBlank()) {
-                            // Store error messages for later diagnosis
-                            synchronized(errorMessages) {
-                                errorMessages.add(line)
-                                // Keep only last 20 messages to prevent memory issues
-                                if (errorMessages.size > 20) {
-                                    errorMessages.removeAt(0)
-                                }
-                            }
-
-                            // Categorize errors for better debugging
-                            when {
-                                line.contains("Error parsing") -> {
-                                    Logger.err("FFmpeg [PARSE ERROR]: $line")
-                                }
-
-                                line.contains("Unable to read from socket") || line.contains("Connection") -> {
-                                    Logger.err("FFmpeg [NETWORK ERROR]: $line")
-                                }
-
-                                line.contains("Error submitting") || line.contains("Error muxing") -> {
-                                    Logger.err("FFmpeg [STREAM ERROR]: $line")
-                                }
-
-                                line.contains("Invalid argument") -> {
-                                    Logger.err("FFmpeg [INVALID ARG]: $line")
-                                }
-
-                                line.contains("403") || line.contains("Forbidden") -> {
-                                    Logger.err("FFmpeg [HTTP 403]: $line")
-                                }
-
-                                else -> {
-                                    Logger.err("FFmpeg: $line")
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                // Stream closed, that's fine
-            }
-        }
 
         // Monitor process lifecycle
         launchModCoroutine(Dispatchers.IO) {
@@ -194,7 +144,7 @@ class FFmpegExecutor {
                     try {
                         val available = newProcess.inputStream.available()
                         if (available > 0) {
-                            channel.trySend(Result.success(Unit))
+                            streamReady.complete(Result.success(Unit))
                             return@launchModCoroutine
                         }
                     } catch (_: Exception) {
@@ -204,31 +154,18 @@ class FFmpegExecutor {
                     attempts++
                 }
 
-                // Timeout or process died
                 if (!newProcess.isAlive) {
-                    // Include error messages in the exception for diagnostics
-                    val recentErrors =
-                        synchronized(errorMessages) {
-                            errorMessages.takeLast(5).joinToString("; ")
-                        }
-                    val errorMsg =
-                        if (recentErrors.isNotEmpty()) {
-                            "FFmpeg process terminated unexpectedly: $recentErrors"
-                        } else {
-                            "FFmpeg process terminated unexpectedly"
-                        }
-                    channel.trySend(Result.failure(Exception(errorMsg)))
+                    streamReady.complete(Result.failure(Exception("FFmpeg process terminated before stream was ready")))
                 } else {
-                    channel.trySend(Result.failure(Exception("Stream ready timeout")))
+                    streamReady.complete(Result.failure(Exception("Stream ready timeout")))
                 }
             } catch (e: Exception) {
-                channel.trySend(Result.failure(e))
+                streamReady.complete(Result.failure(e))
             }
         }
 
-        // Wait for stream to be ready with timeout
         return withTimeoutOrNull(STREAM_READY_TIMEOUT_MS) {
-            val result = channel.receive()
+            val result = streamReady.await()
             result.isSuccess
         } ?: false.also {
             Logger.err("Timeout waiting for FFmpeg stream to be ready")
@@ -242,10 +179,6 @@ class FFmpegExecutor {
      * This method returns immediately and performs cleanup in the background.
      */
     fun destroy() {
-        // Close channels immediately
-        streamReadyChannel?.close()
-        streamReadyChannel = null
-
         val currentProcess = process
         val currentProcessId = processId
 

@@ -30,9 +30,12 @@ abstract class RecordPlayerBlockEntity(
 ) : KineticBlockEntity(type, pos, state),
     Clearable {
     companion object {
-        fun handlePlaybackEnd(playerId: String) {
+        fun handlePlaybackEnd(
+            playerId: String,
+            failure: Boolean = false,
+        ) {
             val blockEntity = RecordPlayerBehaviour.getBlockEntityByPlayerUUID(playerId)
-            blockEntity?.playerBehaviour?.onPlaybackEnd(playerId)
+            blockEntity?.playerBehaviour?.onPlaybackEnd(playerId, failure)
         }
 
         fun handleAudioTitleChange(

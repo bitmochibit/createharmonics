@@ -169,6 +169,9 @@ sourceSets {
     }
 
     test {
+        val buildConfigDir = if (isCurseforge) "buildConfig_curseforge" else "buildConfig_modrinth"
+        java.srcDir("$buildDir/generated/source/$buildConfigDir")
+
         java.srcDir("src/test/java")
         kotlin.srcDir("src/test/kotlin")
         resources.srcDir("src/test/resources")

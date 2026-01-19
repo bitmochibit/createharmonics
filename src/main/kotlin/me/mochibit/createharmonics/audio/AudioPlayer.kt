@@ -173,13 +173,10 @@ class AudioPlayer(
         launchModCoroutine(Dispatchers.IO) {
             val source = PlaybackSource.Url(url)
 
-            // CRITICAL: Check if we should proceed BEFORE acquiring lock
-            // This quick check avoids unnecessary lock contention
             if (isAlreadyPlayingSameContent(source, effectChain)) {
                 return@launchModCoroutine
             }
 
-            // PHASE 1: Acquire lock only for state setup (fast operations)
             val context: PlaybackContext
             stateMutex.withLock {
                 if (playState == PlayState.LOADING) {
@@ -197,16 +194,12 @@ class AudioPlayer(
                 context = PlaybackContext(source, effectChain, soundEventComposition, offsetSeconds)
                 playbackContext = context
             }
-            // Lock released here - other operations can now proceed
 
-            // PHASE 2: Do expensive initialization WITHOUT holding the lock
-            // This allows handleStreamEnd() and other operations to proceed concurrently
             val initResult =
                 runCatching {
                     initializeUrlPlayback(url, context)
                 }
 
-            // PHASE 3: Acquire lock again only to update final state (fast)
             stateMutex.withLock {
                 // Verify we're still working with the same context
                 if (playbackContext != context) {
@@ -221,14 +214,7 @@ class AudioPlayer(
                         Logger.err("AudioPlayer $playerId: Error during playback: ${e.message}")
                         e.printStackTrace()
 
-                        // Check if this is a 403 error (expired URL) and retry once with fresh extraction
-                        if (e.message?.contains("403") == true || e.message?.contains("Forbidden") == true) {
-                            Logger.info("AudioPlayer $playerId: Detected 403 error, invalidating cache and retrying...")
-                            invalidateUrlCacheAndRetry(url, context)
-                        } else {
-                            resetStateInternal()
-                            notifyStreamFailure()
-                        }
+                        invalidateUrlCacheAndRetry(url, context)
                     }
             }
         }
@@ -252,7 +238,6 @@ class AudioPlayer(
         offsetSeconds: Double = 0.0,
     ) {
         launchModCoroutine(Dispatchers.IO) {
-            // PHASE 1: Acquire lock only for state setup (fast operations)
             val context: PlaybackContext
             stateMutex.withLock {
                 val source = PlaybackSource.Stream(inputStream, audioName)
@@ -265,15 +250,12 @@ class AudioPlayer(
                 context = PlaybackContext(source, effectChain, soundEventComposition, offsetSeconds)
                 playbackContext = context
             }
-            // Lock released here - other operations can now proceed
 
-            // PHASE 2: Do expensive initialization WITHOUT holding the lock
             val initResult =
                 runCatching {
                     initializeStreamPlayback(inputStream, audioName, context)
                 }
 
-            // PHASE 3: Acquire lock again only to update final state (fast)
             stateMutex.withLock {
                 // Verify we're still working with the same context
                 if (playbackContext != context) {
@@ -350,6 +332,10 @@ class AudioPlayer(
 
         if (!audioStream.awaitPreBuffering()) {
             throw IllegalStateException("Pre-buffering timeout")
+        }
+
+        if (playState != PlayState.LOADING) {
+            throw IllegalStateException("Aborting playback")
         }
 
         startPlayback(audioStream, context)
@@ -473,6 +459,10 @@ class AudioPlayer(
 
         if (!audioStream.awaitPreBuffering()) {
             throw IllegalStateException("Pre-buffering timeout")
+        }
+
+        if (playState != PlayState.LOADING) {
+            throw IllegalStateException("Aborting playback")
         }
 
         startPlayback(audioStream, context)
@@ -702,7 +692,7 @@ class AudioPlayer(
     }
 
     private fun notifyStreamFailure() {
-        ModPackets.channel.sendToServer(AudioPlayerStreamEndPacket(playerId))
+        ModPackets.channel.sendToServer(AudioPlayerStreamEndPacket(playerId, true))
     }
 
     /**
