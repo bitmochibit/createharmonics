@@ -532,8 +532,6 @@ class AudioPlayer(
                     }
 
                     PlayState.LOADING, PlayState.STOPPED -> {
-                        // Ignore stream end events in these states
-                        Logger.debug("AudioPlayer $playerId: Ignoring stream end in $playState state")
                     }
                 }
             } finally {

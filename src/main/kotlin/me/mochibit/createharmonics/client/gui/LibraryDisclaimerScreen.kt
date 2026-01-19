@@ -1,5 +1,8 @@
+@file:Suppress("SimplifyBooleanWithConstants")
+
 package me.mochibit.createharmonics.client.gui
 
+import me.mochibit.createharmonics.BuildConfig
 import me.mochibit.createharmonics.audio.binProvider.BackgroundLibraryInstaller
 import me.mochibit.createharmonics.audio.binProvider.FFMPEGProvider
 import me.mochibit.createharmonics.audio.binProvider.YTDLProvider
@@ -73,42 +76,55 @@ class LibraryDisclaimerScreen(
 
         when (currentState) {
             State.DISCLAIMER -> {
-                // Calculate positions for two centered buttons with gap
-                val totalWidth = buttonW * 2 + buttonGap
-                val leftButtonX = centerX - totalWidth / 2
-                val rightButtonX = leftButtonX + buttonW + buttonGap
+                if (BuildConfig.IS_CURSEFORGE) {
+                    addRenderableWidget(
+                        Button
+                            .builder(
+                                ModLang.translate("gui.library_setup.manual_installation_btn").component(),
+                            ) {
+                                ModConfigurations.client.neverShowLibraryDisclaimer.set(true)
+                                currentState = State.SKIPPED
+                                rebuildWidgets()
+                            }.bounds(centerX - buttonW / 2, bottomY, buttonW, buttonH)
+                            .build(),
+                    )
+                } else {
+                    // Calculate positions for two centered buttons with gap
+                    val totalWidth = buttonW * 2 + buttonGap
+                    val leftButtonX = centerX - totalWidth / 2
+                    val rightButtonX = leftButtonX + buttonW + buttonGap
 
-                addRenderableWidget(
-                    Button
-                        .builder(
-                            ModLang
-                                .translate("gui.library_setup.install_in_background_btn")
-                                .component()
-                                .withStyle(ChatFormatting.AQUA),
-                        ) {
-                            startBackgroundInstallation()
-                        }.bounds(leftButtonX, bottomY, buttonW, buttonH)
-                        .build(),
-                )
+                    addRenderableWidget(
+                        Button
+                            .builder(
+                                ModLang
+                                    .translate("gui.library_setup.install_in_background_btn")
+                                    .component()
+                                    .withStyle(ChatFormatting.AQUA),
+                            ) {
+                                startBackgroundInstallation()
+                            }.bounds(leftButtonX, bottomY, buttonW, buttonH)
+                            .build(),
+                    )
 
-                addRenderableWidget(
-                    Button
-                        .builder(ModLang.translate("gui.library_setup.manual_installation_btn").component()) {
-                            // Set config to never show again
-                            ModConfigurations.client.neverShowLibraryDisclaimer.set(true)
-                            currentState = State.SKIPPED
-                            rebuildWidgets()
-                        }.bounds(rightButtonX, bottomY, buttonW, buttonH)
-                        .build(),
-                )
+                    addRenderableWidget(
+                        Button
+                            .builder(ModLang.translate("gui.library_setup.manual_installation_btn").component()) {
+                                // Set config to never show again
+                                ModConfigurations.client.neverShowLibraryDisclaimer.set(true)
+                                currentState = State.SKIPPED
+                                rebuildWidgets()
+                            }.bounds(rightButtonX, bottomY, buttonW, buttonH)
+                            .build(),
+                    )
+                }
             }
 
             State.STATUS -> {
                 val allInstalled = BackgroundLibraryInstaller.areAllLibrariesInstalled()
                 val isInstalling = BackgroundLibraryInstaller.isInstalling()
 
-                // Show install button if not all installed and not currently installing
-                if (!allInstalled && !isInstalling) {
+                if (!allInstalled && !isInstalling && !BuildConfig.IS_CURSEFORGE) {
                     val totalWidth = buttonW * 2 + buttonGap
                     val leftButtonX = centerX - totalWidth / 2
                     val rightButtonX = leftButtonX + buttonW + buttonGap
@@ -128,7 +144,9 @@ class LibraryDisclaimerScreen(
 
                     addRenderableWidget(
                         Button
-                            .builder(ModLang.translate("gui.library_setup.go_back_btn").component()) {
+                            .builder(
+                                ModLang.translate("gui.library_setup.go_back_btn").component(),
+                            ) {
                                 onClose()
                             }.bounds(rightButtonX, bottomY, buttonW, buttonH)
                             .build(),
@@ -136,7 +154,9 @@ class LibraryDisclaimerScreen(
                 } else {
                     addRenderableWidget(
                         Button
-                            .builder(ModLang.translate("gui.library_setup.go_back_btn").component()) {
+                            .builder(
+                                ModLang.translate("gui.library_setup.go_back_btn").component(),
+                            ) {
                                 onClose()
                             }.bounds(centerX - buttonW / 2, bottomY, buttonW, buttonH)
                             .build(),
@@ -233,17 +253,31 @@ class LibraryDisclaimerScreen(
         cy: Int,
     ) {
         // Draw subtitle
+        val subtitleKey =
+            if (BuildConfig.IS_CURSEFORGE) {
+                "gui.library_setup.library_disclaimer_subtitle_curseforge"
+            } else {
+                "gui.library_setup.library_disclaimer_subtitle"
+            }
+
         drawCenteredString(
             gfx,
-            ModLang.translate("gui.library_setup.library_disclaimer_subtitle").component().getString(128),
+            ModLang.translate(subtitleKey).component().getString(128),
             cx,
             55,
             accentColor,
         )
 
+        val infoKey =
+            if (BuildConfig.IS_CURSEFORGE) {
+                "gui.library_setup.library_disclaimer_info_curseforge"
+            } else {
+                "gui.library_setup.library_disclaimer_info"
+            }
+
         val disclaimerInfoText =
             wrapText(
-                ModLang.translate("gui.library_setup.library_disclaimer_info").component().getString(256),
+                ModLang.translate(infoKey).component().getString(256),
                 400,
             )
         for (i in disclaimerInfoText.indices) {
@@ -576,7 +610,7 @@ class LibraryDisclaimerScreen(
         cx: Int,
         cy: Int,
     ) {
-        val boxW = 420
+        val boxW = 460
         val boxH = 160
         val topY = cy - 80
 

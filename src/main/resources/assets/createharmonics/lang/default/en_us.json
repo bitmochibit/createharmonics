@@ -13,6 +13,8 @@
   "createharmonics.gui.library_setup.manual_disclaimer_accept_btn": "I Understand, Continue",
   "createharmonics.gui.library_setup.library_disclaimer_subtitle": "Required Libraries",
   "createharmonics.gui.library_setup.library_disclaimer_info": "This mod requires external libraries to function. Would you like to install them automatically?",
+  "createharmonics.gui.library_setup.library_disclaimer_subtitle_curseforge": "Manual installation of required libraries",
+  "createharmonics.gui.library_setup.library_disclaimer_info_curseforge": "External libraries cannot be downloaded automatically on CurseForge. Please follow the instructions to install them manually.",
   "createharmonics.gui.library_setup.card_tooltip.click_to_open_site": "Click to open website",
   "createharmonics.gui.library_setup.status.all_lib_installed": "All libraries are installed!",
   "createharmonics.gui.library_setup.status.installing_lib": "Installing libraries...",

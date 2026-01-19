@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.audio.binProvider
 
 import kotlinx.coroutines.Dispatchers
+import me.mochibit.createharmonics.BuildConfig
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import me.mochibit.createharmonics.registry.ModLang
@@ -10,6 +11,7 @@ import net.minecraft.network.chat.Component
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
+@Suppress("KotlinConstantConditions")
 object BackgroundLibraryInstaller {
     enum class LibraryType(
         val displayName: String,
@@ -17,6 +19,8 @@ object BackgroundLibraryInstaller {
         YTDLP("yt-dlp"),
         FFMPEG("FFmpeg"),
     }
+
+    fun isAutoInstallAllowed(): Boolean = !BuildConfig.IS_CURSEFORGE
 
     enum class Status {
         PENDING,
@@ -92,6 +96,11 @@ object BackgroundLibraryInstaller {
      * Start background installation of missing libraries
      */
     fun startBackgroundInstallation() {
+        if (!isAutoInstallAllowed()) {
+            Logger.warn("Automatic installation is disabled on ${BuildConfig.PLATFORM}")
+            return
+        }
+
         if (!installationInProgress.compareAndSet(false, true)) {
             Logger.warn("Library installation already in progress")
             return

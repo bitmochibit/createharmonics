@@ -621,6 +621,9 @@ class RecordPlayerBehaviour(
     ) {
         compound.put("Inventory", itemHandler.serializeNBT())
         NBTHelper.writeEnum(compound, "PlaybackState", playbackState)
+        if (recordPlayerUUID == null) {
+            recordPlayerUUID = UUID.randomUUID()
+        }
         compound.putUUID("RecordPlayerUUID", recordPlayerUUID)
         compound.putLong("PlayTime", playTime)
         compound.putLong("PauseStartTime", pauseStartTime)

@@ -61,6 +61,34 @@ val vsCoreVersion = property("vs_core_version") as String
 group = modGroupId
 version = modVersion
 
+val isCurseforge = project.hasProperty("curseforge")
+
+fun createGenerateBuildConfigTask(
+    taskName: String,
+    isCurseForge: Boolean,
+) = tasks.register(taskName) {
+    val outputDir = file("$buildDir/generated/source/buildConfig_${if (isCurseForge) "curseforge" else "modrinth"}")
+    outputs.dir(outputDir)
+
+    doLast {
+        val file = file("$outputDir/me/mochibit/createharmonics/BuildConfig.kt")
+        file.parentFile.mkdirs()
+        file.writeText(
+            """
+            package me.mochibit.createharmonics
+            
+            object BuildConfig {
+                const val IS_CURSEFORGE = $isCurseForge
+                const val PLATFORM = "${if (isCurseForge) "CurseForge" else "Modrinth"}"
+            }
+            """.trimIndent(),
+        )
+    }
+}
+
+val generateBuildConfigModrinth = createGenerateBuildConfigTask("generateBuildConfigModrinth", false)
+val generateBuildConfigCurseforge = createGenerateBuildConfigTask("generateBuildConfigCurseforge", true)
+
 base {
     archivesName.set(modId)
 }
@@ -82,7 +110,6 @@ minecraft {
             mods {
                 create(modId) {
                     source(sourceSets.main.get())
-                    source(sourceSets.test.get())
                 }
             }
         }
@@ -129,12 +156,16 @@ minecraft {
 // Mixin configuration
 configure<org.spongepowered.asm.gradle.plugins.MixinExtension> {
     add(sourceSets.main.get(), "$modId.refmap.json")
+    config("$modId.mixins.json")
 }
 
 sourceSets {
     main {
         ext["refMap"] = "$modId.refmap.json"
         resources.srcDir("src/generated/resources")
+
+        val buildConfigDir = if (isCurseforge) "buildConfig_curseforge" else "buildConfig_modrinth"
+        java.srcDir("$buildDir/generated/source/$buildConfigDir")
     }
 
     test {
@@ -188,7 +219,7 @@ dependencies {
     }
     implementation(fg.deobf("net.createmod.ponder:Ponder-Forge-$minecraftVersion:$ponderVersion"))
     compileOnly(fg.deobf("dev.engine-room.flywheel:flywheel-forge-api-$minecraftVersion:$flywheelVersion"))
-    runtimeOnly(fg.deobf("dev.engine-room.flywheel:flywheel-forge-$minecraftVersion:flywheelVersion"))
+    runtimeOnly(fg.deobf("dev.engine-room.flywheel:flywheel-forge-$minecraftVersion:$flywheelVersion"))
     implementation(fg.deobf("com.tterrag.registrate:Registrate:$registrateVersion"))
 
     // VS2
@@ -252,6 +283,9 @@ tasks.named("build") {
 }
 
 tasks.named<Jar>("jar") {
+    if (isCurseforge) {
+        archiveBaseName.set("$modId-curseforge")
+    }
     manifest {
         attributes(
             mapOf(
@@ -269,6 +303,12 @@ tasks.named<Jar>("jar") {
     finalizedBy("reobfJar")
 }
 
+tasks.register<GradleBuild>("buildForCurseforge") {
+    group = "build"
+    tasks = listOf("build")
+    startParameter.projectProperties = mapOf("curseforge" to "true")
+}
+
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     options.compilerArgs.addAll(
@@ -278,6 +318,14 @@ tasks.withType<JavaCompile>().configureEach {
             "-AoutRefMapFile=${project.file("build/resources/main/$modId.refmap.json").absolutePath}",
         ),
     )
+}
+
+tasks.compileKotlin {
+    dependsOn(if (isCurseforge) generateBuildConfigCurseforge else generateBuildConfigModrinth)
+}
+
+tasks.compileJava {
+    dependsOn(if (isCurseforge) generateBuildConfigCurseforge else generateBuildConfigModrinth)
 }
 
 kotlin {
