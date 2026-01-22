@@ -31,29 +31,25 @@ else you can think of!
 
 ### Features
 
-- You can play music from urls, currently YouTube (and YoutubeMusic) are directly supported, but other sources should
-  work fine
-- For the Andesite Jukebox, playback pitch depends on the input rotation speed, half the maximum speed plays at normal
-  pitch
-- For adding music from URLs, you must use a Record Press Base
-- When you craft an Ethereal Record, and no url is provided, it will play the music from the music disc you used to
-  craft it
-- Display links can show the currently playing song
-- Jukebox supports loop mode when redstone powered
-- Mechanical arms know when they can extract a record (when a song finishes) and insert a new one, for automated music
-  systems
-- Each music disc type has some special audio effects in it
-- Pitch on contraption depends on contraption speed
-- Audio is synchronized between players in multiplayer
+*   You can play music from URLs, this mod supports a lot of sources, including **YouTube**, **YouTube Music**, **Soundcloud** and many more.
+*   For the _Andesite Jukebox_, playback pitch depends on the input rotation speed, half the maximum speed plays at normal pitch
+*   For adding music from URLs, you must use a Record Press Base
+*   When you craft an Ethereal Record, and no url is provided, it will play the music from the music disc you used to craft it
+*   Display links can show the currently playing song
+*   Jukebox supports loop mode when redstone powered
+*   Mechanical arms know when they can extract a record (when a song finishes) and insert a new one, for automated music systems
+*   Each music disc type has some special audio effects in it
+*   Pitch on contraption depends on contraption speed
+*   Audio is synchronized between players in multiplayer
+* **Valkyrien skies** support
 
 ### Planned features
 
-- A lot more record types with unique audio effects
-- Programmable Ethereal Record, with custom audio effects
-- More directly supported platforms
-- Brass jukebox, with configurable pitch, range and record collections
-- Speakers and audio routing, for more controlled audio systems
-- Direct integration with Valkyrien Skies 2
+*   A lot more record types with unique audio effects
+*   Programmable Ethereal Record, with custom audio effects
+*   More directly supported platforms
+*   Brass jukebox, with configurable pitch, range and record collections
+*   Speakers and audio routing, for more controlled audio systems
 
 ### How it works
 
