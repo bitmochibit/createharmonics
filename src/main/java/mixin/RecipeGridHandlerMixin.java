@@ -28,6 +28,8 @@ public abstract class RecipeGridHandlerMixin {
     )
     private static void onRecipeAssembled(Level world, RecipeGridHandler.GroupedItems items, CallbackInfoReturnable<ItemStack> cir, CraftingContainer inv) {
         ItemStack result = cir.getReturnValue();
+        if (result == null) return;
+
         if (!result.isEmpty()) {
             RecipeAssembledEvent event = new RecipeAssembledEvent(inv.getItems(), Collections.singletonList(result));
             MinecraftForge.EVENT_BUS.post(event);

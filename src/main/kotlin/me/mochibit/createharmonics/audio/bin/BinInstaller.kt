@@ -1,8 +1,7 @@
-package me.mochibit.createharmonics.audio.binProvider
+package me.mochibit.createharmonics.audio.bin
 
 import me.mochibit.createharmonics.Logger.err
 import me.mochibit.createharmonics.Logger.info
-import net.minecraft.client.Minecraft
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -10,90 +9,21 @@ import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipInputStream
 
-abstract class DownloadableBinProvider(
-    private val providerName: String,
-    val directory: File = Minecraft.getInstance().gameDirectory.toPath()
-        .resolve("audio_providers/$providerName").toFile(),
-) {
+object BinInstaller {
+    private val installationLocks = ConcurrentHashMap<String, Any>()
 
-    companion object {
-        private val installationLocks = ConcurrentHashMap<String, Any>()
-
-        private val OS_NAME = System.getProperty("os.name").lowercase()
-        private val OS_ARCH = System.getProperty("os.arch").lowercase()
-
-        val isWindows: Boolean = OS_NAME.contains("win")
-        val isMac: Boolean = OS_NAME.contains("mac") || OS_NAME.contains("darwin")
-        val isLinux: Boolean = OS_NAME.contains("linux")
-        val isArm: Boolean = OS_ARCH.contains("aarch64") || OS_ARCH.contains("arm")
-    }
-
-    @Volatile
-    private var cachedExecutablePath: String? = null
-
-    fun isAvailable(): Boolean {
-        val execPath = getExecutablePath()
-        return execPath != null && File(execPath).let { it.exists() && it.canExecute() }
-    }
-
-    fun getExecutablePath(): String? {
-        cachedExecutablePath?.let { cached ->
-            if (File(cached).exists()) return cached
-        }
-
-        if (!directory.exists()) return null
-
-        val exeName = getExecutableName()
-        val executable = findExecutable(directory, exeName)
-        cachedExecutablePath = executable?.absolutePath
-        return cachedExecutablePath
-    }
-
-    private fun getExecutableName(): String {
-        return if (isWindows) "$providerName.exe" else providerName
-    }
-
-    private fun findExecutable(dir: File, exeName: String): File? {
-        if (!dir.isDirectory) return null
-
-        // Check direct path first
-        val directExec = File(dir, exeName)
-        if (directExec.exists()) {
-            ensureExecutable(directExec)
-            return directExec
-        }
-
-        // Search in subdirectories (breadth-first to prefer shallow paths)
-        val queue = ArrayDeque<File>()
-        queue.add(dir)
-
-        while (queue.isNotEmpty()) {
-            val current = queue.removeFirst()
-            current.listFiles()?.forEach { file ->
-                if (file.name.equals(exeName, ignoreCase = true)) {
-                    ensureExecutable(file)
-                    return file
-                }
-                if (file.isDirectory) {
-                    queue.add(file)
-                }
-            }
-        }
-
-        return null
-    }
-
-    private fun ensureExecutable(file: File) {
-        if (!file.canExecute()) {
-            file.setExecutable(true, false)
-        }
-    }
-
-    fun install(progressCallback: ((String, Float, String) -> Unit)? = null): Boolean {
+    /**
+     * Install a binary provider
+     */
+    fun install(
+        provider: BinProvider,
+        providerName: String,
+        progressCallback: ((String, Float, String) -> Unit)? = null,
+    ): Boolean {
         val lockObject = installationLocks.computeIfAbsent(providerName) { Any() }
 
         synchronized(lockObject) {
-            if (isAvailable()) {
+            if (provider.isAvailable()) {
                 info("$providerName is already installed")
                 progressCallback?.invoke("already_installed", 1.0f, "")
                 return true
@@ -102,9 +32,9 @@ abstract class DownloadableBinProvider(
             try {
                 info("Installing $providerName...")
                 progressCallback?.invoke("downloading", 0.0f, "")
-                directory.mkdirs()
+                provider.directory.mkdirs()
 
-                val downloadUrl = getDownloadUrl()
+                val downloadUrl = provider.getDownloadUrl()
                 info("Downloading from: $downloadUrl")
 
                 val tempFile = File.createTempFile("${providerName}_download", ".tmp")
@@ -116,14 +46,14 @@ abstract class DownloadableBinProvider(
                     }
 
                     progressCallback?.invoke("extracting", 0.0f, "")
-                    extractDownloadedFile(downloadUrl, tempFile)
+                    extractDownloadedFile(downloadUrl, tempFile, provider)
 
                     info("$providerName installed successfully")
                     progressCallback?.invoke("completed", 1.0f, "")
 
                     // Clear cache and verify
-                    cachedExecutablePath = null
-                    return isAvailable().also { available ->
+                    provider.clearCache()
+                    return provider.isAvailable().also { available ->
                         if (!available) {
                             err("Installation verification failed for $providerName")
                             progressCallback?.invoke("failed", 0.0f, "")
@@ -141,27 +71,36 @@ abstract class DownloadableBinProvider(
         }
     }
 
-    private fun extractDownloadedFile(downloadUrl: String, tempFile: File) {
+    private fun extractDownloadedFile(
+        downloadUrl: String,
+        tempFile: File,
+        provider: BinProvider,
+    ) {
         when {
-            downloadUrl.endsWith(".zip") -> extractZip(tempFile, directory)
-            downloadUrl.endsWith(".tar.xz") -> extractTarXz(tempFile, directory)
-            else -> extractSingleFile(tempFile)
+            downloadUrl.endsWith(".zip") -> extractZip(tempFile, provider.directory, provider)
+            downloadUrl.endsWith(".tar.xz") -> extractTarXz(tempFile, provider.directory)
+            else -> extractSingleFile(tempFile, provider)
         }
     }
 
-    private fun extractSingleFile(tempFile: File) {
-        val exeName = getExecutableName()
-        val targetFile = File(directory, exeName)
+    private fun extractSingleFile(
+        tempFile: File,
+        provider: BinProvider,
+    ) {
+        val exeName = provider.getExecutableNameInternal()
+        val targetFile = File(provider.directory, exeName)
         tempFile.copyTo(targetFile, overwrite = true)
-        ensureExecutable(targetFile)
+        provider.ensureExecutable(targetFile)
     }
 
-    protected abstract fun getDownloadUrl(): String
-
-    private fun downloadFile(url: String, destination: File, progressCallback: ((String, Float, String) -> Unit)? = null) {
+    private fun downloadFile(
+        url: String,
+        destination: File,
+        progressCallback: ((String, Float, String) -> Unit)? = null,
+    ) {
         val connection = URL(url).openConnection()
-        connection.connectTimeout = 30000 // 30 seconds
-        connection.readTimeout = 30000 // 30 seconds
+        connection.connectTimeout = 30000
+        connection.readTimeout = 30000
 
         val contentLength = connection.contentLengthLong
 
@@ -181,24 +120,23 @@ abstract class DownloadableBinProvider(
                     val currentTime = System.currentTimeMillis()
                     val timeSinceLastUpdate = currentTime - lastUpdateTime
 
-                    // Update progress every 100ms
                     if (timeSinceLastUpdate >= 100) {
                         val bytesSinceLastUpdate = totalBytes - lastUpdateBytes
                         val speedBytesPerSec = (bytesSinceLastUpdate * 1000.0 / timeSinceLastUpdate).toLong()
                         val speedText = formatSpeed(speedBytesPerSec)
 
-                        val progress = if (contentLength > 0) {
-                            totalBytes.toFloat() / contentLength.toFloat()
-                        } else {
-                            0.0f
-                        }
+                        val progress =
+                            if (contentLength > 0) {
+                                totalBytes.toFloat() / contentLength.toFloat()
+                            } else {
+                                0.0f
+                            }
 
                         progressCallback?.invoke("downloading", progress, speedText)
 
                         lastUpdateTime = currentTime
                         lastUpdateBytes = totalBytes
 
-                        // Log progress every 1MB
                         if (totalBytes % (1024 * 1024) < buffer.size) {
                             info("Downloaded ${totalBytes / (1024 * 1024)} MB... ($speedText)")
                         }
@@ -210,16 +148,18 @@ abstract class DownloadableBinProvider(
         }
     }
 
-    private fun formatSpeed(bytesPerSecond: Long): String {
-        return when {
+    private fun formatSpeed(bytesPerSecond: Long): String =
+        when {
             bytesPerSecond >= 1024 * 1024 -> "%.2f MB/s".format(bytesPerSecond / (1024.0 * 1024.0))
             bytesPerSecond >= 1024 -> "%.2f KB/s".format(bytesPerSecond / 1024.0)
             else -> "$bytesPerSecond B/s"
         }
-    }
 
-    private fun extractZip(zipFile: File, destDir: File) {
-        // Ensure destination directory exists
+    private fun extractZip(
+        zipFile: File,
+        destDir: File,
+        provider: BinProvider,
+    ) {
         destDir.mkdirs()
         val destPath = destDir.canonicalFile.toPath()
 
@@ -234,7 +174,6 @@ abstract class DownloadableBinProvider(
                         info("Extracted $fileCount files...")
                     }
 
-                    // Security: Prevent zip slip vulnerability by checking path before creating file
                     val entryPath = File(entry.name).toPath().normalize()
                     val resolvedPath = destPath.resolve(entryPath).normalize()
 
@@ -252,9 +191,8 @@ abstract class DownloadableBinProvider(
                             zis.copyTo(output)
                         }
 
-                        // Make executable if it's a binary (no extension or .exe)
-                        if (shouldBeExecutable(entry.name)) {
-                            ensureExecutable(file)
+                        if (shouldBeExecutable(entry.name, provider)) {
+                            provider.ensureExecutable(file)
                         }
                     }
 
@@ -265,18 +203,23 @@ abstract class DownloadableBinProvider(
         info("Extraction complete: $fileCount files extracted")
     }
 
-    private fun shouldBeExecutable(fileName: String): Boolean {
+    private fun shouldBeExecutable(
+        fileName: String,
+        provider: BinProvider,
+    ): Boolean {
         val name = File(fileName).name
         return when {
-            isWindows -> name.endsWith(".exe", ignoreCase = true)
-            else -> !name.contains(".") || name == providerName
+            BinProvider.isWindows -> name.endsWith(".exe", ignoreCase = true)
+            else -> !name.contains(".") || name == provider.getExecutableNameInternal()
         }
     }
 
     @Suppress("UNUSED_PARAMETER")
-    private fun extractTarXz(tarXzFile: File, destDir: File) {
+    private fun extractTarXz(
+        tarXzFile: File,
+        destDir: File,
+    ): Unit =
         throw UnsupportedOperationException(
-            "tar.xz extraction not implemented yet. Please install $providerName manually."
+            "tar.xz extraction not implemented yet. Please install manually.",
         )
-    }
 }

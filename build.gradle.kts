@@ -288,6 +288,11 @@ tasks.named("build") {
 tasks.named<Jar>("jar") {
     if (isCurseforge) {
         archiveBaseName.set("$modId-curseforge")
+
+        exclude("me/mochibit/createharmonics/audio/bin/BackgroundBinInstaller.class")
+        exclude("me/mochibit/createharmonics/audio/bin/BackgroundBinInstaller$*.class")
+        exclude("me/mochibit/createharmonics/audio/bin/BinInstaller.class")
+        exclude("me/mochibit/createharmonics/audio/bin/BinInstaller$*.class")
     }
     manifest {
         attributes(
@@ -308,7 +313,7 @@ tasks.named<Jar>("jar") {
 
 tasks.register<GradleBuild>("buildForCurseforge") {
     group = "build"
-    tasks = listOf("build")
+    tasks = listOf("clean", "build")
     startParameter.projectProperties = mapOf("curseforge" to "true")
 }
 

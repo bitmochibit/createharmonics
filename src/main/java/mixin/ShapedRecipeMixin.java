@@ -19,6 +19,8 @@ public abstract class ShapedRecipeMixin {
     @Inject(method = "assemble(Lnet/minecraft/world/inventory/CraftingContainer;Lnet/minecraft/core/RegistryAccess;)Lnet/minecraft/world/item/ItemStack;", at = @At("RETURN"))
     private void onRecipeAssembled(CraftingContainer pContainer, RegistryAccess pRegistryAccess, CallbackInfoReturnable<ItemStack> cir) {
         ItemStack result = cir.getReturnValue();
+        if (result == null) return;
+
         if (!result.isEmpty()) {
             var ingredients = new ArrayList<ItemStack>();
             for (int i = 0; i < pContainer.getContainerSize(); i++) {

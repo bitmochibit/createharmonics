@@ -1,17 +1,18 @@
-package me.mochibit.createharmonics.audio.binProvider
+package me.mochibit.createharmonics.audio.bin
 
-
-object YTDLProvider: DownloadableBinProvider(
-    "yt-dlp"
+object YTDLProvider : BinProvider(
+    "yt-dlp",
 ) {
-    override fun getDownloadUrl(): String {
-        return when {
+    override fun getDownloadUrl(): String =
+        when {
             isWindows -> {
                 "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
             }
+
             isMac -> {
                 "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos"
             }
+
             isLinux -> {
                 if (isArm) {
                     "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux_aarch64"
@@ -19,7 +20,9 @@ object YTDLProvider: DownloadableBinProvider(
                     "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux"
                 }
             }
-            else -> throw UnsupportedOperationException("Unsupported OS: ${System.getProperty("os.name")}")
+
+            else -> {
+                throw UnsupportedOperationException("Unsupported OS: ${System.getProperty("os.name")}")
+            }
         }
-    }
 }

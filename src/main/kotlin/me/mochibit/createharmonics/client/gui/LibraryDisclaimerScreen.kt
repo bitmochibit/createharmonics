@@ -3,16 +3,16 @@
 package me.mochibit.createharmonics.client.gui
 
 import me.mochibit.createharmonics.BuildConfig
-import me.mochibit.createharmonics.audio.binProvider.BackgroundLibraryInstaller
-import me.mochibit.createharmonics.audio.binProvider.FFMPEGProvider
-import me.mochibit.createharmonics.audio.binProvider.YTDLProvider
+import me.mochibit.createharmonics.audio.bin.BackgroundBinInstaller
+import me.mochibit.createharmonics.audio.bin.BinStatusManager
+import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
+import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.registry.ModConfigurations
 import me.mochibit.createharmonics.registry.ModLang
 import net.minecraft.ChatFormatting
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.screens.Screen
-import net.minecraft.network.chat.Component
 
 class LibraryDisclaimerScreen(
     private val parent: Screen?,
@@ -59,8 +59,8 @@ class LibraryDisclaimerScreen(
         // Determine initial state based on installation status
         currentState =
             when {
-                BackgroundLibraryInstaller.areAllLibrariesInstalled() -> State.STATUS
-                BackgroundLibraryInstaller.isInstalling() -> State.STATUS
+                BinStatusManager.areAllLibrariesInstalled() -> State.STATUS
+                BinStatusManager.isAnyInstalling() -> State.STATUS
                 else -> State.DISCLAIMER
             }
         rebuildWidgets()
@@ -121,8 +121,8 @@ class LibraryDisclaimerScreen(
             }
 
             State.STATUS -> {
-                val allInstalled = BackgroundLibraryInstaller.areAllLibrariesInstalled()
-                val isInstalling = BackgroundLibraryInstaller.isInstalling()
+                val allInstalled = BinStatusManager.areAllLibrariesInstalled()
+                val isInstalling = BinStatusManager.isAnyInstalling()
 
                 if (!allInstalled && !isInstalling && !BuildConfig.IS_CURSEFORGE) {
                     val totalWidth = buttonW * 2 + buttonGap
@@ -177,7 +177,7 @@ class LibraryDisclaimerScreen(
     }
 
     private fun startBackgroundInstallation() {
-        BackgroundLibraryInstaller.startBackgroundInstallation()
+        BackgroundBinInstaller.startBackgroundInstallation()
         currentState = State.STATUS
         rebuildWidgets()
     }
@@ -402,8 +402,8 @@ class LibraryDisclaimerScreen(
         cx: Int,
         cy: Int,
     ) {
-        val allInstalled = BackgroundLibraryInstaller.areAllLibrariesInstalled()
-        val isInstalling = BackgroundLibraryInstaller.isInstalling()
+        val allInstalled = BinStatusManager.areAllLibrariesInstalled()
+        val isInstalling = BinStatusManager.isAnyInstalling()
 
         val subtitleText =
             when {
@@ -445,12 +445,12 @@ class LibraryDisclaimerScreen(
         val installingCardHeight = 60 // Full height for cards with progress bars
         val compactCardHeight = 50 // Compact height for completed/failed/pending cards
         val cardGap = 10 // Reduced from 12 to 10
-        val libraryCount = BackgroundLibraryInstaller.LibraryType.entries.size
+        val libraryCount = BinStatusManager.LibraryType.entries.size
 
         // Calculate total height based on each library's state
         var totalCardsHeight = 0
-        BackgroundLibraryInstaller.LibraryType.entries.forEach { library ->
-            val status = BackgroundLibraryInstaller.getStatus(library)
+        BinStatusManager.LibraryType.entries.forEach { library ->
+            val status = BinStatusManager.getStatus(library)
             val height =
                 if (status.isInstalling || (status.progress > 0 && !status.isComplete)) {
                     installingCardHeight
@@ -476,8 +476,8 @@ class LibraryDisclaimerScreen(
 
         var currentY = startY
 
-        BackgroundLibraryInstaller.LibraryType.entries.forEach { library ->
-            val status = BackgroundLibraryInstaller.getStatus(library)
+        BinStatusManager.LibraryType.entries.forEach { library ->
+            val status = BinStatusManager.getStatus(library)
 
             // Determine card height based on status
             val cardHeight =
@@ -723,11 +723,11 @@ class LibraryDisclaimerScreen(
 
     override fun isPauseScreen(): Boolean = true
 
-    override fun shouldCloseOnEsc(): Boolean = !BackgroundLibraryInstaller.isInstalling()
+    override fun shouldCloseOnEsc(): Boolean = !BackgroundBinInstaller.isInstalling()
 
-    private fun formatStatus(status: BackgroundLibraryInstaller.Status): String =
+    private fun formatStatus(status: BinStatusManager.Status): String =
         when (status) {
-            BackgroundLibraryInstaller.Status.PENDING -> {
+            BinStatusManager.Status.PENDING -> {
                 ModLang
                     .translate(
                         "gui.library_setup.status.single_lib.pending",
@@ -735,7 +735,7 @@ class LibraryDisclaimerScreen(
                     .getString(128)
             }
 
-            BackgroundLibraryInstaller.Status.NOT_INSTALLED -> {
+            BinStatusManager.Status.NOT_INSTALLED -> {
                 ModLang
                     .translate(
                         "gui.library_setup.status.single_lib.not_installed",
@@ -743,7 +743,7 @@ class LibraryDisclaimerScreen(
                     .getString(128)
             }
 
-            BackgroundLibraryInstaller.Status.DOWNLOADING -> {
+            BinStatusManager.Status.DOWNLOADING -> {
                 ModLang
                     .translate(
                         "gui.library_setup.status.single_lib.downloading",
@@ -751,7 +751,7 @@ class LibraryDisclaimerScreen(
                     .getString(128)
             }
 
-            BackgroundLibraryInstaller.Status.EXTRACTING -> {
+            BinStatusManager.Status.EXTRACTING -> {
                 ModLang
                     .translate(
                         "gui.library_setup.status.single_lib.extracting",
@@ -759,7 +759,7 @@ class LibraryDisclaimerScreen(
                     .getString(128)
             }
 
-            BackgroundLibraryInstaller.Status.INSTALLED -> {
+            BinStatusManager.Status.INSTALLED -> {
                 ModLang
                     .translate(
                         "gui.library_setup.status.single_lib.installed",
@@ -767,7 +767,7 @@ class LibraryDisclaimerScreen(
                     .getString(128)
             }
 
-            BackgroundLibraryInstaller.Status.ALREADY_INSTALLED -> {
+            BinStatusManager.Status.ALREADY_INSTALLED -> {
                 ModLang
                     .translate(
                         "gui.library_setup.status.single_lib.already_installed",
@@ -775,7 +775,7 @@ class LibraryDisclaimerScreen(
                     .getString(128)
             }
 
-            BackgroundLibraryInstaller.Status.FAILED -> {
+            BinStatusManager.Status.FAILED -> {
                 ModLang
                     .translate(
                         "gui.library_setup.status.single_lib.failed",
@@ -783,7 +783,7 @@ class LibraryDisclaimerScreen(
                     .getString(128)
             }
 
-            BackgroundLibraryInstaller.Status.ERROR -> {
+            BinStatusManager.Status.ERROR -> {
                 ModLang
                     .translate(
                         "gui.library_setup.status.single_lib.error",
@@ -796,7 +796,7 @@ class LibraryDisclaimerScreen(
     override fun tick() {
         super.tick()
         // Rebuild widgets every tick to update button states based on installation progress
-        if (currentState == State.STATUS && (children().isEmpty() || BackgroundLibraryInstaller.isInstalling())) {
+        if (currentState == State.STATUS && (children().isEmpty() || BackgroundBinInstaller.isInstalling())) {
             rebuildWidgets()
         }
     }

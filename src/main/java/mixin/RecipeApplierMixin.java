@@ -27,6 +27,7 @@ public abstract class RecipeApplierMixin {
     )
     private static void onRecipeApply(Level level, ItemStack stackIn, Recipe<?> recipe, boolean returnProcessingRemainder, CallbackInfoReturnable<List<ItemStack>> cir) {
         List<ItemStack> result = cir.getReturnValue();
+        if (result == null) return;
         if (!result.isEmpty()) {
             RecipeAssembledEvent event = new RecipeAssembledEvent(new ArrayList<>(Collections.singleton(stackIn)), result);
             MinecraftForge.EVENT_BUS.post(event);
@@ -41,6 +42,7 @@ public abstract class RecipeApplierMixin {
     private static void onRecipeApplyOverload(ItemEntity entity, Recipe<?> recipe, boolean returnProcessingRemainder, CallbackInfo ci) {
         ItemStack stackIn = entity.getItem();
         List<ItemStack> result = RecipeApplier.applyRecipeOn(entity.level(), stackIn, recipe, returnProcessingRemainder);
+        if (result == null) return;
         if (!result.isEmpty()) {
             RecipeAssembledEvent event = new RecipeAssembledEvent(new ArrayList<>(Collections.singleton(stackIn)), result);
             MinecraftForge.EVENT_BUS.post(event);

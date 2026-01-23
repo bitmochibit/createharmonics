@@ -7,7 +7,7 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import me.mochibit.createharmonics.Logger.err
-import me.mochibit.createharmonics.audio.binProvider.YTDLProvider
+import me.mochibit.createharmonics.audio.bin.YTDLProvider
 
 class YTdlpExecutor {
     data class AudioUrlInfo(

@@ -1,8 +1,7 @@
 package me.mochibit.createharmonics.client.event
 
-import me.mochibit.createharmonics.Logger
-import me.mochibit.createharmonics.audio.binProvider.FFMPEGProvider
-import me.mochibit.createharmonics.audio.binProvider.YTDLProvider
+import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
+import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.client.gui.LibraryDisclaimerScreen
 import me.mochibit.createharmonics.registry.ModConfigurations
 import net.minecraft.client.Minecraft
