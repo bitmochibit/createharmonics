@@ -98,6 +98,8 @@ By using this mod, you agree to use it responsibly and respect the rights of con
 ### Translations
 
 - Japanese: @Yurisan001
+- Chinese: @KazeShukufuku
+- Polish: @AdInVas
 
 Read the full license [here](LICENSE.MD)
 
