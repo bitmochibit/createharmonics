@@ -1,6 +1,5 @@
+import net.minecraftforge.gradle.patcher.tasks.ReobfuscateJar
 import net.minecraftforge.gradle.userdev.UserDevExtension
-import org.gradle.api.artifacts.ExternalModuleDependency
-import org.gradle.internal.impldep.org.junit.experimental.categories.Categories.CategoryFilter.exclude
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -9,7 +8,6 @@ fun Project.minecraft(configure: UserDevExtension.() -> Unit) = extensions.confi
 
 buildscript {
     repositories {
-        // These repositories are only for Gradle plugins, put any other repositories in the repository block further below
         maven { url = uri("https://repo.spongepowered.org/repository/maven-public/") }
         mavenCentral()
     }
@@ -153,7 +151,6 @@ minecraft {
     }
 }
 
-// Mixin configuration
 configure<org.spongepowered.asm.gradle.plugins.MixinExtension> {
     add(sourceSets.main.get(), "$modId.refmap.json")
     config("$modId.mixins.json")
@@ -212,14 +209,15 @@ val fg = extensions.getByType<net.minecraftforge.gradle.userdev.DependencyManage
 dependencies {
     "minecraft"("net.minecraftforge:forge:$minecraftVersion-$forgeVersion")
 
+    implementation("org.tukaani:xz:1.11")
+    jarJar("org.tukaani:xz:[1.11]")
+
     annotationProcessor("org.spongepowered:mixin:0.8.5:processor")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
     implementation("thedarkcolour:kotlinforforge:4.12.0")
 
     implementation(fg.deobf("com.simibubi.create:create-$minecraftVersion:$createVersion:slim"))
-    configurations.getByName("implementation").dependencies.last().apply {
-        (this as ExternalModuleDependency).isTransitive = false
-    }
+
     implementation(fg.deobf("net.createmod.ponder:Ponder-Forge-$minecraftVersion:$ponderVersion"))
     compileOnly(fg.deobf("dev.engine-room.flywheel:flywheel-forge-api-$minecraftVersion:$flywheelVersion"))
     runtimeOnly(fg.deobf("dev.engine-room.flywheel:flywheel-forge-$minecraftVersion:$flywheelVersion"))
@@ -246,12 +244,20 @@ dependencies {
 
     testImplementation("io.mockk:mockk:1.13.8")
 
-    // MixinExtras with JarJar
     compileOnly(annotationProcessor("io.github.llamalad7:mixinextras-common:0.4.1")!!)
     implementation(fg.deobf("io.github.llamalad7:mixinextras-forge:0.4.1"))
-    jarJar(group = "io.github.llamalad7", name = "mixinextras-forge", version = "[0.4.1,)")
 
     runtimeOnly(fg.deobf("mezz.jei:jei-$jeiMinecraftVersion-forge:$jeiVersion"))
+}
+
+jarJar.enable()
+
+reobf {
+    create("jarJar")
+}
+
+tasks.named("jarJar") {
+    finalizedBy("reobfJarJar")
 }
 
 tasks.named<ProcessResources>("processResources") {
@@ -272,7 +278,6 @@ tasks.named<ProcessResources>("processResources") {
 
     inputs.properties(replaceProperties)
 
-    // Handle duplicate files by preferring files from src/main/resources
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
 
     filesMatching(listOf("META-INF/mods.toml", "pack.mcmeta")) {
@@ -280,12 +285,9 @@ tasks.named<ProcessResources>("processResources") {
     }
 }
 
-// Enable JarJar and make build depend on it
-tasks.named("build") {
-    dependsOn(tasks.named("jarJar"))
-}
-
 tasks.named<Jar>("jar") {
+    archiveClassifier = "slim"
+
     if (isCurseforge) {
         archiveBaseName.set("$modId-curseforge")
 

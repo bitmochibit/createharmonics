@@ -2,6 +2,8 @@ package me.mochibit.createharmonics.audio.bin
 
 import me.mochibit.createharmonics.Logger.err
 import me.mochibit.createharmonics.Logger.info
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
+import org.tukaani.xz.XZInputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -214,12 +216,65 @@ object BinInstaller {
         }
     }
 
-    @Suppress("UNUSED_PARAMETER")
     private fun extractTarXz(
         tarXzFile: File,
         destDir: File,
-    ): Unit =
-        throw UnsupportedOperationException(
-            "tar.xz extraction not implemented yet. Please install manually.",
-        )
+    ) {
+        destDir.mkdirs()
+        val destPath = destDir.canonicalFile.toPath()
+
+        var fileCount = 0
+
+        tarXzFile.inputStream().use { fileInput ->
+            XZInputStream(fileInput).use { xzInput ->
+                TarArchiveInputStream(xzInput).use { tarInput ->
+                    var entry = tarInput.nextTarEntry
+                    while (entry != null) {
+                        fileCount++
+                        if (fileCount % 10 == 0) {
+                            info("Extracted $fileCount files...")
+                        }
+
+                        val entryPath = File(entry.name).toPath().normalize()
+                        val resolvedPath = destPath.resolve(entryPath).normalize()
+
+                        if (!resolvedPath.startsWith(destPath)) {
+                            throw SecurityException("Tar entry is outside target directory: ${entry.name}")
+                        }
+
+                        val file = resolvedPath.toFile()
+
+                        when {
+                            entry.isDirectory -> {
+                                file.mkdirs()
+                            }
+
+                            entry.isSymbolicLink -> {
+                                info("Skipping symbolic link: ${entry.name}")
+                            }
+
+                            else -> {
+                                file.parentFile?.mkdirs()
+                                file.outputStream().use { output ->
+                                    tarInput.copyTo(output)
+                                }
+
+                                // Preserve Unix permissions if available
+                                if (!BinProvider.isWindows && entry.mode != 0) {
+                                    val isExecutable = (entry.mode and 0b001_001_001) != 0
+                                    if (isExecutable) {
+                                        file.setExecutable(true, false)
+                                    }
+                                }
+                            }
+                        }
+
+                        entry = tarInput.nextTarEntry
+                    }
+                }
+            }
+        }
+
+        info("Extraction complete: $fileCount files extracted")
+    }
 }
