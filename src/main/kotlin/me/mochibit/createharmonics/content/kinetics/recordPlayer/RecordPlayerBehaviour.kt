@@ -81,12 +81,13 @@ class RecordPlayerBehaviour(
             playerUUID: String,
             blockEntity: RecordPlayerBlockEntity,
         ) {
-            // Only unregister if this UUID is actually registered to this block entity
-            activePlayersByUUID.remove(playerUUID)
-            ModPackets.channel.send(
-                PacketDistributor.ALL.noArg(),
-                AudioPlayerContextStopPacket(playerUUID),
-            )
+            blockEntity.level?.onServer {
+                activePlayersByUUID.remove(playerUUID)
+                ModPackets.channel.send(
+                    PacketDistributor.ALL.noArg(),
+                    AudioPlayerContextStopPacket(playerUUID),
+                )
+            }
         }
     }
 

@@ -14,8 +14,19 @@ abstract class BinProvider(
             .toFile(),
 ) {
     companion object {
-        private val OS_NAME = System.getProperty("os.name").lowercase()
-        private val OS_ARCH = System.getProperty("os.arch").lowercase()
+        private val debugLinux = false
+
+        private val OS_NAME =
+            when {
+                debugLinux -> "linux"
+                else -> System.getProperty("os.name").lowercase()
+            }
+
+        private val OS_ARCH =
+            when {
+                debugLinux -> "aarch64"
+                else -> System.getProperty("os.arch").lowercase()
+            }
 
         val isWindows: Boolean = OS_NAME.contains("win")
         val isMac: Boolean = OS_NAME.contains("mac") || OS_NAME.contains("darwin")

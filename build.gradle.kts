@@ -1,4 +1,3 @@
-import net.minecraftforge.gradle.patcher.tasks.ReobfuscateJar
 import net.minecraftforge.gradle.userdev.UserDevExtension
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -24,6 +23,7 @@ plugins {
     id("org.parchmentmc.librarian.forgegradle") version "1.+"
     id("org.jetbrains.kotlin.jvm") version "2.2.21"
     id("org.jetbrains.kotlin.plugin.serialization") version "2.2.21"
+    id("com.gradleup.shadow") version "9.3.1"
 }
 
 apply(plugin = "org.spongepowered.mixin")
@@ -58,6 +58,11 @@ val vsCoreVersion = property("vs_core_version") as String
 
 group = modGroupId
 version = modVersion
+
+configurations {
+    create("shade")
+    implementation.get().extendsFrom(getByName("shade"))
+}
 
 val isCurseforge = project.hasProperty("curseforge")
 
@@ -209,8 +214,8 @@ val fg = extensions.getByType<net.minecraftforge.gradle.userdev.DependencyManage
 dependencies {
     "minecraft"("net.minecraftforge:forge:$minecraftVersion-$forgeVersion")
 
-    implementation("org.tukaani:xz:1.11")
-    jarJar("org.tukaani:xz:[1.11]")
+//    minecraftLibrary(group = "org.tukaani", name = "xz", version = "[1.11]")
+    "shade"(group = "org.tukaani", name = "xz", version = "[1.11]")
 
     annotationProcessor("org.spongepowered:mixin:0.8.5:processor")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
@@ -250,14 +255,21 @@ dependencies {
     runtimeOnly(fg.deobf("mezz.jei:jei-$jeiMinecraftVersion-forge:$jeiVersion"))
 }
 
-jarJar.enable()
+tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
+    archiveClassifier.set("")
+    configurations = listOf(project.configurations.getByName("shade"))
 
-reobf {
-    create("jarJar")
+    relocate(
+        "org.tukaani.xz",
+        "${project.group}.shaded.org.tukaani.xz",
+    )
+
+    mergeServiceFiles()
+    finalizedBy("reobfShadowJar")
 }
 
-tasks.named("jarJar") {
-    finalizedBy("reobfJarJar")
+reobf {
+    create("shadowJar")
 }
 
 tasks.named<ProcessResources>("processResources") {
