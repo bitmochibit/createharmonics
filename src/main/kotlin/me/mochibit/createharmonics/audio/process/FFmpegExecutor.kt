@@ -42,7 +42,7 @@ class FFmpegExecutor {
      */
     suspend fun createStream(
         url: String,
-        sampleRate: Int = 48000,
+        sampleRate: Int = 44100,
         seekSeconds: Double = 0.0,
     ): Boolean {
         if (!FFMPEGProvider.isAvailable()) {
@@ -121,8 +121,6 @@ class FFmpegExecutor {
 
             if (exitCode != 0) {
                 Logger.err("FFmpeg process exited with code $exitCode after ${runtime}ms")
-            } else {
-                Logger.info("FFmpeg process completed successfully after ${runtime}ms")
             }
 
             // Clean up when process exits naturally

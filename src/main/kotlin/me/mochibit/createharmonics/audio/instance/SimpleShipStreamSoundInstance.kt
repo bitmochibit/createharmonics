@@ -28,9 +28,11 @@ class SimpleShipStreamSoundInstance(
     delay: Int = 0,
     attenuation: SoundInstance.Attenuation = SoundInstance.Attenuation.LINEAR,
     relative: Boolean = false,
+    sampleRate: Int = 44100,
 ) : StreamingSoundInstance(
         inStream,
         streamId,
+        sampleRate,
         soundEvent,
         soundSource,
         randomSource,

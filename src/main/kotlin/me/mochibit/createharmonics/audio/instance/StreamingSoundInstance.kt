@@ -15,6 +15,7 @@ import java.util.concurrent.CompletableFuture
 abstract class StreamingSoundInstance(
     val sourceStream: InputStream,
     val streamId: String,
+    var sampleRate: Int = 44100,
     soundEvent: net.minecraft.sounds.SoundEvent,
     soundSource: SoundSource = SoundSource.RECORDS,
     randomSource: RandomSource = RandomSource.create(),
@@ -40,6 +41,6 @@ abstract class StreamingSoundInstance(
         looping: Boolean,
     ): CompletableFuture<AudioStream?> =
         CompletableFuture.completedFuture(
-            PcmAudioStream(this.sourceStream),
+            PcmAudioStream(this.sourceStream, this.sampleRate),
         )
 }

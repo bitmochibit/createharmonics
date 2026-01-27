@@ -24,13 +24,9 @@ class AudioPlayerStreamEndPacket(
         context.enqueueWork {
             RecordPlayerBlockEntity.handlePlaybackEnd(audioPlayerId, failure)
 
-            // Handle moving record player (on contraptions)
             RecordPlayerMovementBehaviour.getContextByPlayerUUID(audioPlayerId)?.let { movementContext ->
                 RecordPlayerMovementBehaviour.stopMovingPlayer(movementContext)
             }
-                ?: me.mochibit.createharmonics.Logger.info(
-                    "AudioPlayerStreamEndPacket: No moving player context found for player ID: $audioPlayerId",
-                )
         }
         return true
     }

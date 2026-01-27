@@ -179,6 +179,7 @@ class EtherealRecordItem(
                 ),
                 SoundEventComposition(soundEvents),
                 offsetSeconds,
+                stream.format.sampleRate.toInt(),
             )
         }
     }

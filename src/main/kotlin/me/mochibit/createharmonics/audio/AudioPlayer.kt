@@ -7,6 +7,7 @@ import kotlinx.coroutines.withContext
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
+import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
 import me.mochibit.createharmonics.audio.process.FFmpegExecutor
 import me.mochibit.createharmonics.audio.source.AudioSource
 import me.mochibit.createharmonics.audio.source.YoutubeAudioSource
@@ -38,12 +39,12 @@ typealias StreamingSoundInstanceProvider = (streamId: StreamId, stream: InputStr
  *
  * @param soundInstanceProvider Provider for instancing the correct Minecraft's sound instance
  * @param playerId ID associated to the current audio player, must be unique
- * @param sampleRate Sample rate of the streamed audio, default is 48000hz
+ * @param sampleRate Sample rate of the streamed audio, default is 44100hz
  */
 class AudioPlayer(
     val soundInstanceProvider: StreamingSoundInstanceProvider,
     val playerId: String = UUID.randomUUID().toString(),
-    val sampleRate: Int = 48000,
+    val sampleRate: Int = 44100,
 ) {
     /**
      * Represents the current playback state of the audio player.
@@ -100,31 +101,19 @@ class AudioPlayer(
             processingAudioStream = null
             soundInstance = null
 
-            // Launch ALL cleanup operations asynchronously to avoid blocking
-            // This is critical for smooth looping - we must not block the caller
             launchModCoroutine(Dispatchers.IO) {
-                // Stop composition (might involve removing sound events, etc.)
                 try {
                     composition.stopComposition()
                 } catch (e: Exception) {
                     Logger.err("Error stopping composition: ${e.message}")
                 }
 
-                // Stop FFmpeg BEFORE closing streams to prevent writing to closed pipe
                 try {
                     executor?.destroy()
                 } catch (e: Exception) {
                     Logger.err("Error destroying FFmpeg: ${e.message}")
                 }
 
-                // Small delay to let FFmpeg terminate gracefully (non-blocking in IO context)
-                try {
-                    kotlinx.coroutines.delay(50)
-                } catch (_: Exception) {
-                    // Cancelled, continue cleanup
-                }
-
-                // Now safe to close the stream
                 try {
                     stream?.close()
                 } catch (e: Exception) {
@@ -212,8 +201,6 @@ class AudioPlayer(
                         playState = PlayState.PLAYING
                     }.onFailure { e ->
                         Logger.err("AudioPlayer $playerId: Error during playback: ${e.message}")
-                        e.printStackTrace()
-
                         invalidateUrlCacheAndRetry(url, context)
                     }
             }
@@ -236,6 +223,7 @@ class AudioPlayer(
         effectChain: EffectChain = EffectChain.empty(),
         soundEventComposition: SoundEventComposition = SoundEventComposition(),
         offsetSeconds: Double = 0.0,
+        sampleRateOverride: Int? = null,
     ) {
         launchModCoroutine(Dispatchers.IO) {
             val context: PlaybackContext
@@ -253,7 +241,7 @@ class AudioPlayer(
 
             val initResult =
                 runCatching {
-                    initializeStreamPlayback(inputStream, audioName, context)
+                    initializeStreamPlayback(inputStream, audioName, context, sampleRateOverride)
                 }
 
             stateMutex.withLock {
@@ -375,7 +363,6 @@ class AudioPlayer(
             Logger.info("AudioPlayer $playerId: Retry successful!")
         }.onFailure { e ->
             Logger.err("AudioPlayer $playerId: Retry failed: ${e.message}")
-            e.printStackTrace()
             resetStateInternal()
             notifyStreamFailure()
         }
@@ -406,6 +393,7 @@ class AudioPlayer(
         inputStream: InputStream,
         audioName: String,
         context: PlaybackContext,
+        sampleRateOverride: Int?,
     ) {
         // Update audio name
         if (audioName != "Unknown" && audioName.isNotBlank()) {
@@ -454,7 +442,7 @@ class AudioPlayer(
         }
 
         // Create effect stream directly from input (no FFmpeg)
-        val audioStream = createAudioEffectInputStream(inputStream, context)
+        val audioStream = createAudioEffectInputStream(inputStream, context, sampleRateOverride)
         context.processingAudioStream = audioStream
 
         if (!audioStream.awaitPreBuffering()) {
@@ -465,17 +453,18 @@ class AudioPlayer(
             throw IllegalStateException("Aborting playback")
         }
 
-        startPlayback(audioStream, context)
+        startPlayback(audioStream, context, sampleRateOverride)
     }
 
     private fun createAudioEffectInputStream(
         inputStream: InputStream,
         context: PlaybackContext,
+        sampleRateOverride: Int? = null,
     ): AudioEffectInputStream =
         AudioEffectInputStream(
             inputStream,
             context.effectChain,
-            sampleRate,
+            sampleRateOverride ?: sampleRate,
             onStreamEnd = { handleStreamEnd() },
             onStreamHang = { handleStreamHang() },
         )
@@ -483,8 +472,15 @@ class AudioPlayer(
     private suspend fun startPlayback(
         audioStream: AudioEffectInputStream,
         context: PlaybackContext,
+        sampleRateOverride: Int? = null,
     ) {
-        val soundInstance = soundInstanceProvider(playerId, audioStream)
+        val soundInstance =
+            soundInstanceProvider(playerId, audioStream)
+                .apply {
+                    if (this is StreamingSoundInstance) {
+                        sampleRate = sampleRateOverride ?: this@AudioPlayer.sampleRate
+                    }
+                }
         context.soundInstance = soundInstance
 
         withClientContext {
@@ -494,8 +490,6 @@ class AudioPlayer(
     }
 
     private fun handleStreamEnd() {
-        // CRITICAL: Launch immediately on IO dispatcher without any blocking
-        // This ensures we NEVER block the render thread during looping
         launchModCoroutine(Dispatchers.IO) {
             // Non-blocking tryLock with immediate bailout - no delays or retries
             if (!stateMutex.tryLock()) {
@@ -508,15 +502,11 @@ class AudioPlayer(
                 // If we're in LOADING or already STOPPED, ignore
                 when (playState) {
                     PlayState.PLAYING -> {
-                        Logger.info("AudioPlayer $playerId: Stream ended during playback")
                         cleanupResourcesInternal()
                         notifyStreamEnd()
                     }
 
                     PlayState.PAUSED -> {
-                        // Stream ended while paused - this indicates an error (FFmpeg crash, network issue, etc.)
-                        // We must cleanup AND notify the server that this player is no longer viable
-                        Logger.warn("AudioPlayer $playerId: Stream ended unexpectedly while paused (likely FFmpeg error)")
                         cleanupResourcesInternal()
                         notifyStreamFailure()
                     }

@@ -10,9 +10,8 @@ import kotlin.math.min
 
 class PcmAudioStream(
     private val inputStream: InputStream,
+    val sampleRate: Int = 44100,
 ) : AudioStream {
-    val sampleRate: Int = 48000
-
     val readBufferSize = 8192
     private val audioFormat = AudioFormat(sampleRate.toFloat(), 16, 1, true, false)
 

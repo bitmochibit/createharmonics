@@ -35,7 +35,6 @@ object AudioInfoCache {
         synchronized(cache) {
             cache[url]?.let { entry ->
                 if (System.currentTimeMillis() - entry.timestamp < CACHE_TTL_MS) {
-                    info("AudioInfoCache: Cache hit for $url")
                     return entry
                 } else {
                     info("AudioInfoCache: Cache entry expired for $url")

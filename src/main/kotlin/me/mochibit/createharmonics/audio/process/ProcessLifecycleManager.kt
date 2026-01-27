@@ -14,7 +14,6 @@ object ProcessLifecycleManager {
     fun registerProcess(process: Process): Long {
         val pid = process.pid()
         processes[pid] = process
-        info("Registered process $pid (total: ${processes.size})")
         return pid
     }
 
@@ -41,7 +40,6 @@ object ProcessLifecycleManager {
                             process.destroyForcibly()
                         }
                     }
-                    info("Destroyed process $id (remaining: ${processes.size})")
                 } catch (e: Exception) {
                     err("Error destroying process $id: ${e.message}")
                 }
