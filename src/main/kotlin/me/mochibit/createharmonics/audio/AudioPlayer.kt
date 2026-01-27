@@ -44,7 +44,7 @@ typealias StreamingSoundInstanceProvider = (streamId: StreamId, stream: InputStr
 class AudioPlayer(
     val soundInstanceProvider: StreamingSoundInstanceProvider,
     val playerId: String = UUID.randomUUID().toString(),
-    val sampleRate: Int = 44100,
+    val sampleRate: Int = 48000,
 ) {
     /**
      * Represents the current playback state of the audio player.
@@ -375,7 +375,7 @@ class AudioPlayer(
         launchModCoroutine(Dispatchers.IO) {
             // Poll FFmpeg process status
             while (ffmpegExecutor.isRunning() && playState != PlayState.STOPPED) {
-                kotlinx.coroutines.delay(500) // Check every 500ms
+                kotlinx.coroutines.delay(1000)
             }
 
             // If FFmpeg stopped but we're still supposed to be playing/paused, handle error
@@ -403,7 +403,7 @@ class AudioPlayer(
         // Skip bytes if offset is specified
         if (context.offsetSeconds > 0.0) {
             // For 48kHz mono PCM: 48000 samples/sec * 2 bytes/sample = 96000 bytes/sec
-            val bytesPerSecond = sampleRate * 2L // 2 bytes per sample for 16-bit PCM
+            val bytesPerSecond = (sampleRateOverride ?: sampleRate) * 2L // 2 bytes per sample for 16-bit PCM
             var bytesToSkip = (context.offsetSeconds * bytesPerSecond).toLong()
 
             // CRITICAL: Ensure we skip an even number of bytes to maintain sample alignment
