@@ -4,15 +4,22 @@ package me.mochibit.createharmonics.client.gui
 
 import me.mochibit.createharmonics.BuildConfig
 import me.mochibit.createharmonics.audio.bin.BackgroundBinInstaller
+import me.mochibit.createharmonics.audio.bin.BinProvider
 import me.mochibit.createharmonics.audio.bin.BinStatusManager
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
+import me.mochibit.createharmonics.extension.drawCenteredString
+import me.mochibit.createharmonics.extension.toMultilineComponent
+import me.mochibit.createharmonics.extension.toMultilineFormattedCharSequence
 import me.mochibit.createharmonics.registry.ModConfigurations
 import me.mochibit.createharmonics.registry.ModLang
 import net.minecraft.ChatFormatting
+import net.minecraft.Util
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.screens.Screen
+import net.minecraft.network.chat.Component
+import net.minecraft.util.FormattedCharSequence
 
 class LibraryDisclaimerScreen(
     private val parent: Screen?,
@@ -152,24 +159,55 @@ class LibraryDisclaimerScreen(
                             .build(),
                     )
                 } else {
+                    val totalWidth = buttonW * 2 + buttonGap
+                    val leftButtonX = centerX - totalWidth / 2
+                    val rightButtonX = leftButtonX + buttonW + buttonGap
+
+                    addRenderableWidget(
+                        Button
+                            .builder(
+                                ModLang.translate("gui.library_setup.open_folder_btn").component(),
+                            ) {
+                                BinStatusManager.ensureBinaryFolders()
+                                Util.getPlatform().openFile(BinProvider.providersFolder)
+                            }.bounds(leftButtonX, bottomY, buttonW, buttonH)
+                            .build(),
+                    )
+
                     addRenderableWidget(
                         Button
                             .builder(
                                 ModLang.translate("gui.library_setup.go_back_btn").component(),
                             ) {
                                 onClose()
-                            }.bounds(centerX - buttonW / 2, bottomY, buttonW, buttonH)
+                            }.bounds(rightButtonX, bottomY, buttonW, buttonH)
                             .build(),
                     )
                 }
             }
 
             State.SKIPPED -> {
+                // Two buttons: Open Folder and Accept
+                val totalWidth = buttonW * 2 + buttonGap
+                val leftButtonX = centerX - totalWidth / 2
+                val rightButtonX = leftButtonX + buttonW + buttonGap
+
+                addRenderableWidget(
+                    Button
+                        .builder(
+                            ModLang.translate("gui.library_setup.open_folder_btn").component(),
+                        ) {
+                            BinStatusManager.ensureBinaryFolders()
+                            Util.getPlatform().openFile(BinProvider.providersFolder)
+                        }.bounds(leftButtonX, bottomY, buttonW, buttonH)
+                        .build(),
+                )
+
                 addRenderableWidget(
                     Button
                         .builder(ModLang.translate("gui.library_setup.manual_disclaimer_accept_btn").component()) {
                             onClose() // Go to parent
-                        }.bounds(centerX - (buttonW / 2), bottomY, buttonW, buttonH)
+                        }.bounds(rightButtonX, bottomY, buttonW, buttonH)
                         .build(),
                 )
             }
@@ -205,10 +243,8 @@ class LibraryDisclaimerScreen(
         guiGraphics.pose().translate(centerX.toDouble(), 25.0, 0.0)
         guiGraphics.pose().scale(titleScale, titleScale, 1f)
 
-        // Draw shadow
-        drawCenteredString(guiGraphics, "Create: Harmonics", 1, 1, 0x000000)
-        // Draw title with gradient effect (gold color)
-        drawCenteredString(guiGraphics, "Create: Harmonics", 0, 0, accentColor)
+        guiGraphics.drawCenteredString(font, Component.literal("Create: Harmonics"), 1, 1, 0x000000, 200)
+        guiGraphics.drawCenteredString(font, Component.literal("Create: Harmonics"), 0, 0, accentColor, 200)
         guiGraphics.pose().popPose()
 
         when (currentState) {
@@ -260,13 +296,7 @@ class LibraryDisclaimerScreen(
                 "gui.library_setup.library_disclaimer_subtitle"
             }
 
-        drawCenteredString(
-            gfx,
-            ModLang.translate(subtitleKey).component().getString(128),
-            cx,
-            55,
-            accentColor,
-        )
+        gfx.drawCenteredString(font, ModLang.translate(subtitleKey).component(), cx, 55, accentColor, 400)
 
         val infoKey =
             if (BuildConfig.IS_CURSEFORGE) {
@@ -275,17 +305,15 @@ class LibraryDisclaimerScreen(
                 "gui.library_setup.library_disclaimer_info"
             }
 
-        val disclaimerInfoText =
-            wrapText(
-                ModLang.translate(infoKey).component().getString(256),
-                400,
-            )
-        for (i in disclaimerInfoText.indices) {
-            drawCenteredString(
-                gfx,
-                disclaimerInfoText[i],
+        // Use extension function to properly split text
+        val disclaimerInfo = ModLang.translate(infoKey).component()
+        val wrappedLines = font.split(disclaimerInfo, 400)
+        wrappedLines.forEachIndexed { index, line ->
+            gfx.drawCenteredString(
+                font,
+                line,
                 cx,
-                68 + i * 11,
+                68 + index * font.lineHeight,
                 ChatFormatting.GRAY.color ?: 0xAAAAAA,
             )
         }
@@ -335,8 +363,27 @@ class LibraryDisclaimerScreen(
         screenCenterY: Int,
     ) {
         val tooltipWidth = 320
-        val tooltipHeight = 90
         val tooltipX = screenCenterX - tooltipWidth / 2
+        val padding = 10
+        val maxDescWidth = tooltipWidth - (padding * 2)
+
+        // Calculate dynamic height based on content
+        val descComponent = Component.literal(lib.desc)
+        val wrappedDesc = font.split(descComponent, maxDescWidth)
+        val descHeight = wrappedDesc.size * font.lineHeight
+
+        // Calculate total tooltip height
+        val tooltipHeight =
+            padding + // top padding
+                font.lineHeight + // library name
+                4 + // spacing after name
+                descHeight + // description
+                4 + // spacing after description
+                font.lineHeight + // URL
+                4 + // spacing after URL
+                font.lineHeight + // hint text
+                padding // bottom padding
+
         val tooltipY = screenCenterY - tooltipHeight / 2 - 20
 
         // Tooltip background with stronger opacity
@@ -346,55 +393,27 @@ class LibraryDisclaimerScreen(
         // Title bar
         gfx.fill(tooltipX, tooltipY, tooltipX + tooltipWidth, tooltipY + 2, 0xFF00AAFF.toInt())
 
-        var textY = tooltipY + 8
+        var textY = tooltipY + padding
 
         // Library name
-        gfx.drawString(font, lib.name, tooltipX + 10, textY, accentColor, false)
-        textY += 14
+        gfx.drawString(font, lib.name, tooltipX + padding, textY, accentColor, false)
+        textY += font.lineHeight + 4
 
-        // Description with word wrap
-        val maxWidth = tooltipWidth - 20
-        val wrappedDesc = wrapText(lib.desc, maxWidth)
+        // Description with proper word wrap
         wrappedDesc.forEach { line ->
-            gfx.drawString(font, line, tooltipX + 10, textY, 0xCCCCCC, false)
-            textY += 11
+            gfx.drawString(font, line, tooltipX + padding, textY, 0xCCCCCC, false)
+            textY += font.lineHeight
         }
 
-        textY += 3
+        textY += 4
+
         // URL
-        gfx.drawString(font, lib.url, tooltipX + 10, textY, 0x5599FF, false)
+        gfx.drawString(font, lib.url, tooltipX + padding, textY, 0x5599FF, false)
+        textY += font.lineHeight + 4
 
-        textY += 20
-
+        // Hint text
         val hintText = ModLang.translate("gui.library_setup.card_tooltip.click_to_open_site").component().getString(128)
-        gfx.drawString(font, hintText, tooltipX + 10, textY, 0xCCCCCC, false)
-    }
-
-    private fun wrapText(
-        text: String,
-        maxWidth: Int,
-    ): List<String> {
-        val words = text.split(" ")
-        val lines = mutableListOf<String>()
-        var currentLine = ""
-
-        words.forEach { word ->
-            val testLine = if (currentLine.isEmpty()) word else "$currentLine $word"
-            if (font.width(testLine) <= maxWidth) {
-                currentLine = testLine
-            } else {
-                if (currentLine.isNotEmpty()) {
-                    lines.add(currentLine)
-                }
-                currentLine = word
-            }
-        }
-
-        if (currentLine.isNotEmpty()) {
-            lines.add(currentLine)
-        }
-
-        return lines
+        gfx.drawString(font, hintText, tooltipX + padding, textY, 0xCCCCCC, false)
     }
 
     private fun renderStatus(
@@ -430,8 +449,7 @@ class LibraryDisclaimerScreen(
                 else -> accentColor
             }
 
-        drawCenteredString(gfx, subtitleText, cx, 55, subtitleColor)
-
+        gfx.drawCenteredString(font, Component.literal(subtitleText), cx, 55, subtitleColor, 200)
         // Draw library status cards
         renderLibraryCards(gfx, cx, cy)
     }
@@ -444,7 +462,7 @@ class LibraryDisclaimerScreen(
         val cardWidth = 340
         val installingCardHeight = 60 // Full height for cards with progress bars
         val compactCardHeight = 50 // Compact height for completed/failed/pending cards
-        val cardGap = 10 // Reduced from 12 to 10
+        val cardGap = 10
         val libraryCount = BinStatusManager.LibraryType.entries.size
 
         // Calculate total height based on each library's state
@@ -463,7 +481,7 @@ class LibraryDisclaimerScreen(
 
         // Calculate positioning with proper margins - 75px from top, 70px from bottom for buttons
         val topPadding = 75
-        val bottomPadding = 70 // Increased to ensure no overlap
+        val bottomPadding = 70
         val availableHeight = height - topPadding - bottomPadding
 
         // Start position - center cards in available space
@@ -490,12 +508,8 @@ class LibraryDisclaimerScreen(
             val bgColor =
                 when {
                     status.isComplete -> cardColor
-
-                    // Keep installed libraries transparent like normal cards
                     status.isFailed -> errorColor
-
                     status.isInstalling -> installingColor
-
                     else -> cardColor
                 }
 
@@ -525,7 +539,6 @@ class LibraryDisclaimerScreen(
             val nameText = "▸ ${library.displayName}"
             gfx.drawString(font, nameText, cx - cardWidth / 2 + 12, currentY + 8, nameColor, false)
 
-            // TODO Maybe add some icon representation in future?
             val statusText = formatStatus(status.status)
             gfx.drawString(
                 font,
@@ -539,9 +552,9 @@ class LibraryDisclaimerScreen(
             // Progress bar (if installing or in progress)
             if (status.isInstalling || (status.progress > 0 && !status.isComplete)) {
                 val barW = cardWidth - 50
-                val barH = 6 // Reduced from 8 to 6
+                val barH = 6
                 val barX = cx - barW / 2
-                val barY = currentY + 26 // Adjusted position
+                val barY = currentY + 26
 
                 // Bar Background with subtle styling
                 gfx.fill(barX, barY, barX + barW, barY + barH, 0xFF222222.toInt())
@@ -557,14 +570,14 @@ class LibraryDisclaimerScreen(
                 // Border with rounded corners effect
                 gfx.renderOutline(barX - 1, barY - 1, barW + 2, barH + 2, 0xFF666666.toInt())
 
-                // Progress percentage and speed - moved closer to bar
-                if (status.speed.isNotEmpty()) {
-                    val progressText = "${(status.progress * 100).toInt()}% • ${status.speed}"
-                    gfx.drawString(font, progressText, cx - font.width(progressText) / 2, barY + 10, 0xBBBBBB, false)
-                } else {
-                    val progressText = "${(status.progress * 100).toInt()}%"
-                    gfx.drawString(font, progressText, cx - font.width(progressText) / 2, barY + 10, 0xBBBBBB, false)
-                }
+                // Progress percentage and speed
+                val progressText =
+                    if (status.speed.isNotEmpty()) {
+                        "${(status.progress * 100).toInt()}% • ${status.speed}"
+                    } else {
+                        "${(status.progress * 100).toInt()}%"
+                    }
+                gfx.drawString(font, progressText, cx - font.width(progressText) / 2, barY + 10, 0xBBBBBB, false)
             } else {
                 // Status message when not installing - centered vertically in compact card
                 val message =
@@ -611,8 +624,25 @@ class LibraryDisclaimerScreen(
         cy: Int,
     ) {
         val boxW = 460
-        val boxH = 160
         val topY = cy - 80
+        val maxTextWidth = boxW - 40
+
+        // Calculate dynamic height
+        val padding = 12
+        val titleHeight = font.lineHeight
+
+        val notice =
+            ModLang
+                .translate("gui.library_setup.manual_install")
+                .component()
+                .toMultilineFormattedCharSequence(font, maxTextWidth)
+
+        val boxH =
+            padding + // top padding
+                titleHeight + // title
+                padding + // spacing after title
+                (notice.size * font.lineHeight) + // all wrapped text lines
+                5 + padding // bottom padding
 
         // Warning Box Background
         gfx.fill(cx - boxW / 2, topY, cx + boxW / 2, topY + boxH, warningColor)
@@ -624,74 +654,16 @@ class LibraryDisclaimerScreen(
                 .translate("gui.library_setup.manual_install_title")
                 .component()
                 .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
-        drawCenteredString(gfx, title.visualOrderText, cx, topY + 12, 0xFFFFFF)
+        gfx.drawString(font, title, cx - font.width(title) / 2, topY + padding, 0xFFFFFF, false)
 
-        val lines =
-            listOf(
-                ModLang.translate("gui.library_setup.manual_notice_1").component().getString(256),
-                ModLang.translate("gui.library_setup.manual_notice_2").component().getString(256),
-                "",
-                ModLang.translate("gui.library_setup.manual_notice_instruct").component().getString(256),
-            )
+        var textY = topY + padding + titleHeight + padding
 
-        var textY = topY + 32
-        lines.forEach { line ->
-            drawCenteredString(gfx, line, cx, textY, 0xDDDDDD)
-            textY += 11
+        notice.forEach { line ->
+            if (line != FormattedCharSequence.EMPTY) {
+                gfx.drawString(font, line, cx - font.width(line) / 2, textY, 0xDDDDDD, false)
+            }
+            textY += font.lineHeight
         }
-
-        // Show directory paths with smaller font and word wrapping
-        textY += 5
-        val paths =
-            listOf(
-                FFMPEGProvider.directory
-                    .toPath()
-                    .toAbsolutePath()
-                    .normalize()
-                    .toString(),
-                YTDLProvider.directory
-                    .toPath()
-                    .toAbsolutePath()
-                    .normalize()
-                    .toString(),
-            )
-
-        paths.forEach { path ->
-            // Truncate path if too long for the box
-            val maxWidth = boxW - 40
-            val pathWidth = font.width(path)
-            val displayPath =
-                if (pathWidth > maxWidth) {
-                    // Try to show end of path which is most relevant
-                    "..." + path.substring(path.length - (path.length * maxWidth / pathWidth))
-                } else {
-                    path
-                }
-            drawCenteredString(gfx, displayPath, cx, textY, 0xFFFF55)
-            textY += 11
-        }
-    }
-
-    // Helper for simple text centering
-    private fun drawCenteredString(
-        gfx: GuiGraphics,
-        text: String,
-        x: Int,
-        y: Int,
-        color: Int,
-    ) {
-        gfx.drawString(font, text, x - font.width(text) / 2, y, color, false)
-    }
-
-    // Helper to handle visual order text (components)
-    private fun drawCenteredString(
-        gfx: GuiGraphics,
-        text: net.minecraft.util.FormattedCharSequence,
-        x: Int,
-        y: Int,
-        color: Int = 0xFFFFFF,
-    ) {
-        gfx.drawString(font, text, x - font.width(text) / 2, y, color, false)
     }
 
     override fun mouseClicked(
@@ -704,8 +676,8 @@ class LibraryDisclaimerScreen(
             hoveredCardIndex?.let { index ->
                 if (index in libraries.indices) {
                     val lib = libraries[index]
-                    // Open URL
-                    net.minecraft.Util
+
+                    Util
                         .getPlatform()
                         .openUri(lib.url)
                     return true

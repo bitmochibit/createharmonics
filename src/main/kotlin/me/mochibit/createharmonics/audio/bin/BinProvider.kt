@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.audio.bin
 
+import me.mochibit.createharmonics.registry.ModLang
 import net.minecraft.client.Minecraft
 import java.io.File
 
@@ -11,6 +12,7 @@ abstract class BinProvider(
             .gameDirectory
             .toPath()
             .resolve("audio_providers/$providerName")
+            .normalize()
             .toFile(),
 ) {
     companion object {
@@ -32,7 +34,42 @@ abstract class BinProvider(
         val isMac: Boolean = OS_NAME.contains("mac") || OS_NAME.contains("darwin")
         val isLinux: Boolean = OS_NAME.contains("linux")
         val isArm: Boolean = OS_ARCH.contains("aarch64") || OS_ARCH.contains("arm")
+
+        val providersFolder: File =
+            Minecraft
+                .getInstance()
+                .gameDirectory
+                .toPath()
+                .resolve("audio_providers")
+                .normalize()
+                .toFile()
     }
+
+    fun buildProviderFolder() {
+        if (!providersFolder.exists()) {
+            providersFolder.mkdirs()
+        }
+
+        if (!directory.exists()) {
+            directory.mkdirs()
+        }
+
+        val instructionFile = File(directory, "$providerName-instructions.md")
+        if (!instructionFile.exists()) {
+            instructionFile.writeText(providerInstructions)
+        }
+    }
+
+    val providerInstructions: String
+        get() {
+            return ModLang
+                .translate(
+                    "audio.binary.instructions",
+                    providerName,
+                    getDownloadUrl(),
+                    directory.absoluteFile.path,
+                ).string()
+        }
 
     @Volatile
     private var cachedExecutablePath: String? = null

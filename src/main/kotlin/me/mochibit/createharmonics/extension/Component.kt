@@ -45,3 +45,17 @@ fun GuiGraphics.renderTooltip(
 ) {
     this.renderTooltip(font, component.toMultilineComponent(), x, y, maxWidth)
 }
+
+fun GuiGraphics.drawCenteredString(
+    font: Font,
+    text: Component,
+    x: Int,
+    y: Int,
+    color: Int,
+    maxWidth: Int = 200,
+) {
+    val formattedText = font.split(text, maxWidth)
+    formattedText.forEach {
+        this.drawCenteredString(font, it, x, y, color)
+    }
+}

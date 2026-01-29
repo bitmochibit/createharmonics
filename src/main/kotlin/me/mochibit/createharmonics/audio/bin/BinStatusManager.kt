@@ -35,15 +35,21 @@ object BinStatusManager {
     private val installationStatuses = ConcurrentHashMap<LibraryType, InstallationStatus>()
 
     init {
-        // Initialize statuses
         LibraryType.entries.forEach { type ->
             val isInstalled = isLibraryInstalled(type)
+            type.provider.buildProviderFolder()
             updateStatus(
                 type,
                 isInstalling = false,
                 isComplete = isInstalled,
                 status = if (isInstalled) Status.INSTALLED else Status.NOT_INSTALLED,
             )
+        }
+    }
+
+    fun ensureBinaryFolders() {
+        LibraryType.entries.forEach { type ->
+            type.provider.buildProviderFolder()
         }
     }
 

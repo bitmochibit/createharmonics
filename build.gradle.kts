@@ -214,7 +214,6 @@ val fg = extensions.getByType<net.minecraftforge.gradle.userdev.DependencyManage
 dependencies {
     "minecraft"("net.minecraftforge:forge:$minecraftVersion-$forgeVersion")
 
-//    minecraftLibrary(group = "org.tukaani", name = "xz", version = "[1.11]")
     "shade"(group = "org.tukaani", name = "xz", version = "[1.11]")
 
     annotationProcessor("org.spongepowered:mixin:0.8.5:processor")

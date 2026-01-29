@@ -44,6 +44,7 @@ class FFmpegExecutor {
         url: String,
         sampleRate: Int = 44100,
         seekSeconds: Double = 0.0,
+        headers: Map<String, String> = emptyMap(),
     ): Boolean {
         if (!FFMPEGProvider.isAvailable()) {
             Logger.err("FFmpeg is not available")
@@ -74,10 +75,16 @@ class FFmpegExecutor {
                 add("-user_agent")
                 add("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 
-                // Note: HTTP headers are intentionally not passed to FFmpeg as they cause
-                // formatting issues. yt-dlp already uses them to extract the URL.
+                if (headers.isNotEmpty()) {
+                    val headerString =
+                        headers.entries
+                            .joinToString("\r\n") { (key, value) ->
+                                "$key: $value"
+                            }.plus("\r\n")
+                    add("-headers")
+                    add(headerString)
+                }
 
-                // Network resilience parameters - aggressive timeouts to prevent hanging
                 add("-reconnect")
                 add("1")
                 add("-reconnect_streamed")
@@ -112,6 +119,17 @@ class FFmpegExecutor {
 
         process = newProcess
         processId = ProcessLifecycleManager.registerProcess(newProcess)
+
+        launchModCoroutine(Dispatchers.IO) {
+            newProcess.errorStream.bufferedReader().use { reader ->
+                try {
+                    reader.forEachLine { line ->
+                        Logger.err("FFmpeg stderr: $line")
+                    }
+                } catch (_: Exception) {
+                }
+            }
+        }
 
         // Monitor process lifecycle
         launchModCoroutine(Dispatchers.IO) {

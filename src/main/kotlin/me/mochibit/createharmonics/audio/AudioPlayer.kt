@@ -303,7 +303,7 @@ class AudioPlayer(
 
         val effectiveUrl = audioSource.resolveAudioUrl()
 
-        if (!ffmpegExecutor.createStream(effectiveUrl, sampleRate, effectiveOffset)) {
+        if (!ffmpegExecutor.createStream(effectiveUrl, sampleRate, effectiveOffset, audioSource.getHttpHeaders())) {
             throw IllegalStateException("FFmpeg stream initialization failed")
         }
 
