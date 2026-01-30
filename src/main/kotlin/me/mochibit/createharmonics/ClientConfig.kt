@@ -15,6 +15,9 @@ object ClientConfig : ConfigBase() {
     lateinit var playbackBufferSeconds: ConfigFloat
         private set
 
+    lateinit var ytdlpOverrideArgs: CValue<String, ForgeConfigSpec.ConfigValue<String>>
+        private set
+
     lateinit var mainMenuLibButtonRow: ConfigInt
         private set
 
@@ -92,6 +95,14 @@ object ClientConfig : ConfigBase() {
         maxPitch = f(2.0f, 1.0f, 4.0f, "maxPitch", "Maximum pitch for audio playback")
         playbackBufferSeconds =
             f(0.05f, 0.01f, 30.0f, "playbackBufferSeconds", "Buffer time in seconds for audio playback")
+        ytdlpOverrideArgs =
+            CValue<String, ForgeConfigSpec.ConfigValue<String>>(
+                "ytdlpOverrideArgs",
+                { builder ->
+                    builder.define("ytdlpOverrideArgs", "")
+                },
+                "Override arguments for yt-dlp when requesting streaming URLs",
+            )
     }
 
     private fun libraryGroup(builder: ForgeConfigSpec.Builder) {

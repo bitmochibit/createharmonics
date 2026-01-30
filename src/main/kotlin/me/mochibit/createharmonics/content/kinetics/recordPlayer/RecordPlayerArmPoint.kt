@@ -28,7 +28,7 @@ class RecordPlayerArmPoint(
 
         val remainder = stack.copy()
         val toInsert = remainder.split(1)
-        val isPowered = level.hasNeighborSignal(pos)
+        val isPowered = be.playerBehaviour.redstonePower > 0
         if (!simulate) {
             be.playerBehaviour.apply {
                 insertRecord(toInsert)
@@ -51,7 +51,7 @@ class RecordPlayerArmPoint(
             level.getBlockEntity(pos) as? RecordPlayerBlockEntity
                 ?: return ItemStack.EMPTY
 
-        if (level.hasNeighborSignal(pos)) return ItemStack.EMPTY
+        if (be.playerBehaviour.redstonePower > 0) return ItemStack.EMPTY
         if (be.playerBehaviour.playbackState != PlaybackState.STOPPED) return ItemStack.EMPTY
 
         if (!simulate) {

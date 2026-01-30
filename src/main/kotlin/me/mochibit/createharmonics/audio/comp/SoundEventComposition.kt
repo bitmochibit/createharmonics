@@ -16,53 +16,6 @@ import java.time.Duration
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
 
-class PitchSupplierInterpolated(
-    val pitchSupplier: () -> Float,
-    private val interpolationDurationMs: Long = 100, // Time to interpolate between values
-) {
-    private var startTime = 0L
-    private var lastPitchValue = 0f
-    private var targetPitchValue = 0f
-    private var lastUpdateTime = 0L
-
-    fun getPitch(): Float {
-        val currentTime = System.currentTimeMillis()
-
-        // Initialize on first call
-        if (startTime == 0L) {
-            startTime = currentTime
-            lastUpdateTime = currentTime
-            lastPitchValue = pitchSupplier()
-            targetPitchValue = lastPitchValue
-            return lastPitchValue
-        }
-
-        // Get new target value from supplier
-        val newPitchVal = pitchSupplier()
-
-        // If target changed, start new interpolation
-        if (newPitchVal != targetPitchValue) {
-            lastPitchValue = getCurrentInterpolatedValue(currentTime)
-            targetPitchValue = newPitchVal
-            lastUpdateTime = currentTime
-        }
-
-        return getCurrentInterpolatedValue(currentTime)
-    }
-
-    private fun getCurrentInterpolatedValue(currentTime: Long): Float {
-        val elapsed = currentTime - lastUpdateTime
-
-        if (elapsed >= interpolationDurationMs) {
-            return targetPitchValue
-        }
-
-        // Linear interpolation
-        val t = elapsed.toFloat() / interpolationDurationMs.toFloat()
-        return lastPitchValue + (targetPitchValue - lastPitchValue) * t
-    }
-}
-
 class SoundEventComposition(
     val soundList: List<SoundEventDef> = listOf(),
 ) {

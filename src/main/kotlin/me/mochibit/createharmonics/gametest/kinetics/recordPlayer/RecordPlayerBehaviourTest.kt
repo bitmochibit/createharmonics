@@ -353,18 +353,6 @@ class RecordPlayerBehaviourTest {
     }
 
     @GameTest(template = "record_player")
-    fun testModifySoundRadius(helper: GameTestHelper) {
-        val (_, behaviour) = helper.setupRecordPlayer()
-        behaviour.soundRadius = 64
-
-        helper.assertTrue(
-            behaviour.soundRadius == 64,
-            "Sound radius should be modifiable",
-        )
-        helper.succeed()
-    }
-
-    @GameTest(template = "record_player")
     fun testItemHandlerExists(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
         helper.assertTrue(

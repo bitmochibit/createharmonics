@@ -11,7 +11,6 @@ import dev.engine_room.flywheel.api.visualization.VisualizationManager
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
-import me.mochibit.createharmonics.audio.comp.PitchSupplierInterpolated
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.PlaybackState
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
@@ -20,12 +19,13 @@ import me.mochibit.createharmonics.coroutine.MinecraftClientDispatcher
 import me.mochibit.createharmonics.coroutine.launchDelayed
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
+import me.mochibit.createharmonics.extension.remapTo
+import me.mochibit.createharmonics.foundation.math.FloatSupplierInterpolated
 import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.network.packet.setBlockData
 import me.mochibit.createharmonics.registry.ModConfigurations
 import me.mochibit.createharmonics.registry.ModPackets
 import net.createmod.catnip.math.VecHelper
-import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ParticleTypes
@@ -50,7 +50,9 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
      * Other fields are runtime-only flags that don't need persistence.
      */
     data class RecordPlayerContextData(
-        var pitchSupplier: PitchSupplierInterpolated? = null,
+        var pitchSupplier: FloatSupplierInterpolated? = null,
+        var volumeSupplier: FloatSupplierInterpolated? = null,
+        var radiusSupplier: FloatSupplierInterpolated? = null,
         var playTime: Long = 0L,
         var hasRecord: Boolean = false,
         var isPaused: Boolean = false, // Track if currently paused
@@ -405,7 +407,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             }
 
             tempData.pitchSupplier =
-                PitchSupplierInterpolated({
+                FloatSupplierInterpolated({
                     when (context.contraption.entity) {
                         is ControlledContraptionEntity -> {
                             calculateControlledContraptionPitch(context)
@@ -419,7 +421,33 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                 }, 500)
         }
 
-        return { tempData.pitchSupplier!!.getPitch() }
+        return { tempData.pitchSupplier!!.getValue() }
+    }
+
+    private fun buildVolumeSupplier(context: MovementContext): () -> Float {
+        val tempData = getOrCreateTemporaryData(context)
+        val redstonePower = context.blockEntityData.getInt("RedstonePower")
+        if (tempData.volumeSupplier == null) {
+            tempData.volumeSupplier =
+                FloatSupplierInterpolated({
+                    if (redstonePower <= 0) return@FloatSupplierInterpolated 1f
+                    redstonePower.toFloat().remapTo(1f, 15f, 0.1f, 1.0f)
+                }, 500)
+        }
+        return { tempData.volumeSupplier!!.getValue() }
+    }
+
+    private fun buildRadiusSupplier(context: MovementContext): () -> Int {
+        val tempData = getOrCreateTemporaryData(context)
+        val redstonePower = context.blockEntityData.getInt("RedstonePower")
+        if (tempData.radiusSupplier == null) {
+            tempData.radiusSupplier =
+                FloatSupplierInterpolated({
+                    if (redstonePower <= 0) return@FloatSupplierInterpolated 16f
+                    redstonePower.toFloat().remapTo(0f, 15f, 4f, 32f)
+                }, 500)
+        }
+        return { tempData.radiusSupplier!!.getValue().toInt() }
     }
 
     private fun calculateControlledContraptionPitch(context: MovementContext): Float {
@@ -652,8 +680,8 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
                         player.playFromRecord(record, offsetSeconds) {
                             val pitchFunction =
-                                context.temporaryData as? PitchSupplierInterpolated ?: return@playFromRecord 1f
-                            pitchFunction.getPitch()
+                                context.temporaryData as? FloatSupplierInterpolated ?: return@playFromRecord 1f
+                            pitchFunction.getValue()
                         }
                     }
 
@@ -714,7 +742,8 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                         SoundEvents.EMPTY,
                         posSupplier = { BlockPos.containing(context.position) },
                         pitchSupplier = buildPitchSupplier(context),
-                        radiusSupplier = { 16 },
+                        radiusSupplier = buildRadiusSupplier(context),
+                        volumeSupplier = buildVolumeSupplier(context),
                     )
                 },
                 playerId,

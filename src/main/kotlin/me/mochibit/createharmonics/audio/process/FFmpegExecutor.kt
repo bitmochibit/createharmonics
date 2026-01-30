@@ -90,7 +90,13 @@ class FFmpegExecutor {
                 add("-reconnect_streamed")
                 add("1")
                 add("-reconnect_delay_max")
-                add("2")
+                add("5")
+                add("-multiple_requests")
+                add("1")
+
+                add("-timeout")
+                add("10000000")
+
                 add("-i")
                 add(url)
                 add("-f")

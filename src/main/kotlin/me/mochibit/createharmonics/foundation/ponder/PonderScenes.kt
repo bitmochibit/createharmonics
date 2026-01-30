@@ -1,8 +1,11 @@
 package me.mochibit.createharmonics.foundation.ponder
 
+import com.simibubi.create.AllBlocks
 import com.simibubi.create.content.kinetics.mechanicalArm.ArmBlockEntity
 import com.simibubi.create.content.kinetics.press.MechanicalPressBlockEntity
 import com.simibubi.create.content.kinetics.press.PressingBehaviour
+import com.simibubi.create.content.redstone.analogLever.AnalogLeverBlock
+import com.simibubi.create.content.redstone.analogLever.AnalogLeverBlockEntity
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
@@ -13,12 +16,18 @@ import net.createmod.ponder.api.PonderPalette
 import net.createmod.ponder.api.scene.SceneBuilder
 import net.createmod.ponder.api.scene.SceneBuildingUtil
 import net.minecraft.core.Direction
+import net.minecraft.core.particles.ParticleTypes
+import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.LeverBlock
+import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.AABB
+import net.minecraft.world.phys.Vec3
 import thedarkcolour.kotlinforforge.forge.vectorutil.v3d.toVec3
 import java.util.function.Consumer
+import java.util.function.UnaryOperator
 
 object PonderScenes {
     fun recordPressBase(
@@ -295,7 +304,37 @@ object PonderScenes {
             .text("In pause mode, redstone controls the playback, so power to play, unpower to pause")
             .pointAt(topOfPlayer)
         scene.idle(80)
-        scene.world().modifyBlock(recordLever, { s -> s.cycle(LeverBlock.POWERED) }, false)
+        scene.addKeyframe()
+        scene.world().hideSection(util.select().position(recordLever), Direction.UP)
+        scene.idle(20)
+        scene.world().setBlock(
+            recordLever,
+            AllBlocks.ANALOG_LEVER.get().defaultBlockState().setValue(
+                AnalogLeverBlock.FACING,
+                Direction.WEST,
+            ),
+            false,
+        )
+        scene.world().showSection(util.select().position(recordLever), Direction.DOWN)
+        scene
+            .overlay()
+            .showText(70)
+            .text("When the redstone signal is analog, the volume and range is scaled accordingly")
+            .pointAt(topOfPlayer)
+        scene.idle(40)
+
+        scene.idle(7)
+        for (i in 0..6) {
+            scene.idle(2)
+            val state = i + 1
+            scene.world().modifyBlockEntityNBT(
+                util.select().position(recordLever),
+                AnalogLeverBlockEntity::class.java,
+            ) { nbt: CompoundTag -> nbt.putInt("State", state) }
+        }
+        scene.idle(40)
+
+        scene.world().hideSection(util.select().position(recordLever), Direction.UP)
 
         // Mechanical Arm Feature
         val extractingArm = util.grid().at(18, 2, 15)
@@ -350,7 +389,6 @@ object PonderScenes {
         val bearingPos = util.grid().at(16, 3, 16)
         val jukeboxContraption = util.grid().at(15, 3, 14)
         scene.addKeyframe()
-        scene.world().hideSection(util.select().position(recordLever), Direction.UP)
         scene.world().hideSection(util.select().fromTo(18, 1, 14, 18, 2, 17), Direction.UP)
         scene.world().hideSection(util.select().fromTo(16, 1, 15, 16, 1, 21), Direction.UP)
         scene.world().hideSection(util.select().position(16, 2, 16), Direction.UP)

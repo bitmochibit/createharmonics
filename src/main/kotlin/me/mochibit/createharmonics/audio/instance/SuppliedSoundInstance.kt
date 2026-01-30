@@ -1,5 +1,8 @@
 package me.mochibit.createharmonics.audio.instance
 
+import mixin.SoundEngineAccessor
+import mixin.SoundManagerAccessor
+import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance
 import net.minecraft.client.resources.sounds.Sound
 import net.minecraft.client.sounds.SoundManager
@@ -26,8 +29,12 @@ abstract class SuppliedSoundInstance(
     protected var currentPosition = posSupplier()
     private var resolvedSound: Sound? = null
 
+    private val mc = Minecraft.getInstance()
+    private val sm = mc.soundManager as SoundManagerAccessor
+    private val engine = sm.soundEngine as SoundEngineAccessor
+    private val map = engine.instanceToChannel
+
     override fun tick() {
-        currentRadius = radiusSupplier()
         currentPitch = pitchSupplier()
         currentVolume = volumeSupplier()
         currentPosition = posSupplier()
@@ -38,6 +45,14 @@ abstract class SuppliedSoundInstance(
 
         this.volume = currentVolume
         this.pitch = currentPitch
+
+        val newRadius = radiusSupplier()
+        if (newRadius != currentRadius) {
+            currentRadius = newRadius
+            map[this]?.execute { channel ->
+                channel.linearAttenuation(this.currentRadius.toFloat())
+            }
+        }
     }
 
     override fun resolve(pHandler: SoundManager): WeighedSoundEvents? {

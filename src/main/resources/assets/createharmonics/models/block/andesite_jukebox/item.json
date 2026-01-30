@@ -1,7 +1,7 @@
 {
   "format_version": "1.9.0",
   "credit": "Made with Blockbench",
-  "ambientocclusion": false,
+  "ambientocclusion": true,
   "texture_size": [
     64,
     64

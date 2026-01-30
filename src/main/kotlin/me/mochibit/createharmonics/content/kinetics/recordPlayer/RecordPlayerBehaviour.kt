@@ -4,7 +4,6 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
-import me.mochibit.createharmonics.audio.comp.PitchSupplierInterpolated
 import me.mochibit.createharmonics.audio.instance.SimpleShipStreamSoundInstance
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
@@ -12,6 +11,8 @@ import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.playFromRecord
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
+import me.mochibit.createharmonics.extension.remapTo
+import me.mochibit.createharmonics.foundation.math.FloatSupplierInterpolated
 import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.registry.ModConfigurations
 import me.mochibit.createharmonics.registry.ModPackets
@@ -22,7 +23,6 @@ import net.minecraft.nbt.CompoundTag
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
-import net.minecraft.world.Clearable
 import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.entity.item.ItemEntity
@@ -32,8 +32,6 @@ import net.minecraft.world.phys.Vec3
 import net.minecraftforge.common.util.LazyOptional
 import net.minecraftforge.fml.ModList
 import net.minecraftforge.network.PacketDistributor
-import org.valkyrienskies.mod.common.ValkyrienSkiesMod
-import org.valkyrienskies.mod.common.config.VSGameConfig
 import org.valkyrienskies.mod.common.getShipManagingPos
 import java.util.UUID
 import kotlin.math.abs
@@ -133,7 +131,17 @@ class RecordPlayerBehaviour(
             }
         }
 
-    var soundRadius: Int = 32
+    val soundRadius: Int
+        get() {
+            if (redstonePower <= 0) return 16
+            return redstonePower.remapTo(1, 15, 4, 32)
+        }
+
+    val currentVolume: Float
+        get() {
+            if (redstonePower <= 0) return 1f
+            return redstonePower.toFloat().remapTo(1f, 15f, 0.1f, 1.0f)
+        }
 
     @Volatile
     var playbackState: PlaybackState = PlaybackState.STOPPED
@@ -163,6 +171,10 @@ class RecordPlayerBehaviour(
     var speedInterrupted = false
         private set
 
+    @Volatile
+    var redstonePower = 0
+        private set
+
     // Track previous playback mode to detect user changes
     private var previousPlaybackMode: RecordPlayerBlockEntity.PlaybackMode? = null
 
@@ -175,7 +187,9 @@ class RecordPlayerBehaviour(
     val itemHandler = RecordPlayerItemHandler(this, 1)
     val lazyItemHandler: LazyOptional<RecordPlayerItemHandler> = LazyOptional.of { itemHandler }
 
-    val pitchSupplierInterpolated = PitchSupplierInterpolated({ currentPitch }, 500)
+    val pitchSupplierInterpolated = FloatSupplierInterpolated({ currentPitch }, 500)
+    val volumeSupplierInterpolated = FloatSupplierInterpolated({ currentVolume }, 500)
+    val radiusSupplierInterpolated = FloatSupplierInterpolated({ soundRadius.toFloat() }, 500)
 
     private val audioPlayer: AudioPlayer
         get() =
@@ -198,8 +212,9 @@ class RecordPlayerBehaviour(
                                     SoundEvents.EMPTY,
                                     posSupplier = { be.blockPos },
                                     ship = ship,
-                                    radiusSupplier = { soundRadius },
-                                    pitchSupplier = { pitchSupplierInterpolated.getPitch() },
+                                    radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
+                                    pitchSupplier = { pitchSupplierInterpolated.getValue() },
+                                    volumeSupplier = { volumeSupplierInterpolated.getValue() },
                                 )
                             } else {
                                 SimpleStreamSoundInstance(
@@ -207,8 +222,9 @@ class RecordPlayerBehaviour(
                                     streamId,
                                     SoundEvents.EMPTY,
                                     { be.blockPos },
-                                    radiusSupplier = { soundRadius },
-                                    pitchSupplier = { pitchSupplierInterpolated.getPitch() },
+                                    radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
+                                    pitchSupplier = { pitchSupplierInterpolated.getValue() },
+                                    volumeSupplier = { volumeSupplierInterpolated.getValue() },
                                 )
                             }
                         } else {
@@ -217,8 +233,9 @@ class RecordPlayerBehaviour(
                                 streamId,
                                 SoundEvents.EMPTY,
                                 { be.blockPos },
-                                radiusSupplier = { soundRadius },
-                                pitchSupplier = { pitchSupplierInterpolated.getPitch() },
+                                radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
+                                pitchSupplier = { pitchSupplierInterpolated.getValue() },
+                                volumeSupplier = { volumeSupplierInterpolated.getValue() },
                             )
                         }
                     },
@@ -241,7 +258,7 @@ class RecordPlayerBehaviour(
         level.onServer {
             val currentSpeed = abs(be.speed)
             val hasDisc = hasRecord()
-            val isPowered = level.hasNeighborSignal(be.blockPos)
+            val isPowered = redstonePower > 0
             val playbackMode = be.playbackMode.get()
 
             // Handle restart request (for looping)
@@ -431,6 +448,11 @@ class RecordPlayerBehaviour(
         }
     }
 
+    fun redstonePowerChanged(power: Int) {
+        redstonePower = power
+        be.notifyUpdate()
+    }
+
     fun hasRecord(): Boolean = !itemHandler.getStackInSlot(MAIN_RECORD_SLOT).isEmpty
 
     fun insertRecord(discItem: ItemStack): Boolean {
@@ -566,7 +588,7 @@ class RecordPlayerBehaviour(
             currentRecord,
             offsetSeconds,
         ) {
-            pitchSupplierInterpolated.getPitch()
+            pitchSupplierInterpolated.getValue()
         }
     }
 
@@ -622,15 +644,13 @@ class RecordPlayerBehaviour(
     ) {
         compound.put("Inventory", itemHandler.serializeNBT())
         NBTHelper.writeEnum(compound, "PlaybackState", playbackState)
-        if (recordPlayerUUID == null) {
-            recordPlayerUUID = UUID.randomUUID()
-        }
         compound.putUUID("RecordPlayerUUID", recordPlayerUUID)
         compound.putLong("PlayTime", playTime)
         compound.putLong("PauseStartTime", pauseStartTime)
         compound.putLong("TotalPausedTime", totalPausedTime)
         compound.putLong("AudioPlayCount", audioPlayCount)
         compound.putBoolean("SpeedInterrupted", speedInterrupted)
+        compound.putInt("RedstonePower", redstonePower)
         audioPlayingTitle?.let {
             compound.putString("AudioPlayingTitle", it)
         }
@@ -642,6 +662,10 @@ class RecordPlayerBehaviour(
     ) {
         if (compound.contains("Inventory")) {
             itemHandler.deserializeNBT(compound.getCompound("Inventory"))
+        }
+
+        if (compound.contains("RedstonePower")) {
+            redstonePower = compound.getInt("RedstonePower")
         }
 
         if (compound.contains("RecordPlayerUUID")) {
@@ -728,7 +752,6 @@ class RecordPlayerBehaviour(
                                 if (audioPlayer.state == AudioPlayer.PlayState.PAUSED) {
                                     resumeClientPlayer()
                                 } else {
-                                    // Player is stopped or not initialized - start from offset
                                     startClientPlayer(currentRecord)
                                 }
                             }
@@ -758,13 +781,9 @@ class RecordPlayerBehaviour(
         failure: Boolean = false,
     ) {
         if (failure) return
+        val isPowered = this.redstonePower > 0
 
-        val level = be.level ?: return
-        val isPowered = level.hasNeighborSignal(be.blockPos)
-
-        val shouldLoop = isPowered
-
-        if (shouldLoop) {
+        if (isPowered) {
             playbackEndedNaturally = false
             updatePlaybackState(PlaybackState.STOPPED, resetTime = true)
             shouldRestartOnNextTick = true

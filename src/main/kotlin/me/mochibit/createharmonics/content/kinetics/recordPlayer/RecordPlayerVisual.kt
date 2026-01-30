@@ -74,7 +74,10 @@ class RecordPlayerVisual(
 
     override fun updateLight(p0: Float) {
         super.updateLight(p0)
-        relight(disc)
+        val inFront = pos.relative(discFacing)
+        val behind = pos.relative(discFacing.opposite)
+        relight(inFront, disc)
+        relight(behind, rotatingModel)
     }
 
     override fun tick(context: TickableVisual.Context) {

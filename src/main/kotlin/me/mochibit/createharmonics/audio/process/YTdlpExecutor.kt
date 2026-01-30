@@ -6,8 +6,10 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import me.mochibit.createharmonics.ClientConfig
 import me.mochibit.createharmonics.Logger.err
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
+import me.mochibit.createharmonics.registry.ModConfigurations
 
 class YTdlpExecutor {
     data class AudioUrlInfo(
@@ -28,32 +30,30 @@ class YTdlpExecutor {
                     YTDLProvider.getExecutablePath()
                         ?: return@withContext null
 
+                val configOverrides = ModConfigurations.client.ytdlpOverrideArgs.get()
+
                 val command =
-                    listOf(
-                        ytdlPath,
-                        // Format selection - explicitly avoid HLS/DASH/m3u8 formats
-                        // Prefer direct HTTP progressive downloads
-                        "-f",
-                        "bestaudio[protocol^=http][protocol!*=m3u8]/bestaudio[protocol=https]/bestaudio[ext!=m3u8]/bestaudio/best",
-                        // Output in JSON format to get all metadata including HTTP headers
-                        "-j",
-                        // Performance optimizations
-                        "--no-playlist", // Don't process playlists
-                        "--no-check-certificates", // Skip SSL cert validation for speed
-                        "--prefer-free-formats", // Prefer formats that don't require extra processing
-                        "--extractor-retries",
-                        "3", // Limit retries to avoid hanging
-                        "--socket-timeout",
-                        "10", // 10 second socket timeout
-                        // Reduce unnecessary processing
-                        "--no-warnings", // Don't print warnings
-                        "--quiet", // Minimal output for faster execution
-                        // Skip geo-bypass attempts (saves time)
-                        "--no-geo-bypass",
-                        // Skip checking if video needs login
-                        "--no-check-formats",
-                        youtubeUrl,
-                    )
+                    if (configOverrides.isNotBlank()) {
+                        buildList {
+                            add(ytdlPath)
+                            addAll(configOverrides.split(" "))
+                            add("-j")
+                            add(youtubeUrl)
+                        }
+                    } else {
+                        listOf(
+                            ytdlPath,
+                            "-f",
+                            "bestaudio[protocol^=http][protocol!*=m3u8]/bestaudio[protocol=https]/bestaudio[ext!=m3u8]/bestaudio/best",
+                            // Output in JSON format to get all metadata including HTTP headers
+                            "-j",
+                            "--quiet", // Minimal output for faster execution
+                            "--no-playlist",
+                            "--no-call-home",
+                            "--skip-download",
+                            youtubeUrl,
+                        )
+                    }
 
                 val process =
                     ProcessBuilder(command)
