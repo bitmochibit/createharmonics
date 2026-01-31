@@ -303,7 +303,14 @@ class AudioPlayer(
 
         val effectiveUrl = audioSource.resolveAudioUrl()
 
-        if (!ffmpegExecutor.createStream(effectiveUrl, sampleRate, effectiveOffset, audioSource.getHttpHeaders())) {
+        val finalHeaders = audioSource.getHttpHeaders()?.toMutableMap() ?: mutableMapOf()
+
+        if (url.contains("bilibili.com") || effectiveUrl.contains("bilivideo.com")) {
+            finalHeaders["Referer"] = "https://www.bilibili.com/"
+            finalHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+
+        if (!ffmpegExecutor.createStream(effectiveUrl, sampleRate, effectiveOffset, finalHeaders)) {
             throw IllegalStateException("FFmpeg stream initialization failed")
         }
 
