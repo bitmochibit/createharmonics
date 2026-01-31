@@ -5,6 +5,8 @@ import mixin.SoundManagerAccessor
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance
 import net.minecraft.client.resources.sounds.Sound
+import net.minecraft.client.resources.sounds.SoundInstance
+import net.minecraft.client.sounds.ChannelAccess
 import net.minecraft.client.sounds.SoundManager
 import net.minecraft.client.sounds.WeighedSoundEvents
 import net.minecraft.core.BlockPos
@@ -32,7 +34,7 @@ abstract class SuppliedSoundInstance(
     private val mc = Minecraft.getInstance()
     private val sm = mc.soundManager as SoundManagerAccessor
     private val engine = sm.soundEngine as SoundEngineAccessor
-    private val map = engine.instanceToChannel
+    protected val map: Map<SoundInstance, ChannelAccess.ChannelHandle> = engine.instanceToChannel
 
     override fun tick() {
         currentPitch = pitchSupplier()

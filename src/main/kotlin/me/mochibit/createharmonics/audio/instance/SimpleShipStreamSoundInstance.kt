@@ -68,10 +68,17 @@ class SimpleShipStreamSoundInstance(
 
     override fun tick() {
         // Update suppliers (but DON'T call super.tick() to avoid position override)
-        currentRadius = radiusSupplier()
         currentPitch = pitchSupplier()
         currentVolume = volumeSupplier()
-        currentPosition = posSupplier() // Get current ship-local position
+        currentPosition = posSupplier()
+
+        val newRadius = radiusSupplier()
+        if (newRadius != currentRadius) {
+            currentRadius = newRadius
+            map[this]?.execute { channel ->
+                channel.linearAttenuation(this.currentRadius.toFloat())
+            }
+        }
 
         // Transform current ship-local position to world space
         val shipLocalVec =

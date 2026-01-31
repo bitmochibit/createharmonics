@@ -106,7 +106,7 @@ class FFmpegExecutor {
                 add("-ac")
                 add("1")
                 add("-loglevel")
-                add("warning")
+                add("fatal")
                 add("pipe:1")
             }
 

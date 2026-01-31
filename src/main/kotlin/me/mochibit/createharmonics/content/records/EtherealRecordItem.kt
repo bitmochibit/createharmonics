@@ -146,6 +146,8 @@ class EtherealRecordItem(
             etherealRecord: ItemStack,
             offsetSeconds: Double,
             compPitchSupplier: () -> Float = { 1f },
+            compRadiusSupplier: () -> Int = { 1 },
+            compVolumeSupplier: () -> Float = { 1f },
         ) {
             if (etherealRecord.item !is EtherealRecordItem) return
             val url = getAudioUrl(etherealRecord) ?: ""
@@ -154,6 +156,8 @@ class EtherealRecordItem(
             val soundEvents = recordProps.soundEventCompProvider()
             for (event in soundEvents) {
                 event.pitchSupplier = compPitchSupplier
+                event.radiusSupplier = compRadiusSupplier
+                event.volumeSupplier = compVolumeSupplier
             }
 
             if (url.isNotBlank() && FFMPEGProvider.isAvailable() && YTDLProvider.isAvailable()) {

@@ -678,11 +678,13 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                                 0.0
                             }
 
-                        player.playFromRecord(record, offsetSeconds) {
-                            val pitchFunction =
-                                context.temporaryData as? FloatSupplierInterpolated ?: return@playFromRecord 1f
-                            pitchFunction.getValue()
-                        }
+                        player.playFromRecord(
+                            record,
+                            offsetSeconds,
+                            buildPitchSupplier(context),
+                            buildRadiusSupplier(context),
+                            buildVolumeSupplier(context),
+                        )
                     }
 
                     AudioPlayer.PlayState.PLAYING, AudioPlayer.PlayState.LOADING -> {

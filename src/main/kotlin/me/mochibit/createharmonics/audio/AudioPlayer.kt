@@ -161,14 +161,11 @@ class AudioPlayer(
 
         launchModCoroutine(Dispatchers.IO) {
             val source = PlaybackSource.Url(url)
-
-            if (isAlreadyPlayingSameContent(source, effectChain)) {
-                return@launchModCoroutine
-            }
-
             val context: PlaybackContext
+
             stateMutex.withLock {
-                if (playState == PlayState.LOADING) {
+                // Check inside lock to prevent race conditions
+                if (playState == PlayState.PLAYING || playState == PlayState.LOADING) {
                     val currentSource = playbackContext?.source
                     if (currentSource == source && playbackContext?.effectChain == effectChain) {
                         return@launchModCoroutine
@@ -190,9 +187,9 @@ class AudioPlayer(
                 }
 
             stateMutex.withLock {
-                // Verify we're still working with the same context
                 if (playbackContext != context) {
-                    Logger.debug("AudioPlayer $playerId: Context changed during initialization, aborting")
+                    Logger.debug("AudioPlayer $playerId: Context changed, cleaning up abandoned resources")
+                    context.cleanup()
                     return@launchModCoroutine
                 }
 
@@ -307,9 +304,6 @@ class AudioPlayer(
             throw IllegalStateException("FFmpeg stream initialization failed")
         }
 
-        // Monitor FFmpeg process health
-        monitorFFmpegProcess(ffmpegExecutor)
-
         val rawInputStream =
             ffmpegExecutor.inputStream
                 ?: throw IllegalStateException("FFmpeg input stream is null")
@@ -365,27 +359,6 @@ class AudioPlayer(
             Logger.err("AudioPlayer $playerId: Retry failed: ${e.message}")
             resetStateInternal()
             notifyStreamFailure()
-        }
-    }
-
-    /**
-     * Monitor FFmpeg process and handle unexpected termination
-     */
-    private fun monitorFFmpegProcess(ffmpegExecutor: FFmpegExecutor) {
-        launchModCoroutine(Dispatchers.IO) {
-            // Poll FFmpeg process status
-            while (ffmpegExecutor.isRunning() && playState != PlayState.STOPPED) {
-                kotlinx.coroutines.delay(1000)
-            }
-
-            // If FFmpeg stopped but we're still supposed to be playing/paused, handle error
-            if (playState == PlayState.PLAYING || playState == PlayState.PAUSED) {
-                if (!ffmpegExecutor.isRunning()) {
-                    Logger.err("AudioPlayer $playerId: FFmpeg process terminated unexpectedly while in $playState state")
-                    // Trigger stream end handling which will clean up and notify
-                    handleStreamEnd()
-                }
-            }
         }
     }
 
@@ -498,8 +471,6 @@ class AudioPlayer(
             }
 
             try {
-                // Only cleanup and notify if we're actually playing or paused
-                // If we're in LOADING or already STOPPED, ignore
                 when (playState) {
                     PlayState.PLAYING -> {
                         cleanupResourcesInternal()
@@ -514,6 +485,8 @@ class AudioPlayer(
                     PlayState.LOADING, PlayState.STOPPED -> {
                     }
                 }
+
+                playState = PlayState.STOPPED
             } finally {
                 stateMutex.unlock()
             }

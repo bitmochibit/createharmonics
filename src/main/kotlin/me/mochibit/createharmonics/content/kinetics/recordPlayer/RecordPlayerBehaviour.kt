@@ -36,6 +36,7 @@ import org.valkyrienskies.mod.common.getShipManagingPos
 import java.util.UUID
 import kotlin.math.abs
 
+// Todo: Refactor the track logic to be cleaner and reusable with other behaviours too
 class RecordPlayerBehaviour(
     val be: RecordPlayerBlockEntity,
 ) : BlockEntityBehaviour(be) {
@@ -68,7 +69,7 @@ class RecordPlayerBehaviour(
             playerUUID: String,
             blockEntity: RecordPlayerBlockEntity,
         ) {
-            activePlayersByUUID.putIfAbsent(playerUUID, blockEntity)
+            activePlayersByUUID[playerUUID] = blockEntity
         }
 
         /**
@@ -98,8 +99,16 @@ class RecordPlayerBehaviour(
             .get()
             .toFloat()
 
-    var recordPlayerUUID: UUID = UUID.randomUUID()
-        private set
+    private var _recordPlayerUUID: UUID? = null
+    val recordPlayerUUID: UUID
+        get() {
+            return _recordPlayerUUID ?: UUID.randomUUID().also {
+                _recordPlayerUUID = it
+                be.level?.onServer {
+                    be.notifyUpdate()
+                }
+            }
+        }
 
     private val currentPitch: Float
         get() {
@@ -251,11 +260,19 @@ class RecordPlayerBehaviour(
             playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
     }
 
+    private fun ensureTracking() {
+        if (activePlayersByUUID[recordPlayerUUID.toString()] == null) {
+            registerPlayer(recordPlayerUUID.toString(), be)
+        }
+    }
+
     override fun tick() {
         super.tick()
 
         val level = be.level ?: return
         level.onServer {
+            ensureTracking()
+
             val currentSpeed = abs(be.speed)
             val hasDisc = hasRecord()
             val isPowered = redstonePower > 0
@@ -303,7 +320,7 @@ class RecordPlayerBehaviour(
                         playbackMode == RecordPlayerBlockEntity.PlaybackMode.PLAY_STATIC_PITCH
                     ) {
                         // PLAY MODE (normal or static pitch)
-                        if (isPowered) {
+                        if (redstonePower == 15) {
                             // Play mode + Redstone: Always play and loop
                             playbackEndedNaturally = false
                             if (playbackState != PlaybackState.PLAYING) {
@@ -574,6 +591,8 @@ class RecordPlayerBehaviour(
     }
 
     private fun startClientPlayer(currentRecord: ItemStack) {
+        // Destroy to avoid state conflicts (especially with Valkyrian Skies)
+        AudioPlayerRegistry.destroyPlayer(recordPlayerUUID.toString())
         val offsetSeconds =
             if (playTime > 0) {
                 // Calculate elapsed time minus any accumulated pause time
@@ -587,9 +606,10 @@ class RecordPlayerBehaviour(
         audioPlayer.playFromRecord(
             currentRecord,
             offsetSeconds,
-        ) {
-            pitchSupplierInterpolated.getValue()
-        }
+            { pitchSupplierInterpolated.getValue() },
+            { radiusSupplierInterpolated.getValue().toInt() },
+            { volumeSupplierInterpolated.getValue() },
+        )
     }
 
     private fun resumeClientPlayer() {
@@ -644,7 +664,9 @@ class RecordPlayerBehaviour(
     ) {
         compound.put("Inventory", itemHandler.serializeNBT())
         NBTHelper.writeEnum(compound, "PlaybackState", playbackState)
-        compound.putUUID("RecordPlayerUUID", recordPlayerUUID)
+        _recordPlayerUUID?.let {
+            compound.putUUID("RecordPlayerUUID", it)
+        }
         compound.putLong("PlayTime", playTime)
         compound.putLong("PauseStartTime", pauseStartTime)
         compound.putLong("TotalPausedTime", totalPausedTime)
@@ -670,48 +692,7 @@ class RecordPlayerBehaviour(
 
         if (compound.contains("RecordPlayerUUID")) {
             val loadedUUID = compound.getUUID("RecordPlayerUUID")
-
-            if (!clientPacket) {
-                // Server-side: Check if this UUID is already registered to a different block entity
-                val existingBlockEntity = getBlockEntityByPlayerUUID(loadedUUID.toString())
-
-                if (existingBlockEntity != null && existingBlockEntity != be) {
-                    // UUID conflict detected! This happens when blocks are copied (Valkyrian Skies, WorldEdit, etc.)
-                    val oldUUID = recordPlayerUUID
-
-                    // Unregister the old UUID first (if it was registered)
-                    unregisterPlayer(oldUUID.toString(), be)
-
-                    // Generate a new UUID for this copy
-                    recordPlayerUUID = UUID.randomUUID()
-
-                    // Register with the new UUID
-                    registerPlayer(recordPlayerUUID.toString(), be)
-                } else {
-                    // No conflict, use the loaded UUID
-                    val oldUUID = recordPlayerUUID
-
-                    // If UUID changed, unregister the old one first
-                    if (oldUUID != loadedUUID) {
-                        unregisterPlayer(oldUUID.toString(), be)
-                    }
-
-                    recordPlayerUUID = loadedUUID
-                    registerPlayer(recordPlayerUUID.toString(), be)
-                }
-            } else {
-                // Client packet - set the UUID and clean up any orphaned audio player
-                val oldUUID = recordPlayerUUID
-                recordPlayerUUID = loadedUUID
-
-                // If UUID changed, destroy BOTH old audio players to ensure cleanup
-                if (oldUUID != loadedUUID) {
-                    // Destroy the old UUID's player
-                    AudioPlayerRegistry.destroyPlayer(oldUUID.toString())
-                    // Also destroy any existing player with the new UUID to prevent conflicts
-                    AudioPlayerRegistry.destroyPlayer(loadedUUID.toString())
-                }
-            }
+            _recordPlayerUUID = loadedUUID
         }
 
         if (compound.contains("SpeedInterrupted")) {
@@ -734,10 +715,6 @@ class RecordPlayerBehaviour(
             audioPlayingTitle = compound.getString("AudioPlayingTitle")
         }
 
-        if (compound.contains("AudioPlayCount")) {
-            audioPlayCount = compound.getLong("AudioPlayCount")
-        }
-
         if (compound.contains("PlaybackState")) {
             val newPlaybackState = NBTHelper.readEnum(compound, "PlaybackState", PlaybackState::class.java)
             val oldPlaybackState = playbackState
@@ -748,7 +725,6 @@ class RecordPlayerBehaviour(
                         PlaybackState.PLAYING -> {
                             val currentRecord = getRecord()
                             if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
-                                // Check the actual audio player state to decide whether to start or resume
                                 if (audioPlayer.state == AudioPlayer.PlayState.PAUSED) {
                                     resumeClientPlayer()
                                 } else {
@@ -758,7 +734,6 @@ class RecordPlayerBehaviour(
                         }
 
                         PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
-                            // Only pause if there's something playing
                             if (audioPlayer.state == AudioPlayer.PlayState.PLAYING) {
                                 pauseClientPlayer()
                             }
@@ -774,6 +749,11 @@ class RecordPlayerBehaviour(
             }
             playbackState = newPlaybackState
         }
+
+        if (compound.contains("AudioPlayCount")) {
+            val newPlayCount = compound.getLong("AudioPlayCount")
+            audioPlayCount = newPlayCount
+        }
     }
 
     fun onPlaybackEnd(
@@ -781,9 +761,9 @@ class RecordPlayerBehaviour(
         failure: Boolean = false,
     ) {
         if (failure) return
-        val isPowered = this.redstonePower > 0
+        val isFullyPowered = this.redstonePower == 15
 
-        if (isPowered) {
+        if (isFullyPowered) {
             playbackEndedNaturally = false
             updatePlaybackState(PlaybackState.STOPPED, resetTime = true)
             shouldRestartOnNextTick = true

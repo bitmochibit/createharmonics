@@ -319,7 +319,7 @@ object PonderScenes {
         scene
             .overlay()
             .showText(70)
-            .text("When the redstone signal is analog, the volume and range is scaled accordingly")
+            .text("When the redstone signal is analog, volume and play mode can be controlled")
             .pointAt(topOfPlayer)
         scene.idle(40)
 
@@ -334,6 +334,22 @@ object PonderScenes {
         }
         scene.idle(40)
 
+        scene
+            .overlay()
+            .showText(70)
+            .colored(PonderPalette.GREEN)
+            .text("In play mode, it will only loop when fully powered, scaling volume with power level")
+            .pointAt(topOfPlayer)
+        scene.idle(80)
+
+        scene
+            .overlay()
+            .showText(70)
+            .colored(PonderPalette.BLUE)
+            .text("In pause mode, audio will always loop, with volume scaled by power level, pausing only when fully unpowered")
+            .pointAt(topOfPlayer)
+        scene.idle(80)
+
         scene.world().hideSection(util.select().position(recordLever), Direction.UP)
 
         // Mechanical Arm Feature
@@ -346,16 +362,16 @@ object PonderScenes {
         scene
             .overlay()
             .showText(50)
-            .text("Mechanical arms works on Andesite jukeboxes")
+            .text("Mechanical arms works on Andesite jukeboxes and it has special behaviours based on the mode")
             .pointAt(topOfPlayer)
             .placeNearTarget()
         scene.idle(60)
 
         scene
             .overlay()
-            .showText(50)
-            .text("When not powered, after the playback ends, mechanical arms will extract the record")
-            .pointAt(topOfPlayer)
+            .showText(70)
+            .colored(PonderPalette.GREEN)
+            .text("In play mode, when unpowered or not fully powered, arms will extract the record only if the playback ends")
             .placeNearTarget()
         scene.idle(24)
         scene.world().instructArm(extractingArm, ArmBlockEntity.Phase.MOVE_TO_INPUT, ItemStack.EMPTY, 0)
@@ -363,12 +379,28 @@ object PonderScenes {
         scene.world().modifyBlockEntity(recordPlayer, AndesiteJukeboxBlockEntity::class.java) { be ->
             be.playerBehaviour.popRecord()
         }
+        scene.idle(10)
+        scene
+            .overlay()
+            .showText(70)
+            .colored(PonderPalette.GREEN)
+            .text("In play mode if powered fully, arms can't extract the record")
+            .placeNearTarget()
+
         scene.world().instructArm(extractingArm, ArmBlockEntity.Phase.SEARCH_OUTPUTS, diamondRecord, -1)
         scene.idle(30)
         scene.world().instructArm(extractingArm, ArmBlockEntity.Phase.MOVE_TO_OUTPUT, diamondRecord, 0)
         scene.idle(24)
         scene.world().createItemOnBeltLike(depot, Direction.UP, diamondRecord)
         scene.world().instructArm(extractingArm, ArmBlockEntity.Phase.SEARCH_INPUTS, ItemStack.EMPTY, -1)
+
+        scene.idle(15)
+        scene
+            .overlay()
+            .showText(70)
+            .colored(PonderPalette.BLUE)
+            .text("In pause mode, arms will extract the record when fully unpowered")
+            .placeNearTarget()
 
         scene.idle(24)
         scene.world().instructArm(insertingArm, ArmBlockEntity.Phase.MOVE_TO_INPUT, ItemStack.EMPTY, 0)
