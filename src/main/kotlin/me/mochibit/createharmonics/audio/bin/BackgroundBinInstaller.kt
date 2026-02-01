@@ -45,7 +45,6 @@ object BackgroundBinInstaller {
                     } else {
                         BinStatusManager.updateStatus(
                             libraryType,
-                            isComplete = true,
                             status = BinStatusManager.Status.ALREADY_INSTALLED,
                         )
                     }
@@ -63,7 +62,6 @@ object BackgroundBinInstaller {
         Logger.info("Installing ${libraryType.displayName}...")
         BinStatusManager.updateStatus(
             libraryType,
-            isInstalling = true,
             status = BinStatusManager.Status.DOWNLOADING,
             progress = 0.0f,
         )
@@ -85,7 +83,6 @@ object BackgroundBinInstaller {
                         }
                     BinStatusManager.updateStatus(
                         libraryType,
-                        isInstalling = true,
                         status = status,
                         progress = progress,
                         speed = speed,
@@ -96,8 +93,6 @@ object BackgroundBinInstaller {
                 Logger.info("${libraryType.displayName} installed successfully")
                 BinStatusManager.updateStatus(
                     libraryType,
-                    isComplete = true,
-                    isFailed = false,
                     status = BinStatusManager.Status.INSTALLED,
                     progress = 1.0f,
                 )
@@ -106,8 +101,6 @@ object BackgroundBinInstaller {
                 Logger.err("${libraryType.displayName} installation failed")
                 BinStatusManager.updateStatus(
                     libraryType,
-                    isComplete = false,
-                    isFailed = true,
                     status = BinStatusManager.Status.FAILED,
                     progress = 0.0f,
                 )
@@ -118,8 +111,6 @@ object BackgroundBinInstaller {
             e.printStackTrace()
             BinStatusManager.updateStatus(
                 libraryType,
-                isComplete = false,
-                isFailed = true,
                 status = BinStatusManager.Status.ERROR,
                 progress = 0.0f,
             )

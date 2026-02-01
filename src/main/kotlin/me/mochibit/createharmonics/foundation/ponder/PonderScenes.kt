@@ -350,8 +350,6 @@ object PonderScenes {
             .pointAt(topOfPlayer)
         scene.idle(80)
 
-        scene.world().hideSection(util.select().position(recordLever), Direction.UP)
-
         // Mechanical Arm Feature
         val extractingArm = util.grid().at(18, 2, 15)
         val insertingArm = util.grid().at(18, 2, 17)
@@ -379,7 +377,12 @@ object PonderScenes {
         scene.world().modifyBlockEntity(recordPlayer, AndesiteJukeboxBlockEntity::class.java) { be ->
             be.playerBehaviour.popRecord()
         }
-        scene.idle(10)
+        scene.world().instructArm(extractingArm, ArmBlockEntity.Phase.SEARCH_OUTPUTS, diamondRecord, -1)
+        scene.idle(30)
+        scene.world().instructArm(extractingArm, ArmBlockEntity.Phase.MOVE_TO_OUTPUT, diamondRecord, 0)
+        scene.idle(24)
+        scene.world().createItemOnBeltLike(depot, Direction.UP, diamondRecord)
+        scene.world().instructArm(extractingArm, ArmBlockEntity.Phase.SEARCH_INPUTS, ItemStack.EMPTY, -1)
         scene
             .overlay()
             .showText(70)
@@ -387,12 +390,7 @@ object PonderScenes {
             .text("In play mode if powered fully, arms can't extract the record")
             .placeNearTarget()
 
-        scene.world().instructArm(extractingArm, ArmBlockEntity.Phase.SEARCH_OUTPUTS, diamondRecord, -1)
-        scene.idle(30)
-        scene.world().instructArm(extractingArm, ArmBlockEntity.Phase.MOVE_TO_OUTPUT, diamondRecord, 0)
-        scene.idle(24)
-        scene.world().createItemOnBeltLike(depot, Direction.UP, diamondRecord)
-        scene.world().instructArm(extractingArm, ArmBlockEntity.Phase.SEARCH_INPUTS, ItemStack.EMPTY, -1)
+        scene.idle(80)
 
         scene.idle(15)
         scene
@@ -416,6 +414,7 @@ object PonderScenes {
         scene.world().instructArm(insertingArm, ArmBlockEntity.Phase.SEARCH_INPUTS, ItemStack.EMPTY, -1)
         scene.idle(5)
         scene.idle(80)
+        scene.world().hideSection(util.select().position(recordLever), Direction.UP)
 
         // Contraption scene
         val bearingPos = util.grid().at(16, 3, 16)

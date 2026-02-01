@@ -2,6 +2,8 @@
 
 package me.mochibit.createharmonics.client.gui
 
+import com.simibubi.create.foundation.gui.AllIcons
+import com.simibubi.create.foundation.gui.widget.IconButton
 import me.mochibit.createharmonics.BuildConfig
 import me.mochibit.createharmonics.audio.bin.BackgroundBinInstaller
 import me.mochibit.createharmonics.audio.bin.BinProvider
@@ -9,10 +11,10 @@ import me.mochibit.createharmonics.audio.bin.BinStatusManager
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.extension.drawCenteredString
-import me.mochibit.createharmonics.extension.toMultilineComponent
 import me.mochibit.createharmonics.extension.toMultilineFormattedCharSequence
 import me.mochibit.createharmonics.registry.ModConfigurations
 import me.mochibit.createharmonics.registry.ModLang
+import net.createmod.catnip.gui.element.ScreenElement
 import net.minecraft.ChatFormatting
 import net.minecraft.Util
 import net.minecraft.client.gui.GuiGraphics
@@ -24,11 +26,82 @@ import net.minecraft.util.FormattedCharSequence
 class LibraryDisclaimerScreen(
     private val parent: Screen?,
 ) : Screen(ModLang.translate("gui.library_setup.title").component()) {
+    // Data classes for better organization
     private data class LibInfo(
         val name: String,
         val desc: String,
         val url: String,
     )
+
+    private data class CardDimensions(
+        val width: Int,
+        val height: Int,
+        val x: Int,
+        val y: Int,
+    ) {
+        val left: Int get() = x - width / 2
+        val right: Int get() = x + width / 2
+        val top: Int get() = y
+        val bottom: Int get() = y + height
+
+        fun contains(
+            mouseX: Int,
+            mouseY: Int,
+        ): Boolean = mouseX in left..right && mouseY in top..bottom
+    }
+
+    // UI State
+    private enum class State { DISCLAIMER, STATUS, SKIPPED }
+
+    private var currentState = State.DISCLAIMER
+    private var hoveredCardIndex: Int? = null
+    private val cardDimensions = mutableListOf<CardDimensions>()
+
+    // Track installation states to detect changes
+    private var previousInstallationStates =
+        mutableMapOf<BinStatusManager.LibraryType, BinStatusManager.InstallationStatus>()
+
+    // Constants - centralized for easier theming
+    private object Theme {
+        const val CARD_BG = 0x50000000
+        const val CARD_BG_HOVER = 0x70000000
+        const val BORDER = 0xFF444444.toInt()
+        const val BORDER_HOVER = 0xFF6699FF.toInt()
+        const val ACCENT = 0xFFFFAA00.toInt()
+        const val ACCENT_BRIGHT = 0xFF00AAFF.toInt()
+        const val HEADER = 0xFF00AA00.toInt()
+        const val ERROR = 0x50FF0000
+        const val INSTALLING = 0x5000AAFF
+        const val WARNING = 0x50FF6600
+
+        const val GREEN = 0x00FF00
+        const val GREEN_LIGHT = 0x88FF88
+        const val RED = 0xFF5555
+        const val RED_LIGHT = 0xFF8888
+        const val BLUE = 0x55AAFF
+        const val GRAY = 0xAAAAAA
+        const val GRAY_LIGHT = 0xBBBBBB
+        const val GRAY_DARK = 0x666666
+        const val WHITE = 0xEEEEEE
+    }
+
+    private object Layout {
+        const val BUTTON_WIDTH = 150
+        const val BUTTON_HEIGHT = 24
+        const val BUTTON_GAP = 15
+        const val CARD_GAP = 10
+        const val PADDING_TOP = 75
+        const val PADDING_BOTTOM = 70
+        const val TITLE_Y = 25
+        const val SUBTITLE_Y = 55
+
+        // Responsive card sizing
+        fun getCardWidth(screenWidth: Int): Int = (screenWidth * 0.5f).toInt().coerceIn(280, 400)
+
+        fun getCompactCardHeight(): Int = 50
+
+        fun getExpandedCardHeight(): Int = 60
+    }
 
     private val libraries =
         listOf(
@@ -44,26 +117,8 @@ class LibraryDisclaimerScreen(
             ),
         )
 
-    // Track hovered card for tooltips
-    private var hoveredCardIndex: Int? = null
-
-    // State
-    private enum class State { DISCLAIMER, STATUS, SKIPPED }
-
-    private var currentState = State.DISCLAIMER
-
-    // UI Constants
-    private val cardColor = 0x50000000 // Semi-transparent black (slightly more opaque)
-    private val borderColor = 0xFF444444.toInt()
-    private val errorColor = 0x50FF0000 // Red tint (more opaque)
-    private val installingColor = 0x5000AAFF // Blue tint (more opaque)
-    private val warningColor = 0x50FF6600 // Orange tint for warnings
-    private val headerColor = 0xFF00AA00.toInt() // Bright green for headers
-    private val accentColor = 0xFFFFAA00.toInt() // Gold accent
-
     override fun init() {
         super.init()
-        // Determine initial state based on installation status
         currentState =
             when {
                 BinStatusManager.areAllLibrariesInstalled() -> State.STATUS
@@ -75,143 +130,203 @@ class LibraryDisclaimerScreen(
 
     override fun rebuildWidgets() {
         clearWidgets()
-        val buttonW = 150
-        val buttonH = 24
-        val buttonGap = 15
-        val centerX = width / 2
-        val bottomY = height - 40
+        cardDimensions.clear()
 
         when (currentState) {
-            State.DISCLAIMER -> {
-                if (BuildConfig.IS_CURSEFORGE) {
-                    addRenderableWidget(
-                        Button
-                            .builder(
-                                ModLang.translate("gui.library_setup.manual_installation_btn").component(),
-                            ) {
-                                ModConfigurations.client.neverShowLibraryDisclaimer.set(true)
-                                currentState = State.SKIPPED
-                                rebuildWidgets()
-                            }.bounds(centerX - buttonW / 2, bottomY, buttonW, buttonH)
-                            .build(),
-                    )
-                } else {
-                    // Calculate positions for two centered buttons with gap
-                    val totalWidth = buttonW * 2 + buttonGap
-                    val leftButtonX = centerX - totalWidth / 2
-                    val rightButtonX = leftButtonX + buttonW + buttonGap
+            State.DISCLAIMER -> buildDisclaimerButtons()
+            State.STATUS -> buildStatusButtons()
+            State.SKIPPED -> buildSkippedButtons()
+        }
+    }
 
-                    addRenderableWidget(
-                        Button
-                            .builder(
-                                ModLang
-                                    .translate("gui.library_setup.install_in_background_btn")
-                                    .component()
-                                    .withStyle(ChatFormatting.AQUA),
-                            ) {
-                                startBackgroundInstallation()
-                            }.bounds(leftButtonX, bottomY, buttonW, buttonH)
-                            .build(),
-                    )
+    // Simplified button building with common pattern extraction
+    private fun buildDisclaimerButtons() {
+        val cx = width / 2
+        val bottomY = height - 40
 
-                    addRenderableWidget(
-                        Button
-                            .builder(ModLang.translate("gui.library_setup.manual_installation_btn").component()) {
-                                // Set config to never show again
-                                ModConfigurations.client.neverShowLibraryDisclaimer.set(true)
-                                currentState = State.SKIPPED
-                                rebuildWidgets()
-                            }.bounds(rightButtonX, bottomY, buttonW, buttonH)
-                            .build(),
-                    )
+        if (BuildConfig.IS_CURSEFORGE) {
+            addCenteredButton(
+                ModLang.translate("gui.library_setup.manual_installation_btn").component(),
+                cx,
+                bottomY,
+            ) {
+                ModConfigurations.client.neverShowLibraryDisclaimer.set(true)
+                currentState = State.SKIPPED
+                rebuildWidgets()
+            }
+        } else {
+            addButtonPair(
+                cx,
+                bottomY,
+                left =
+                    ButtonData(
+                        ModLang
+                            .translate("gui.library_setup.install_in_background_btn")
+                            .component()
+                            .withStyle(ChatFormatting.AQUA),
+                    ) { startBackgroundInstallation() },
+                right =
+                    ButtonData(
+                        ModLang.translate("gui.library_setup.manual_installation_btn").component(),
+                    ) {
+                        ModConfigurations.client.neverShowLibraryDisclaimer.set(true)
+                        currentState = State.SKIPPED
+                        rebuildWidgets()
+                    },
+            )
+        }
+    }
+
+    private fun buildStatusButtons() {
+        val cx = width / 2
+        val bottomY = height - 40
+        val allInstalled = BinStatusManager.areAllLibrariesInstalled()
+        val isInstalling = BinStatusManager.isAnyInstalling()
+
+        // Add delete buttons for installed libraries
+        addDeleteButtonsForLibraries()
+
+        val (leftButton, rightButton) =
+            when {
+                !allInstalled && !isInstalling && !BuildConfig.IS_CURSEFORGE -> {
+                    ButtonData(
+                        ModLang
+                            .translate("gui.library_setup.install_missing_lib_btn")
+                            .component()
+                            .withStyle(ChatFormatting.GREEN),
+                    ) { startBackgroundInstallation() } to
+                        ButtonData(
+                            ModLang.translate("gui.library_setup.go_back_btn").component(),
+                        ) { onClose() }
+                }
+
+                else -> {
+                    ButtonData(
+                        ModLang.translate("gui.library_setup.open_folder_btn").component(),
+                    ) {
+                        BinStatusManager.ensureBinaryFolders()
+                        Util.getPlatform().openFile(BinProvider.providersFolder)
+                    } to
+                        ButtonData(
+                            ModLang.translate("gui.library_setup.go_back_btn").component(),
+                        ) { onClose() }
                 }
             }
 
-            State.STATUS -> {
-                val allInstalled = BinStatusManager.areAllLibrariesInstalled()
-                val isInstalling = BinStatusManager.isAnyInstalling()
+        addButtonPair(cx, bottomY, leftButton, rightButton)
+    }
 
-                if (!allInstalled && !isInstalling && !BuildConfig.IS_CURSEFORGE) {
-                    val totalWidth = buttonW * 2 + buttonGap
-                    val leftButtonX = centerX - totalWidth / 2
-                    val rightButtonX = leftButtonX + buttonW + buttonGap
+    private fun buildSkippedButtons() {
+        val cx = width / 2
+        val bottomY = height - 40
 
-                    addRenderableWidget(
-                        Button
-                            .builder(
-                                ModLang
-                                    .translate("gui.library_setup.install_missing_lib_btn")
-                                    .component()
-                                    .withStyle(ChatFormatting.GREEN),
-                            ) {
-                                startBackgroundInstallation()
-                            }.bounds(leftButtonX, bottomY, buttonW, buttonH)
-                            .build(),
-                    )
+        addButtonPair(
+            cx,
+            bottomY,
+            left =
+                ButtonData(
+                    ModLang.translate("gui.library_setup.open_folder_btn").component(),
+                ) {
+                    BinStatusManager.ensureBinaryFolders()
+                    Util.getPlatform().openFile(BinProvider.providersFolder)
+                },
+            right =
+                ButtonData(
+                    ModLang.translate("gui.library_setup.manual_disclaimer_accept_btn").component(),
+                ) { onClose() },
+        )
+    }
 
-                    addRenderableWidget(
-                        Button
-                            .builder(
-                                ModLang.translate("gui.library_setup.go_back_btn").component(),
-                            ) {
-                                onClose()
-                            }.bounds(rightButtonX, bottomY, buttonW, buttonH)
-                            .build(),
-                    )
-                } else {
-                    val totalWidth = buttonW * 2 + buttonGap
-                    val leftButtonX = centerX - totalWidth / 2
-                    val rightButtonX = leftButtonX + buttonW + buttonGap
+    // Helper classes and methods for button creation
+    private data class ButtonData(
+        val label: Component,
+        val action: (button: Button) -> Unit,
+    )
 
-                    addRenderableWidget(
-                        Button
-                            .builder(
-                                ModLang.translate("gui.library_setup.open_folder_btn").component(),
-                            ) {
-                                BinStatusManager.ensureBinaryFolders()
-                                Util.getPlatform().openFile(BinProvider.providersFolder)
-                            }.bounds(leftButtonX, bottomY, buttonW, buttonH)
-                            .build(),
-                    )
+    private fun addCenteredButton(
+        label: Component,
+        x: Int,
+        y: Int,
+        action: (button: Button) -> Unit,
+    ) {
+        addRenderableWidget(
+            Button
+                .builder(label, action)
+                .bounds(x - Layout.BUTTON_WIDTH / 2, y, Layout.BUTTON_WIDTH, Layout.BUTTON_HEIGHT)
+                .build(),
+        )
+    }
 
-                    addRenderableWidget(
-                        Button
-                            .builder(
-                                ModLang.translate("gui.library_setup.go_back_btn").component(),
-                            ) {
-                                onClose()
-                            }.bounds(rightButtonX, bottomY, buttonW, buttonH)
-                            .build(),
-                    )
-                }
-            }
+    private fun addButtonPair(
+        x: Int,
+        y: Int,
+        left: ButtonData,
+        right: ButtonData,
+    ) {
+        val totalWidth = Layout.BUTTON_WIDTH * 2 + Layout.BUTTON_GAP
+        val leftX = x - totalWidth / 2
+        val rightX = leftX + Layout.BUTTON_WIDTH + Layout.BUTTON_GAP
 
-            State.SKIPPED -> {
-                // Two buttons: Open Folder and Accept
-                val totalWidth = buttonW * 2 + buttonGap
-                val leftButtonX = centerX - totalWidth / 2
-                val rightButtonX = leftButtonX + buttonW + buttonGap
+        addRenderableWidget(
+            Button
+                .builder(left.label, left.action)
+                .bounds(leftX, y, Layout.BUTTON_WIDTH, Layout.BUTTON_HEIGHT)
+                .build(),
+        )
+        addRenderableWidget(
+            Button
+                .builder(right.label, right.action)
+                .bounds(rightX, y, Layout.BUTTON_WIDTH, Layout.BUTTON_HEIGHT)
+                .build(),
+        )
+    }
+
+    private fun addDeleteButtonsForLibraries() {
+        val positions = calculateCardPositions()
+
+        BinStatusManager.LibraryType.entries.forEachIndexed { index, library ->
+            // Check if library is actually installed (not just status)
+            val isActuallyInstalled = BinStatusManager.isLibraryInstalled(library)
+            val status = BinStatusManager.getStatus(library)
+
+            // Show delete button for installed libraries that are not currently installing
+            if (isActuallyInstalled && !status.isInstalling && index < positions.size) {
+                val pos = positions[index]
+                val buttonSize = 16 // Icon button is typically 16x16
+                val paddingX = 8
+                val paddingY = 8
+                // Align to right edge of card with padding
+                val buttonX = pos.right - buttonSize - paddingX
+                // Center vertically or place near top with padding
+                val buttonY = pos.bottom - buttonSize - paddingY
+
+                val deleteButton =
+                    IconButton(buttonX, buttonY, AllIcons.I_CONFIG_DISCARD)
+                        .withCallback<IconButton> {
+                            deleteLibrary(library)
+                        }.apply {
+                            setToolTip(
+                                ModLang.translate("gui.library_setup.delete_library_tooltip").component(),
+                            )
+                        }
 
                 addRenderableWidget(
-                    Button
-                        .builder(
-                            ModLang.translate("gui.library_setup.open_folder_btn").component(),
-                        ) {
-                            BinStatusManager.ensureBinaryFolders()
-                            Util.getPlatform().openFile(BinProvider.providersFolder)
-                        }.bounds(leftButtonX, bottomY, buttonW, buttonH)
-                        .build(),
-                )
-
-                addRenderableWidget(
-                    Button
-                        .builder(ModLang.translate("gui.library_setup.manual_disclaimer_accept_btn").component()) {
-                            onClose() // Go to parent
-                        }.bounds(rightButtonX, bottomY, buttonW, buttonH)
-                        .build(),
+                    deleteButton,
                 )
             }
         }
+    }
+
+    private fun deleteLibrary(library: BinStatusManager.LibraryType) {
+        val provider =
+            when (library) {
+                BinStatusManager.LibraryType.YTDLP -> YTDLProvider
+                BinStatusManager.LibraryType.FFMPEG -> FFMPEGProvider
+            }
+
+        provider.directory.takeIf { it.exists() }?.deleteRecursively()
+        BinStatusManager.resetStatus(library)
+        rebuildWidgets()
     }
 
     private fun startBackgroundInstallation() {
@@ -220,6 +335,7 @@ class LibraryDisclaimerScreen(
         rebuildWidgets()
     }
 
+    // Rendering
     override fun render(
         guiGraphics: GuiGraphics,
         mouseX: Int,
@@ -227,132 +343,120 @@ class LibraryDisclaimerScreen(
         partialTick: Float,
     ) {
         renderBackground(guiGraphics)
-
         guiGraphics.fillGradient(0, 0, width, height, 0xE0000000.toInt(), 0xD0000000.toInt())
 
-        val centerX = width / 2
-        val centerY = height / 2
-
-        // Update hovered card index for disclaimer state
-        if (currentState == State.DISCLAIMER) {
-            updateHoveredCard(mouseX, mouseY, centerX)
-        }
-
-        val titleScale = 1.8f
-        guiGraphics.pose().pushPose()
-        guiGraphics.pose().translate(centerX.toDouble(), 25.0, 0.0)
-        guiGraphics.pose().scale(titleScale, titleScale, 1f)
-
-        guiGraphics.drawCenteredString(font, Component.literal("Create: Harmonics"), 1, 1, 0x000000, 200)
-        guiGraphics.drawCenteredString(font, Component.literal("Create: Harmonics"), 0, 0, accentColor, 200)
-        guiGraphics.pose().popPose()
+        renderTitle(guiGraphics)
 
         when (currentState) {
-            State.DISCLAIMER -> renderDisclaimer(guiGraphics, centerX, centerY)
-            State.STATUS -> renderStatus(guiGraphics, centerX, centerY)
-            State.SKIPPED -> renderSkipped(guiGraphics, centerX, centerY)
+            State.DISCLAIMER -> renderDisclaimer(guiGraphics, mouseX, mouseY)
+            State.STATUS -> renderStatus(guiGraphics)
+            State.SKIPPED -> renderSkipped(guiGraphics)
         }
 
         super.render(guiGraphics, mouseX, mouseY, partialTick)
     }
 
-    private fun updateHoveredCard(
-        mouseX: Int,
-        mouseY: Int,
-        centerX: Int,
-    ) {
-        val cardWidth = 280
-        val cardHeight = 35
-        val cardGap = 8
-        val startY = 95
-        var currentY = startY
-
-        hoveredCardIndex = null
-
-        libraries.forEachIndexed { index, _ ->
-            val cardLeft = centerX - cardWidth / 2
-            val cardRight = centerX + cardWidth / 2
-            val cardTop = currentY
-            val cardBottom = currentY + cardHeight
-
-            if (mouseX in cardLeft..cardRight && mouseY in cardTop..cardBottom) {
-                hoveredCardIndex = index
-            }
-
-            currentY += cardHeight + cardGap
-        }
+    private fun renderTitle(gfx: GuiGraphics) {
+        val titleScale = 1.8f
+        gfx.pose().pushPose()
+        gfx.pose().translate((width / 2).toDouble(), Layout.TITLE_Y.toDouble(), 0.0)
+        gfx.pose().scale(titleScale, titleScale, 1f)
+        gfx.drawCenteredString(font, Component.literal("Create: Harmonics"), 1, 1, 0x000000, 200)
+        gfx.drawCenteredString(font, Component.literal("Create: Harmonics"), 0, 0, Theme.ACCENT, 200)
+        gfx.pose().popPose()
     }
 
     private fun renderDisclaimer(
         gfx: GuiGraphics,
-        cx: Int,
-        cy: Int,
+        mouseX: Int,
+        mouseY: Int,
     ) {
-        // Draw subtitle
+        val cx = width / 2
+        val cy = height / 2
+
+        // Subtitle
         val subtitleKey =
             if (BuildConfig.IS_CURSEFORGE) {
                 "gui.library_setup.library_disclaimer_subtitle_curseforge"
             } else {
                 "gui.library_setup.library_disclaimer_subtitle"
             }
+        gfx.drawCenteredString(
+            font,
+            ModLang.translate(subtitleKey).component(),
+            cx,
+            Layout.SUBTITLE_Y,
+            Theme.ACCENT,
+            400,
+        )
 
-        gfx.drawCenteredString(font, ModLang.translate(subtitleKey).component(), cx, 55, accentColor, 400)
-
+        // Info text
         val infoKey =
             if (BuildConfig.IS_CURSEFORGE) {
                 "gui.library_setup.library_disclaimer_info_curseforge"
             } else {
                 "gui.library_setup.library_disclaimer_info"
             }
+        renderWrappedText(gfx, ModLang.translate(infoKey).component(), cx, 68, 400, Theme.GRAY)
 
-        // Use extension function to properly split text
-        val disclaimerInfo = ModLang.translate(infoKey).component()
-        val wrappedLines = font.split(disclaimerInfo, 400)
-        wrappedLines.forEachIndexed { index, line ->
-            gfx.drawCenteredString(
-                font,
-                line,
-                cx,
-                68 + index * font.lineHeight,
-                ChatFormatting.GRAY.color ?: 0xAAAAAA,
-            )
-        }
+        // Library cards
+        renderDisclaimerCards(gfx, cx, mouseX, mouseY)
 
-        // Compact cards - much smaller
-        val cardWidth = 280
-        val cardHeight = 35
-        val cardGap = 8
-        val startY = 95
-        var currentY = startY
-
-        libraries.forEachIndexed { index, lib ->
-            val isHovered = hoveredCardIndex == index
-
-            // Card Background with hover effect
-            val cardBg = if (isHovered) 0x70000000 else cardColor
-            gfx.fill(cx - cardWidth / 2, currentY, cx + cardWidth / 2, currentY + cardHeight, cardBg)
-
-            // Top accent line
-            gfx.fill(cx - cardWidth / 2, currentY, cx + cardWidth / 2, currentY + 2, 0xFF00AAFF.toInt())
-
-            // Border with hover highlight
-            val borderCol = if (isHovered) 0xFF6699FF.toInt() else borderColor
-            gfx.renderOutline(cx - cardWidth / 2, currentY, cardWidth, cardHeight, borderCol)
-
-            // Lib Name with icon - centered vertically
-            val nameText = "▸ ${lib.name}"
-            val textY = currentY + (cardHeight - font.lineHeight) / 2
-            gfx.drawString(font, nameText, cx - cardWidth / 2 + 10, textY, accentColor, false)
-
-            currentY += cardHeight + cardGap
-        }
-
-        // Render tooltip for hovered card
+        // Tooltip for hovered card
         hoveredCardIndex?.let { index ->
             if (index in libraries.indices) {
-                val lib = libraries[index]
-                renderLibraryTooltip(gfx, lib, cx, cy)
+                renderLibraryTooltip(gfx, libraries[index], cx, cy)
             }
+        }
+    }
+
+    private fun renderDisclaimerCards(
+        gfx: GuiGraphics,
+        cx: Int,
+        mouseX: Int,
+        mouseY: Int,
+    ) {
+        cardDimensions.clear()
+        val cardWidth = 280
+        val cardHeight = 35
+        var currentY = 95
+
+        hoveredCardIndex = null
+
+        libraries.forEachIndexed { index, lib ->
+            val dims = CardDimensions(cardWidth, cardHeight, cx, currentY)
+            cardDimensions.add(dims)
+
+            val isHovered = dims.contains(mouseX, mouseY)
+            if (isHovered) hoveredCardIndex = index
+
+            // Card background
+            gfx.fill(
+                dims.left,
+                dims.top,
+                dims.right,
+                dims.bottom,
+                if (isHovered) Theme.CARD_BG_HOVER else Theme.CARD_BG,
+            )
+
+            // Top accent
+            gfx.fill(dims.left, dims.top, dims.right, dims.top + 2, Theme.ACCENT_BRIGHT)
+
+            // Border
+            gfx.renderOutline(
+                dims.left,
+                dims.top,
+                dims.width,
+                dims.height,
+                if (isHovered) Theme.BORDER_HOVER else Theme.BORDER,
+            )
+
+            // Library name
+            val nameText = "▸ ${lib.name}"
+            val textY = dims.top + (dims.height - font.lineHeight) / 2
+            gfx.drawString(font, nameText, dims.left + 10, textY, Theme.ACCENT, false)
+
+            currentY += cardHeight + Layout.CARD_GAP
         }
     }
 
@@ -363,273 +467,245 @@ class LibraryDisclaimerScreen(
         screenCenterY: Int,
     ) {
         val tooltipWidth = 320
-        val tooltipX = screenCenterX - tooltipWidth / 2
         val padding = 10
         val maxDescWidth = tooltipWidth - (padding * 2)
 
-        // Calculate dynamic height based on content
-        val descComponent = Component.literal(lib.desc)
-        val wrappedDesc = font.split(descComponent, maxDescWidth)
-        val descHeight = wrappedDesc.size * font.lineHeight
-
-        // Calculate total tooltip height
+        val wrappedDesc = font.split(Component.literal(lib.desc), maxDescWidth)
         val tooltipHeight =
-            padding + // top padding
-                font.lineHeight + // library name
-                4 + // spacing after name
-                descHeight + // description
-                4 + // spacing after description
-                font.lineHeight + // URL
-                4 + // spacing after URL
-                font.lineHeight + // hint text
-                padding // bottom padding
+            padding + font.lineHeight + 4 + (wrappedDesc.size * font.lineHeight) +
+                4 + font.lineHeight + 4 + font.lineHeight + padding
 
+        val tooltipX = screenCenterX - tooltipWidth / 2
         val tooltipY = screenCenterY - tooltipHeight / 2 - 20
 
-        // Tooltip background with stronger opacity
+        // Background
         gfx.fill(tooltipX, tooltipY, tooltipX + tooltipWidth, tooltipY + tooltipHeight, 0xE0000000.toInt())
-        gfx.renderOutline(tooltipX, tooltipY, tooltipWidth, tooltipHeight, 0xFF6699FF.toInt())
-
-        // Title bar
-        gfx.fill(tooltipX, tooltipY, tooltipX + tooltipWidth, tooltipY + 2, 0xFF00AAFF.toInt())
+        gfx.renderOutline(tooltipX, tooltipY, tooltipWidth, tooltipHeight, Theme.BORDER_HOVER)
+        gfx.fill(tooltipX, tooltipY, tooltipX + tooltipWidth, tooltipY + 2, Theme.ACCENT_BRIGHT)
 
         var textY = tooltipY + padding
 
-        // Library name
-        gfx.drawString(font, lib.name, tooltipX + padding, textY, accentColor, false)
+        // Content
+        gfx.drawString(font, lib.name, tooltipX + padding, textY, Theme.ACCENT, false)
         textY += font.lineHeight + 4
 
-        // Description with proper word wrap
         wrappedDesc.forEach { line ->
             gfx.drawString(font, line, tooltipX + padding, textY, 0xCCCCCC, false)
             textY += font.lineHeight
         }
-
         textY += 4
 
-        // URL
         gfx.drawString(font, lib.url, tooltipX + padding, textY, 0x5599FF, false)
         textY += font.lineHeight + 4
 
-        // Hint text
         val hintText = ModLang.translate("gui.library_setup.card_tooltip.click_to_open_site").component().getString(128)
         gfx.drawString(font, hintText, tooltipX + padding, textY, 0xCCCCCC, false)
     }
 
-    private fun renderStatus(
-        gfx: GuiGraphics,
-        cx: Int,
-        cy: Int,
-    ) {
+    private fun renderStatus(gfx: GuiGraphics) {
+        val cx = width / 2
         val allInstalled = BinStatusManager.areAllLibrariesInstalled()
         val isInstalling = BinStatusManager.isAnyInstalling()
 
-        val subtitleText =
+        val (subtitleText, subtitleColor) =
             when {
                 allInstalled -> {
                     ModLang
                         .translate("gui.library_setup.status.all_lib_installed")
                         .component()
-                        .getString(128)
+                        .getString(128) to Theme.HEADER
                 }
 
                 isInstalling -> {
-                    ModLang.translate("gui.library_setup.status.installing_lib").component().getString(128)
+                    ModLang.translate("gui.library_setup.status.installing_lib").component().getString(128) to
+                        Theme.ACCENT_BRIGHT
                 }
 
                 else -> {
-                    ModLang.translate("gui.library_setup.status.lib_are_missing").component().getString(128)
+                    ModLang
+                        .translate("gui.library_setup.status.lib_are_missing")
+                        .component()
+                        .getString(128) to Theme.ACCENT
                 }
             }
 
-        val subtitleColor =
-            when {
-                allInstalled -> headerColor
-                isInstalling -> 0xFF00AAFF.toInt()
-                else -> accentColor
+        gfx.drawCenteredString(font, Component.literal(subtitleText), cx, Layout.SUBTITLE_Y, subtitleColor, 200)
+        renderLibraryCards(gfx, cx)
+    }
+
+    private fun calculateCardPositions(): List<CardDimensions> {
+        val cx = width / 2
+        val cardWidth = Layout.getCardWidth(width)
+        val positions = mutableListOf<CardDimensions>()
+
+        var totalHeight = 0
+        val heights =
+            BinStatusManager.LibraryType.entries.map { library ->
+                val status = BinStatusManager.getStatus(library)
+                if (status.isInstalling || (status.progress > 0 && !status.isComplete)) {
+                    Layout.getExpandedCardHeight()
+                } else {
+                    Layout.getCompactCardHeight()
+                }.also { totalHeight += it }
+            }
+        totalHeight += Layout.CARD_GAP * (heights.size - 1)
+
+        val availableHeight = height - Layout.PADDING_TOP - Layout.PADDING_BOTTOM
+        var currentY =
+            if (totalHeight < availableHeight) {
+                Layout.PADDING_TOP + (availableHeight - totalHeight) / 2
+            } else {
+                Layout.PADDING_TOP
             }
 
-        gfx.drawCenteredString(font, Component.literal(subtitleText), cx, 55, subtitleColor, 200)
-        // Draw library status cards
-        renderLibraryCards(gfx, cx, cy)
+        heights.forEach { cardHeight ->
+            positions.add(CardDimensions(cardWidth, cardHeight, cx, currentY))
+            currentY += cardHeight + Layout.CARD_GAP
+        }
+
+        return positions
     }
 
     private fun renderLibraryCards(
         gfx: GuiGraphics,
         cx: Int,
-        cy: Int,
     ) {
-        val cardWidth = 340
-        val installingCardHeight = 60 // Full height for cards with progress bars
-        val compactCardHeight = 50 // Compact height for completed/failed/pending cards
-        val cardGap = 10
-        val libraryCount = BinStatusManager.LibraryType.entries.size
+        val positions = calculateCardPositions()
 
-        // Calculate total height based on each library's state
-        var totalCardsHeight = 0
-        BinStatusManager.LibraryType.entries.forEach { library ->
-            val status = BinStatusManager.getStatus(library)
-            val height =
-                if (status.isInstalling || (status.progress > 0 && !status.isComplete)) {
-                    installingCardHeight
-                } else {
-                    compactCardHeight
-                }
-            totalCardsHeight += height
-        }
-        totalCardsHeight += cardGap * (libraryCount - 1)
+        BinStatusManager.LibraryType.entries.forEachIndexed { index, library ->
+            if (index >= positions.size) return@forEachIndexed
 
-        // Calculate positioning with proper margins - 75px from top, 70px from bottom for buttons
-        val topPadding = 75
-        val bottomPadding = 70
-        val availableHeight = height - topPadding - bottomPadding
-
-        // Start position - center cards in available space
-        val startY =
-            if (totalCardsHeight < availableHeight) {
-                topPadding + (availableHeight - totalCardsHeight) / 2
-            } else {
-                topPadding
-            }
-
-        var currentY = startY
-
-        BinStatusManager.LibraryType.entries.forEach { library ->
+            val pos = positions[index]
             val status = BinStatusManager.getStatus(library)
 
-            // Determine card height based on status
-            val cardHeight =
-                if (status.isInstalling || (status.progress > 0 && !status.isComplete)) {
-                    installingCardHeight
-                } else {
-                    compactCardHeight
-                }
-
-            val bgColor =
-                when {
-                    status.isComplete -> cardColor
-                    status.isFailed -> errorColor
-                    status.isInstalling -> installingColor
-                    else -> cardColor
-                }
-
-            gfx.fill(cx - cardWidth / 2, currentY, cx + cardWidth / 2, currentY + cardHeight, bgColor)
-
-            // Top colored accent bar (3px height)
-            val accentBarColor =
-                when {
-                    status.isComplete -> 0xFF00FF00.toInt()
-                    status.isFailed -> 0xFFFF5555.toInt()
-                    status.isInstalling -> 0xFF00AAFF.toInt()
-                    else -> accentColor
-                }
-            gfx.fill(cx - cardWidth / 2, currentY, cx + cardWidth / 2, currentY + 3, accentBarColor)
-
-            // Border
-            gfx.renderOutline(cx - cardWidth / 2, currentY, cardWidth, cardHeight, borderColor)
-
-            // Library Name with better styling
-            val nameColor =
-                when {
-                    status.isComplete -> 0x00FF00
-                    status.isFailed -> 0xFF5555
-                    status.isInstalling -> 0x55AAFF
-                    else -> accentColor
-                }
-            val nameText = "▸ ${library.displayName}"
-            gfx.drawString(font, nameText, cx - cardWidth / 2 + 12, currentY + 8, nameColor, false)
-
-            val statusText = formatStatus(status.status)
-            gfx.drawString(
-                font,
-                statusText,
-                cx + cardWidth / 2 - font.width(statusText) - 12,
-                currentY + 8,
-                0xEEEEEE,
-                false,
-            )
-
-            // Progress bar (if installing or in progress)
-            if (status.isInstalling || (status.progress > 0 && !status.isComplete)) {
-                val barW = cardWidth - 50
-                val barH = 6
-                val barX = cx - barW / 2
-                val barY = currentY + 26
-
-                // Bar Background with subtle styling
-                gfx.fill(barX, barY, barX + barW, barY + barH, 0xFF222222.toInt())
-
-                // Bar Fill with gradient effect
-                val fillW = (barW * status.progress.coerceIn(0f, 1f)).toInt()
-                if (fillW > 0) {
-                    gfx.fill(barX, barY, barX + fillW, barY + barH, 0xFF00CC00.toInt())
-                    // Add lighter top portion for 3D effect
-                    gfx.fill(barX, barY, barX + fillW, barY + 2, 0xFF00FF00.toInt())
-                }
-
-                // Border with rounded corners effect
-                gfx.renderOutline(barX - 1, barY - 1, barW + 2, barH + 2, 0xFF666666.toInt())
-
-                // Progress percentage and speed
-                val progressText =
-                    if (status.speed.isNotEmpty()) {
-                        "${(status.progress * 100).toInt()}% • ${status.speed}"
-                    } else {
-                        "${(status.progress * 100).toInt()}%"
-                    }
-                gfx.drawString(font, progressText, cx - font.width(progressText) / 2, barY + 10, 0xBBBBBB, false)
-            } else {
-                // Status message when not installing - centered vertically in compact card
-                val message =
-                    when {
-                        status.isComplete -> {
-                            ModLang
-                                .translate("gui.library_setup.status.lib_ready_to_use")
-                                .component()
-                                .getString(128)
-                        }
-
-                        status.isFailed -> {
-                            ModLang
-                                .translate("gui.library_setup.status.lib_failed_to_install")
-                                .component()
-                                .getString(128)
-                        }
-
-                        else -> {
-                            ModLang
-                                .translate("gui.library_setup.status.lib_waiting_to_install")
-                                .component()
-                                .getString(128)
-                        }
-                    }
-                val messageColor =
-                    when {
-                        status.isComplete -> 0x88FF88
-                        status.isFailed -> 0xFF8888
-                        else -> 0xBBBBBB
-                    }
-                // Center the message vertically in the card (accounting for library name at top)
-                val messageY = currentY + 8 + font.lineHeight + 3
-                gfx.drawString(font, message, cx - font.width(message) / 2, messageY, messageColor, false)
-            }
-
-            currentY += cardHeight + cardGap
+            renderLibraryCard(gfx, pos, library, status)
         }
     }
 
-    private fun renderSkipped(
+    private fun renderLibraryCard(
         gfx: GuiGraphics,
-        cx: Int,
-        cy: Int,
+        dims: CardDimensions,
+        library: BinStatusManager.LibraryType,
+        status: BinStatusManager.InstallationStatus,
     ) {
+        // Background
+        val bgColor =
+            when {
+                status.isComplete -> Theme.CARD_BG
+                status.isFailed -> Theme.ERROR
+                status.isInstalling -> Theme.INSTALLING
+                else -> Theme.CARD_BG
+            }
+        gfx.fill(dims.left, dims.top, dims.right, dims.bottom, bgColor)
+
+        // Top accent
+        val accentColor =
+            when {
+                status.isComplete -> 0xFF00FF00.toInt()
+                status.isFailed -> 0xFFFF5555.toInt()
+                status.isInstalling -> Theme.ACCENT_BRIGHT
+                else -> Theme.ACCENT
+            }
+        gfx.fill(dims.left, dims.top, dims.right, dims.top + 3, accentColor)
+
+        // Border
+        gfx.renderOutline(dims.left, dims.top, dims.width, dims.height, Theme.BORDER)
+
+        // Library name
+        val nameColor =
+            when {
+                status.isComplete -> Theme.GREEN
+                status.isFailed -> Theme.RED
+                status.isInstalling -> Theme.BLUE
+                else -> Theme.ACCENT
+            }
+        gfx.drawString(font, "▸ ${library.displayName}", dims.left + 12, dims.top + 8, nameColor, false)
+
+        // Status text
+        val statusText = formatStatus(status.status)
+        gfx.drawString(font, statusText, dims.right - font.width(statusText) - 12, dims.top + 8, Theme.WHITE, false)
+
+        // Progress or message
+        if (status.isInstalling || (status.progress > 0 && !status.isComplete)) {
+            renderProgressBar(gfx, dims, status)
+        } else {
+            renderStatusMessage(gfx, dims, status)
+        }
+    }
+
+    private fun renderProgressBar(
+        gfx: GuiGraphics,
+        dims: CardDimensions,
+        status: BinStatusManager.InstallationStatus,
+    ) {
+        val barW = dims.width - 50
+        val barH = 6
+        val barX = dims.x - barW / 2
+        val barY = dims.top + 26
+
+        // Background
+        gfx.fill(barX, barY, barX + barW, barY + barH, 0xFF222222.toInt())
+
+        // Fill
+        val fillW = (barW * status.progress.coerceIn(0f, 1f)).toInt()
+        if (fillW > 0) {
+            gfx.fill(barX, barY, barX + fillW, barY + barH, 0xFF00CC00.toInt())
+            gfx.fill(barX, barY, barX + fillW, barY + 2, 0xFF00FF00.toInt())
+        }
+
+        // Border
+        gfx.renderOutline(barX - 1, barY - 1, barW + 2, barH + 2, Theme.GRAY_DARK)
+
+        // Progress text
+        val progressText =
+            if (status.speed.isNotEmpty()) {
+                "${(status.progress * 100).toInt()}% • ${status.speed}"
+            } else {
+                "${(status.progress * 100).toInt()}%"
+            }
+        gfx.drawString(font, progressText, dims.x - font.width(progressText) / 2, barY + 10, Theme.GRAY_LIGHT, false)
+    }
+
+    private fun renderStatusMessage(
+        gfx: GuiGraphics,
+        dims: CardDimensions,
+        status: BinStatusManager.InstallationStatus,
+    ) {
+        val (message, color) =
+            when {
+                status.isComplete -> {
+                    ModLang
+                        .translate("gui.library_setup.status.lib_ready_to_use")
+                        .component()
+                        .getString(128) to Theme.GREEN_LIGHT
+                }
+
+                status.isFailed -> {
+                    ModLang
+                        .translate("gui.library_setup.status.lib_failed_to_install")
+                        .component()
+                        .getString(128) to Theme.RED_LIGHT
+                }
+
+                else -> {
+                    ModLang
+                        .translate("gui.library_setup.status.lib_waiting_to_install")
+                        .component()
+                        .getString(128) to Theme.GRAY_LIGHT
+                }
+            }
+
+        val messageY = dims.top + 8 + font.lineHeight + 3
+        gfx.drawString(font, message, dims.x - font.width(message) / 2, messageY, color, false)
+    }
+
+    private fun renderSkipped(gfx: GuiGraphics) {
+        val cx = width / 2
+        val cy = height / 2
         val boxW = 460
         val topY = cy - 80
         val maxTextWidth = boxW - 40
-
-        // Calculate dynamic height
         val padding = 12
-        val titleHeight = font.lineHeight
 
         val notice =
             ModLang
@@ -637,18 +713,13 @@ class LibraryDisclaimerScreen(
                 .component()
                 .toMultilineFormattedCharSequence(font, maxTextWidth)
 
-        val boxH =
-            padding + // top padding
-                titleHeight + // title
-                padding + // spacing after title
-                (notice.size * font.lineHeight) + // all wrapped text lines
-                5 + padding // bottom padding
+        val boxH = padding + font.lineHeight + padding + (notice.size * font.lineHeight) + 5 + padding
 
-        // Warning Box Background
-        gfx.fill(cx - boxW / 2, topY, cx + boxW / 2, topY + boxH, warningColor)
+        // Background
+        gfx.fill(cx - boxW / 2, topY, cx + boxW / 2, topY + boxH, Theme.WARNING)
         gfx.renderOutline(cx - boxW / 2, topY, boxW, boxH, 0xFFFF5555.toInt())
 
-        // Warning Icon/Text
+        // Title
         val title =
             ModLang
                 .translate("gui.library_setup.manual_install_title")
@@ -656,8 +727,7 @@ class LibraryDisclaimerScreen(
                 .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
         gfx.drawString(font, title, cx - font.width(title) / 2, topY + padding, 0xFFFFFF, false)
 
-        var textY = topY + padding + titleHeight + padding
-
+        var textY = topY + padding + font.lineHeight + padding
         notice.forEach { line ->
             if (line != FormattedCharSequence.EMPTY) {
                 gfx.drawString(font, line, cx - font.width(line) / 2, textY, 0xDDDDDD, false)
@@ -666,30 +736,37 @@ class LibraryDisclaimerScreen(
         }
     }
 
+    // Helper method for wrapped text
+    private fun renderWrappedText(
+        gfx: GuiGraphics,
+        text: Component,
+        cx: Int,
+        startY: Int,
+        maxWidth: Int,
+        color: Int,
+    ) {
+        font.split(text, maxWidth).forEachIndexed { index, line ->
+            gfx.drawCenteredString(font, line, cx, startY + index * font.lineHeight, color)
+        }
+    }
+
     override fun mouseClicked(
         mouseX: Double,
         mouseY: Double,
         button: Int,
     ): Boolean {
-        // Handle card clicks in disclaimer state
         if (currentState == State.DISCLAIMER && button == 0) {
             hoveredCardIndex?.let { index ->
                 if (index in libraries.indices) {
-                    val lib = libraries[index]
-
-                    Util
-                        .getPlatform()
-                        .openUri(lib.url)
+                    Util.getPlatform().openUri(libraries[index].url)
                     return true
                 }
             }
         }
-
         return super.mouseClicked(mouseX, mouseY, button)
     }
 
     override fun onClose() {
-        // Return to the previous screen (Main Menu usually)
         minecraft?.setScreen(parent)
     }
 
@@ -699,77 +776,42 @@ class LibraryDisclaimerScreen(
 
     private fun formatStatus(status: BinStatusManager.Status): String =
         when (status) {
-            BinStatusManager.Status.PENDING -> {
-                ModLang
-                    .translate(
-                        "gui.library_setup.status.single_lib.pending",
-                    ).component()
-                    .getString(128)
-            }
+            BinStatusManager.Status.PENDING -> "gui.library_setup.status.single_lib.pending"
+            BinStatusManager.Status.NOT_INSTALLED -> "gui.library_setup.status.single_lib.not_installed"
+            BinStatusManager.Status.DOWNLOADING -> "gui.library_setup.status.single_lib.downloading"
+            BinStatusManager.Status.EXTRACTING -> "gui.library_setup.status.single_lib.extracting"
+            BinStatusManager.Status.INSTALLED -> "gui.library_setup.status.single_lib.installed"
+            BinStatusManager.Status.ALREADY_INSTALLED -> "gui.library_setup.status.single_lib.already_installed"
+            BinStatusManager.Status.FAILED -> "gui.library_setup.status.single_lib.failed"
+            BinStatusManager.Status.ERROR -> "gui.library_setup.status.single_lib.error"
+        }.let { ModLang.translate(it).component().getString(128) }
 
-            BinStatusManager.Status.NOT_INSTALLED -> {
-                ModLang
-                    .translate(
-                        "gui.library_setup.status.single_lib.not_installed",
-                    ).component()
-                    .getString(128)
-            }
-
-            BinStatusManager.Status.DOWNLOADING -> {
-                ModLang
-                    .translate(
-                        "gui.library_setup.status.single_lib.downloading",
-                    ).component()
-                    .getString(128)
-            }
-
-            BinStatusManager.Status.EXTRACTING -> {
-                ModLang
-                    .translate(
-                        "gui.library_setup.status.single_lib.extracting",
-                    ).component()
-                    .getString(128)
-            }
-
-            BinStatusManager.Status.INSTALLED -> {
-                ModLang
-                    .translate(
-                        "gui.library_setup.status.single_lib.installed",
-                    ).component()
-                    .getString(128)
-            }
-
-            BinStatusManager.Status.ALREADY_INSTALLED -> {
-                ModLang
-                    .translate(
-                        "gui.library_setup.status.single_lib.already_installed",
-                    ).component()
-                    .getString(128)
-            }
-
-            BinStatusManager.Status.FAILED -> {
-                ModLang
-                    .translate(
-                        "gui.library_setup.status.single_lib.failed",
-                    ).component()
-                    .getString(128)
-            }
-
-            BinStatusManager.Status.ERROR -> {
-                ModLang
-                    .translate(
-                        "gui.library_setup.status.single_lib.error",
-                    ).component()
-                    .getString(128)
-            }
-        }
-
-    // Refresh widgets periodically to update button states
     override fun tick() {
         super.tick()
-        // Rebuild widgets every tick to update button states based on installation progress
-        if (currentState == State.STATUS && (children().isEmpty() || BackgroundBinInstaller.isInstalling())) {
-            rebuildWidgets()
+        if (currentState == State.STATUS) {
+            // Check if any installation state has changed
+            var stateChanged = false
+
+            BinStatusManager.LibraryType.entries.forEach { library ->
+                val currentStatus = BinStatusManager.getStatus(library)
+                val previousStatus = previousInstallationStates[library]
+
+                // Detect state changes
+                if (previousStatus == null ||
+                    previousStatus.status != currentStatus.status ||
+                    previousStatus.isInstalling != currentStatus.isInstalling ||
+                    previousStatus.isComplete != currentStatus.isComplete
+                ) {
+                    stateChanged = true
+                }
+
+                previousInstallationStates[library] = currentStatus
+            }
+
+            // Rebuild if state changed or if widgets are empty or if installing
+            if (stateChanged || children().isEmpty() || BackgroundBinInstaller.isInstalling()) {
+                rebuildWidgets()
+            }
         }
     }
 }

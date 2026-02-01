@@ -20,6 +20,7 @@
   "createharmonics.gui.library_setup.status.lib_ready_to_use": "Ready to use",
   "createharmonics.gui.library_setup.status.lib_failed_to_install": "Failed to install",
   "createharmonics.gui.library_setup.status.lib_waiting_to_install": "Waiting to install...",
+  "createharmonics.gui.library_setup.delete_library_tooltip": "Delete the library files from your computer",
   "createharmonics.gui.library_setup.status.single_lib.pending": "Pending...",
   "createharmonics.gui.library_setup.status.single_lib.not_installed": "Not Installed",
   "createharmonics.gui.library_setup.status.single_lib.downloading": "Downloading...",

@@ -24,13 +24,19 @@ object BinStatusManager {
 
     data class InstallationStatus(
         val library: LibraryType,
-        val isInstalling: Boolean = false,
-        val isComplete: Boolean = false,
-        val isFailed: Boolean = false,
         val progress: Float = 0.0f,
         val status: Status = Status.PENDING,
         val speed: String = "",
-    )
+    ) {
+        val isInstalling: Boolean
+            get() = status == Status.DOWNLOADING || status == Status.EXTRACTING
+
+        val isComplete: Boolean
+            get() = status == Status.INSTALLED || status == Status.ALREADY_INSTALLED
+
+        val isFailed: Boolean
+            get() = status == Status.FAILED || status == Status.ERROR
+    }
 
     private val installationStatuses = ConcurrentHashMap<LibraryType, InstallationStatus>()
 
@@ -40,8 +46,6 @@ object BinStatusManager {
             type.provider.buildProviderFolder()
             updateStatus(
                 type,
-                isInstalling = false,
-                isComplete = isInstalled,
                 status = if (isInstalled) Status.INSTALLED else Status.NOT_INSTALLED,
             )
         }
@@ -51,6 +55,20 @@ object BinStatusManager {
         LibraryType.entries.forEach { type ->
             type.provider.buildProviderFolder()
         }
+    }
+
+    fun resetStatus(library: LibraryType) {
+        // Delete the library from the status map to force re-evaluation
+        installationStatuses.remove(library)
+
+        // Re-initialize with fresh status check
+        val isInstalled = isLibraryInstalled(library)
+        updateStatus(
+            library,
+            progress = 0.0f,
+            status = if (isInstalled) Status.INSTALLED else Status.NOT_INSTALLED,
+            speed = "",
+        )
     }
 
     /**
@@ -69,7 +87,10 @@ object BinStatusManager {
     fun getStatus(library: LibraryType): InstallationStatus =
         installationStatuses.getOrDefault(
             library,
-            InstallationStatus(library, isComplete = isLibraryInstalled(library)),
+            InstallationStatus(
+                library,
+                status = if (isLibraryInstalled(library)) Status.INSTALLED else Status.NOT_INSTALLED,
+            ),
         )
 
     fun isInstalling(library: LibraryType): Boolean = getStatus(library).isInstalling
@@ -86,9 +107,6 @@ object BinStatusManager {
      */
     internal fun updateStatus(
         library: LibraryType,
-        isInstalling: Boolean = false,
-        isComplete: Boolean = false,
-        isFailed: Boolean = false,
         progress: Float = 0.0f,
         status: Status = Status.PENDING,
         speed: String = "",
@@ -96,9 +114,6 @@ object BinStatusManager {
         installationStatuses[library] =
             InstallationStatus(
                 library = library,
-                isInstalling = isInstalling,
-                isComplete = isComplete,
-                isFailed = isFailed,
                 progress = progress,
                 status = status,
                 speed = speed,
