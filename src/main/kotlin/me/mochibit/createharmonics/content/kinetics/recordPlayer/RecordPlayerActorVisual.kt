@@ -85,12 +85,17 @@ class RecordPlayerActorVisual(
             cachedRecordType = newRecordType
             updateRecordModel(newRecordType)
         }
-
-        if (context.disabled) return
+        val speed =
+            when {
+                context.disabled -> 0f
+                context.getAnimationSpeed() != 0f -> context.getAnimationSpeed()
+                RecordPlayerMovementBehaviour.isPauseModeWithRedstone(context) -> -60f
+                else -> 0f
+            }
 
         previousRotation = rotation
 
-        currentSpeed = currentSpeed.lerpTo(context.animationSpeed / 20, speedSmoothingFactor)
+        currentSpeed = currentSpeed.lerpTo(speed / 20, speedSmoothingFactor)
 
         val deg: Float = currentSpeed * 5
 

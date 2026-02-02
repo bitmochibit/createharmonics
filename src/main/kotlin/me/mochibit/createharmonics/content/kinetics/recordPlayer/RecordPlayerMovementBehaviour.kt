@@ -114,6 +114,17 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                 context.contraption.entity.setBlockData(context.localPos, block)
             }
         }
+
+        fun isPauseModeWithRedstone(context: MovementContext): Boolean {
+            val playbackMode =
+                RecordPlayerBlockEntity.PlaybackMode.entries[context.blockEntityData.getInt("ScrollValue")]
+            val isPauseMode =
+                playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE ||
+                    playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
+
+            val isPowered = context.blockEntityData.getInt("RedstonePower") > 0
+            return isPauseMode && isPowered
+        }
     }
 
     override fun stopMoving(context: MovementContext) {
@@ -159,7 +170,13 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         val isStalled = context.stall
 
         // Determine if contraption should be "playing" (has record and is moving or stalled)
-        val shouldBePlaying = hasRecord && (currentSpeed >= SPEED_THRESHOLD || isStalled)
+        val shouldBePlaying =
+            !context.disabled && hasRecord && (
+                currentSpeed >= SPEED_THRESHOLD || isStalled ||
+                    isPauseModeWithRedstone(
+                        context
+            )
+                )
         val shouldBePaused = hasRecord && !shouldBePlaying
 
         // Track old values to detect changes
@@ -615,7 +632,11 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                     PlaybackState.STOPPED
                 }
 
-                currentSpeed >= SPEED_THRESHOLD || isStalled -> {
+                context.disabled -> {
+                    PlaybackState.PAUSED
+                }
+
+                currentSpeed >= SPEED_THRESHOLD || isStalled || isPauseModeWithRedstone(context) -> {
                     PlaybackState.PLAYING
                 }
 
@@ -662,18 +683,9 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                         val record = getRecordItem(context)
                         val offsetSeconds =
                             if (playTime > 0) {
-                                // Calculate elapsed time minus any accumulated pause time
                                 val elapsedTime = System.currentTimeMillis() - playTime
                                 val adjustedTime = elapsedTime - tempData.totalPausedTime
-                                val offset = adjustedTime / 1000.0
-
-                                // Safety check: if offset is negative or absurdly large (>1 hour),
-                                // the playTime hasn't been properly synced yet, so start from 0
-                                if (offset < 0 || offset > 3600) {
-                                    Logger.warn("Invalid playTime offset detected: $offset seconds. Waiting for server sync.")
-                                    return // Wait for next tick with proper sync
-                                }
-                                offset
+                                adjustedTime / 1000.0
                             } else {
                                 0.0
                             }
@@ -773,6 +785,8 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         if (VisualizationManager.supportsVisualization(context.world)) return
         RecordPlayerRenderer.renderInContraption(context, renderWorld, matrices, buffer)
     }
+
+    override fun mustTickWhileDisabled(): Boolean = true
 
     override fun disableBlockEntityRendering(): Boolean = true
 
