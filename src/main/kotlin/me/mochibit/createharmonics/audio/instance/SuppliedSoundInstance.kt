@@ -33,10 +33,11 @@ abstract class SuppliedSoundInstance(
 
     private val mc = Minecraft.getInstance()
     private val sm = mc.soundManager as SoundManagerAccessor
-    private val engine = sm.soundEngine as SoundEngineAccessor
-    protected val map: Map<SoundInstance, ChannelAccess.ChannelHandle> = engine.instanceToChannel
+    protected val engine = sm.soundEngine as SoundEngineAccessor
 
     override fun tick() {
+        if (this.isStopped) return
+
         currentPitch = pitchSupplier()
         currentVolume = volumeSupplier()
         currentPosition = posSupplier()
@@ -51,7 +52,7 @@ abstract class SuppliedSoundInstance(
         val newRadius = radiusSupplier()
         if (newRadius != currentRadius) {
             currentRadius = newRadius
-            map[this]?.execute { channel ->
+            engine.instanceToChannel[this]?.execute { channel ->
                 channel.linearAttenuation(this.currentRadius.toFloat())
             }
         }

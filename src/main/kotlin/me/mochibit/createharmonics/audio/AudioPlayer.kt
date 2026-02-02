@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.audio
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -16,6 +17,7 @@ import me.mochibit.createharmonics.audio.stream.AudioEffectInputStream
 import me.mochibit.createharmonics.coroutine.MinecraftClientDispatcher
 import me.mochibit.createharmonics.coroutine.launchModCoroutine
 import me.mochibit.createharmonics.coroutine.withClientContext
+import me.mochibit.createharmonics.extension.ticks
 import me.mochibit.createharmonics.network.packet.AudioPlayerStreamEndPacket
 import me.mochibit.createharmonics.network.packet.UpdateAudioNamePacket
 import me.mochibit.createharmonics.registry.ModPackets
@@ -23,6 +25,7 @@ import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import java.io.InputStream
 import java.util.UUID
+import kotlin.time.Duration.Companion.seconds
 
 typealias StreamId = String
 typealias StreamingSoundInstanceProvider = (streamId: StreamId, stream: InputStream) -> SoundInstance
@@ -494,10 +497,17 @@ class AudioPlayer(
     }
 
     private fun handleStreamHang() {
-        if (playState == PlayState.PLAYING) {
-            launchModCoroutine {
-                playbackContext?.soundInstance?.let { soundInstance ->
-                    soundManager.play(soundInstance)
+        if (playState != PlayState.PLAYING) return
+
+        playbackContext?.soundInstance?.let { soundInstance ->
+            launchModCoroutine(Dispatchers.IO) {
+                delay(1.ticks())
+                try {
+                    withClientContext {
+                        soundManager.play(soundInstance)
+                    }
+                } catch (e: Exception) {
+                    Logger.err("AudioPlayer $playerId: Error restarting hung stream: ${e.message}")
                 }
             }
         }

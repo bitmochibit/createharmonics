@@ -75,7 +75,7 @@ class SimpleShipStreamSoundInstance(
         val newRadius = radiusSupplier()
         if (newRadius != currentRadius) {
             currentRadius = newRadius
-            map[this]?.execute { channel ->
+            engine.instanceToChannel[this]?.execute { channel ->
                 channel.linearAttenuation(this.currentRadius.toFloat())
             }
         }
