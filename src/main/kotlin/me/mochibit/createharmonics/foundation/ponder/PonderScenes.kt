@@ -23,6 +23,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.LeverBlock
 import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.block.state.properties.AttachFace
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import thedarkcolour.kotlinforforge.forge.vectorutil.v3d.toVec3
@@ -428,7 +429,7 @@ object PonderScenes {
 
         val rotatingStructure =
             scene.world().showIndependentSection(
-                util.select().fromTo(15, 3, 14, 15, 3, 16),
+                util.select().fromTo(15, 3, 14, 15, 4, 16),
                 Direction.WEST,
             )
         scene
@@ -448,7 +449,7 @@ object PonderScenes {
         scene
             .overlay()
             .showText(60)
-            .text("The Andesite Jukebox pauses audio when the contraption stops")
+            .text("The Andesite Jukebox pauses audio when the contraption stops, by default")
             .placeNearTarget()
             .pointAt(topOfPlayer)
         scene.world().setKineticSpeed(util.select().position(jukeboxContraption), 0f)
@@ -475,6 +476,69 @@ object PonderScenes {
         scene.world().rotateBearing(bearingPos, 360f, 120)
         scene.world().rotateSection(rotatingStructure, 360.0, 0.0, 0.0, 120)
         scene.idle(130)
+
+        scene.addKeyframe()
+        val rotation: Float = 360 * 60f
+        val duration = 120 * 60
+        val contraptionLeverPosition = util.grid().at(15, 4, 14)
+        val contraptionLeverSel = util.select().position(15, 4, 14)
+
+        scene
+            .overlay()
+            .showText(80)
+            .text("Modes set before assembly works on contraptions, allowing some special cases and locking the pitch")
+            .placeNearTarget()
+            .pointAt(topOfPlayer)
+        scene.world().rotateBearing(bearingPos, rotation, duration)
+        scene.world().rotateSection(rotatingStructure, rotation.toDouble(), 0.0, 0.0, duration)
+        scene.idle(90)
+
+        scene
+            .overlay()
+            .showText(80)
+            .text("Redstone level is also preserved, allowing for volume regulation both on play and pause modes")
+            .placeNearTarget()
+            .pointAt(topOfPlayer)
+        scene.world().setBlock(
+            contraptionLeverPosition,
+            AllBlocks.ANALOG_LEVER
+                .get()
+                .defaultBlockState()
+                .setValue(
+                    AnalogLeverBlock.FACING,
+                    Direction.NORTH,
+                ),
+            true,
+        )
+
+        scene.idle(7)
+        for (i in 0..9) {
+            scene.idle(2)
+            val state = i + 1
+            scene.world().modifyBlockEntityNBT(
+                contraptionLeverSel,
+                AnalogLeverBlockEntity::class.java,
+            ) { nbt: CompoundTag -> nbt.putInt("State", state) }
+        }
+
+        scene.effects().indicateRedstone(contraptionLeverPosition)
+        scene.idle(90)
+
+        scene
+            .overlay()
+            .showText(80)
+            .text("If the jukebox is on pause mode, and powered, it will play audio even if the contraption is stopped")
+            .placeNearTarget()
+            .pointAt(topOfPlayer)
+        scene.idle(90)
+
+        scene
+            .overlay()
+            .showText(80)
+            .text("If in play mode, redstone will only control the volume, but playback will stop when the contraption stops")
+            .placeNearTarget()
+            .pointAt(topOfPlayer)
+        scene.idle(90)
 
         scene.markAsFinished()
     }
