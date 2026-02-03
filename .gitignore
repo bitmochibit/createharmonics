@@ -5,5 +5,5 @@
 /run/
 /.idea/
 /.kotlin
-/src/generated/
 /out/
+/src/generated/resources/.cache/

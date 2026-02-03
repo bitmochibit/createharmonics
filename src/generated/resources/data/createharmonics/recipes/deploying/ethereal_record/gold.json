@@ -1,0 +1,19 @@
+{
+  "type": "create:deploying",
+  "ingredients": [
+    {
+      "item": "createharmonics:ethereal_record_base"
+    },
+    {
+      "tag": "forge:ingots/gold"
+    }
+  ],
+  "results": [
+    {
+      "item": "createharmonics:gold_ethereal_record",
+      "nbt": {
+        "Damage": 0
+      }
+    }
+  ]
+}

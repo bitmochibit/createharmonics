@@ -1,6 +1,7 @@
 {
   "required": true,
   "minVersion": "0.8.5",
+  "priority": 1500,
   "package": "mixin",
   "compatibilityLevel": "JAVA_17",
   "refmap": "createharmonics.refmap.json",
@@ -17,8 +18,5 @@
   ],
   "injectors": {
     "defaultRequire": 1
-  },
-  "overwrites": {
-    "requireAnnotations": true
   }
 }

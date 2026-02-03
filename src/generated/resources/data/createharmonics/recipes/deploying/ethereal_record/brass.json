@@ -1,0 +1,19 @@
+{
+  "type": "create:deploying",
+  "ingredients": [
+    {
+      "item": "createharmonics:ethereal_record_base"
+    },
+    {
+      "item": "create:brass_ingot"
+    }
+  ],
+  "results": [
+    {
+      "item": "createharmonics:brass_ethereal_record",
+      "nbt": {
+        "Damage": 0
+      }
+    }
+  ]
+}

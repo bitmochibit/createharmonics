@@ -1,0 +1,7 @@
+{
+  "parent": "createharmonics:block/ethereal_record_visual/visual",
+  "textures": {
+    "0": "createharmonics:block/ethereal_record_visual/emerald",
+    "particle": "createharmonics:block/ethereal_record_visual/emerald"
+  }
+}

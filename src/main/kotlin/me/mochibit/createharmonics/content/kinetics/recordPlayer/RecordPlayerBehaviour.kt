@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
+import me.mochibit.createharmonics.ServerConfig
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import me.mochibit.createharmonics.audio.instance.SimpleShipStreamSoundInstance
@@ -143,7 +144,7 @@ class RecordPlayerBehaviour(
     val soundRadius: Int
         get() {
             if (redstonePower <= 0) return 16
-            return redstonePower.remapTo(1, 15, 4, 32)
+            return redstonePower.remapTo(1, 15, 4, ServerConfig.maxJukeboxSoundRange.get())
         }
 
     val currentVolume: Float

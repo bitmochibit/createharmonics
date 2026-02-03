@@ -1,0 +1,17 @@
+{
+  "type": "create:pressing",
+  "ingredients": [
+    {
+      "item": "createharmonics:brass_ethereal_record"
+    }
+  ],
+  "results": [
+    {
+      "chance": 0.3,
+      "item": "minecraft:amethyst_shard"
+    },
+    {
+      "item": "minecraft:amethyst_shard"
+    }
+  ]
+}

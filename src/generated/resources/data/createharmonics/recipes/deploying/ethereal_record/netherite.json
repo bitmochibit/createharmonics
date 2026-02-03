@@ -1,0 +1,19 @@
+{
+  "type": "create:deploying",
+  "ingredients": [
+    {
+      "item": "createharmonics:diamond_ethereal_record"
+    },
+    {
+      "tag": "forge:ingots/netherite"
+    }
+  ],
+  "results": [
+    {
+      "item": "createharmonics:netherite_ethereal_record",
+      "nbt": {
+        "Damage": 0
+      }
+    }
+  ]
+}

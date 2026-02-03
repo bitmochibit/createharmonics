@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.AllItems
 import com.simibubi.create.AllShapes
+import com.simibubi.create.content.kinetics.base.DirectionalAxisKineticBlock
 import com.simibubi.create.content.kinetics.base.DirectionalKineticBlock
 import com.simibubi.create.content.logistics.packagerLink.PackagerLinkBlock
 import com.simibubi.create.content.logistics.packagerLink.PackagerLinkBlockEntity

@@ -9,6 +9,7 @@ import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import dev.engine_room.flywheel.api.visualization.VisualizationContext
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
 import me.mochibit.createharmonics.Logger
+import me.mochibit.createharmonics.ServerConfig
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
@@ -174,9 +175,9 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             !context.disabled && hasRecord && (
                 currentSpeed >= SPEED_THRESHOLD || isStalled ||
                     isPauseModeWithRedstone(
-                        context
+                        context,
+                    )
             )
-                )
         val shouldBePaused = hasRecord && !shouldBePlaying
 
         // Track old values to detect changes
@@ -461,7 +462,8 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             tempData.radiusSupplier =
                 FloatSupplierInterpolated({
                     if (redstonePower <= 0) return@FloatSupplierInterpolated 16f
-                    redstonePower.toFloat().remapTo(0f, 15f, 4f, 32f)
+                    redstonePower.remapTo(0, 15, 4, ServerConfig.maxJukeboxSoundRange.get())
+                    redstonePower.toFloat()
                 }, 500)
         }
         return { tempData.radiusSupplier!!.getValue().toInt() }

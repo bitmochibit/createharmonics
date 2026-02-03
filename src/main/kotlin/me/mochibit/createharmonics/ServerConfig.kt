@@ -24,6 +24,9 @@ object ServerConfig : ConfigBase() {
     private const val MAX_DURABILITY = 30000
     private const val UNBREAKABLE = 0
 
+    lateinit var maxJukeboxSoundRange: ConfigInt
+        private set
+
     /**
      * Registers record-related configuration options.
      * Creates a config entry for each record type's maximum uses.
@@ -48,6 +51,19 @@ object ServerConfig : ConfigBase() {
         }
     }
 
+    private fun jukeboxesGroup() {
+        group(1, "jukeboxes", "Configuration for the Andesite Jukebox block")
+
+        maxJukeboxSoundRange =
+            i(
+                32,
+                5,
+                4095,
+                "maxSoundRange",
+                "Maximum sound range (in blocks) for the Andesite Jukebox.",
+            )
+    }
+
     /**
      * Gets the configured maximum durability for a specific record type.
      * @param recordType The type of record to query
@@ -65,6 +81,7 @@ object ServerConfig : ConfigBase() {
 
     override fun registerAll(builder: ForgeConfigSpec.Builder) {
         recordGroup()
+        jukeboxesGroup()
         super.registerAll(builder)
     }
 

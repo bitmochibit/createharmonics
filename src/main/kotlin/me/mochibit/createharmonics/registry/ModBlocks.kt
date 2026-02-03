@@ -4,11 +4,8 @@ import com.simibubi.create.AllTags
 import com.simibubi.create.api.behaviour.display.DisplaySource.displaySource
 import com.simibubi.create.api.behaviour.movement.MovementBehaviour.movementBehaviour
 import com.simibubi.create.api.contraption.storage.item.MountedItemStorageType.mountedItemStorage
-import com.simibubi.create.api.stress.BlockStressValues
 import com.simibubi.create.foundation.data.AssetLookup
-import com.simibubi.create.foundation.data.BlockStateGen
 import com.simibubi.create.foundation.data.ModelGen.customItemModel
-import com.simibubi.create.infrastructure.config.CStress
 import com.tterrag.registrate.util.entry.BlockEntry
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger.info
@@ -17,12 +14,12 @@ import me.mochibit.createharmonics.cRegistrate
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlock
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlock
-import net.createmod.ponder.foundation.registration.GenericMultiTagBuilder
-import net.minecraft.nbt.Tag
+import net.minecraft.core.Direction
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.tags.BlockTags
-import net.minecraft.tags.TagKey
 import net.minecraft.world.level.block.SoundType
+import net.minecraft.world.level.block.state.properties.BlockStateProperties
+import net.minecraftforge.client.model.generators.ConfiguredModel
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
@@ -37,8 +34,49 @@ object ModBlocks : AutoRegistrable {
                 p
                     .strength(2.0f, 6.0f)
                     .sound(SoundType.WOOD)
-            }.blockstate(BlockStateGen.directionalBlockProvider(true))
-            .onRegister(movementBehaviour(RecordPlayerMovementBehaviour()))
+            }.blockstate { ctx, prov ->
+                prov
+                    .getVariantBuilder(ctx.entry)
+                    .forAllStatesExcept({ state ->
+                        val dir = state.getValue(BlockStateProperties.FACING)
+                        val modelPrefix =
+                            when {
+                                dir == Direction.DOWN -> "down"
+                                dir.axis.isHorizontal -> "horizontal"
+                                else -> "vertical"
+                            }
+                        val modelFile =
+                            prov.models().getExistingFile(
+                                prov.modLoc("block/${ctx.name}/block_$modelPrefix"),
+                            )
+
+                        val xRot =
+                            when (dir) {
+                                Direction.DOWN -> 0
+
+                                // vertical model upside down
+                                Direction.UP -> 0
+
+                                // vertical model upright
+                                else -> 0 // horizontal model, no X rotation
+                            }
+
+                        val yRot =
+                            when {
+                                dir.axis.isVertical -> 0
+
+                                // vertical model, no Y rotation
+                                else -> (dir.toYRot().toInt() + 180) % 360 // horizontal model rotates on Y-axis
+                            }
+
+                        ConfiguredModel
+                            .builder()
+                            .modelFile(modelFile)
+                            .rotationX(xRot)
+                            .rotationY(yRot)
+                            .build()
+                    }, BlockStateProperties.WATERLOGGED)
+            }.onRegister(movementBehaviour(RecordPlayerMovementBehaviour()))
             .tag(
                 AllTags.AllBlockTags.SAFE_NBT.tag,
                 BlockTags.create(ResourceLocation.fromNamespaceAndPath("carryon", "block_blacklist")),
