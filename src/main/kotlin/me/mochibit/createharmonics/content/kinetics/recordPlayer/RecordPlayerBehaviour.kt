@@ -149,8 +149,11 @@ class RecordPlayerBehaviour(
 
     val currentVolume: Float
         get() {
-            if (redstonePower <= 0) return 1f
-            return redstonePower.toFloat().remapTo(1f, 15f, 0.1f, 1.0f)
+            return when {
+                redstonePower <= 0 && isPauseMode -> 0.0f
+                redstonePower <= 0 -> 1f
+                else -> redstonePower.toFloat().remapTo(1f, 15f, 0.1f, 1.0f)
+            }
         }
 
     @Volatile
@@ -266,6 +269,13 @@ class RecordPlayerBehaviour(
             registerPlayer(recordPlayerUUID.toString(), be)
         }
     }
+
+    val isPauseMode: Boolean
+        get() {
+            val playbackMode = be.playbackMode.get()
+            return playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE ||
+                playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
+        }
 
     override fun tick() {
         super.tick()
