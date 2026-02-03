@@ -478,10 +478,10 @@ object PonderScenes {
         scene.idle(130)
 
         scene.addKeyframe()
-        val rotation: Float = 360 * 60f
-        val duration = 120 * 60
-        val contraptionLeverPosition = util.grid().at(15, 4, 14)
-        val contraptionLeverSel = util.select().position(15, 4, 14)
+        val rotation: Float = 360 * 3f
+        val duration = 120 * 3
+        val contraptionLeverPosition = util.grid().at(15, 3, 15)
+        val contraptionLeverSel = util.select().position(15, 3, 15)
 
         scene
             .overlay()
@@ -501,13 +501,7 @@ object PonderScenes {
             .pointAt(topOfPlayer)
         scene.world().setBlock(
             contraptionLeverPosition,
-            AllBlocks.ANALOG_LEVER
-                .get()
-                .defaultBlockState()
-                .setValue(
-                    AnalogLeverBlock.FACING,
-                    Direction.NORTH,
-                ),
+            Blocks.REDSTONE_BLOCK.defaultBlockState(),
             true,
         )
 
