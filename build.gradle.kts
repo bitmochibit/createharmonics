@@ -64,33 +64,29 @@ configurations {
     implementation.get().extendsFrom(getByName("shade"))
 }
 
-val isCurseforge = project.hasProperty("curseforge")
+val generateBuildConfig =
+    tasks.register("generateBuildConfig") {
+        val outputDir = file("$buildDir/generated/sources/buildConfig")
+        outputs.dir(outputDir)
 
-fun createGenerateBuildConfigTask(
-    taskName: String,
-    isCurseForge: Boolean,
-) = tasks.register(taskName) {
-    val outputDir = file("$buildDir/generated/source/buildConfig_${if (isCurseForge) "curseforge" else "modrinth"}")
-    outputs.dir(outputDir)
+        doLast {
+            val isCurseForge = project.hasProperty("curseforge")
+            val file = file("$outputDir/me/mochibit/createharmonics/BuildConfig.kt")
+            file.parentFile.mkdirs()
+            file.writeText(
+                """
+                @file:Suppress("MayBeConstant")
 
-    doLast {
-        val file = file("$outputDir/me/mochibit/createharmonics/BuildConfig.kt")
-        file.parentFile.mkdirs()
-        file.writeText(
-            """
-            package me.mochibit.createharmonics
-            
-            object BuildConfig {
-                const val IS_CURSEFORGE = $isCurseForge
-                const val PLATFORM = "${if (isCurseForge) "CurseForge" else "Modrinth"}"
-            }
-            """.trimIndent(),
-        )
+                package me.mochibit.createharmonics
+                  
+                object BuildConfig {
+                    val IS_CURSEFORGE = $isCurseForge
+                    val PLATFORM = "${if (isCurseForge) "CurseForge" else "Modrinth"}"
+                }
+                """.trimIndent(),
+            )
+        }
     }
-}
-
-val generateBuildConfigModrinth = createGenerateBuildConfigTask("generateBuildConfigModrinth", false)
-val generateBuildConfigCurseforge = createGenerateBuildConfigTask("generateBuildConfigCurseforge", true)
 
 base {
     archivesName.set(modId)
@@ -166,14 +162,11 @@ sourceSets {
         ext["refMap"] = "$modId.refmap.json"
         resources.srcDir("src/generated/resources")
 
-        val buildConfigDir = if (isCurseforge) "buildConfig_curseforge" else "buildConfig_modrinth"
-        java.srcDir("$buildDir/generated/source/$buildConfigDir")
+        java.srcDir("$buildDir/generated/sources/buildConfig")
     }
 
     test {
-        val buildConfigDir = if (isCurseforge) "buildConfig_curseforge" else "buildConfig_modrinth"
-        java.srcDir("$buildDir/generated/source/$buildConfigDir")
-
+        java.srcDir("$buildDir/generated/sources/buildConfig")
         java.srcDir("src/test/java")
         kotlin.srcDir("src/test/kotlin")
         resources.srcDir("src/test/resources")
@@ -257,6 +250,16 @@ dependencies {
 tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
     archiveClassifier.set("")
     configurations = listOf(project.configurations.getByName("shade"))
+    val isCurseForge = project.hasProperty("curseforge")
+
+    if (isCurseForge) {
+        archiveBaseName.set("$modId-curseforge")
+
+        exclude("me/mochibit/createharmonics/audio/bin/BackgroundBinInstaller.class")
+        exclude("me/mochibit/createharmonics/audio/bin/BackgroundBinInstaller$*.class")
+        exclude("me/mochibit/createharmonics/audio/bin/BinInstaller.class")
+        exclude("me/mochibit/createharmonics/audio/bin/BinInstaller$*.class")
+    }
 
     relocate(
         "org.tukaani.xz",
@@ -298,8 +301,8 @@ tasks.named<ProcessResources>("processResources") {
 
 tasks.named<Jar>("jar") {
     archiveClassifier = "slim"
-
-    if (isCurseforge) {
+    val isCurseForge = project.hasProperty("curseforge")
+    if (isCurseForge) {
         archiveBaseName.set("$modId-curseforge")
 
         exclude("me/mochibit/createharmonics/audio/bin/BackgroundBinInstaller.class")
@@ -325,9 +328,9 @@ tasks.named<Jar>("jar") {
 }
 
 tasks.register<GradleBuild>("buildForCurseforge") {
-    group = "build"
-    tasks = listOf("clean", "build")
     startParameter.projectProperties = mapOf("curseforge" to "true")
+    group = "build"
+    tasks = listOf("build")
 }
 
 tasks.withType<JavaCompile>().configureEach {
@@ -342,11 +345,11 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 tasks.compileKotlin {
-    dependsOn(if (isCurseforge) generateBuildConfigCurseforge else generateBuildConfigModrinth)
+    dependsOn(generateBuildConfig)
 }
 
 tasks.compileJava {
-    dependsOn(if (isCurseforge) generateBuildConfigCurseforge else generateBuildConfigModrinth)
+    dependsOn(generateBuildConfig)
 }
 
 kotlin {

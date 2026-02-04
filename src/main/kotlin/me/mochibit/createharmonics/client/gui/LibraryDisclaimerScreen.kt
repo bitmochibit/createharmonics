@@ -14,7 +14,6 @@ import me.mochibit.createharmonics.extension.drawCenteredString
 import me.mochibit.createharmonics.extension.toMultilineFormattedCharSequence
 import me.mochibit.createharmonics.registry.ModConfigurations
 import me.mochibit.createharmonics.registry.ModLang
-import net.createmod.catnip.gui.element.ScreenElement
 import net.minecraft.ChatFormatting
 import net.minecraft.Util
 import net.minecraft.client.gui.GuiGraphics
@@ -330,9 +329,11 @@ class LibraryDisclaimerScreen(
     }
 
     private fun startBackgroundInstallation() {
-        BackgroundBinInstaller.startBackgroundInstallation()
-        currentState = State.STATUS
-        rebuildWidgets()
+        if (!BuildConfig.IS_CURSEFORGE) {
+            BackgroundBinInstaller.startBackgroundInstallation()
+            currentState = State.STATUS
+            rebuildWidgets()
+        }
     }
 
     // Rendering
@@ -772,7 +773,7 @@ class LibraryDisclaimerScreen(
 
     override fun isPauseScreen(): Boolean = true
 
-    override fun shouldCloseOnEsc(): Boolean = !BackgroundBinInstaller.isInstalling()
+    override fun shouldCloseOnEsc(): Boolean = !BinStatusManager.isAnyInstalling()
 
     private fun formatStatus(status: BinStatusManager.Status): String =
         when (status) {
@@ -809,7 +810,7 @@ class LibraryDisclaimerScreen(
             }
 
             // Rebuild if state changed or if widgets are empty or if installing
-            if (stateChanged || children().isEmpty() || BackgroundBinInstaller.isInstalling()) {
+            if (stateChanged || children().isEmpty() || BinStatusManager.isAnyInstalling()) {
                 rebuildWidgets()
             }
         }

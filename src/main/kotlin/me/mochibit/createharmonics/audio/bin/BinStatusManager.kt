@@ -84,14 +84,38 @@ object BinStatusManager {
     /**
      * Get current installation status for a library
      */
-    fun getStatus(library: LibraryType): InstallationStatus =
-        installationStatuses.getOrDefault(
+    fun getStatus(library: LibraryType): InstallationStatus {
+        // Check if the status changed outside of this manager
+        val currentStatus = installationStatuses[library]
+        if (currentStatus != null) {
+            val isInstalled = isLibraryInstalled(library)
+            if (isInstalled && !currentStatus.isComplete) {
+                // Update status to INSTALLED if it was installed externally
+                updateStatus(
+                    library,
+                    progress = 1.0f,
+                    status = Status.INSTALLED,
+                    speed = "",
+                )
+            } else if (!isInstalled && currentStatus.status == Status.INSTALLED) {
+                // Update status to NOT_INSTALLED if it was uninstalled externally
+                updateStatus(
+                    library,
+                    progress = 0.0f,
+                    status = Status.NOT_INSTALLED,
+                    speed = "",
+                )
+            }
+        }
+
+        return installationStatuses.getOrDefault(
             library,
             InstallationStatus(
                 library,
                 status = if (isLibraryInstalled(library)) Status.INSTALLED else Status.NOT_INSTALLED,
             ),
         )
+    }
 
     fun isInstalling(library: LibraryType): Boolean = getStatus(library).isInstalling
 

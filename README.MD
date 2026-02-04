@@ -30,19 +30,7 @@ records, named **Ethereal Records**.
 Playback is also fully compatible with contraptions, so you can have moving speakers, on elevators, trains, or anything
 else you can think of!
 
-### Features
-
-*   You can play music from URLs, this mod supports a lot of sources, including **YouTube**, **YouTube Music**, **Soundcloud** and many more.
-*   For the _Andesite Jukebox_, playback pitch depends on the input rotation speed, half the maximum speed plays at normal pitch
-*   For adding music from URLs, you must use a Record Press Base
-*   When you craft an Ethereal Record, and no url is provided, it will play the music from the music disc you used to craft it
-*   Display links can show the currently playing song
-*   Jukebox supports loop mode when redstone powered
-*   Mechanical arms know when they can extract a record (when a song finishes) and insert a new one, for automated music systems
-*   Each music disc type has some special audio effects in it
-*   Pitch on contraption depends on contraption speed
-*   Audio is synchronized between players in multiplayer
-* **Valkyrien skies** support
+Check the [wiki](https://github.com/bitmochibit/createharmonics/wiki) for checking all the features and more!
 
 ### Planned features
 
@@ -100,6 +88,7 @@ By using this mod, you agree to use it responsibly and respect the rights of con
 - Japanese: @Yurisan001
 - Chinese: @KazeShukufuku
 - Polish: @AdInVas
+- Italian: @Robin
 
 Read the full license [here](LICENSE.MD)
 
