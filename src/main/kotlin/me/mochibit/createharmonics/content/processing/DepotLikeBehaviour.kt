@@ -97,17 +97,14 @@ abstract class DepotLikeBehaviour(
     var itemHandler: DepotLikeItemHandler
     var lazyItemHandler: LazyOptional<DepotLikeItemHandler>
     var transportedHandler: TransportedItemStackHandlerBehaviour? = null
-    var maxStackSize: () -> Int
-    var canAcceptItems: () -> Boolean
-    var canFunnelsPullFrom: (Direction) -> Boolean
+    var maxStackSize: () -> Int = { heldItem?.stack?.maxStackSize ?: 64 }
+    var canAcceptItems: () -> Boolean = { true }
+    var canFunnelsPullFrom: (Direction) -> Boolean = { true }
     var onHeldInserted: (ItemStack) -> Unit
     var acceptedItems: (ItemStack) -> Boolean
     var allowMerge: Boolean = false
 
     init {
-        maxStackSize = { heldItem?.stack?.maxStackSize ?: 64 }
-        canAcceptItems = { true }
-        canFunnelsPullFrom = { true }
         acceptedItems = { true }
         onHeldInserted = { }
         itemHandler = DepotLikeItemHandler(this)
@@ -208,42 +205,98 @@ abstract class DepotLikeBehaviour(
     }
 
     private fun handleBeltFunnelOutput(): Boolean {
-        val funnel = getWorld().getBlockState(getPos().above())
+        val funnel = world.getBlockState(pos.above())
         val funnelFacing = AbstractFunnelBlock.getFunnelFacing(funnel)
-        if (funnelFacing == null || !canFunnelsPullFrom(funnelFacing.opposite)) return false
 
-        for (slot in 0..<processingOutputBuffer.slots) {
-            val previousItem = processingOutputBuffer.getStackInSlot(slot)
-            if (previousItem.isEmpty) continue
+        // First try funnel extraction if there's a funnel
+        if (funnelFacing != null && canFunnelsPullFrom(funnelFacing.opposite)) {
+            for (slot in 0..<processingOutputBuffer.slots) {
+                val previousItem = processingOutputBuffer.getStackInSlot(slot)
+                if (previousItem.isEmpty) continue
+                val afterInsert =
+                    blockEntity
+                        .getBehaviour(DirectBeltInputBehaviour.TYPE)
+                        ?.tryExportingToBeltFunnel(previousItem, null, false)
+                if (afterInsert == null) return false
+                if (previousItem.count != afterInsert.count) {
+                    processingOutputBuffer.setStackInSlot(slot, afterInsert)
+                    blockEntity.notifyUpdate()
+                    return true
+                }
+            }
+
+            val previousItem = heldItem!!.stack
             val afterInsert =
                 blockEntity
-                    .getBehaviour<DirectBeltInputBehaviour>(DirectBeltInputBehaviour.TYPE)
+                    .getBehaviour(DirectBeltInputBehaviour.TYPE)
                     ?.tryExportingToBeltFunnel(previousItem, null, false)
             if (afterInsert == null) return false
             if (previousItem.count != afterInsert.count) {
-                processingOutputBuffer.setStackInSlot(slot, afterInsert)
+                if (afterInsert.isEmpty) {
+                    heldItem = null
+                } else {
+                    heldItem!!.stack = afterInsert
+                }
+                blockEntity.notifyUpdate()
+                return true
+            }
+            return false
+        }
+
+        // If no funnel, try ejecting to nearby belts
+        return tryEjectOutputToBelts()
+    }
+
+    private fun tryEjectOutputToBelts(): Boolean {
+        // Try to eject items from processingOutputBuffer to adjacent belts
+        for (slot in 0..<processingOutputBuffer.slots) {
+            val previousItem = processingOutputBuffer.getStackInSlot(slot)
+            if (previousItem.isEmpty) continue
+
+            // Try each horizontal direction
+            for (direction in Direction.Plane.HORIZONTAL) {
+                val ejected = tryEjectToBelt(previousItem, direction)
+                if (ejected.count != previousItem.count) {
+                    processingOutputBuffer.setStackInSlot(slot, ejected)
+                    blockEntity.notifyUpdate()
+                    return true
+                }
+            }
+        }
+
+        // Try ejecting held item if processingOutputBuffer is empty
+        val currentHeldItem = heldItem ?: return false
+        for (direction in Direction.Plane.HORIZONTAL) {
+            val ejected = tryEjectToBelt(currentHeldItem.stack, direction)
+            if (ejected.count != currentHeldItem.stack.count) {
+                if (ejected.isEmpty) {
+                    heldItem = null
+                } else {
+                    currentHeldItem.stack = ejected
+                }
                 blockEntity.notifyUpdate()
                 return true
             }
         }
 
-        val previousItem = heldItem!!.stack
-        val afterInsert =
-            blockEntity
-                .getBehaviour<DirectBeltInputBehaviour>(DirectBeltInputBehaviour.TYPE)
-                ?.tryExportingToBeltFunnel(previousItem, null, false)
-        if (afterInsert == null) return false
-        if (previousItem.count != afterInsert.count) {
-            if (afterInsert.isEmpty) {
-                heldItem = null
-            } else {
-                heldItem!!.stack = afterInsert
-            }
-            blockEntity.notifyUpdate()
-            return true
+        return false
+    }
+
+    private fun tryEjectToBelt(
+        stack: ItemStack,
+        direction: Direction,
+    ): ItemStack {
+        val nextPos = pos.relative(direction)
+        val nextBehaviour = get(world, nextPos, DirectBeltInputBehaviour.TYPE)
+
+        if (nextBehaviour != null && nextBehaviour.canInsertFromSide(direction)) {
+            val transportedStack = TransportedItemStack(stack)
+            transportedStack.insertedFrom = direction.opposite
+            val returned = nextBehaviour.handleInsertion(transportedStack, direction.opposite, false)
+            return returned
         }
 
-        return false
+        return stack
     }
 
     override fun destroy() {
@@ -453,6 +506,10 @@ abstract class DepotLikeBehaviour(
         heldOutput: TransportedItemStack?,
     ): TransportedItemStack? = heldOutput
 
+    open fun processOnlyData(input: TransportedItemStack): Boolean = false
+
+    open fun processData(input: TransportedItemStack): ItemStack = input.stack
+
     fun applyRecipeProcessing(
         maxDistanceFromCentre: Float,
         processFunction: java.util.function.Function<TransportedItemStack, TransportedResult>,
@@ -461,7 +518,18 @@ abstract class DepotLikeBehaviour(
         if (0.5f - currentHeldItem.beltPosition > maxDistanceFromCentre) return
 
         val stackBefore = currentHeldItem.stack.copy()
-        val result = processFunction.apply(currentHeldItem) ?: return
+        val result = processFunction.apply(currentHeldItem)
+
+        if (processOnlyData(currentHeldItem)) {
+            val processedStack = processData(currentHeldItem).copy()
+            heldItem = null
+            val remainder = ItemHandlerHelper.insertItemStacked(processingOutputBuffer, processedStack, false)
+            val vec = VecHelper.getCenterOf(blockEntity.blockPos)
+            Containers.dropItemStack(blockEntity.level, vec.x, vec.y + 0.5f, vec.z, remainder)
+            blockEntity.notifyUpdate()
+            return
+        }
+
         if (result.didntChangeFrom(stackBefore)) return
 
         heldItem = null

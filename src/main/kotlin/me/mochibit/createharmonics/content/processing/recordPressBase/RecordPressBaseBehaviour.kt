@@ -137,17 +137,15 @@ class RecordPressBaseBehaviour(
                 }
     }
 
-    override fun transformHeldOutput(
-        heldItem: TransportedItemStack?,
-        heldOutput: TransportedItemStack?,
-    ): TransportedItemStack? {
-        heldItem?.let {
-            if (it.stack.item is EtherealRecordItem) {
-                assignUrlToItem(it.stack)
-                return it
+    override fun processOnlyData(input: TransportedItemStack): Boolean = input.stack.item is EtherealRecordItem
+
+    override fun processData(input: TransportedItemStack): ItemStack {
+        input.stack.let {
+            if (it.item is EtherealRecordItem) {
+                assignUrlToItem(it)
             }
         }
-        return heldOutput
+        return input.stack
     }
 
     override fun write(
