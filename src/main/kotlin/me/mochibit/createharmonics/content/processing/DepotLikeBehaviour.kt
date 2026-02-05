@@ -94,6 +94,7 @@ abstract class DepotLikeBehaviour(
 
     var heldItem: TransportedItemStack? = null
     var incoming: MutableList<TransportedItemStack> = mutableListOf()
+    var outgoing: MutableList<TransportedItemStack> = mutableListOf()
     var processingOutputBuffer: ItemStackHandler
     var itemHandler: DepotLikeItemHandler
     var lazyItemHandler: LazyOptional<DepotLikeItemHandler>
@@ -162,6 +163,33 @@ abstract class DepotLikeBehaviour(
             blockEntity.notifyUpdate()
         }
 
+        // Tick outgoing items (animating from center to edge)
+        val outgoingIterator = outgoing.iterator()
+        while (outgoingIterator.hasNext()) {
+            val ts = outgoingIterator.next()
+            val animationComplete = tickOutgoing(ts)
+
+            // When animation completes, remove from list
+            if (animationComplete) {
+                // On server, actually insert into the belt
+                if (!world.isClientSide) {
+                    val direction = ts.insertedFrom
+                    val nextPos = pos.relative(direction)
+                    val nextBehaviour = get(world, nextPos, DirectBeltInputBehaviour.TYPE)
+                    if (nextBehaviour != null && nextBehaviour.canInsertFromSide(direction)) {
+                        val transportedStack = TransportedItemStack(ts.stack.copy())
+                        transportedStack.insertedFrom = direction.opposite
+                        transportedStack.beltPosition = 0.5f
+                        transportedStack.prevBeltPosition = 0.5f
+                        nextBehaviour.handleInsertion(transportedStack, direction, false)
+                    }
+                    blockEntity.notifyUpdate()
+                }
+                // Remove on both client and server
+                outgoingIterator.remove()
+            }
+        }
+
         world.onServer {
             tryEjectOutputToBelts()
         }
@@ -207,6 +235,17 @@ abstract class DepotLikeBehaviour(
             heldItem.beltPosition += diff / 4f
         }
         return diff < 1 / 16f
+    }
+
+    protected fun tickOutgoing(outgoingItem: TransportedItemStack): Boolean {
+        outgoingItem.prevBeltPosition = outgoingItem.beltPosition
+        outgoingItem.prevSideOffset = outgoingItem.sideOffset
+        val diff = outgoingItem.beltPosition - 1f
+        if (diff < -1 / 512f) {
+            if (diff < -1 / 32f && !BeltHelper.isItemUpright(outgoingItem.stack)) outgoingItem.angle += 1
+            outgoingItem.beltPosition += -diff / 4f
+        }
+        return diff > -1 / 16f
     }
 
     private fun handleBeltFunnelOutput(): Boolean {
@@ -275,8 +314,27 @@ abstract class DepotLikeBehaviour(
 
         if (!nextBehaviour.canInsertFromSide(direction)) return stack
 
-        val transportedStack = TransportedItemStack(stack.copy())
-        val returned = nextBehaviour.handleInsertion(transportedStack, direction, false)
+        // Check if there's already an outgoing item animating in this direction
+        if (outgoing.any { it.insertedFrom == direction }) return stack
+
+        // Test how many items can be inserted (simulate)
+        val testStack = TransportedItemStack(stack.copy())
+        testStack.insertedFrom = direction.opposite
+        testStack.beltPosition = 0.5f
+        testStack.prevBeltPosition = 0.5f
+
+        val returned = nextBehaviour.handleInsertion(testStack, direction, true)
+
+        // If any items can be inserted, start the animation
+        if (returned.count < stack.count) {
+            val ejectedStack = TransportedItemStack(stack.copy())
+            ejectedStack.stack.count = stack.count - returned.count
+            ejectedStack.insertedFrom = direction
+            ejectedStack.beltPosition = 0.5f
+            ejectedStack.prevBeltPosition = 0.5f
+            outgoing.add(ejectedStack)
+        }
+
         return returned
     }
 
@@ -286,6 +344,9 @@ abstract class DepotLikeBehaviour(
         val pos = getPos()
         ItemHelper.dropContents(level, pos, processingOutputBuffer)
         for (transportedItemStack in incoming) {
+            Block.popResource(level, pos, transportedItemStack.stack)
+        }
+        for (transportedItemStack in outgoing) {
             Block.popResource(level, pos, transportedItemStack.stack)
         }
         if (!heldItemStack.isEmpty) {
@@ -309,6 +370,12 @@ abstract class DepotLikeBehaviour(
                 NBTHelper.writeCompoundList(incoming) { obj -> obj.serializeNBT() },
             )
         }
+        if (outgoing.isNotEmpty()) {
+            compound.put(
+                "Outgoing",
+                NBTHelper.writeCompoundList(outgoing) { obj -> obj.serializeNBT() },
+            )
+        }
     }
 
     override fun read(
@@ -325,6 +392,10 @@ abstract class DepotLikeBehaviour(
         if (canMergeItems()) {
             val list = compound.getList("Incoming", Tag.TAG_COMPOUND.toInt())
             incoming = NBTHelper.readCompoundList(list) { nbt -> TransportedItemStack.read(nbt) }.toMutableList()
+        }
+        if (compound.contains("Outgoing")) {
+            val list = compound.getList("Outgoing", Tag.TAG_COMPOUND.toInt())
+            outgoing = NBTHelper.readCompoundList(list) { nbt -> TransportedItemStack.read(nbt) }.toMutableList()
         }
     }
 

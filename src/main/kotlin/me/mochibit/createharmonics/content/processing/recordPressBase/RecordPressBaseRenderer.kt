@@ -105,6 +105,40 @@ class RecordPressBaseRenderer(
 
             if (transported != null) depotBehaviour.incoming.remove(transported)
 
+            // Render outgoing items (animating from center to edge)
+            for (tis in depotBehaviour.outgoing) {
+                ms.pushPose()
+                msr.nudge(1)
+                val offset = Mth.lerp(partialTicks, tis.prevBeltPosition, tis.beltPosition)
+                var sideOffset = Mth.lerp(partialTicks, tis.prevSideOffset, tis.sideOffset)
+
+                if (tis.insertedFrom
+                        .getAxis()
+                        .isHorizontal()
+                ) {
+                    // For outgoing items, move from center (0.5) to edge (1.0) in the direction of insertedFrom
+                    val offsetVec =
+                        Vec3
+                            .atLowerCornerOf(
+                                tis.insertedFrom
+                                    .getNormal(),
+                            ).scale((offset - .5f).toDouble())
+                    ms.translate(offsetVec.x, offsetVec.y, offsetVec.z)
+                    val alongX =
+                        tis.insertedFrom
+                            .getClockWise()
+                            .getAxis() === Direction.Axis.X
+                    if (!alongX) sideOffset *= -1f
+                    ms.translate(if (alongX) sideOffset else 0f, 0f, if (alongX) 0f else sideOffset)
+                }
+
+                val itemStack = tis.stack
+                val angle = tis.angle
+                val r = Random(0)
+                renderItem(be.getLevel(), ms, buffer, light, overlay, itemStack, angle, r, itemPosition, false)
+                ms.popPose()
+            }
+
             // Render output items
             for (i in 0..<depotBehaviour.processingOutputBuffer.getSlots()) {
                 val stack = depotBehaviour.processingOutputBuffer.getStackInSlot(i)
