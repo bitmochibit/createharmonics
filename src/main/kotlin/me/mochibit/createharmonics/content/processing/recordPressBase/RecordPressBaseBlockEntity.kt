@@ -1,10 +1,12 @@
 package me.mochibit.createharmonics.content.processing.recordPressBase
 
+import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.world.Clearable
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraftforge.common.capabilities.Capability
@@ -31,7 +33,7 @@ class RecordPressBaseBlockEntity(
         side: Direction?,
     ): LazyOptional<T?> {
         if (cap == ForgeCapabilities.ITEM_HANDLER) {
-            return behaviour.invProvider.cast()
+            return behaviour.getItemCapability(cap, side)
         }
         return super.getCapability(cap, side)
     }
@@ -75,9 +77,12 @@ class RecordPressBaseBlockEntity(
         }
 
     override fun clearContent() {
-        behaviour.heldItem = null
-        behaviour.outgoing.clear()
-        behaviour.incoming.clear()
+        val cap = getCapability(ForgeCapabilities.ITEM_HANDLER)
+        cap.ifPresent { handler ->
+            for (i in 0 until handler.slots) {
+                handler.extractItem(i, Int.MAX_VALUE, false)
+            }
+        }
         notifyUpdate()
     }
 }

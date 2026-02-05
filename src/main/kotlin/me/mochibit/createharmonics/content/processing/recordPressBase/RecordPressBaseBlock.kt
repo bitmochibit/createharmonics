@@ -1,12 +1,17 @@
 package me.mochibit.createharmonics.content.processing.recordPressBase
 
+import com.simibubi.create.AllBlocks
 import com.simibubi.create.AllItems
 import com.simibubi.create.AllShapes
+import com.simibubi.create.AllSoundEvents
+import com.simibubi.create.Create
 import com.simibubi.create.content.equipment.wrench.IWrenchable
+import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack
 import com.simibubi.create.content.logistics.depot.SharedDepotBlockMethods
 import com.simibubi.create.foundation.block.IBE
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock.WATERLOGGED
+import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import me.mochibit.createharmonics.registry.ModBlockEntities
 import net.createmod.catnip.gui.ScreenOpener
 import net.minecraft.client.player.LocalPlayer
@@ -19,6 +24,7 @@ import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.Level
@@ -90,55 +96,49 @@ class RecordPressBaseBlock(
             return InteractionResult.SUCCESS
         }
 
-        val clickItem = pPlayer.getItemInHand(pHand)
+        if (pLevel.isClientSide) return InteractionResult.SUCCESS
 
-        if (!clickItem.isEmpty) {
-            // Normal click with item on top face: insert item
-            if (pLevel.isClientSide) {
-                return InteractionResult.SUCCESS
-            }
+        val behaviour =
+            BlockEntityBehaviour.get(pLevel, pPos, RecordPressBaseBehaviour.BEHAVIOUR_TYPE)
+                ?: return InteractionResult.PASS
+        if (!behaviour.canAcceptItems()) return InteractionResult.SUCCESS
 
-            val handledRef = booleanArrayOf(false)
-            withBlockEntityDo(pLevel, pPos) { be: RecordPressBaseBlockEntity ->
-                be.behaviour.invProvider.ifPresent { inventory ->
-                    // Make a copy of the stack to insert
-                    val stackToInsert = clickItem.copy()
-                    val remainder = inventory.insertItem(0, stackToInsert, false)
+        val heldItem: ItemStack = pPlayer.getItemInHand(pHand)
+        val wasEmptyHanded = heldItem.isEmpty
+        val cantPlaceItem = AllBlocks.MECHANICAL_ARM.isIn(heldItem)
 
-                    if (remainder.isEmpty || remainder.count < stackToInsert.count) {
-                        // Successfully inserted at least some items
-                        val insertedCount = stackToInsert.count - remainder.count
-                        clickItem.shrink(insertedCount)
-
-                        // Play insertion sound
-                        pLevel.playSound(
-                            null,
-                            pPos,
-                            SoundEvents.ITEM_FRAME_ADD_ITEM,
-                            SoundSource.PLAYERS,
-                            0.2f,
-                            1f + RANDOM.nextFloat(),
-                        )
-
-                        handledRef[0] = true
-                    }
-                }
-            }
-
-            return if (handledRef[0]) InteractionResult.SUCCESS else InteractionResult.PASS
-        } else {
-            // Normal click with empty hand on top face: remove items
-            if (pLevel.isClientSide) {
-                return InteractionResult.SUCCESS
-            }
-
-            var handled = false
-            withBlockEntityDo(pLevel, pPos) { be: RecordPressBaseBlockEntity ->
-                handled = be.behaviour.onPlayerInteract(pPlayer)
-            }
-
-            return if (handled) InteractionResult.SUCCESS else InteractionResult.PASS
+        val mainItemStack = behaviour.heldItemStack
+        if (!mainItemStack.isEmpty) {
+            pPlayer.inventory
+                .placeItemBackInInventory(mainItemStack)
+            behaviour.removeHeldItem()
+            pLevel.playSound(
+                null,
+                pPos,
+                SoundEvents.ITEM_PICKUP,
+                SoundSource.PLAYERS,
+                .2f,
+                1f + RANDOM.nextFloat(),
+            )
         }
+        val outputs = behaviour.processingOutputBuffer
+        for (i in 0..<outputs.slots) {
+            pPlayer.inventory
+                .placeItemBackInInventory(outputs.extractItem(i, 64, false))
+        }
+
+        if (!wasEmptyHanded && !cantPlaceItem) {
+            val transported = TransportedItemStack(heldItem)
+            transported.insertedFrom = pPlayer.direction
+            transported.prevBeltPosition = .25f
+            transported.beltPosition = .25f
+            behaviour.heldItem = transported
+            pPlayer.setItemInHand(pHand, ItemStack.EMPTY)
+            AllSoundEvents.DEPOT_SLIDE.playOnServer(pLevel, pPos)
+        }
+
+        behaviour.blockEntity.notifyUpdate()
+        return InteractionResult.SUCCESS
     }
 
     override fun getStateForPlacement(context: BlockPlaceContext): BlockState = withWater(super.getStateForPlacement(context), context)

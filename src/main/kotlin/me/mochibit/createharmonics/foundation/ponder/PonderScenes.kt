@@ -89,9 +89,9 @@ object PonderScenes {
             .placeNearTarget()
             .pointAt(pressTop)
         scene.idle(10)
-        scene.world().modifyBlockEntity(pressBase, RecordPressBaseBlockEntity::class.java) { be ->
-            be.behaviour.heldItem?.let { be.behaviour.ejectItem(it) }
-        }
+//        scene.world().modifyBlockEntity(pressBase, RecordPressBaseBlockEntity::class.java) { be ->
+//            be.behaviour.heldItem?.let { be.behaviour.ejectItem(it) }
+//        }
         scene.idle(50)
         scene.addKeyframe()
         scene
