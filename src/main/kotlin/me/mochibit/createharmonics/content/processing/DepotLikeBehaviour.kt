@@ -12,6 +12,7 @@ import com.simibubi.create.content.logistics.funnel.AbstractFunnelBlock
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.item.ItemHelper
+import me.mochibit.createharmonics.extension.onServer
 import net.createmod.catnip.math.VecHelper
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.core.Direction
@@ -161,6 +162,10 @@ abstract class DepotLikeBehaviour(
             blockEntity.notifyUpdate()
         }
 
+        world.onServer {
+            tryEjectOutputToBelts()
+        }
+
         val currentHeldItem = heldItem ?: return
         if (!tick(currentHeldItem)) return
 
@@ -207,53 +212,47 @@ abstract class DepotLikeBehaviour(
     private fun handleBeltFunnelOutput(): Boolean {
         val funnel = world.getBlockState(pos.above())
         val funnelFacing = AbstractFunnelBlock.getFunnelFacing(funnel)
+        if (funnelFacing == null || !canFunnelsPullFrom(funnelFacing.opposite)) return false
 
-        // First try funnel extraction if there's a funnel
-        if (funnelFacing != null && canFunnelsPullFrom(funnelFacing.opposite)) {
-            for (slot in 0..<processingOutputBuffer.slots) {
-                val previousItem = processingOutputBuffer.getStackInSlot(slot)
-                if (previousItem.isEmpty) continue
-                val afterInsert =
-                    blockEntity
-                        .getBehaviour(DirectBeltInputBehaviour.TYPE)
-                        ?.tryExportingToBeltFunnel(previousItem, null, false)
-                if (afterInsert == null) return false
-                if (previousItem.count != afterInsert.count) {
-                    processingOutputBuffer.setStackInSlot(slot, afterInsert)
-                    blockEntity.notifyUpdate()
-                    return true
-                }
-            }
-
-            val previousItem = heldItem!!.stack
+        for (slot in 0..<processingOutputBuffer.slots) {
+            val previousItem = processingOutputBuffer.getStackInSlot(slot)
+            if (previousItem.isEmpty) continue
             val afterInsert =
                 blockEntity
                     .getBehaviour(DirectBeltInputBehaviour.TYPE)
                     ?.tryExportingToBeltFunnel(previousItem, null, false)
             if (afterInsert == null) return false
             if (previousItem.count != afterInsert.count) {
-                if (afterInsert.isEmpty) {
-                    heldItem = null
-                } else {
-                    heldItem!!.stack = afterInsert
-                }
+                processingOutputBuffer.setStackInSlot(slot, afterInsert)
                 blockEntity.notifyUpdate()
                 return true
             }
-            return false
         }
 
-        // If no funnel, try ejecting to nearby belts
-        return tryEjectOutputToBelts()
+        val previousItem = heldItem!!.stack
+        val afterInsert =
+            blockEntity
+                .getBehaviour(DirectBeltInputBehaviour.TYPE)
+                ?.tryExportingToBeltFunnel(previousItem, null, false)
+        if (afterInsert == null) return false
+        if (previousItem.count != afterInsert.count) {
+            if (afterInsert.isEmpty) {
+                heldItem = null
+            } else {
+                heldItem!!.stack = afterInsert
+            }
+            blockEntity.notifyUpdate()
+            return true
+        }
+
+        return false
     }
 
     private fun tryEjectOutputToBelts(): Boolean {
-        // Try to eject items from processingOutputBuffer to adjacent belts
         for (slot in 0..<processingOutputBuffer.slots) {
             val previousItem = processingOutputBuffer.getStackInSlot(slot)
             if (previousItem.isEmpty) continue
 
-            // Try each horizontal direction
             for (direction in Direction.Plane.HORIZONTAL) {
                 val ejected = tryEjectToBelt(previousItem, direction)
                 if (ejected.count != previousItem.count) {
@@ -261,21 +260,6 @@ abstract class DepotLikeBehaviour(
                     blockEntity.notifyUpdate()
                     return true
                 }
-            }
-        }
-
-        // Try ejecting held item if processingOutputBuffer is empty
-        val currentHeldItem = heldItem ?: return false
-        for (direction in Direction.Plane.HORIZONTAL) {
-            val ejected = tryEjectToBelt(currentHeldItem.stack, direction)
-            if (ejected.count != currentHeldItem.stack.count) {
-                if (ejected.isEmpty) {
-                    heldItem = null
-                } else {
-                    currentHeldItem.stack = ejected
-                }
-                blockEntity.notifyUpdate()
-                return true
             }
         }
 
@@ -287,16 +271,13 @@ abstract class DepotLikeBehaviour(
         direction: Direction,
     ): ItemStack {
         val nextPos = pos.relative(direction)
-        val nextBehaviour = get(world, nextPos, DirectBeltInputBehaviour.TYPE)
+        val nextBehaviour = get(world, nextPos, DirectBeltInputBehaviour.TYPE) ?: return stack
 
-        if (nextBehaviour != null && nextBehaviour.canInsertFromSide(direction)) {
-            val transportedStack = TransportedItemStack(stack)
-            transportedStack.insertedFrom = direction.opposite
-            val returned = nextBehaviour.handleInsertion(transportedStack, direction.opposite, false)
-            return returned
-        }
+        if (!nextBehaviour.canInsertFromSide(direction)) return stack
 
-        return stack
+        val transportedStack = TransportedItemStack(stack.copy())
+        val returned = nextBehaviour.handleInsertion(transportedStack, direction, false)
+        return returned
     }
 
     override fun destroy() {
