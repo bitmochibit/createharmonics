@@ -34,23 +34,6 @@ class RecordPressBaseRenderer(
     }
 
     companion object {
-        /**
-         * Easing function for deceleration: starts at full speed and smoothly slows to a stop.
-         * Uses quadratic easing out (1 - (1-t)^2) for natural friction-like deceleration.
-         */
-        private fun easeOutQuad(t: Float): Float = 1f - (1f - t) * (1f - t)
-
-        /**
-         * Easing function for acceleration: starts slow and gradually speeds up to belt speed.
-         * Uses quadratic easing in (t^2) for smooth acceleration.
-         */
-        private fun easeInQuad(t: Float): Float = t * t
-
-        /**
-         * Renders a single transported item with position offset and animation.
-         * Incoming items use deceleration easing, outgoing items use linear movement.
-         */
-
         fun renderItemsOf(
             be: SmartBlockEntity,
             partialTicks: Float,
@@ -62,7 +45,7 @@ class RecordPressBaseRenderer(
         ) {
             val transported = depotBehaviour.heldItem
             val msr = TransformStack.of(ms)
-            val itemPosition = VecHelper.getCenterOf(be.getBlockPos())
+            val itemPosition = VecHelper.getCenterOf(be.blockPos)
 
             ms.pushPose()
             ms.translate(.5f, 15 / 16f, .5f)
@@ -77,21 +60,21 @@ class RecordPressBaseRenderer(
                 var sideOffset = Mth.lerp(partialTicks, tis.prevSideOffset, tis.sideOffset)
 
                 if (tis.insertedFrom
-                        .getAxis()
-                        .isHorizontal()
+                        .axis
+                        .isHorizontal
                 ) {
                     val offsetVec =
                         Vec3
                             .atLowerCornerOf(
                                 tis.insertedFrom
-                                    .getOpposite()
-                                    .getNormal(),
+                                    .opposite
+                                    .normal,
                             ).scale((.5f - offset).toDouble())
                     ms.translate(offsetVec.x, offsetVec.y, offsetVec.z)
                     val alongX =
                         tis.insertedFrom
                             .getClockWise()
-                            .getAxis() === Direction.Axis.X
+                            .axis === Direction.Axis.X
                     if (!alongX) sideOffset *= -1f
                     ms.translate(if (alongX) sideOffset else 0f, 0f, if (alongX) 0f else sideOffset)
                 }
@@ -113,21 +96,21 @@ class RecordPressBaseRenderer(
                 var sideOffset = Mth.lerp(partialTicks, tis.prevSideOffset, tis.sideOffset)
 
                 if (tis.insertedFrom
-                        .getAxis()
-                        .isHorizontal()
+                        .axis
+                        .isHorizontal
                 ) {
                     // For outgoing items, move from center (0.5) to edge (1.0) in the direction of insertedFrom
                     val offsetVec =
                         Vec3
                             .atLowerCornerOf(
                                 tis.insertedFrom
-                                    .getNormal(),
+                                    .normal,
                             ).scale((offset - .5f).toDouble())
                     ms.translate(offsetVec.x, offsetVec.y, offsetVec.z)
                     val alongX =
                         tis.insertedFrom
                             .getClockWise()
-                            .getAxis() === Direction.Axis.X
+                            .axis === Direction.Axis.X
                     if (!alongX) sideOffset *= -1f
                     ms.translate(if (alongX) sideOffset else 0f, 0f, if (alongX) 0f else sideOffset)
                 }
@@ -140,15 +123,14 @@ class RecordPressBaseRenderer(
             }
 
             // Render output items
-            for (i in 0..<depotBehaviour.processingOutputBuffer.getSlots()) {
+            for (i in 0..<depotBehaviour.processingOutputBuffer.slots) {
                 val stack = depotBehaviour.processingOutputBuffer.getStackInSlot(i)
-                if (stack.isEmpty()) continue
+                if (stack.isEmpty) continue
                 ms.pushPose()
+                ms.translate(0.0, 0.001, 0.0)
                 msr.nudge(i)
-
                 val renderUpright = BeltHelper.isItemUpright(stack)
                 msr.rotateYDegrees(360 / 8f * i)
-                ms.translate(.35f, 0f, 0f)
                 if (renderUpright) msr.rotateYDegrees(-(360 / 8f * i))
                 val r = Random((i + 1).toLong())
                 val angle = (360 * r.nextFloat()).toInt()
@@ -185,22 +167,22 @@ class RecordPressBaseRenderer(
             val itemRenderer =
                 Minecraft
                     .getInstance()
-                    .getItemRenderer()
+                    .itemRenderer
             val msr = TransformStack.of(ms)
-            val count = (Mth.log2((itemStack.getCount()))) / 2
+            val count = (Mth.log2((itemStack.count))) / 2.coerceIn(2, null)
             val bakedModel = itemRenderer.getModel(itemStack, null, null, 0)
-            val blockItem = bakedModel.isGui3d()
+            val blockItem = bakedModel.isGui3d
             val renderUpright = (BeltHelper.isItemUpright(itemStack) || alwaysUpright) && !blockItem
 
             ms.pushPose()
+
             msr.rotateYDegrees(angle.toFloat())
 
             if (renderUpright) {
                 val renderViewEntity = Minecraft.getInstance().cameraEntity
                 if (renderViewEntity != null) {
                     val positionVec = renderViewEntity.position()
-                    val vectorForOffset = itemPosition
-                    val diff = vectorForOffset.subtract(positionVec)
+                    val diff = itemPosition.subtract(positionVec)
                     val yRot = (Mth.atan2(diff.x, diff.z) + Math.PI).toFloat()
                     ms.mulPose(Axis.YP.rotation(yRot))
                 }

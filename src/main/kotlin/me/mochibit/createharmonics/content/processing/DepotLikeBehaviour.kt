@@ -179,8 +179,10 @@ abstract class DepotLikeBehaviour(
                     if (nextBehaviour != null && nextBehaviour.canInsertFromSide(direction)) {
                         val transportedStack = TransportedItemStack(ts.stack.copy())
                         transportedStack.insertedFrom = direction.opposite
-                        transportedStack.beltPosition = 0.5f
-                        transportedStack.prevBeltPosition = 0.5f
+                        transportedStack.beltPosition = ts.beltPosition
+                        transportedStack.prevBeltPosition = ts.prevBeltPosition
+                        transportedStack.sideOffset = ts.sideOffset
+                        transportedStack.angle = ts.angle
                         nextBehaviour.handleInsertion(transportedStack, direction, false)
                     }
                     blockEntity.notifyUpdate()
@@ -240,7 +242,7 @@ abstract class DepotLikeBehaviour(
     protected fun tickOutgoing(outgoingItem: TransportedItemStack): Boolean {
         outgoingItem.prevBeltPosition = outgoingItem.beltPosition
         outgoingItem.prevSideOffset = outgoingItem.sideOffset
-        val diff = outgoingItem.beltPosition - 1f
+        val diff = outgoingItem.beltPosition - 1.09f
         if (diff < -1 / 512f) {
             if (diff < -1 / 32f && !BeltHelper.isItemUpright(outgoingItem.stack)) outgoingItem.angle += 1
             outgoingItem.beltPosition += -diff / 4f
@@ -570,7 +572,6 @@ abstract class DepotLikeBehaviour(
         if (0.5f - currentHeldItem.beltPosition > maxDistanceFromCentre) return
 
         val stackBefore = currentHeldItem.stack.copy()
-        val result = processFunction.apply(currentHeldItem)
 
         if (processOnlyData(currentHeldItem)) {
             val processedStack = processData(currentHeldItem).copy()
@@ -582,22 +583,20 @@ abstract class DepotLikeBehaviour(
             return
         }
 
+        val result = processFunction.apply(currentHeldItem)
         if (result.didntChangeFrom(stackBefore)) return
 
-        heldItem = null
-        if (result.hasHeldOutput()) {
-            setCenteredHeldItem(
-                transformHeldOutput(currentHeldItem, result.heldOutput),
-            )
-        }
-
-        for (added in result.outputs) {
-            if (heldItemStack.isEmpty) {
-                setCenteredHeldItem(
-                    transformHeldOutput(currentHeldItem, added),
-                )
-                continue
+        val heldOutput =
+            if (result.hasHeldOutput()) {
+                result.heldOutput
+            } else {
+                null
             }
+
+        heldItem = null
+        heldOutput?.let { setCenteredHeldItem(transformHeldOutput(currentHeldItem, it)) }
+
+        result.outputs.forEach { added ->
             val remainder = ItemHandlerHelper.insertItemStacked(processingOutputBuffer, added.stack, false)
             val vec = VecHelper.getCenterOf(blockEntity.blockPos)
             Containers.dropItemStack(blockEntity.level, vec.x, vec.y + 0.5f, vec.z, remainder)

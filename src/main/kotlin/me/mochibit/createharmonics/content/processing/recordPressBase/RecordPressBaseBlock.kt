@@ -108,6 +108,8 @@ class RecordPressBaseBlock(
         val cantPlaceItem = AllBlocks.MECHANICAL_ARM.isIn(heldItem)
 
         val mainItemStack = behaviour.heldItemStack
+        var playedSoundOnce = false
+
         if (!mainItemStack.isEmpty) {
             pPlayer.inventory
                 .placeItemBackInInventory(mainItemStack)
@@ -120,11 +122,23 @@ class RecordPressBaseBlock(
                 .2f,
                 1f + RANDOM.nextFloat(),
             )
+            playedSoundOnce = true
         }
         val outputs = behaviour.processingOutputBuffer
         for (i in 0..<outputs.slots) {
+            val extracted = outputs.extractItem(i, 64, false)
+            if (!extracted.isEmpty && !playedSoundOnce) {
+                pLevel.playSound(
+                    null,
+                    pPos,
+                    SoundEvents.ITEM_PICKUP,
+                    SoundSource.PLAYERS,
+                    .2f,
+                    1f + RANDOM.nextFloat(),
+                )
+            }
             pPlayer.inventory
-                .placeItemBackInInventory(outputs.extractItem(i, 64, false))
+                .placeItemBackInInventory(extracted)
         }
 
         if (!wasEmptyHanded && !cantPlaceItem) {
