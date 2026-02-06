@@ -88,10 +88,14 @@ object PonderScenes {
             .text("Or be sledded in using conveyor belts")
             .placeNearTarget()
             .pointAt(pressTop)
-        scene.idle(10)
-//        scene.world().modifyBlockEntity(pressBase, RecordPressBaseBlockEntity::class.java) { be ->
-//            be.behaviour.heldItem?.let { be.behaviour.ejectItem(it) }
-//        }
+        scene.idle(15)
+        scene.addKeyframe()
+        scene.world().modifyBlockEntity(pressBase, RecordPressBaseBlockEntity::class.java) { be ->
+            be.behaviour.heldItem?.let { be.behaviour.tryEjectOutputToBelts() }
+        }
+        scene.idle(7)
+        val beltNearPress = util.grid().at(5, 1, 4)
+        scene.world().createItemOnBeltLike(beltNearPress, Direction.WEST, fallingItem)
         scene.idle(50)
         scene.addKeyframe()
         scene

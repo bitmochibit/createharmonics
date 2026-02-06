@@ -193,6 +193,7 @@ abstract class DepotLikeBehaviour(
         }
 
         world.onServer {
+            if (handleBeltFunnelOutput()) return
             tryEjectOutputToBelts()
         }
 
@@ -202,7 +203,6 @@ abstract class DepotLikeBehaviour(
         val pos = blockEntity.blockPos
 
         if (world.isClientSide) return
-        if (handleBeltFunnelOutput()) return
 
         val processingBehaviour = get(world, pos.above(2), BeltProcessingBehaviour.TYPE) ?: return
         if (!currentHeldItem.locked && BeltProcessingBehaviour.isBlocked(world, pos)) return
@@ -289,7 +289,18 @@ abstract class DepotLikeBehaviour(
         return false
     }
 
-    private fun tryEjectOutputToBelts(): Boolean {
+    fun tryEjectOutputToBelts(): Boolean {
+        if (blockEntity.isVirtual) {
+            // Add the current held item to the output buffer for ejection attempts
+
+            ItemHandlerHelper.insertItemStacked(
+                processingOutputBuffer,
+                heldItemStack,
+                false,
+            )
+            heldItem = null
+        }
+
         for (slot in 0..<processingOutputBuffer.slots) {
             val previousItem = processingOutputBuffer.getStackInSlot(slot)
             if (previousItem.isEmpty) continue
@@ -303,7 +314,6 @@ abstract class DepotLikeBehaviour(
                 }
             }
         }
-
         return false
     }
 
