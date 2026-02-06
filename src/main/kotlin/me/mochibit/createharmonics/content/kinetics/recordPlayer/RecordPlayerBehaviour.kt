@@ -209,26 +209,38 @@ class RecordPlayerBehaviour(
             AudioPlayerRegistry.getOrCreatePlayer(recordPlayerUUID.toString()) {
                 AudioPlayer(
                     soundInstanceProvider = { streamId, stream ->
-                        if (ModList.get().isLoaded("valkyrienskies")) {
-                            val pos = be.blockPos
-                            val ship =
-                                this.be.level.getShipManagingPos(
-                                    pos.x.toDouble(),
-                                    pos.y.toDouble(),
-                                    pos.z.toDouble(),
-                                )
+                        try {
+                            if (ModList.get().isLoaded("valkyrienskies")) {
+                                val pos = be.blockPos
+                                val ship =
+                                    this.be.level.getShipManagingPos(
+                                        pos.x.toDouble(),
+                                        pos.y.toDouble(),
+                                        pos.z.toDouble(),
+                                    )
 
-                            if (ship != null) {
-                                SimpleShipStreamSoundInstance(
-                                    stream,
-                                    streamId,
-                                    SoundEvents.EMPTY,
-                                    posSupplier = { be.blockPos },
-                                    ship = ship,
-                                    radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
-                                    pitchSupplier = { pitchSupplierInterpolated.getValue() },
-                                    volumeSupplier = { volumeSupplierInterpolated.getValue() },
-                                )
+                                if (ship != null) {
+                                    SimpleShipStreamSoundInstance(
+                                        stream,
+                                        streamId,
+                                        SoundEvents.EMPTY,
+                                        posSupplier = { be.blockPos },
+                                        ship = ship,
+                                        radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
+                                        pitchSupplier = { pitchSupplierInterpolated.getValue() },
+                                        volumeSupplier = { volumeSupplierInterpolated.getValue() },
+                                    )
+                                } else {
+                                    SimpleStreamSoundInstance(
+                                        stream,
+                                        streamId,
+                                        SoundEvents.EMPTY,
+                                        { be.blockPos },
+                                        radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
+                                        pitchSupplier = { pitchSupplierInterpolated.getValue() },
+                                        volumeSupplier = { volumeSupplierInterpolated.getValue() },
+                                    )
+                                }
                             } else {
                                 SimpleStreamSoundInstance(
                                     stream,
@@ -240,7 +252,7 @@ class RecordPlayerBehaviour(
                                     volumeSupplier = { volumeSupplierInterpolated.getValue() },
                                 )
                             }
-                        } else {
+                        } catch (e: Exception) {
                             SimpleStreamSoundInstance(
                                 stream,
                                 streamId,

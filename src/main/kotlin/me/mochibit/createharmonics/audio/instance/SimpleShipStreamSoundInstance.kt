@@ -68,34 +68,42 @@ class SimpleShipStreamSoundInstance(
 
     override fun tick() {
         // Update suppliers (but DON'T call super.tick() to avoid position override)
-        currentPitch = pitchSupplier()
-        currentVolume = volumeSupplier()
-        currentPosition = posSupplier()
+        try {
+            currentPitch = pitchSupplier()
+            currentVolume = volumeSupplier()
+            currentPosition = posSupplier()
 
-        val newRadius = radiusSupplier()
-        if (newRadius != currentRadius) {
-            currentRadius = newRadius
-            engine.instanceToChannel[this]?.execute { channel ->
-                channel.linearAttenuation(this.currentRadius.toFloat())
+            val newRadius = radiusSupplier()
+            if (newRadius != currentRadius) {
+                currentRadius = newRadius
+                engine.instanceToChannel[this]?.execute { channel ->
+                    channel.linearAttenuation(this.currentRadius.toFloat())
+                }
             }
+        } catch (e: Exception) {
+            return
         }
 
-        // Transform current ship-local position to world space
-        val shipLocalVec =
-            Vector3d(
-                currentPosition.x.toDouble(),
-                currentPosition.y.toDouble(),
-                currentPosition.z.toDouble(),
-            )
-        val worldPos = ship.shipToWorld.transformPosition(shipLocalVec, Vector3d())
+        try {
+            val shipLocalVec =
+                Vector3d(
+                    currentPosition.x.toDouble(),
+                    currentPosition.y.toDouble(),
+                    currentPosition.z.toDouble(),
+                )
+            val worldPos = ship.shipToWorld.transformPosition(shipLocalVec, Vector3d())
 
-        // Calculate velocity as the difference between new and current position
-        this.velocity = Vector3d(worldPos.x - this.x, worldPos.y - this.y, worldPos.z - this.z)
+            // Calculate velocity as the difference between new and current position
+            this.velocity = Vector3d(worldPos.x - this.x, worldPos.y - this.y, worldPos.z - this.z)
 
-        // Update position to world coordinates
-        this.x = worldPos.x
-        this.y = worldPos.y
-        this.z = worldPos.z
+            // Update position to world coordinates
+            this.x = worldPos.x
+            this.y = worldPos.y
+            this.z = worldPos.z
+        } catch (e: Exception) {
+            // If ship transform fails, keep using last position
+            this.velocity = Vector3d(0.0, 0.0, 0.0)
+        }
 
         // Update volume and pitch
         this.volume = currentVolume

@@ -38,9 +38,13 @@ abstract class SuppliedSoundInstance(
     override fun tick() {
         if (this.isStopped) return
 
-        currentPitch = pitchSupplier()
-        currentVolume = volumeSupplier()
-        currentPosition = posSupplier()
+        try {
+            currentPitch = pitchSupplier()
+            currentVolume = volumeSupplier()
+            currentPosition = posSupplier()
+        } catch (e: Exception) {
+            return
+        }
 
         this.x = currentPosition.x.toDouble()
         this.y = currentPosition.y.toDouble()
@@ -49,12 +53,16 @@ abstract class SuppliedSoundInstance(
         this.volume = currentVolume
         this.pitch = currentPitch
 
-        val newRadius = radiusSupplier()
-        if (newRadius != currentRadius) {
-            currentRadius = newRadius
-            engine.instanceToChannel[this]?.execute { channel ->
-                channel.linearAttenuation(this.currentRadius.toFloat())
+        try {
+            val newRadius = radiusSupplier()
+            if (newRadius != currentRadius) {
+                currentRadius = newRadius
+                engine.instanceToChannel[this]?.execute { channel ->
+                    channel.linearAttenuation(this.currentRadius.toFloat())
+                }
             }
+        } catch (e: Exception) {
+            // If supplier throws, don't crash the audio system
         }
     }
 

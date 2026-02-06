@@ -2,31 +2,64 @@ package me.mochibit.createharmonics.foundation.math
 
 import me.mochibit.createharmonics.extension.lerpTo
 
+/**
+ * Thread-safe interpolated float supplier that smoothly transitions between values.
+ */
 class FloatSupplierInterpolated(
     private val valueSupplier: () -> Float,
     private val interpolationDurationMs: Long = 100,
 ) {
+    @Volatile
     private var lastValue = 0f
+
+    @Volatile
     private var targetValue = 0f
+
+    @Volatile
     private var lastUpdateTime = 0L
+
+    @Volatile
+    private var cachedTime = 0L
+
+    @Volatile
+    private var cachedResult = 0f
 
     private val isInitialized: Boolean
         get() = lastUpdateTime != 0L
 
     fun getValue(): Float {
+        // Use cached time if called multiple times in same millisecond
         val currentTime = System.currentTimeMillis()
 
-        if (!isInitialized) {
-            return initialize(currentTime)
+        // If called multiple times in same millisecond, return cached result
+        if (isInitialized && currentTime == cachedTime) {
+            return cachedResult
         }
 
-        valueSupplier().takeIf { it != targetValue }?.let { newValue ->
+        cachedTime = currentTime
+
+        if (!isInitialized) {
+            cachedResult = initialize(currentTime)
+            return cachedResult
+        }
+
+        // Wrap valueSupplier in try-catch to prevent crashes
+        val newValue =
+            try {
+                valueSupplier()
+            } catch (e: Exception) {
+                // If supplier fails, keep using current target
+                targetValue
+            }
+
+        if (newValue != targetValue) {
             lastValue = getCurrentInterpolatedValue(currentTime)
             targetValue = newValue
             lastUpdateTime = currentTime
         }
 
-        return getCurrentInterpolatedValue(currentTime)
+        cachedResult = getCurrentInterpolatedValue(currentTime)
+        return cachedResult
     }
 
     private fun getCurrentInterpolatedValue(currentTime: Long): Float {
@@ -36,7 +69,12 @@ class FloatSupplierInterpolated(
     }
 
     private fun initialize(currentTime: Long): Float {
-        val initialValue = valueSupplier()
+        val initialValue =
+            try {
+                valueSupplier()
+            } catch (e: Exception) {
+                0f // Safe default if initial supplier fails
+            }
         lastValue = initialValue
         targetValue = initialValue
         lastUpdateTime = currentTime
