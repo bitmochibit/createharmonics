@@ -5,7 +5,7 @@ package me.mochibit.createharmonics.audio.effect
  * Effects are applied in the order they were added.
  */
 class EffectChain(
-    private val effects: List<AudioEffect> = emptyList(),
+    @Volatile private var effects: List<AudioEffect> = emptyList(),
 ) : AudioEffect {
     constructor(vararg effects: AudioEffect) : this(effects.toList())
 
@@ -14,8 +14,9 @@ class EffectChain(
         timeInSeconds: Double,
         sampleRate: Int,
     ): ShortArray {
+        val currentEffects = effects
         var result = samples
-        for (effect in effects) {
+        for (effect in currentEffects) {
             result = effect.process(result, timeInSeconds, sampleRate)
         }
         return result
@@ -27,10 +28,30 @@ class EffectChain(
 
     override fun getName(): String = "EffectChain[${effects.joinToString(", ") { it.getName() }}]"
 
-    /**
-     * Create a new chain with an additional effect appended.
-     */
-    fun append(effect: AudioEffect): EffectChain = EffectChain(effects + effect)
+    @Synchronized
+    fun addEffect(effect: AudioEffect) {
+        effects = effects + effect
+    }
+
+    @Synchronized
+    fun removeEffect(effect: AudioEffect) {
+        effects = effects - effect
+    }
+
+    @Synchronized
+    fun removeEffectAt(index: Int) {
+        effects = effects.filterIndexed { i, _ -> i != index }
+    }
+
+    @Synchronized
+    fun setEffects(newEffects: List<AudioEffect>) {
+        effects = newEffects.toList()
+    }
+
+    @Synchronized
+    fun clear() {
+        effects = emptyList()
+    }
 
     /**
      * Check if the chain is empty (no effects).
@@ -41,6 +62,8 @@ class EffectChain(
      * Get the number of effects in the chain.
      */
     fun size(): Int = effects.size
+
+    fun getEffects(): List<AudioEffect> = effects.toList()
 
     companion object {
         /**

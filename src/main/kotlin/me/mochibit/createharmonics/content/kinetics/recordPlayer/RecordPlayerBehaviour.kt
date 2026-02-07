@@ -5,11 +5,13 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import me.mochibit.createharmonics.ServerConfig
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
+import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
 import me.mochibit.createharmonics.audio.instance.SimpleShipStreamSoundInstance
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.playFromRecord
+import me.mochibit.createharmonics.extension.lerpTo
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.extension.remapTo
@@ -18,11 +20,13 @@ import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.registry.ModConfigurations
 import me.mochibit.createharmonics.registry.ModPackets
 import net.createmod.catnip.nbt.NBTHelper
+import net.minecraft.core.Direction
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.core.particles.ShriekParticleOption
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
+import net.minecraft.tags.FluidTags
 import net.minecraft.util.RandomSource
 import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
@@ -289,10 +293,87 @@ class RecordPlayerBehaviour(
                 playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
         }
 
+    /**
+     * Count how many faces of the record player are covered by liquid.
+     * Returns a count from 0 to 6.
+     */
+    private fun countLiquidCoveredFaces(): Pair<Int, Boolean> {
+        val level = be.level ?: return 0 to false
+        val pos = be.blockPos
+
+        var liquidCount = 0
+        var viscousCount = 0
+        var waterCount = 0
+
+        for (direction in Direction.entries) {
+            val fluidState = level.getFluidState(pos.relative(direction))
+
+            if (!fluidState.isEmpty) {
+                liquidCount++
+
+                when {
+                    fluidState.fluidType.viscosity > 1000 -> viscousCount++
+                    fluidState.`is`(FluidTags.WATER) -> waterCount++
+                }
+            }
+        }
+
+        val isThick = viscousCount >= waterCount && viscousCount > 0
+
+        return liquidCount to isThick
+    }
+
+    /**
+     * Update the underwater filter based on liquid detection.
+     * The filter intensity scales with the number of water-covered faces:
+     * - 1-3 faces: Gradually decrease cutoff frequency (350Hz -> 300Hz) and increase resonance (1.0 -> 2.0)
+     * - 0 faces: Remove the filter
+     */
+    private fun updateUnderwaterFilter() {
+        val (liquidCoveredFaces, isThick) = countLiquidCoveredFaces()
+
+        // Only update on client side where audio is played
+        be.level?.onClient { _, _ ->
+            val effectChain = audioPlayer.getCurrentEffectChain()
+
+            if (liquidCoveredFaces > 0) {
+                val maxEffectiveFaces = 4f
+                val minimumCutoff = if (isThick) 50f else 300f
+                val maximumResonance = if (isThick) 3f else 2f
+
+                val faceCount = liquidCoveredFaces.coerceAtMost(maxEffectiveFaces.toInt())
+
+                val cutoffFrequency = 1800f.lerpTo(minimumCutoff, 1 / maxEffectiveFaces * faceCount)
+
+                val resonance = 1f.lerpTo(maximumResonance, 1 / maxEffectiveFaces * faceCount)
+
+                effectChain?.let { chain ->
+                    val effects = chain.getEffects()
+                    val existingFilter = effects.firstOrNull { it is LowPassFilterEffect } as? LowPassFilterEffect
+
+                    if (existingFilter != null) {
+                        existingFilter.updateParameters(cutoffFrequency, resonance)
+                    } else {
+                        chain.addEffect(LowPassFilterEffect(cutoffFrequency = cutoffFrequency, resonance = resonance))
+                    }
+                }
+            } else {
+                effectChain?.let { chain ->
+                    val effects = chain.getEffects()
+                    val lowPassIndex = effects.indexOfFirst { it is LowPassFilterEffect }
+                    if (lowPassIndex >= 0) {
+                        chain.removeEffectAt(lowPassIndex)
+                    }
+                }
+            }
+        }
+    }
+
     override fun tick() {
         super.tick()
 
         val level = be.level ?: return
+
         level.onServer {
             ensureTracking()
 
@@ -411,6 +492,7 @@ class RecordPlayerBehaviour(
 
     override fun lazyTick() {
         this.be.level?.onClient { level, virtual ->
+            updateUnderwaterFilter()
             val pos = Vec3.atBottomCenterOf(be.blockPos).add(0.0, 1.2, 0.0)
             val displacement = level.random.nextInt(4) / 24f
             when (audioPlayer.state) {
@@ -633,6 +715,9 @@ class RecordPlayerBehaviour(
             { radiusSupplierInterpolated.getValue().toInt() },
             { volumeSupplierInterpolated.getValue() },
         )
+
+        // Check for underwater filter on playback start
+        updateUnderwaterFilter()
     }
 
     private fun resumeClientPlayer() {
@@ -776,6 +861,10 @@ class RecordPlayerBehaviour(
         if (compound.contains("AudioPlayCount")) {
             val newPlayCount = compound.getLong("AudioPlayCount")
             audioPlayCount = newPlayCount
+        }
+
+        if (clientPacket && be.level?.isClientSide == true) {
+            updateUnderwaterFilter()
         }
     }
 

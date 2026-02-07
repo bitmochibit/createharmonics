@@ -140,6 +140,8 @@ class AudioPlayer(
     private val soundManager: net.minecraft.client.sounds.SoundManager
         get() = Minecraft.getInstance().soundManager
 
+    fun getCurrentEffectChain(): EffectChain? = playbackContext?.effectChain
+
     /**
      * Start playing audio from the specified URL.
      *

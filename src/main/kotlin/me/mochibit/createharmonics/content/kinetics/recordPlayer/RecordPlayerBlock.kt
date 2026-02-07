@@ -16,6 +16,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
+import net.minecraft.tags.FluidTags
 import net.minecraft.util.RandomSource
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
@@ -156,10 +157,17 @@ abstract class RecordPlayerBlock(
     ) {
         if (worldIn.isClientSide) return
         val power = getPower(state, worldIn, pos)
+        val isUnderwater = worldIn.getFluidState(pos).`is`(FluidTags.WATER)
+
         withBlockEntityDo(
             worldIn,
             pos,
-        ) { player: RecordPlayerBlockEntity -> player.playerBehaviour.redstonePowerChanged(power) }
+        ) { player: RecordPlayerBlockEntity ->
+            player.playerBehaviour.redstonePowerChanged(power)
+            if (isUnderwater) {
+                player.sendData()
+            }
+        }
     }
 
     fun getPower(
