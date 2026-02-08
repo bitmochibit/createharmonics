@@ -323,12 +323,6 @@ class RecordPlayerBehaviour(
         return liquidCount to isThick
     }
 
-    /**
-     * Update the underwater filter based on liquid detection.
-     * The filter intensity scales with the number of water-covered faces:
-     * - 1-3 faces: Gradually decrease cutoff frequency (350Hz -> 300Hz) and increase resonance (1.0 -> 2.0)
-     * - 0 faces: Remove the filter
-     */
     private fun updateUnderwaterFilter() {
         val (liquidCoveredFaces, isThick) = countLiquidCoveredFaces()
 
@@ -338,8 +332,8 @@ class RecordPlayerBehaviour(
 
             if (liquidCoveredFaces > 0) {
                 val maxEffectiveFaces = 4f
-                val minimumCutoff = if (isThick) 50f else 300f
-                val maximumResonance = if (isThick) 3f else 2f
+                val minimumCutoff = if (isThick) 200f else 300f
+                val maximumResonance = if (isThick) 2.5f else 2f
 
                 val faceCount = liquidCoveredFaces.coerceAtMost(maxEffectiveFaces.toInt())
 

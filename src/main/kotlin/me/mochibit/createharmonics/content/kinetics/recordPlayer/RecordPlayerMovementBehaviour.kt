@@ -12,6 +12,7 @@ import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.ServerConfig
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
+import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.PlaybackState
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
@@ -66,6 +67,8 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         var playerInitialized: Boolean = false,
         var skipNextUpdate: Boolean = false,
         var lastSyncTick: Long = 0L, // Track when we last synced to force periodic updates
+        val lazyTickRate: Int = 5,
+        var tickCounter: Int = lazyTickRate,
     )
 
     companion object {
@@ -309,6 +312,12 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
     }
 
     override fun tick(context: MovementContext) {
+        val tempData = getOrCreateTemporaryData(context)
+        if (tempData.tickCounter-- <= 0) {
+            tempData.tickCounter = tempData.lazyTickRate
+            tickLazy(context)
+        }
+
         context.world.onServer {
             registerContextIfNotPresent(getPlayerUUID(context).toString(), context)
             updateServerData(context)
@@ -317,6 +326,38 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         context.world.onClient { _, _ ->
             updateClientState(context)
             handleClientPlayback(context)
+        }
+    }
+
+    fun tickLazy(context: MovementContext) {
+        context.world.onClient { level, virtual ->
+            updateUnderwaterFilter(context)
+        }
+    }
+
+    private fun updateUnderwaterFilter(context: MovementContext) {
+        val playerUUID = getPlayerUUID(context) ?: return
+        val player = getOrCreateAudioPlayer(playerUUID.toString(), context)
+        val isUnderwater =
+            context.world
+                .getFluidState(BlockPos.containing(context.position))
+                .isEmpty
+                .not()
+
+        val effectChain = player.getCurrentEffectChain() ?: return
+        if (isUnderwater) {
+            val effects = effectChain.getEffects()
+            val existingFilter = effects.firstOrNull { it is LowPassFilterEffect } as? LowPassFilterEffect
+
+            if (existingFilter == null) {
+                effectChain.addEffect(LowPassFilterEffect(cutoffFrequency = 300f, resonance = 2f))
+            }
+        } else {
+            val effects = effectChain.getEffects()
+            val lowPassIndex = effects.indexOfFirst { it is LowPassFilterEffect }
+            if (lowPassIndex >= 0) {
+                effectChain.removeEffectAt(lowPassIndex)
+            }
         }
     }
 
