@@ -13,6 +13,7 @@ import me.mochibit.createharmonics.ModStress
 import me.mochibit.createharmonics.cRegistrate
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlock
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.brassJukebox.BrassJukeboxBlock
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlock
 import net.minecraft.core.Direction
 import net.minecraft.resources.ResourceLocation
@@ -89,6 +90,61 @@ object ModBlocks : AutoRegistrable {
             .transform(customItemModel())
             .register()
 
+    val BRASS_JUKEBOX: BlockEntry<BrassJukeboxBlock> =
+        cRegistrate()
+            .block("brass_jukebox") { properties ->
+                BrassJukeboxBlock(properties)
+            }.properties { p ->
+                p
+                    .strength(2.0f, 6.0f)
+                    .sound(SoundType.METAL)
+            }.blockstate { ctx, prov ->
+                prov
+                    .getVariantBuilder(ctx.entry)
+                    .forAllStatesExcept({ state ->
+                        val dir = state.getValue(BlockStateProperties.FACING)
+                        val modelFile =
+                            prov.models().getExistingFile(
+                                prov.modLoc("block/${ctx.name}/${ctx.name}"),
+                            )
+
+                        val xRot =
+                            when (dir) {
+                                Direction.DOWN -> 90
+                                Direction.UP -> 270
+                                else -> 0
+                            }
+
+                        val yRot =
+                            when (dir) {
+                                Direction.NORTH -> 180
+                                Direction.SOUTH -> 0
+                                Direction.EAST -> 270
+                                Direction.WEST -> 90
+                                Direction.DOWN -> 180
+                                Direction.UP -> 180
+                            }
+
+                        ConfiguredModel
+                            .builder()
+                            .modelFile(modelFile)
+                            .rotationX(xRot)
+                            .rotationY(yRot)
+                            .build()
+                    }, BlockStateProperties.WATERLOGGED)
+            }.onRegister(movementBehaviour(RecordPlayerMovementBehaviour()))
+            .tag(
+                AllTags.AllBlockTags.SAFE_NBT.tag,
+                BlockTags.create(ResourceLocation.fromNamespaceAndPath("carryon", "block_blacklist")),
+            ).tag(AllTags.AllBlockTags.SIMPLE_MOUNTED_STORAGE.tag)
+            .transform(mountedItemStorage(ModMountedStorages.SIMPLE_RECORD_PLAYER_STORAGE))
+            .transform(displaySource(ModDisplaySources.AUDIO_NAME))
+            .transform(ModStress.setImpact(1.0))
+            .item()
+            .tag(AllTags.AllItemTags.CONTRAPTION_CONTROLLED.tag)
+            .transform(customItemModel())
+            .register() 
+    
     val RECORD_PRESS_BASE: BlockEntry<RecordPressBaseBlock> =
         cRegistrate()
             .block("record_press_base", ::RecordPressBaseBlock)

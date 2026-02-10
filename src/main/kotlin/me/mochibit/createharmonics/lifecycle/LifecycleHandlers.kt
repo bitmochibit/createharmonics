@@ -3,6 +3,9 @@ package me.mochibit.createharmonics.lifecycle
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
 import me.mochibit.createharmonics.client.event.MainMenuDisclaimerHandler
+import me.mochibit.createharmonics.registry.ModBlocks
+import net.minecraft.client.renderer.ItemBlockRenderTypes
+import net.minecraft.client.renderer.RenderType
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.event.server.ServerStartingEvent
@@ -56,6 +59,9 @@ object ClientModBusHandler {
     fun onClientSetup(event: FMLClientSetupEvent) {
         info("Create: Harmonics client is setting up!")
         MinecraftForge.EVENT_BUS.register(MainMenuDisclaimerHandler)
+        event.enqueueWork {
+            ItemBlockRenderTypes.setRenderLayer(ModBlocks.BRASS_JUKEBOX.get(), RenderType.translucent())
+        }
     }
 }
 
