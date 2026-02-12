@@ -19,6 +19,7 @@ import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.playFromRecord
 import me.mochibit.createharmonics.coroutine.MinecraftClientDispatcher
 import me.mochibit.createharmonics.coroutine.launchDelayed
+import me.mochibit.createharmonics.extension.lerpTo
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.extension.remapTo
@@ -30,16 +31,22 @@ import me.mochibit.createharmonics.registry.ModPackets
 import net.createmod.catnip.math.VecHelper
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.core.particles.ShriekParticleOption
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
+import net.minecraft.tags.FluidTags
 import net.minecraft.util.RandomSource
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
 import net.minecraftforge.network.PacketDistributor
+import org.joml.Vector3d
+import org.valkyrienskies.core.api.ships.Ship
+import thedarkcolour.kotlinforforge.forge.vectorutil.v3d.toVec3
+import thedarkcolour.kotlinforforge.forge.vectorutil.v3d.toVector3d
 import java.util.UUID
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.seconds
@@ -67,8 +74,14 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         var playerInitialized: Boolean = false,
         var skipNextUpdate: Boolean = false,
         var lastSyncTick: Long = 0L, // Track when we last synced to force periodic updates
-        val lazyTickRate: Int = 5,
+        val lazyTickRate: Int = 1,
         var tickCounter: Int = lazyTickRate,
+        // Interpolated suppliers for underwater filter effect
+        // Start with "no filter" values (very high cutoff, flat resonance)
+        var targetCutoffFrequency: Float = 20000f,
+        var targetResonance: Float = 0.707f,
+        var cutoffFrequencyInterpolated: FloatSupplierInterpolated? = null,
+        var resonanceInterpolated: FloatSupplierInterpolated? = null,
     )
 
     companion object {
@@ -335,29 +348,131 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         }
     }
 
-    private fun updateUnderwaterFilter(context: MovementContext) {
-        val playerUUID = getPlayerUUID(context) ?: return
-        val player = getOrCreateAudioPlayer(playerUUID.toString(), context)
-        val isUnderwater =
-            context.world
-                .getFluidState(BlockPos.containing(context.position))
-                .isEmpty
-                .not()
+    private fun countLiquidCoveredFaces(context: MovementContext): Pair<Int, Boolean> {
+        val level = context.world ?: return 0 to false
+        val pos = BlockPos.containing(context.position)
 
-        val effectChain = player.getCurrentEffectChain() ?: return
-        if (isUnderwater) {
-            val effects = effectChain.getEffects()
-            val existingFilter = effects.firstOrNull { it is LowPassFilterEffect } as? LowPassFilterEffect
+        var liquidCount = 0
+        var viscousCount = 0
+        var waterCount = 0
 
-            if (existingFilter == null) {
-                effectChain.addEffect(LowPassFilterEffect(cutoffFrequency = 300f, resonance = 2f))
+        for (direction in Direction.entries) {
+            val relativePos = pos.relative(direction)
+
+            val fluidState = level.getFluidState(relativePos)
+
+            if (!fluidState.isEmpty) {
+                liquidCount++
+
+                when {
+                    fluidState.fluidType.viscosity > 1000 -> viscousCount++
+                    fluidState.`is`(FluidTags.WATER) -> waterCount++
+                }
             }
+        }
+
+        val isThick = viscousCount >= waterCount && viscousCount > 0
+
+        return liquidCount to isThick
+    }
+
+    /**
+     * Updates or adds a low-pass filter with the specified parameters.
+     * If the filter exists, updates its parameters. Otherwise, adds a new filter.
+     */
+    private fun applyLowPassFilter(
+        context: MovementContext,
+        cutoffFrequency: Float,
+        resonance: Float,
+    ) {
+        val playerUUID = getPlayerUUID(context) ?: return
+        val audioPlayer = getOrCreateAudioPlayer(playerUUID.toString(), context)
+        val tempData = getOrCreateTemporaryData(context)
+
+        // Initialize interpolated suppliers if needed
+        if (tempData.cutoffFrequencyInterpolated == null) {
+            tempData.cutoffFrequencyInterpolated = FloatSupplierInterpolated({ tempData.targetCutoffFrequency }, 1000)
+        }
+        if (tempData.resonanceInterpolated == null) {
+            tempData.resonanceInterpolated = FloatSupplierInterpolated({ tempData.targetResonance }, 1000)
+        }
+
+        // Update target values for interpolation
+        tempData.targetCutoffFrequency = cutoffFrequency
+        tempData.targetResonance = resonance
+
+        val effectChain = audioPlayer.getCurrentEffectChain() ?: return
+        val effects = effectChain.getEffects()
+        val existingFilter = effects.firstOrNull { it is LowPassFilterEffect } as? LowPassFilterEffect
+
+        if (existingFilter != null) {
+            existingFilter.updateParameters(
+                tempData.cutoffFrequencyInterpolated!!.getValue(),
+                tempData.resonanceInterpolated!!.getValue(),
+            )
         } else {
-            val effects = effectChain.getEffects()
-            val lowPassIndex = effects.indexOfFirst { it is LowPassFilterEffect }
-            if (lowPassIndex >= 0) {
+            effectChain.addEffect(
+                LowPassFilterEffect(
+                    cutoffFrequency = tempData.cutoffFrequencyInterpolated!!.getValue(),
+                    resonance = tempData.resonanceInterpolated!!.getValue(),
+                ),
+            )
+        }
+    }
+
+    /**
+     * Removes the low-pass filter from the effect chain if it exists.
+     */
+    private fun removeLowPassFilter(context: MovementContext) {
+        val playerUUID = getPlayerUUID(context) ?: return
+        val audioPlayer = getOrCreateAudioPlayer(playerUUID.toString(), context)
+        val tempData = getOrCreateTemporaryData(context)
+
+        // Initialize interpolated suppliers if needed
+        if (tempData.cutoffFrequencyInterpolated == null) {
+            tempData.cutoffFrequencyInterpolated = FloatSupplierInterpolated({ tempData.targetCutoffFrequency }, 1000)
+        }
+        if (tempData.resonanceInterpolated == null) {
+            tempData.resonanceInterpolated = FloatSupplierInterpolated({ tempData.targetResonance }, 1000)
+        }
+
+        // Set target values back to default (no filter effect)
+        tempData.targetCutoffFrequency = 20000f // Very high cutoff = no filtering
+        tempData.targetResonance = 0.707f // Flat response
+
+        val effectChain = audioPlayer.getCurrentEffectChain() ?: return
+        val effects = effectChain.getEffects()
+        val lowPassIndex = effects.indexOfFirst { it is LowPassFilterEffect }
+        if (lowPassIndex >= 0) {
+            val existingFilter = effects[lowPassIndex] as? LowPassFilterEffect
+            val currentCutoff = tempData.cutoffFrequencyInterpolated!!.getValue()
+            val currentResonance = tempData.resonanceInterpolated!!.getValue()
+
+            // Update to interpolated values
+            existingFilter?.updateParameters(currentCutoff, currentResonance)
+
+            // Only remove if we're close enough to the default values (smooth transition complete)
+            // Check if cutoff is high enough and resonance is close to flat
+            if (currentCutoff >= 18000f && currentResonance <= 0.8f) {
                 effectChain.removeEffectAt(lowPassIndex)
             }
+        }
+    }
+
+    private fun updateUnderwaterFilter(context: MovementContext) {
+        val (liquidCoveredFaces, isThick) = countLiquidCoveredFaces(context)
+        if (liquidCoveredFaces > 0) {
+            val maxEffectiveFaces = 4f
+            val minimumCutoff = if (isThick) 200f else 300f
+            val maximumResonance = if (isThick) 2.5f else 2f
+
+            val faceCount = liquidCoveredFaces.coerceAtMost(maxEffectiveFaces.toInt())
+            val cutoffFrequency = 1800f.lerpTo(minimumCutoff, 1 / maxEffectiveFaces * faceCount)
+            val resonance = 1f.lerpTo(maximumResonance, 1 / maxEffectiveFaces * faceCount)
+
+            applyLowPassFilter(context, cutoffFrequency, resonance)
+        } else {
+            removeLowPassFilter(context)
         }
     }
 

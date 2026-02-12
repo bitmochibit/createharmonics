@@ -12,10 +12,17 @@ class LowPassFilterEffect(
     cutoffFrequency: Float = 1000f,
     resonance: Float = 0.7f, // 0.0 to ~10.0, with 0.707 being "flat"
 ) : AudioEffect {
-    // Mutable parameters that can be updated dynamically
-    private var cutoffFrequency: Float = cutoffFrequency
-    private var resonance: Float = resonance
-    private var coefficientsDirty = true // Flag to recalculate coefficients when parameters change
+    // Target parameters (set by updateParameters)
+    private var targetCutoffFrequency: Float = cutoffFrequency
+    private var targetResonance: Float = resonance
+
+    // Current parameters (smoothed over time)
+    private var currentCutoffFrequency: Float = cutoffFrequency
+    private var currentResonance: Float = resonance
+
+    // Smoothing coefficient (smaller = smoother but slower response)
+    // 0.001 means it takes ~1000 samples to reach 63% of target at 44.1kHz
+    private val smoothingFactor = 0.002f
 
     private var x1 = 0f // input delayed by 1 sample
     private var x2 = 0f // input delayed by 2 samples
@@ -37,10 +44,7 @@ class LowPassFilterEffect(
      * @param frequency The new cutoff frequency in Hz
      */
     fun setCutoffFrequency(frequency: Float) {
-        if (cutoffFrequency != frequency) {
-            cutoffFrequency = frequency
-            coefficientsDirty = true
-        }
+        targetCutoffFrequency = frequency
     }
 
     /**
@@ -48,10 +52,7 @@ class LowPassFilterEffect(
      * @param q The new resonance value (0.0 to ~10.0, with 0.707 being "flat")
      */
     fun setResonance(q: Float) {
-        if (resonance != q) {
-            resonance = q
-            coefficientsDirty = true
-        }
+        targetResonance = q
     }
 
     /**
@@ -61,57 +62,46 @@ class LowPassFilterEffect(
         frequency: Float,
         q: Float,
     ) {
-        var changed = false
-        if (cutoffFrequency != frequency) {
-            cutoffFrequency = frequency
-            changed = true
-        }
-        if (resonance != q) {
-            resonance = q
-            changed = true
-        }
-        if (changed) {
-            coefficientsDirty = true
-        }
+        targetCutoffFrequency = frequency
+        targetResonance = q
     }
 
     /**
      * Get the current cutoff frequency.
      */
-    fun getCutoffFrequency(): Float = cutoffFrequency
+    fun getCutoffFrequency(): Float = currentCutoffFrequency
 
     /**
      * Get the current resonance.
      */
-    fun getResonance(): Float = resonance
+    fun getResonance(): Float = currentResonance
 
     override fun process(
         samples: ShortArray,
         timeInSeconds: Double,
         sampleRate: Int,
     ): ShortArray {
-        // Only recalculate coefficients if parameters changed
-        if (coefficientsDirty) {
-            calculateCoefficients(sampleRate)
-            coefficientsDirty = false
-        }
-
-        // Calculate makeup gain to compensate for resonance peaks
-        // Peak gain of a low-pass biquad at cutoff is approximately Q
-        // Use a more aggressive compensation formula
-        val makeupGain = 1.0f / (1.0f + (resonance - 0.707f).coerceAtLeast(0f) * 1.2f)
-
-        // Additional pre-attenuation for very high Q to prevent internal filter clipping
-        val preGain =
-            if (resonance > 2.0f) {
-                0.7f / (resonance / 2.0f)
-            } else {
-                1.0f
-            }
-
         val output = ShortArray(samples.size)
 
         for (i in samples.indices) {
+            // Smooth parameter changes per sample for artifact-free transitions
+            currentCutoffFrequency += (targetCutoffFrequency - currentCutoffFrequency) * smoothingFactor
+            currentResonance += (targetResonance - currentResonance) * smoothingFactor
+
+            // Recalculate coefficients with smoothed parameters
+            calculateCoefficients(sampleRate)
+
+            // Calculate makeup gain to compensate for resonance peaks
+            val makeupGain = 1.0f / (1.0f + (currentResonance - 0.707f).coerceAtLeast(0f) * 1.2f)
+
+            // Additional pre-attenuation for very high Q to prevent internal filter clipping
+            val preGain =
+                if (currentResonance > 2.0f) {
+                    0.7f / (currentResonance / 2.0f)
+                } else {
+                    1.0f
+                }
+
             val input = samples[i].toFloat() * preGain
 
             // Biquad filter difference equation
@@ -171,9 +161,9 @@ class LowPassFilterEffect(
 
     private fun calculateCoefficients(sampleRate: Int) {
         // Clamp resonance to prevent instability
-        val q = resonance.coerceIn(0.1f, 20.0f)
+        val q = currentResonance.coerceIn(0.1f, 20.0f)
 
-        val omega = 2.0f * Math.PI.toFloat() * cutoffFrequency / sampleRate
+        val omega = 2.0f * Math.PI.toFloat() * currentCutoffFrequency / sampleRate
         val cosOmega = cos(omega.toDouble()).toFloat()
         val alpha = kotlin.math.sin(omega.toDouble()).toFloat() / (2.0f * q)
 
@@ -199,5 +189,5 @@ class LowPassFilterEffect(
         y2 = 0f
     }
 
-    override fun getName(): String = "LowPass(${cutoffFrequency.toInt()}Hz, Q=${String.format("%.1f", resonance)})"
+    override fun getName(): String = "LowPass(${currentCutoffFrequency.toInt()}Hz, Q=${String.format("%.1f", currentResonance)})"
 }

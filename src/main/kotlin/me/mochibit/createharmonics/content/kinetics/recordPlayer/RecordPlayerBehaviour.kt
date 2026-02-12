@@ -20,6 +20,7 @@ import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.registry.ModConfigurations
 import me.mochibit.createharmonics.registry.ModPackets
 import net.createmod.catnip.nbt.NBTHelper
+import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.core.particles.ShriekParticleOption
@@ -37,7 +38,11 @@ import net.minecraft.world.phys.Vec3
 import net.minecraftforge.common.util.LazyOptional
 import net.minecraftforge.fml.ModList
 import net.minecraftforge.network.PacketDistributor
+import org.joml.Vector3d
+import org.valkyrienskies.core.api.ships.Ship
 import org.valkyrienskies.mod.common.getShipManagingPos
+import thedarkcolour.kotlinforforge.forge.vectorutil.v3d.toVec3
+import thedarkcolour.kotlinforforge.forge.vectorutil.v3d.toVector3d
 import java.util.UUID
 import kotlin.math.abs
 
@@ -208,55 +213,22 @@ class RecordPlayerBehaviour(
     val volumeSupplierInterpolated = FloatSupplierInterpolated({ currentVolume }, 500)
     val radiusSupplierInterpolated = FloatSupplierInterpolated({ soundRadius.toFloat() }, 500)
 
+    // Interpolated suppliers for underwater filter effect
+    // Start with "no filter" values (very high cutoff, flat resonance)
+    private var targetCutoffFrequency = 20000f
+    private var targetResonance = 0.707f
+    val cutoffFrequencyInterpolated = FloatSupplierInterpolated({ targetCutoffFrequency }, 1000)
+    val resonanceInterpolated = FloatSupplierInterpolated({ targetResonance }, 1000)
+
     private val audioPlayer: AudioPlayer
         get() =
             AudioPlayerRegistry.getOrCreatePlayer(recordPlayerUUID.toString()) {
                 AudioPlayer(
                     soundInstanceProvider = { streamId, stream ->
                         try {
-                            if (ModList.get().isLoaded("valkyrienskies")) {
-                                val pos = be.blockPos
-                                val ship =
-                                    this.be.level.getShipManagingPos(
-                                        pos.x.toDouble(),
-                                        pos.y.toDouble(),
-                                        pos.z.toDouble(),
-                                    )
-
-                                if (ship != null) {
-                                    SimpleShipStreamSoundInstance(
-                                        stream,
-                                        streamId,
-                                        SoundEvents.EMPTY,
-                                        posSupplier = { be.blockPos },
-                                        ship = ship,
-                                        radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
-                                        pitchSupplier = { pitchSupplierInterpolated.getValue() },
-                                        volumeSupplier = { volumeSupplierInterpolated.getValue() },
-                                    )
-                                } else {
-                                    SimpleStreamSoundInstance(
-                                        stream,
-                                        streamId,
-                                        SoundEvents.EMPTY,
-                                        { be.blockPos },
-                                        radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
-                                        pitchSupplier = { pitchSupplierInterpolated.getValue() },
-                                        volumeSupplier = { volumeSupplierInterpolated.getValue() },
-                                    )
-                                }
-                            } else {
-                                SimpleStreamSoundInstance(
-                                    stream,
-                                    streamId,
-                                    SoundEvents.EMPTY,
-                                    { be.blockPos },
-                                    radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
-                                    pitchSupplier = { pitchSupplierInterpolated.getValue() },
-                                    volumeSupplier = { volumeSupplierInterpolated.getValue() },
-                                )
-                            }
-                        } catch (e: Exception) {
+                            createSoundInstance(streamId, stream)
+                        } catch (_: Exception) {
+                            // Fallback to simple instance without ship support
                             SimpleStreamSoundInstance(
                                 stream,
                                 streamId,
@@ -286,6 +258,110 @@ class RecordPlayerBehaviour(
         }
     }
 
+    /**
+     * Checks if Valkyrien Skies is loaded and returns the ship managing this block position.
+     * Returns null if VS is not loaded or if the block is not on a ship.
+     */
+    private fun getManagingShip(): org.valkyrienskies.core.api.ships.Ship? {
+        if (!ModList.get().isLoaded("valkyrienskies")) return null
+        val pos = be.blockPos
+        return be.level?.getShipManagingPos(
+            pos.x.toDouble(),
+            pos.y.toDouble(),
+            pos.z.toDouble(),
+        )
+    }
+
+    /**
+     * Creates a sound instance with common parameters.
+     * Automatically uses SimpleShipStreamSoundInstance if on a Valkyrien Skies ship.
+     */
+    private fun createSoundInstance(
+        streamId: String,
+        stream: java.io.InputStream,
+    ): net.minecraft.client.resources.sounds.SoundInstance {
+        val ship = getManagingShip()
+
+        return if (ship != null) {
+            SimpleShipStreamSoundInstance(
+                stream,
+                streamId,
+                SoundEvents.EMPTY,
+                posSupplier = { be.blockPos },
+                ship = ship,
+                radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
+                pitchSupplier = { pitchSupplierInterpolated.getValue() },
+                volumeSupplier = { volumeSupplierInterpolated.getValue() },
+            )
+        } else {
+            SimpleStreamSoundInstance(
+                stream,
+                streamId,
+                SoundEvents.EMPTY,
+                { be.blockPos },
+                radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
+                pitchSupplier = { pitchSupplierInterpolated.getValue() },
+                volumeSupplier = { volumeSupplierInterpolated.getValue() },
+            )
+        }
+    }
+
+    /**
+     * Updates or adds a low-pass filter with the specified parameters.
+     * If the filter exists, updates its parameters. Otherwise, adds a new filter.
+     */
+    private fun applyLowPassFilter(
+        cutoffFrequency: Float,
+        resonance: Float,
+    ) {
+        // Update target values for interpolation
+        targetCutoffFrequency = cutoffFrequency
+        targetResonance = resonance
+
+        val effectChain = audioPlayer.getCurrentEffectChain() ?: return
+        val effects = effectChain.getEffects()
+        val existingFilter = effects.firstOrNull { it is LowPassFilterEffect } as? LowPassFilterEffect
+
+        if (existingFilter != null) {
+            existingFilter.updateParameters(cutoffFrequencyInterpolated.getValue(), resonanceInterpolated.getValue())
+        } else {
+            effectChain.addEffect(
+                LowPassFilterEffect(
+                    cutoffFrequency = cutoffFrequencyInterpolated.getValue(),
+                    resonance = resonanceInterpolated.getValue(),
+                ),
+            )
+        }
+    }
+
+    /**
+     * Removes the low-pass filter from the effect chain if it exists.
+     * Smoothly transitions back to default values before removing.
+     */
+    private fun removeLowPassFilter() {
+        // Set target values back to default (no filter effect)
+        targetCutoffFrequency = 20000f // Very high cutoff = no filtering
+        targetResonance = 0.707f // Flat response
+
+        val effectChain = audioPlayer.getCurrentEffectChain() ?: return
+        val effects = effectChain.getEffects()
+        val lowPassIndex = effects.indexOfFirst { it is LowPassFilterEffect }
+        if (lowPassIndex >= 0) {
+            val existingFilter = effects[lowPassIndex] as? LowPassFilterEffect
+            val currentCutoff = cutoffFrequencyInterpolated.getValue()
+            val currentResonance = resonanceInterpolated.getValue()
+
+            // Update to interpolated values
+            existingFilter?.updateParameters(currentCutoff, currentResonance)
+
+            // Only remove if we're close enough to the default values (smooth transition complete)
+            // Check if cutoff is high enough and resonance is close to flat
+            if (currentCutoff >= 18000f && currentResonance <= 0.8f) {
+                effectChain.removeEffectAt(lowPassIndex)
+            }
+        }
+    }
+
     val isPauseMode: Boolean
         get() {
             val playbackMode = be.playbackMode.get()
@@ -293,11 +369,7 @@ class RecordPlayerBehaviour(
                 playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
         }
 
-    /**
-     * Count how many faces of the record player are covered by liquid.
-     * Returns a count from 0 to 6.
-     */
-    private fun countLiquidCoveredFaces(): Pair<Int, Boolean> {
+    private fun countLiquidCoveredFaces(ship: Ship? = null): Pair<Int, Boolean> {
         val level = be.level ?: return 0 to false
         val pos = be.blockPos
 
@@ -306,7 +378,18 @@ class RecordPlayerBehaviour(
         var waterCount = 0
 
         for (direction in Direction.entries) {
-            val fluidState = level.getFluidState(pos.relative(direction))
+            val relativePos = pos.relative(direction)
+
+            // Transform to world coordinates if on a ship
+            val checkPos =
+                if (ship != null) {
+                    val worldPos = ship.shipToWorld.transformPosition(relativePos.toVector3d(), Vector3d())
+                    BlockPos.containing(worldPos.toVec3())
+                } else {
+                    relativePos
+                }
+
+            val fluidState = level.getFluidState(checkPos)
 
             if (!fluidState.isEmpty) {
                 liquidCount++
@@ -324,41 +407,22 @@ class RecordPlayerBehaviour(
     }
 
     private fun updateUnderwaterFilter() {
-        val (liquidCoveredFaces, isThick) = countLiquidCoveredFaces()
+        val ship = getManagingShip()
+        val (liquidCoveredFaces, isThick) = countLiquidCoveredFaces(ship)
 
-        // Only update on client side where audio is played
         be.level?.onClient { _, _ ->
-            val effectChain = audioPlayer.getCurrentEffectChain()
-
             if (liquidCoveredFaces > 0) {
                 val maxEffectiveFaces = 4f
                 val minimumCutoff = if (isThick) 200f else 300f
                 val maximumResonance = if (isThick) 2.5f else 2f
 
                 val faceCount = liquidCoveredFaces.coerceAtMost(maxEffectiveFaces.toInt())
-
                 val cutoffFrequency = 1800f.lerpTo(minimumCutoff, 1 / maxEffectiveFaces * faceCount)
-
                 val resonance = 1f.lerpTo(maximumResonance, 1 / maxEffectiveFaces * faceCount)
 
-                effectChain?.let { chain ->
-                    val effects = chain.getEffects()
-                    val existingFilter = effects.firstOrNull { it is LowPassFilterEffect } as? LowPassFilterEffect
-
-                    if (existingFilter != null) {
-                        existingFilter.updateParameters(cutoffFrequency, resonance)
-                    } else {
-                        chain.addEffect(LowPassFilterEffect(cutoffFrequency = cutoffFrequency, resonance = resonance))
-                    }
-                }
+                applyLowPassFilter(cutoffFrequency, resonance)
             } else {
-                effectChain?.let { chain ->
-                    val effects = chain.getEffects()
-                    val lowPassIndex = effects.indexOfFirst { it is LowPassFilterEffect }
-                    if (lowPassIndex >= 0) {
-                        chain.removeEffectAt(lowPassIndex)
-                    }
-                }
+                removeLowPassFilter()
             }
         }
     }
@@ -455,6 +519,8 @@ class RecordPlayerBehaviour(
                                 PlaybackState.PLAYING -> {
                                     // Already playing, continue
                                 }
+
+                                else -> {}
                             }
                         }
                     } else {
