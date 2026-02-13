@@ -8,7 +8,7 @@ import me.mochibit.createharmonics.extension.lerpTo
 class FloatSupplierInterpolated(
     private val valueSupplier: () -> Float,
     private val interpolationDurationMs: Long = 100,
-) {
+) : FloatSupplier {
     @Volatile
     private var lastValue = 0f
 
@@ -27,7 +27,7 @@ class FloatSupplierInterpolated(
     private val isInitialized: Boolean
         get() = lastUpdateTime != 0L
 
-    fun getValue(): Float {
+    override fun getValue(): Float {
         // Use cached time if called multiple times in same millisecond
         val currentTime = System.currentTimeMillis()
 

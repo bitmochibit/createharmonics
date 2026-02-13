@@ -405,16 +405,11 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         val effects = effectChain.getEffects()
         val existingFilter = effects.firstOrNull { it is LowPassFilterEffect } as? LowPassFilterEffect
 
-        if (existingFilter != null) {
-            existingFilter.updateParameters(
-                tempData.cutoffFrequencyInterpolated!!.getValue(),
-                tempData.resonanceInterpolated!!.getValue(),
-            )
-        } else {
+        if (existingFilter == null) {
             effectChain.addEffect(
                 LowPassFilterEffect(
-                    cutoffFrequency = tempData.cutoffFrequencyInterpolated!!.getValue(),
-                    resonance = tempData.resonanceInterpolated!!.getValue(),
+                    tempData.cutoffFrequencyInterpolated!!,
+                    tempData.resonanceInterpolated!!,
                 ),
             )
         }
@@ -430,10 +425,10 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
         // Initialize interpolated suppliers if needed
         if (tempData.cutoffFrequencyInterpolated == null) {
-            tempData.cutoffFrequencyInterpolated = FloatSupplierInterpolated({ tempData.targetCutoffFrequency }, 1000)
+            tempData.cutoffFrequencyInterpolated = FloatSupplierInterpolated({ tempData.targetCutoffFrequency }, 500)
         }
         if (tempData.resonanceInterpolated == null) {
-            tempData.resonanceInterpolated = FloatSupplierInterpolated({ tempData.targetResonance }, 1000)
+            tempData.resonanceInterpolated = FloatSupplierInterpolated({ tempData.targetResonance }, 500)
         }
 
         // Set target values back to default (no filter effect)
@@ -443,20 +438,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         val effectChain = audioPlayer.getCurrentEffectChain() ?: return
         val effects = effectChain.getEffects()
         val lowPassIndex = effects.indexOfFirst { it is LowPassFilterEffect }
-        if (lowPassIndex >= 0) {
-            val existingFilter = effects[lowPassIndex] as? LowPassFilterEffect
-            val currentCutoff = tempData.cutoffFrequencyInterpolated!!.getValue()
-            val currentResonance = tempData.resonanceInterpolated!!.getValue()
-
-            // Update to interpolated values
-            existingFilter?.updateParameters(currentCutoff, currentResonance)
-
-            // Only remove if we're close enough to the default values (smooth transition complete)
-            // Check if cutoff is high enough and resonance is close to flat
-            if (currentCutoff >= 18000f && currentResonance <= 0.8f) {
-                effectChain.removeEffectAt(lowPassIndex)
-            }
-        }
+        effectChain.removeEffectAt(lowPassIndex, true)
     }
 
     private fun updateUnderwaterFilter(context: MovementContext) {

@@ -26,6 +26,12 @@ interface AudioEffect {
     fun reset() {}
 
     /**
+     * Boolean to check if the effect is currently running at base values, so virtually no effect is applied. This can be used to skip processing for optimization.
+     * Or to delay its removal or addition.
+     */
+    fun isBaseValues(): Boolean = false
+
+    /**
      * Get a human-readable name for this effect (for debugging/logging).
      */
     fun getName(): String = this::class.simpleName ?: "UnknownEffect"

@@ -2,15 +2,18 @@ package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
+import kotlinx.coroutines.Dispatchers
 import me.mochibit.createharmonics.ServerConfig
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
+import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.SimpleShipStreamSoundInstance
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.playFromRecord
+import me.mochibit.createharmonics.coroutine.launchDelayed
 import me.mochibit.createharmonics.extension.lerpTo
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
@@ -45,6 +48,7 @@ import thedarkcolour.kotlinforforge.forge.vectorutil.v3d.toVec3
 import thedarkcolour.kotlinforforge.forge.vectorutil.v3d.toVector3d
 import java.util.UUID
 import kotlin.math.abs
+import kotlin.time.Duration.Companion.milliseconds
 
 // Todo: Refactor the track logic to be cleaner and reusable with other behaviours too
 class RecordPlayerBehaviour(
@@ -235,12 +239,21 @@ class RecordPlayerBehaviour(
                                 SoundEvents.EMPTY,
                                 { be.blockPos },
                                 radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
-                                pitchSupplier = { pitchSupplierInterpolated.getValue() },
                                 volumeSupplier = { volumeSupplierInterpolated.getValue() },
                             )
                         }
                     },
                     playerId = recordPlayerUUID.toString(),
+                    onEffectChainCreate = { chain ->
+                        val effects = chain.getEffects()
+                        // Add a pitch shift effect to handle pitch changes based on speed, at 0 index in the chain
+                        if (effects.none { it is PitchShiftEffect }) {
+                            chain.addEffectAt(
+                                0,
+                                PitchShiftEffect(pitchSupplierInterpolated),
+                            )
+                        }
+                    },
                 )
             }
 
@@ -290,7 +303,6 @@ class RecordPlayerBehaviour(
                 posSupplier = { be.blockPos },
                 ship = ship,
                 radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
-                pitchSupplier = { pitchSupplierInterpolated.getValue() },
                 volumeSupplier = { volumeSupplierInterpolated.getValue() },
             )
         } else {
@@ -300,7 +312,6 @@ class RecordPlayerBehaviour(
                 SoundEvents.EMPTY,
                 { be.blockPos },
                 radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
-                pitchSupplier = { pitchSupplierInterpolated.getValue() },
                 volumeSupplier = { volumeSupplierInterpolated.getValue() },
             )
         }
@@ -322,13 +333,11 @@ class RecordPlayerBehaviour(
         val effects = effectChain.getEffects()
         val existingFilter = effects.firstOrNull { it is LowPassFilterEffect } as? LowPassFilterEffect
 
-        if (existingFilter != null) {
-            existingFilter.updateParameters(cutoffFrequencyInterpolated.getValue(), resonanceInterpolated.getValue())
-        } else {
+        if (existingFilter == null) {
             effectChain.addEffect(
                 LowPassFilterEffect(
-                    cutoffFrequency = cutoffFrequencyInterpolated.getValue(),
-                    resonance = resonanceInterpolated.getValue(),
+                    cutoffFrequencyInterpolated,
+                    resonanceInterpolated,
                 ),
             )
         }
@@ -339,26 +348,13 @@ class RecordPlayerBehaviour(
      * Smoothly transitions back to default values before removing.
      */
     private fun removeLowPassFilter() {
-        // Set target values back to default (no filter effect)
         targetCutoffFrequency = 20000f // Very high cutoff = no filtering
         targetResonance = 0.707f // Flat response
-
         val effectChain = audioPlayer.getCurrentEffectChain() ?: return
         val effects = effectChain.getEffects()
         val lowPassIndex = effects.indexOfFirst { it is LowPassFilterEffect }
         if (lowPassIndex >= 0) {
-            val existingFilter = effects[lowPassIndex] as? LowPassFilterEffect
-            val currentCutoff = cutoffFrequencyInterpolated.getValue()
-            val currentResonance = resonanceInterpolated.getValue()
-
-            // Update to interpolated values
-            existingFilter?.updateParameters(currentCutoff, currentResonance)
-
-            // Only remove if we're close enough to the default values (smooth transition complete)
-            // Check if cutoff is high enough and resonance is close to flat
-            if (currentCutoff >= 18000f && currentResonance <= 0.8f) {
-                effectChain.removeEffectAt(lowPassIndex)
-            }
+            effectChain.removeEffectAt(lowPassIndex, true)
         }
     }
 

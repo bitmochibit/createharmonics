@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.audio.effect
 
+import me.mochibit.createharmonics.foundation.math.FloatSupplier
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -7,29 +8,20 @@ import kotlin.math.roundToInt
 /**
  * Low-pass filter effect using a biquad filter.
  * Removes high frequencies, creating a muffled/underwater sound.
+ *
+ * @param cutoffFrequencySupplier Supplier for cutoff frequency in Hz
+ * @param resonanceSupplier Supplier for resonance/Q factor (0.0 to ~10.0, with 0.707 being "flat")
  */
 class LowPassFilterEffect(
-    cutoffFrequency: Float = 1000f,
-    resonance: Float = 0.7f, // 0.0 to ~10.0, with 0.707 being "flat"
+    private val cutoffFrequencySupplier: FloatSupplier,
+    private val resonanceSupplier: FloatSupplier,
 ) : AudioEffect {
-    // Target parameters (set by updateParameters)
-    private var targetCutoffFrequency: Float = cutoffFrequency
-    private var targetResonance: Float = resonance
-
-    // Current parameters (smoothed over time)
-    private var currentCutoffFrequency: Float = cutoffFrequency
-    private var currentResonance: Float = resonance
-
-    // Smoothing coefficient (smaller = smoother but slower response)
-    // 0.001 means it takes ~1000 samples to reach 63% of target at 44.1kHz
-    private val smoothingFactor = 0.002f
-
     private var x1 = 0f // input delayed by 1 sample
     private var x2 = 0f // input delayed by 2 samples
     private var y1 = 0f // output delayed by 1 sample
     private var y2 = 0f // output delayed by 2 samples
 
-    // Filter coefficients (calculated once per process call)
+    // Filter coefficients
     private var b0 = 0f
     private var b1 = 0f
     private var b2 = 0f
@@ -39,42 +31,11 @@ class LowPassFilterEffect(
     // Denormalization constant to prevent floating point issues
     private val denormalConstant = 1e-25f
 
-    /**
-     * Update the cutoff frequency dynamically.
-     * @param frequency The new cutoff frequency in Hz
-     */
-    fun setCutoffFrequency(frequency: Float) {
-        targetCutoffFrequency = frequency
-    }
+    // Cache for getName()
+    private var lastCutoffFrequency = 0f
+    private var lastResonance = 0f
 
-    /**
-     * Update the resonance (Q factor) dynamically.
-     * @param q The new resonance value (0.0 to ~10.0, with 0.707 being "flat")
-     */
-    fun setResonance(q: Float) {
-        targetResonance = q
-    }
-
-    /**
-     * Update both cutoff frequency and resonance at once.
-     */
-    fun updateParameters(
-        frequency: Float,
-        q: Float,
-    ) {
-        targetCutoffFrequency = frequency
-        targetResonance = q
-    }
-
-    /**
-     * Get the current cutoff frequency.
-     */
-    fun getCutoffFrequency(): Float = currentCutoffFrequency
-
-    /**
-     * Get the current resonance.
-     */
-    fun getResonance(): Float = currentResonance
+    override fun isBaseValues(): Boolean = lastCutoffFrequency == 20000f && lastResonance == 0.707f
 
     override fun process(
         samples: ShortArray,
@@ -83,25 +44,29 @@ class LowPassFilterEffect(
     ): ShortArray {
         val output = ShortArray(samples.size)
 
+        // Get current parameter values from suppliers
+        val cutoffFrequency = cutoffFrequencySupplier.getValue()
+        val resonance = resonanceSupplier.getValue()
+
+        // Cache for getName()
+        lastCutoffFrequency = cutoffFrequency
+        lastResonance = resonance
+
+        // Calculate coefficients once per buffer
+        calculateCoefficients(cutoffFrequency, resonance, sampleRate)
+
+        // Calculate makeup gain to compensate for resonance peaks
+        val makeupGain = 1.0f / (1.0f + (resonance - 0.707f).coerceAtLeast(0f) * 1.2f)
+
+        // Additional pre-attenuation for very high Q to prevent internal filter clipping
+        val preGain =
+            if (resonance > 2.0f) {
+                0.7f / (resonance / 2.0f)
+            } else {
+                1.0f
+            }
+
         for (i in samples.indices) {
-            // Smooth parameter changes per sample for artifact-free transitions
-            currentCutoffFrequency += (targetCutoffFrequency - currentCutoffFrequency) * smoothingFactor
-            currentResonance += (targetResonance - currentResonance) * smoothingFactor
-
-            // Recalculate coefficients with smoothed parameters
-            calculateCoefficients(sampleRate)
-
-            // Calculate makeup gain to compensate for resonance peaks
-            val makeupGain = 1.0f / (1.0f + (currentResonance - 0.707f).coerceAtLeast(0f) * 1.2f)
-
-            // Additional pre-attenuation for very high Q to prevent internal filter clipping
-            val preGain =
-                if (currentResonance > 2.0f) {
-                    0.7f / (currentResonance / 2.0f)
-                } else {
-                    1.0f
-                }
-
             val input = samples[i].toFloat() * preGain
 
             // Biquad filter difference equation
@@ -159,11 +124,15 @@ class LowPassFilterEffect(
         }
     }
 
-    private fun calculateCoefficients(sampleRate: Int) {
+    private fun calculateCoefficients(
+        cutoffFrequency: Float,
+        resonance: Float,
+        sampleRate: Int,
+    ) {
         // Clamp resonance to prevent instability
-        val q = currentResonance.coerceIn(0.1f, 20.0f)
+        val q = resonance.coerceIn(0.1f, 20.0f)
 
-        val omega = 2.0f * Math.PI.toFloat() * currentCutoffFrequency / sampleRate
+        val omega = 2.0f * Math.PI.toFloat() * cutoffFrequency / sampleRate
         val cosOmega = cos(omega.toDouble()).toFloat()
         val alpha = kotlin.math.sin(omega.toDouble()).toFloat() / (2.0f * q)
 
@@ -189,5 +158,5 @@ class LowPassFilterEffect(
         y2 = 0f
     }
 
-    override fun getName(): String = "LowPass(${currentCutoffFrequency.toInt()}Hz, Q=${String.format("%.1f", currentResonance)})"
+    override fun getName(): String = "LowPass(${lastCutoffFrequency.toInt()}Hz, Q=${String.format("%.1f", lastResonance)})"
 }

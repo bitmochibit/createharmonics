@@ -25,7 +25,6 @@ import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import java.io.InputStream
 import java.util.UUID
-import kotlin.time.Duration.Companion.seconds
 
 typealias StreamId = String
 typealias StreamingSoundInstanceProvider = (streamId: StreamId, stream: InputStream) -> SoundInstance
@@ -48,6 +47,7 @@ class AudioPlayer(
     val soundInstanceProvider: StreamingSoundInstanceProvider,
     val playerId: String = UUID.randomUUID().toString(),
     val sampleRate: Int = 48000,
+    val onEffectChainCreate: ((effectChain: EffectChain) -> Unit)? = null,
 ) {
     /**
      * Represents the current playback state of the audio player.
@@ -183,6 +183,7 @@ class AudioPlayer(
 
                 playState = PlayState.LOADING
                 context = PlaybackContext(source, effectChain, soundEventComposition, offsetSeconds)
+                onEffectChainCreate?.invoke(effectChain)
                 playbackContext = context
             }
 
@@ -238,6 +239,7 @@ class AudioPlayer(
 
                 playState = PlayState.LOADING
                 context = PlaybackContext(source, effectChain, soundEventComposition, offsetSeconds)
+                onEffectChainCreate?.invoke(effectChain)
                 playbackContext = context
             }
 
