@@ -48,4 +48,6 @@ class PitchShiftEffect(
 
         return output
     }
+
+    override fun getSpeedMultiplier(): Double = pitchShiftProvider.getValue().coerceIn(0.25f, 4.0f).toDouble()
 }

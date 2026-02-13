@@ -13,6 +13,7 @@ import me.mochibit.createharmonics.ServerConfig
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
+import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.PlaybackState
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
@@ -895,12 +896,21 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                         streamId,
                         SoundEvents.EMPTY,
                         posSupplier = { BlockPos.containing(context.position) },
-                        pitchSupplier = buildPitchSupplier(context),
                         radiusSupplier = buildRadiusSupplier(context),
                         volumeSupplier = buildVolumeSupplier(context),
                     )
                 },
                 playerId,
+                onEffectChainCreate = { chain ->
+                    val effects = chain.getEffects()
+                    // Add a pitch shift effect to handle pitch changes based on speed, at 0 index in the chain
+                    if (effects.none { it is PitchShiftEffect }) {
+                        chain.addEffectAt(
+                            0,
+                            PitchShiftEffect(buildPitchSupplier(context)),
+                        )
+                    }
+                },
             )
         }
     }

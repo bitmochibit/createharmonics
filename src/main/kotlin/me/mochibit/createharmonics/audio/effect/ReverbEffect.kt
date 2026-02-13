@@ -2,110 +2,141 @@ package me.mochibit.createharmonics.audio.effect
 
 import kotlin.math.roundToInt
 
-/**
- * Enhanced reverb effect using a feedback delay network with early reflections.
- * Creates a rich room ambience effect with natural decay.
- *
- * @param roomSize 0.0 to 1.0 - larger values create longer reverb tail
- * @param damping 0.0 to 1.0 - higher values create darker/warmer sound
- * @param wetMix 0.0 to 1.0 - amount of reverb in the output
- */
 class ReverbEffect(
     private val roomSize: Float = 0.7f,
     private val damping: Float = 0.4f,
     private val wetMix: Float = 0.5f,
 ) : AudioEffect {
-    // Early reflection delays (in samples) - creates initial room response
-    private val earlyDelayTimes = intArrayOf(397, 457, 541, 631, 727, 839)
-    private val earlyBuffers = Array(earlyDelayTimes.size) { FloatArray(2000) }
-    private val earlyPositions = IntArray(earlyDelayTimes.size) { 0 }
+    companion object {
+        private val COMB_TUNINGS = intArrayOf(1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617)
+        private val ALLPASS_TUNINGS = intArrayOf(556, 441, 341, 225)
 
-    // Late reverb delay lines - longer times for tail (much larger for cathedral effect)
-    private val lateDelayTimes = intArrayOf(3557, 3617, 3491, 3422, 3277, 3356, 3188, 3116)
-    private val lateBuffers = Array(lateDelayTimes.size) { FloatArray(32000) } // Much larger for cathedral reverb
-    private val latePositions = IntArray(lateDelayTimes.size) { 0 }
-    private val filterStates = FloatArray(lateDelayTimes.size) { 0f }
+        private const val SCALE_ROOM = 0.28f
+        private const val OFFSET_ROOM = 0.7f
+        private const val SCALE_DAMPING = 0.4f
+        private const val FIXED_GAIN = 0.015f
+        private const val ALLPASS_FEEDBACK = 0.5f
+    }
+
+    private val combBuffers = Array(8) { FloatArray(COMB_TUNINGS[it]) }
+    private val combIndices = IntArray(8)
+    private val combFilterStates = FloatArray(8)
+
+    private val allpassBuffers = Array(4) { FloatArray(ALLPASS_TUNINGS[it]) }
+    private val allpassIndices = IntArray(4)
+
+    private var roomScale = 0f
+    private var damp1 = 0f
+    private var damp2 = 0f
+
+    init {
+        updateParameters()
+    }
+
+    private fun updateParameters() {
+        val safeRoomSize = roomSize.coerceIn(0f, 1f)
+        roomScale = (safeRoomSize * SCALE_ROOM + OFFSET_ROOM).coerceIn(0f, 0.98f)
+
+        val safeDamping = damping.coerceIn(0f, 1f)
+        damp1 = safeDamping * SCALE_DAMPING
+        damp2 = 1.0f - damp1
+    }
 
     override fun process(
         samples: ShortArray,
         timeInSeconds: Double,
         sampleRate: Int,
     ): ShortArray {
-        if (wetMix <= 0.0f) return samples // No reverb
+        if (wetMix <= 0.0f) return samples
 
         val output = ShortArray(samples.size)
-        val dryMix = 1.0f - wetMix
+        val safeWetMix = wetMix.coerceIn(0f, 1f)
+        val dryMix = 1.0f - safeWetMix
 
         for (i in samples.indices) {
-            val input = samples[i].toFloat()
-            var earlyReflections = 0f
-            var lateReverb = 0f
+            val input = samples[i].toFloat() / 32768.0f
+            var combOutput = 0f
 
-            // Process early reflections (no feedback, shorter delays)
-            for (j in earlyBuffers.indices) {
-                val delayTime =
-                    (earlyDelayTimes[j] * (0.5f + roomSize * 1.5f))
-                        .roundToInt()
-                        .coerceIn(1, earlyBuffers[j].size - 1)
-                val buffer = earlyBuffers[j]
-                val pos = earlyPositions[j]
+            for (c in 0..7) {
+                val bufferIndex = combIndices[c]
+                val bufferSize = combBuffers[c].size
 
-                // Read delayed sample from the buffer
-                val delayedSample = buffer[pos]
-                earlyReflections += delayedSample * 0.8f
+                if (bufferIndex >= bufferSize) {
+                    combIndices[c] = 0
+                    continue
+                }
 
-                // Write new input to buffer (overwrite old data)
-                buffer[pos] = input
+                // Read delayed sample
+                val delayedSample = combBuffers[c][bufferIndex]
 
-                // Update position (circular buffer)
-                earlyPositions[j] = (pos + 1) % delayTime
+                if (!delayedSample.isFinite()) {
+                    combBuffers[c][bufferIndex] = 0f
+                    combFilterStates[c] = 0f
+                    combIndices[c] = (bufferIndex + 1) % bufferSize
+                    continue
+                }
+
+                // One-pole lowpass filter (damping)
+                val filtered = delayedSample * damp2 + combFilterStates[c] * damp1
+                combFilterStates[c] = filtered
+
+                // Write input + feedback to buffer
+                val feedback = filtered * roomScale
+                combBuffers[c][bufferIndex] = (input + feedback).coerceIn(-2f, 2f)
+
+                combOutput += delayedSample
+
+                combIndices[c] = (bufferIndex + 1) % bufferSize
             }
 
-            // Process late reverb (with feedback for tail)
-            for (j in lateBuffers.indices) {
-                val delayTime =
-                    (lateDelayTimes[j] * (1.0f + roomSize * 4.0f))
-                        .roundToInt()
-                        .coerceIn(1, lateBuffers[j].size - 1)
-                val buffer = lateBuffers[j]
-                val pos = latePositions[j]
+            var apOutput = combOutput
+            for (a in 0..3) {
+                val bufferIndex = allpassIndices[a]
+                val bufferSize = allpassBuffers[a].size
 
-                // Read delayed sample from the buffer
-                val delayedSample = buffer[pos]
+                if (bufferIndex >= bufferSize) {
+                    allpassIndices[a] = 0
+                    continue
+                }
 
-                // Apply damping filter (simple low-pass)
-                filterStates[j] = filterStates[j] * damping + delayedSample * (1.0f - damping)
+                val delayed = allpassBuffers[a][bufferIndex]
 
-                // Write new sample with feedback (mix input with filtered delayed signal)
-                val feedback = 0.88f + (roomSize * 0.1f) // Much stronger feedback for long tail
-                buffer[pos] = (input * 0.05f) + (filterStates[j] * feedback)
+                if (!apOutput.isFinite() || !delayed.isFinite()) {
+                    allpassBuffers[a][bufferIndex] = 0f
+                    allpassIndices[a] = (bufferIndex + 1) % bufferSize
+                    continue
+                }
 
-                // Update position (circular buffer)
-                latePositions[j] = (pos + 1) % delayTime
+                // All-pass filter formula
+                val apInput = apOutput
+                apOutput = -apInput + delayed
 
-                // Accumulate reverb
-                lateReverb += filterStates[j]
+                // Store: input + (delayed * feedback)
+                allpassBuffers[a][bufferIndex] = (apInput + delayed * ALLPASS_FEEDBACK).coerceIn(-2f, 2f)
+
+                allpassIndices[a] = (bufferIndex + 1) % bufferSize
             }
 
-            // Normalize and combine early + late reverb
-            earlyReflections /= earlyBuffers.size
-            lateReverb /= lateBuffers.size
-            val reverbSample = earlyReflections * 0.5f + lateReverb * 1.5f // Boost late reverb
+            if (!apOutput.isFinite()) {
+                apOutput = 0f
+            }
 
-            // Mix dry and wet signals
-            val mixed = input * dryMix + reverbSample * wetMix * 2.0f // Amplify wet signal
-            output[i] = mixed.roundToInt().coerceIn(-32768, 32767).toShort()
+            // Mix
+            val finalSample = input * dryMix + apOutput * safeWetMix * FIXED_GAIN
+            val safeFinal = finalSample.coerceIn(-1.0f, 1.0f)
+            output[i] = (safeFinal * 32767.0f).roundToInt().coerceIn(-32768, 32767).toShort()
         }
 
         return output
     }
 
     override fun reset() {
-        earlyBuffers.forEach { it.fill(0f) }
-        earlyPositions.fill(0)
-        lateBuffers.forEach { it.fill(0f) }
-        latePositions.fill(0)
-        filterStates.fill(0f)
+        combBuffers.forEach { it.fill(0f) }
+        combIndices.fill(0)
+        combFilterStates.fill(0f)
+        allpassBuffers.forEach { it.fill(0f) }
+        allpassIndices.fill(0)
+        updateParameters()
     }
 
     override fun getName(): String = "Reverb(room=$roomSize, damp=$damping, wet=$wetMix)"

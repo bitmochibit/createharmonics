@@ -31,6 +31,8 @@ interface AudioEffect {
      */
     fun isBaseValues(): Boolean = false
 
+    fun getSpeedMultiplier(): Double = 1.0
+
     /**
      * Get a human-readable name for this effect (for debugging/logging).
      */

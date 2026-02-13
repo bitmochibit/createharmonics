@@ -14,12 +14,26 @@ class EffectChain(
         timeInSeconds: Double,
         sampleRate: Int,
     ): ShortArray {
-        val currentEffects = effects
+        // Synchronize to ensure we have a consistent view of the effects list
+        // This is very fast as we just capture the reference
+        val currentEffects = synchronized(this) { effects }
         var result = samples
         for (effect in currentEffects) {
             result = effect.process(result, timeInSeconds, sampleRate)
         }
         return result
+    }
+
+    override fun getSpeedMultiplier(): Double {
+        // Check if theres a pitch shift effect in the chain, and if so return its multiplier, otherwise return 1.0
+        val currentEffects = synchronized(this) { effects }
+        for (effect in currentEffects) {
+            val multiplier = effect.getSpeedMultiplier()
+            if (multiplier != 1.0) {
+                return multiplier
+            }
+        }
+        return 1.0
     }
 
     override fun reset() {

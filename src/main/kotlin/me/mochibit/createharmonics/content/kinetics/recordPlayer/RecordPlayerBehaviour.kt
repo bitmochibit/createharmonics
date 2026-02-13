@@ -221,8 +221,8 @@ class RecordPlayerBehaviour(
     // Start with "no filter" values (very high cutoff, flat resonance)
     private var targetCutoffFrequency = 20000f
     private var targetResonance = 0.707f
-    val cutoffFrequencyInterpolated = FloatSupplierInterpolated({ targetCutoffFrequency }, 1000)
-    val resonanceInterpolated = FloatSupplierInterpolated({ targetResonance }, 1000)
+    val cutoffFrequencyInterpolated = FloatSupplierInterpolated({ targetCutoffFrequency }, 500)
+    val resonanceInterpolated = FloatSupplierInterpolated({ targetResonance }, 500)
 
     private val audioPlayer: AudioPlayer
         get() =

@@ -319,9 +319,9 @@ class AudioPlayer(
         val audioStream = createAudioEffectInputStream(rawInputStream, context)
         context.processingAudioStream = audioStream
 
-        if (!audioStream.awaitPreBuffering()) {
-            throw IllegalStateException("Pre-buffering timeout")
-        }
+//        if (!audioStream.awaitPreBuffering()) {
+//            throw IllegalStateException("Pre-buffering timeout")
+//        }
 
         if (playState != PlayState.LOADING) {
             throw IllegalStateException("Aborting playback")
@@ -425,9 +425,9 @@ class AudioPlayer(
         val audioStream = createAudioEffectInputStream(inputStream, context, sampleRateOverride)
         context.processingAudioStream = audioStream
 
-        if (!audioStream.awaitPreBuffering()) {
-            throw IllegalStateException("Pre-buffering timeout")
-        }
+//        if (!audioStream.awaitPreBuffering()) {
+//            throw IllegalStateException("Pre-buffering timeout")
+//        }
 
         if (playState != PlayState.LOADING) {
             throw IllegalStateException("Aborting playback")
