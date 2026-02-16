@@ -1,0 +1,11 @@
+{
+  "type": "createharmonics:add_record_to_end_ship",
+  "conditions": [
+    {
+      "condition": "minecraft:loot_table_id",
+      "loot_table_id": "minecraft:chests/end_city_treasure"
+    }
+  ],
+  "item": "minecraft:redstone",
+  "chance": 1.0
+}

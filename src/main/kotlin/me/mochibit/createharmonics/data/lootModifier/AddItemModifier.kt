@@ -25,6 +25,7 @@ class AddItemModifier(
         if (context.random.nextFloat() < chance) {
             generatedLoot.add(ItemStack(item))
         }
+        println("AddItemModifier triggered! Loot size before = ${generatedLoot.size}")
 
         return generatedLoot
     }
