@@ -1,0 +1,15 @@
+{
+  "replace": false,
+  "conditions": [
+    {
+      "condition": "minecraft:reference",
+      "name": "minecraft:chests/simple_dungeon"
+    }
+  ],
+  "entries": [
+    {
+      "type": "minecraft:item",
+      "name": "minecraft:diamond"
+    }
+  ]
+}
