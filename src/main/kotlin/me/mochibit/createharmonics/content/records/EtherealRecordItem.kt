@@ -5,8 +5,8 @@ import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.audio.effect.getStreamDirectly
 import me.mochibit.createharmonics.audio.stream.Ogg2PcmInputStream
+import me.mochibit.createharmonics.audio.utils.getStreamDirectly
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
