@@ -6,6 +6,6 @@
       "loot_table_id": "minecraft:chests/end_city_treasure"
     }
   ],
-  "item": "minecraft:redstone",
-  "chance": 1.0
+  "item": "createharmonics:ethereal_record_base",
+  "chance": 0.10
 }
