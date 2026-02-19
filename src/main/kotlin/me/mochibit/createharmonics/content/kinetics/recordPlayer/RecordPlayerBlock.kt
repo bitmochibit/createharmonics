@@ -40,8 +40,7 @@ import kotlin.math.max
 abstract class RecordPlayerBlock(
     properties: Properties,
 ) : DirectionalKineticBlock(properties),
-    IBE<RecordPlayerBlockEntity>,
-    ProperWaterloggedBlock {
+    IBE<RecordPlayerBlockEntity> {
     companion object {
         private val RANDOM = RandomSource.create()
         val POWERED = BlockStateProperties.POWERED
@@ -51,7 +50,6 @@ abstract class RecordPlayerBlock(
         registerDefaultState(
             defaultBlockState()
                 .setValue(JukeboxBlock.HAS_RECORD, false)
-                .setValue(ProperWaterloggedBlock.WATERLOGGED, false)
                 .setValue(POWERED, false),
         )
     }
@@ -137,12 +135,9 @@ abstract class RecordPlayerBlock(
     override fun getStateForPlacement(context: BlockPlaceContext): BlockState? {
         val pos = context.clickedPos
         val placed = super.getStateForPlacement(context) ?: return null
-        return withWater(
-            placed.setValue(
-                PackagerLinkBlock.POWERED,
-                getPower(placed, context.level, pos) > 0,
-            ),
-            context,
+        return placed.setValue(
+            PackagerLinkBlock.POWERED,
+            getPower(placed, context.level, pos) > 0,
         )
     }
 
@@ -184,10 +179,7 @@ abstract class RecordPlayerBlock(
         pLevel: LevelAccessor,
         pPos: BlockPos,
         pNeighborPos: BlockPos,
-    ): BlockState {
-        updateWater(pLevel, pState, pPos)
-        return pState
-    }
+    ): BlockState = pState
 
     override fun getRotationAxis(state: BlockState): Direction.Axis = state.getValue(FACING).axis
 

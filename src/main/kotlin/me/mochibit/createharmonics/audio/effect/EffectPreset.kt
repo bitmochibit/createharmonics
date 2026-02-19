@@ -36,8 +36,8 @@ sealed interface EffectPreset {
         private var targetCutoffFrequency = 20000f
         private var targetResonance = 0.707f
 
-        val cutoffFrequencyInterpolated = FloatSupplierInterpolated({ targetCutoffFrequency }, 500)
-        val resonanceInterpolated = FloatSupplierInterpolated({ targetResonance }, 500)
+        val cutoffFrequencyInterpolated = FloatSupplierInterpolated({ targetCutoffFrequency }, 100)
+        val resonanceInterpolated = FloatSupplierInterpolated({ targetResonance }, 100)
 
         private fun applyLowPassFilter(
             audioPlayer: AudioPlayer,
