@@ -76,7 +76,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         var playerInitialized: Boolean = false,
         var skipNextUpdate: Boolean = false,
         var lastSyncTick: Long = 0L, // Track when we last synced to force periodic updates
-        val lazyTickRate: Int = 1,
+        val lazyTickRate: Int = 10,
         var tickCounter: Int = lazyTickRate,
         // Interpolated suppliers for underwater filter effect
         // Start with "no filter" values (very high cutoff, flat resonance)
@@ -347,13 +347,44 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
     fun tickLazy(context: MovementContext) {
         context.world.onClient { level, virtual ->
-            val tempData = getOrCreateTemporaryData(context)
             val player = getOrCreateAudioPlayer(getPlayerUUID(context).toString(), context)
-            tempData.underwaterFilter.update(
-                player,
-                BlockPos.containing(context.position),
-                level,
-            )
+            val displacement = level.random.nextInt(4) / 24f
+
+            val facing = context.state.getValue(BlockStateProperties.FACING)
+            val localDirection = Vec3(facing.stepX.toDouble(), facing.stepY.toDouble(), facing.stepZ.toDouble())
+            val worldDirection = context.rotation.apply(localDirection).normalize()
+
+            val spawnPos = context.position.add(worldDirection.scale(0.7 + displacement))
+
+            when (player.state) {
+                AudioPlayer.PlayState.LOADING -> {
+                    level.addParticle(
+                        ShriekParticleOption(2),
+                        false,
+                        spawnPos.x,
+                        spawnPos.y,
+                        spawnPos.z,
+                        0.0,
+                        12.5,
+                        0.0,
+                    )
+                }
+
+                AudioPlayer.PlayState.PLAYING -> {
+                    level.addParticle(
+                        ParticleTypes.NOTE,
+                        spawnPos.x + displacement,
+                        spawnPos.y + displacement,
+                        spawnPos.z + displacement,
+                        level.random.nextFloat().toDouble(),
+                        0.0,
+                        0.0,
+                    )
+                }
+
+                else -> {
+                }
+            }
         }
     }
 
@@ -605,48 +636,6 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
         val player = getOrCreateAudioPlayer(playerId, context)
 
-        val r = context.world.getRandom()
-        val c = context.position
-        val v =
-            c.add(
-                VecHelper
-                    .offsetRandomly(Vec3.ZERO, r, .125f)
-                    .multiply(1.0, 5.0, 1.0),
-            )
-        if (r.nextInt(15) == 0) {
-            when (player.state) {
-                AudioPlayer.PlayState.LOADING -> {
-                    context.world.addParticle(
-                        ShriekParticleOption(2),
-                        false,
-                        v.x,
-                        v.y,
-                        v.z,
-                        0.0,
-                        12.5,
-                        0.0,
-                    )
-                }
-
-                AudioPlayer.PlayState.PLAYING -> {
-                    context.world.addParticle(
-                        ParticleTypes.NOTE,
-                        v.x,
-                        v.y,
-                        v.z,
-                        context.world.random
-                            .nextFloat()
-                            .toDouble(),
-                        0.0,
-                        0.0,
-                    )
-                }
-
-                else -> {
-                }
-            }
-        }
-
         if (player.state == AudioPlayer.PlayState.LOADING) {
             return
         }
@@ -658,6 +647,12 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         val currentSpeed = abs(context.animationSpeed)
         val isStalled = context.stall
         val currentTick = context.world.gameTime
+
+        tempData.underwaterFilter.update(
+            player,
+            context.position,
+            context.world,
+        )
 
         val wasAudioEnded = tempData.audioEnded
         if (wasAudioEnded) {

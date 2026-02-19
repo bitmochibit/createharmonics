@@ -1,20 +1,36 @@
 package me.mochibit.createharmonics.audio.effect
 
+import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.extension.countLiquidCoveredFaces
 import me.mochibit.createharmonics.extension.getManagingShip
 import me.mochibit.createharmonics.extension.lerpTo
 import me.mochibit.createharmonics.foundation.math.FloatSupplierInterpolated
-import net.minecraft.core.BlockPos
+import net.minecraft.core.Vec3i
 import net.minecraft.world.level.Level
-import kotlin.compareTo
+import net.minecraft.world.phys.Vec3
+import org.valkyrienskies.mod.common.getShipManagingPos
 
 sealed interface EffectPreset {
     fun update(
         audioPlayer: AudioPlayer,
-        blockPos: BlockPos,
+        x: Double,
+        y: Double,
+        z: Double,
         level: Level,
     )
+
+    fun update(
+        audioPlayer: AudioPlayer,
+        blockPos: Vec3,
+        level: Level,
+    ) = update(audioPlayer, blockPos.x, blockPos.y, blockPos.z, level)
+
+    fun update(
+        audioPlayer: AudioPlayer,
+        blockPos: Vec3i,
+        level: Level,
+    ) = update(audioPlayer, blockPos.x.toDouble(), blockPos.y.toDouble(), blockPos.z.toDouble(), level)
 
     class UnderwaterFilter : EffectPreset {
         private var targetCutoffFrequency = 20000f
@@ -23,16 +39,11 @@ sealed interface EffectPreset {
         val cutoffFrequencyInterpolated = FloatSupplierInterpolated({ targetCutoffFrequency }, 500)
         val resonanceInterpolated = FloatSupplierInterpolated({ targetResonance }, 500)
 
-        /**
-         * Updates or adds a low-pass filter with the specified parameters.
-         * If the filter exists, updates its parameters. Otherwise, adds a new filter.
-         */
         private fun applyLowPassFilter(
             audioPlayer: AudioPlayer,
             cutoffFrequency: Float,
             resonance: Float,
         ) {
-            // Update target values for interpolation
             targetCutoffFrequency = cutoffFrequency
             targetResonance = resonance
 
@@ -50,13 +61,9 @@ sealed interface EffectPreset {
             }
         }
 
-        /**
-         * Removes the low-pass filter from the effect chain if it exists.
-         * Smoothly transitions back to default values before removing.
-         */
         private fun removeLowPassFilter(audioPlayer: AudioPlayer) {
-            targetCutoffFrequency = 20000f // Very high cutoff = no filtering
-            targetResonance = 0.707f // Flat response
+            targetCutoffFrequency = 20000f
+            targetResonance = 0.707f
             val effectChain = audioPlayer.getCurrentEffectChain() ?: return
             val effects = effectChain.getEffects()
             val lowPassIndex = effects.indexOfFirst { it is LowPassFilterEffect }
@@ -67,13 +74,16 @@ sealed interface EffectPreset {
 
         override fun update(
             audioPlayer: AudioPlayer,
-            blockPos: BlockPos,
+            x: Double,
+            y: Double,
+            z: Double,
             level: Level,
         ) {
+            if (level is VirtualRenderWorld) return
             if (!level.isClientSide) return
 
-            val managingShip = blockPos.getManagingShip(level)
-            val (liquidCoveredFaces, isThick) = blockPos.countLiquidCoveredFaces(level, managingShip)
+            val managingShip = level.getShipManagingPos(x, y, z)
+            val (liquidCoveredFaces, isThick) = level.countLiquidCoveredFaces(x, y, z, managingShip)
 
             if (liquidCoveredFaces > 0) {
                 val maxEffectiveFaces = 4f
