@@ -29,45 +29,66 @@ fun Level.countLiquidCoveredFaces(
     var viscousCount = 0
     var waterCount = 0
 
+    fun accumulateFluid(fluidState: FluidState) {
+        liquidCount++
+        when {
+            fluidState.fluidType.viscosity > 1000 -> viscousCount++
+            fluidState.`is`(FluidTags.WATER) -> waterCount++
+        }
+    }
+
+    // Fast-path: if the center position itself is submerged, the source is fully surrounded —
+    // treat all 6 faces as covered immediately without checking any neighbours.
+
+    // Check ship-local center first (cheapest — no transform needed)
+    if (ship != null) {
+        val shipCenterFluid = getFluidState(x.toInt(), y.toInt(), z.toInt())
+        if (!shipCenterFluid.isEmpty) {
+            return Direction.entries.size to (shipCenterFluid.fluidType.viscosity > 1000)
+        }
+    }
+
+    // Check world-space center
+    val centerWorldPos: Vector3d =
+        if (ship != null) {
+            ship.shipToWorld.transformPosition(x, y, z, Vector3d())
+        } else {
+            Vector3d(x, y, z)
+        }
+
+    val centerFluid = getFluidState(centerWorldPos.x.toInt(), centerWorldPos.y.toInt(), centerWorldPos.z.toInt())
+    if (!centerFluid.isEmpty) {
+        return Direction.entries.size to (centerFluid.fluidType.viscosity > 1000)
+    }
+
     for (direction in Direction.entries) {
         val nx = x + direction.stepX
         val ny = y + direction.stepY
         val nz = z + direction.stepZ
 
-        if (ship != null) {
-            val shipFluidState = getFluidState(nx.toInt(), ny.toInt(), nz.toInt())
-
-            if (!shipFluidState.isEmpty) {
-                // There's fluid on the ship itself covering this face
-                liquidCount++
-                when {
-                    shipFluidState.fluidType.viscosity > 1000 -> viscousCount++
-                    shipFluidState.`is`(FluidTags.WATER) -> waterCount++
-                }
-                continue
+        // 1. World-space check — always takes priority
+        val worldNeighbor: Vector3d =
+            if (ship != null) {
+                ship.shipToWorld.transformPosition(nx, ny, nz, Vector3d())
+            } else {
+                Vector3d(nx, ny, nz)
             }
 
-            // If the ship block is not air and not fluid, it's blocking — skip
-            val shipBlock = getBlockState(nx.toInt(), ny.toInt(), nz.toInt())
-            if (!shipBlock.isAir) continue
+        val worldFluid = getFluidState(worldNeighbor.x.toInt(), worldNeighbor.y.toInt(), worldNeighbor.z.toInt())
+        if (!worldFluid.isEmpty) {
+            accumulateFluid(worldFluid)
+            continue
         }
 
-        // Check world-space fluid
-        val (cx, cy, cz) =
-            if (ship != null) {
-                val worldPos = ship.shipToWorld.transformPosition(nx, ny, nz, Vector3d())
-                Triple(worldPos.x, worldPos.y, worldPos.z)
-            } else {
-                Triple(nx, ny, nz)
-            }
+        // 2. If the world block is non-air and non-fluid, it physically blocks this face — skip ship check
+        val worldBlock = getBlockState(worldNeighbor.x.toInt(), worldNeighbor.y.toInt(), worldNeighbor.z.toInt())
+        if (!worldBlock.isAir) continue
 
-        val fluidState = getFluidState(cx.toInt(), cy.toInt(), cz.toInt())
-
-        if (!fluidState.isEmpty) {
-            liquidCount++
-            when {
-                fluidState.fluidType.viscosity > 1000 -> viscousCount++
-                fluidState.`is`(FluidTags.WATER) -> waterCount++
+        // 3. Fallback: check ship-local space (handles fluid blocks that are part of the ship itself)
+        if (ship != null) {
+            val shipFluid = getFluidState(nx.toInt(), ny.toInt(), nz.toInt())
+            if (!shipFluid.isEmpty) {
+                accumulateFluid(shipFluid)
             }
         }
     }

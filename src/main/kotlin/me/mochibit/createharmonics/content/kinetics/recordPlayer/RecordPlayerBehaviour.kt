@@ -430,11 +430,14 @@ class RecordPlayerBehaviour(
                 }
             }
         }
+
+        level.onClient { level, virtual ->
+            underwaterEffect.update(audioPlayer, be.blockPos, level)
+        }
     }
 
     override fun lazyTick() {
         this.be.level?.onClient { level, virtual ->
-            underwaterEffect.update(audioPlayer, be.blockPos, level)
             val pos = Vec3.atBottomCenterOf(be.blockPos).add(0.0, 1.2, 0.0)
             val displacement = level.random.nextInt(4) / 24f
             when (audioPlayer.state) {

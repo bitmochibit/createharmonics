@@ -36,40 +36,50 @@ sealed interface EffectPreset {
         private var targetCutoffFrequency = 20000f
         private var targetResonance = 0.707f
 
-        val cutoffFrequencyInterpolated = FloatSupplierInterpolated({ targetCutoffFrequency }, 100)
-        val resonanceInterpolated = FloatSupplierInterpolated({ targetResonance }, 100)
+        val cutoffFrequencyInterpolated = FloatSupplierInterpolated({ targetCutoffFrequency }, 900)
+        val resonanceInterpolated = FloatSupplierInterpolated({ targetResonance }, 900)
 
         private fun applyLowPassFilter(
             audioPlayer: AudioPlayer,
             cutoffFrequency: Float,
             resonance: Float,
         ) {
-            targetCutoffFrequency = cutoffFrequency
-            targetResonance = resonance
-
             val effectChain = audioPlayer.getCurrentEffectChain() ?: return
             val effects = effectChain.getEffects()
             val existingFilter = effects.firstOrNull { it is LowPassFilterEffect } as? LowPassFilterEffect
 
             if (existingFilter == null) {
+                // Force initialization of interpolators at base (no-effect) values before updating the target,
+                // so the transition interpolates smoothly from base to the active filter values on add.
+                cutoffFrequencyInterpolated.getValue()
+                resonanceInterpolated.getValue()
+                targetCutoffFrequency = cutoffFrequency
+                targetResonance = resonance
                 effectChain.addEffect(
                     LowPassFilterEffect(
                         cutoffFrequencyInterpolated,
                         resonanceInterpolated,
                     ),
                 )
+            } else {
+                targetCutoffFrequency = cutoffFrequency
+                targetResonance = resonance
             }
         }
 
         private fun removeLowPassFilter(audioPlayer: AudioPlayer) {
-            targetCutoffFrequency = 20000f
-            targetResonance = 0.707f
             val effectChain = audioPlayer.getCurrentEffectChain() ?: return
             val effects = effectChain.getEffects()
             val lowPassIndex = effects.indexOfFirst { it is LowPassFilterEffect }
-            if (lowPassIndex >= 0) {
-                effectChain.removeEffectAt(lowPassIndex, true)
-            }
+            if (lowPassIndex < 0) return
+
+            // Ensure interpolators are initialized at the current active values before
+            // setting base targets, so the fade-out interpolates smoothly rather than snapping.
+            cutoffFrequencyInterpolated.getValue()
+            resonanceInterpolated.getValue()
+            targetCutoffFrequency = 20000f
+            targetResonance = 0.707f
+            effectChain.removeEffectAt(lowPassIndex, true)
         }
 
         override fun update(
