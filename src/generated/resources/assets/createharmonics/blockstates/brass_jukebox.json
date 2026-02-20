@@ -2,106 +2,106 @@
   "variants": {
     "facing=down,has_record=false,powered=false": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
-      "x": 90,
-      "y": 180
+      "x": 180
     },
     "facing=down,has_record=false,powered=true": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
-      "x": 90,
-      "y": 180
+      "x": 180
     },
     "facing=down,has_record=true,powered=false": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
-      "x": 90,
-      "y": 180
+      "x": 180
     },
     "facing=down,has_record=true,powered=true": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
-      "x": 90,
-      "y": 180
+      "x": 180
     },
     "facing=east,has_record=false,powered=false": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
+      "x": 90,
       "y": 270
     },
     "facing=east,has_record=false,powered=true": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
+      "x": 90,
       "y": 270
     },
     "facing=east,has_record=true,powered=false": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
+      "x": 90,
       "y": 270
     },
     "facing=east,has_record=true,powered=true": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
+      "x": 90,
       "y": 270
     },
     "facing=north,has_record=false,powered=false": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
-      "y": 180
+      "x": 90
     },
     "facing=north,has_record=false,powered=true": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
-      "y": 180
+      "x": 90
     },
     "facing=north,has_record=true,powered=false": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
-      "y": 180
+      "x": 90
     },
     "facing=north,has_record=true,powered=true": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
-      "y": 180
+      "x": 90
     },
     "facing=south,has_record=false,powered=false": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
-      "y": 0
+      "x": 90,
+      "y": 180
     },
     "facing=south,has_record=false,powered=true": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
-      "y": 0
+      "x": 90,
+      "y": 180
     },
     "facing=south,has_record=true,powered=false": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
-      "y": 0
+      "x": 90,
+      "y": 180
     },
     "facing=south,has_record=true,powered=true": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
-      "y": 0
+      "x": 90,
+      "y": 180
     },
     "facing=up,has_record=false,powered=false": {
-      "model": "createharmonics:block/brass_jukebox/brass_jukebox",
-      "x": 270,
-      "y": 180
+      "model": "createharmonics:block/brass_jukebox/brass_jukebox"
     },
     "facing=up,has_record=false,powered=true": {
-      "model": "createharmonics:block/brass_jukebox/brass_jukebox",
-      "x": 270,
-      "y": 180
+      "model": "createharmonics:block/brass_jukebox/brass_jukebox"
     },
     "facing=up,has_record=true,powered=false": {
-      "model": "createharmonics:block/brass_jukebox/brass_jukebox",
-      "x": 270,
-      "y": 180
+      "model": "createharmonics:block/brass_jukebox/brass_jukebox"
     },
     "facing=up,has_record=true,powered=true": {
-      "model": "createharmonics:block/brass_jukebox/brass_jukebox",
-      "x": 270,
-      "y": 180
+      "model": "createharmonics:block/brass_jukebox/brass_jukebox"
     },
     "facing=west,has_record=false,powered=false": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
+      "x": 90,
       "y": 90
     },
     "facing=west,has_record=false,powered=true": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
+      "x": 90,
       "y": 90
     },
     "facing=west,has_record=true,powered=false": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
+      "x": 90,
       "y": 90
     },
     "facing=west,has_record=true,powered=true": {
       "model": "createharmonics:block/brass_jukebox/brass_jukebox",
+      "x": 90,
       "y": 90
     }
   }

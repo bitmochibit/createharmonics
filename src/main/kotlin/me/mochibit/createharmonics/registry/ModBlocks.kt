@@ -40,38 +40,26 @@ object ModBlocks : AutoRegistrable {
                     .getVariantBuilder(ctx.entry)
                     .forAllStatesExcept({ state ->
                         val dir = state.getValue(BlockStateProperties.FACING)
-                        val modelPrefix =
-                            when {
-                                dir == Direction.DOWN -> "down"
-                                dir.axis.isHorizontal -> "horizontal"
-                                else -> "vertical"
-                            }
-                        val modelFile =
-                            prov.models().getExistingFile(
-                                prov.modLoc("block/${ctx.name}/block_$modelPrefix"),
-                            )
 
-                        val xRot =
-                            when (dir) {
-                                Direction.DOWN -> 0
+                        val modelFile = prov.models().getExistingFile(
+                            prov.modLoc("block/${ctx.name}/${ctx.name}")
+                        )
 
-                                // vertical model upside down
-                                Direction.UP -> 0
+                        val xRot = when (dir) {
+                            Direction.UP -> 0
+                            Direction.DOWN -> 180
+                            else -> 90
+                        }
 
-                                // vertical model upright
-                                else -> 0 // horizontal model, no X rotation
-                            }
+                        val yRot = when (dir) {
+                            Direction.NORTH -> 0
+                            Direction.SOUTH -> 180
+                            Direction.WEST -> 90
+                            Direction.EAST -> 270
+                            else -> 0
+                        }
 
-                        val yRot =
-                            when {
-                                dir.axis.isVertical -> 0
-
-                                // vertical model, no Y rotation
-                                else -> (dir.toYRot().toInt() + 180) % 360 // horizontal model rotates on Y-axis
-                            }
-
-                        ConfiguredModel
-                            .builder()
+                        ConfiguredModel.builder()
                             .modelFile(modelFile)
                             .rotationX(xRot)
                             .rotationY(yRot)
@@ -90,6 +78,8 @@ object ModBlocks : AutoRegistrable {
             .transform(customItemModel())
             .register()
 
+
+
     val BRASS_JUKEBOX: BlockEntry<BrassJukeboxBlock> =
         cRegistrate()
             .block("brass_jukebox") { properties ->
@@ -103,30 +93,26 @@ object ModBlocks : AutoRegistrable {
                     .getVariantBuilder(ctx.entry)
                     .forAllStatesExcept({ state ->
                         val dir = state.getValue(BlockStateProperties.FACING)
-                        val modelFile =
-                            prov.models().getExistingFile(
-                                prov.modLoc("block/${ctx.name}/${ctx.name}"),
-                            )
 
-                        val xRot =
-                            when (dir) {
-                                Direction.DOWN -> 90
-                                Direction.UP -> 270
-                                else -> 0
-                            }
+                        val modelFile = prov.models().getExistingFile(
+                            prov.modLoc("block/${ctx.name}/${ctx.name}")
+                        )
 
-                        val yRot =
-                            when (dir) {
-                                Direction.NORTH -> 180
-                                Direction.SOUTH -> 0
-                                Direction.EAST -> 270
-                                Direction.WEST -> 90
-                                Direction.DOWN -> 180
-                                Direction.UP -> 180
-                            }
+                        val xRot = when (dir) {
+                            Direction.UP -> 0
+                            Direction.DOWN -> 180
+                            else -> 90
+                        }
 
-                        ConfiguredModel
-                            .builder()
+                        val yRot = when (dir) {
+                            Direction.NORTH -> 0
+                            Direction.SOUTH -> 180
+                            Direction.WEST -> 90
+                            Direction.EAST -> 270
+                            else -> 0
+                        }
+
+                        ConfiguredModel.builder()
                             .modelFile(modelFile)
                             .rotationX(xRot)
                             .rotationY(yRot)

@@ -1,5 +1,6 @@
 {
   "block.createharmonics.andesite_jukebox": "Andesite Jukebox",
+  "block.createharmonics.brass_jukebox": "Brass Jukebox",
   "block.createharmonics.record_press_base": "Record Press Base",
   "createharmonics.audio.binary.instructions": "Download Instructions for %1$s\n\nPlease download %1$s binary from this link: %2$s\nThe link is specific to your operating system and architecture, but double-check to ensure compatibility\n\nExtract the contents of the archive in this folder: %3$s\n(If the file is just a single executable place it directly in the folder)",
   "createharmonics.display_source.no_record": "No Record",
