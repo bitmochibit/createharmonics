@@ -59,9 +59,6 @@ object ClientModBusHandler {
     fun onClientSetup(event: FMLClientSetupEvent) {
         info("Create: Harmonics client is setting up!")
         MinecraftForge.EVENT_BUS.register(MainMenuDisclaimerHandler)
-        event.enqueueWork {
-            ItemBlockRenderTypes.setRenderLayer(ModBlocks.BRASS_JUKEBOX.get(), RenderType.translucent())
-        }
     }
 }
 

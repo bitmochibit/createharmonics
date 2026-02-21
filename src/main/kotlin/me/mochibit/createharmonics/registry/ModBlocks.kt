@@ -108,7 +108,8 @@ object ModBlocks : AutoRegistrable {
                             .rotationY(yRot)
                             .build()
                     }, BlockStateProperties.WATERLOGGED)
-            }.onRegister(movementBehaviour(RecordPlayerMovementBehaviour()))
+            }.addLayer { Supplier { RenderType.translucent() } }
+                .onRegister(movementBehaviour(RecordPlayerMovementBehaviour()))
             .tag(
                 AllTags.AllBlockTags.SAFE_NBT.tag,
                 BlockTags.create(ResourceLocation.fromNamespaceAndPath("carryon", "block_blacklist")),
