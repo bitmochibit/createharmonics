@@ -6,8 +6,10 @@ import com.simibubi.create.api.behaviour.display.DisplaySource.displaySource
 import com.simibubi.create.api.behaviour.movement.MovementBehaviour.movementBehaviour
 import com.simibubi.create.api.contraption.storage.item.MountedItemStorageType.mountedItemStorage
 import com.simibubi.create.content.kinetics.fan.EncasedFanBlock
-import com.simibubi.create.foundation.data.*
+import com.simibubi.create.foundation.data.AssetLookup
+import com.simibubi.create.foundation.data.BlockStateGen
 import com.simibubi.create.foundation.data.ModelGen.customItemModel
+import com.simibubi.create.foundation.data.SharedProperties
 import com.simibubi.create.infrastructure.config.CStress
 import com.tterrag.registrate.builders.BlockBuilder
 import com.tterrag.registrate.util.entry.BlockEntry
@@ -44,12 +46,12 @@ object ModBlocks : AutoRegistrable {
         cRegistrate()
             .block("andesite_jukebox") { properties ->
                 AndesiteJukeboxBlock(properties)
-            }.properties { p ->
+            }.initialProperties { SharedProperties.wooden() }
+            .properties { p ->
                 p
                     .strength(2.0f, 6.0f)
                     .sound(SoundType.WOOD)
-            }.blockstate(BlockStateGen.directionalBlockProvider(true))
-                .addLayer { Supplier { RenderType.cutoutMipped() } }
+            }.addLayer { Supplier { RenderType.cutoutMipped() } }
             .onRegister(movementBehaviour(RecordPlayerMovementBehaviour()))
             .tag(
                 AllTags.AllBlockTags.SAFE_NBT.tag,
@@ -58,12 +60,11 @@ object ModBlocks : AutoRegistrable {
             .transform(mountedItemStorage(ModMountedStorages.SIMPLE_RECORD_PLAYER_STORAGE))
             .transform(displaySource(ModDisplaySources.AUDIO_NAME))
             .transform(ModStress.setImpact(1.0))
+            .blockstate(BlockStateGen.directionalBlockProvider(true))
             .item()
             .tag(AllTags.AllItemTags.CONTRAPTION_CONTROLLED.tag)
             .transform(customItemModel())
             .register()
-
-
 
     val BRASS_JUKEBOX: BlockEntry<BrassJukeboxBlock> =
         cRegistrate()
@@ -79,25 +80,29 @@ object ModBlocks : AutoRegistrable {
                     .forAllStatesExcept({ state ->
                         val dir = state.getValue(BlockStateProperties.FACING)
 
-                        val modelFile = prov.models().getExistingFile(
-                            prov.modLoc("block/${ctx.name}/${ctx.name}")
-                        )
+                        val modelFile =
+                            prov.models().getExistingFile(
+                                prov.modLoc("block/${ctx.name}/${ctx.name}"),
+                            )
 
-                        val xRot = when (dir) {
-                            Direction.UP -> 0
-                            Direction.DOWN -> 180
-                            else -> 90
-                        }
+                        val xRot =
+                            when (dir) {
+                                Direction.UP -> 0
+                                Direction.DOWN -> 180
+                                else -> 90
+                            }
 
-                        val yRot = when (dir) {
-                            Direction.NORTH -> 0
-                            Direction.SOUTH -> 180
-                            Direction.WEST -> 90
-                            Direction.EAST -> 270
-                            else -> 0
-                        }
+                        val yRot =
+                            when (dir) {
+                                Direction.NORTH -> 0
+                                Direction.SOUTH -> 180
+                                Direction.WEST -> 90
+                                Direction.EAST -> 270
+                                else -> 0
+                            }
 
-                        ConfiguredModel.builder()
+                        ConfiguredModel
+                            .builder()
                             .modelFile(modelFile)
                             .rotationX(xRot)
                             .rotationY(yRot)
@@ -114,8 +119,8 @@ object ModBlocks : AutoRegistrable {
             .item()
             .tag(AllTags.AllItemTags.CONTRAPTION_CONTROLLED.tag)
             .transform(customItemModel())
-            .register() 
-    
+            .register()
+
     val RECORD_PRESS_BASE: BlockEntry<RecordPressBaseBlock> =
         cRegistrate()
             .block("record_press_base", ::RecordPressBaseBlock)
