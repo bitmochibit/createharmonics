@@ -11,7 +11,7 @@ import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
 import me.mochibit.createharmonics.audio.process.FFmpegExecutor
 import me.mochibit.createharmonics.audio.source.AudioSource
-import me.mochibit.createharmonics.audio.source.YoutubeAudioSource
+import me.mochibit.createharmonics.audio.source.HttpAudioSource
 import me.mochibit.createharmonics.audio.source.YtdlpAudioSource
 import me.mochibit.createharmonics.audio.stream.AudioEffectInputStream
 import me.mochibit.createharmonics.coroutine.MinecraftClientDispatcher
@@ -332,12 +332,25 @@ class AudioPlayer(
 
     /**
      * Invalidate the cached URL and retry playback once.
-     * This is called when FFmpeg fails with a 403 error (expired URL).
+     * This is called when FFmpeg fails (e.g. expired extracted URL from yt-dlp).
+     *
+     * For direct HTTP URLs there is no cache to invalidate — the URL itself is the
+     * problem (e.g. an expired CDN token). In that case we fail immediately with a
+     * clear message rather than pointlessly retrying the same dead URL.
      */
     private suspend fun invalidateUrlCacheAndRetry(
         url: String,
         context: PlaybackContext,
     ) {
+        // Direct audio URLs (CDN links, etc.) can't be refreshed — the URL is the source of truth.
+        // Retrying would just hit the same expired/missing resource again.
+        if (isDirectAudioUrl(url)) {
+            Logger.err("AudioPlayer $playerId: Direct audio URL is unreachable (expired or invalid): $url")
+            resetStateInternal()
+            notifyStreamFailure()
+            return
+        }
+
         // Prevent infinite retry loops
         if (context.hasRetried) {
             Logger.err("AudioPlayer $playerId: Already retried once, giving up")
@@ -635,17 +648,53 @@ class AudioPlayer(
 
     /**
      * Resolves the appropriate audio source for the given URL.
+     *
+     * Direct audio file URLs (e.g. CDN-hosted mp3/wav/m4a/etc.) are fed straight
+     * to FFmpeg without going through yt-dlp, which significantly reduces startup
+     * latency for self-hosted files.
      */
     private fun resolveAudioSource(url: String): AudioSource? =
         when {
-            url.contains("youtube.com") || url.contains("youtu.be") -> {
-                YoutubeAudioSource(url)
+            isDirectAudioUrl(url) -> {
+                HttpAudioSource(url)
             }
 
             else -> {
                 YtdlpAudioSource(url)
             }
         }
+
+    /**
+     * Returns true if the URL points directly to a known audio/video file format,
+     * meaning it can be streamed by FFmpeg without yt-dlp resolution.
+     *
+     * Detection is done on the path portion only (before any query string / fragment)
+     * so CDN URLs with tokens like `?token=abc` are handled correctly.
+     */
+    private fun isDirectAudioUrl(url: String): Boolean {
+        val directAudioExtensions =
+            setOf(
+                "mp3",
+                "mp4",
+                "m4a",
+                "m4b",
+                "wav",
+                "wave",
+                "ogg",
+                "oga",
+                "opus",
+                "flac",
+                "aac",
+                "webm",
+                "wma",
+                "aiff",
+                "aif",
+            )
+        // Strip query params and fragment, grab the extension of the last path segment
+        val path = url.substringBefore('?').substringBefore('#')
+        val extension = path.substringAfterLast('.', "").lowercase()
+        return extension in directAudioExtensions
+    }
 
     /**
      * Internal cleanup - must be called within stateMutex.withLock

@@ -24,16 +24,32 @@ class PcmAudioStream(
         try {
             val bytesRead = inputStream.read(readBuffer, 0, min(size, readBuffer.size))
 
-            // If no data
-            if (bytesRead <= 0) {
-                return ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
-            }
+            return when {
+                bytesRead > 0 -> {
+                    // Normal data
+                    ByteBuffer
+                        .allocateDirect(bytesRead)
+                        .order(ByteOrder.nativeOrder())
+                        .put(readBuffer, 0, bytesRead)
+                        .flip()
+                }
 
-            return ByteBuffer
-                .allocateDirect(bytesRead)
-                .order(ByteOrder.nativeOrder())
-                .put(readBuffer, 0, bytesRead)
-                .flip()
+                bytesRead == 0 -> {
+                    // Buffer temporarily empty (stream loading or starved) — return silence
+                    // so Minecraft does not interpret this as end-of-stream.
+                    val silenceSize = min(size, readBuffer.size)
+                    ByteBuffer
+                        .allocateDirect(silenceSize)
+                        .order(ByteOrder.nativeOrder())
+                        .put(ByteArray(silenceSize))
+                        .flip()
+                }
+
+                else -> {
+                    // bytesRead == -1: true end-of-stream
+                    ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
+                }
+            }
         } catch (e: IOException) {
             // On error, return silence instead of empty buffer to prevent premature stream end
             val silenceSize = min(size, readBuffer.size)

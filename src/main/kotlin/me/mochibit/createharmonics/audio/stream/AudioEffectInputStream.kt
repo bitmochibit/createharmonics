@@ -98,10 +98,9 @@ class AudioEffectInputStream(
                 when (val bytesRead = readFromStreamSync()) {
                     -1 -> {
                         streamEnded = true
-                        if (!streamEndSignaled) {
-                            streamEndSignaled = true
-                            onStreamEnd?.invoke()
-                        }
+                        // Don't signal end yet — rawAudioBuffer may still have data to process.
+                        // The consumer (readWithProcessedBuffer) will fire onStreamEnd once
+                        // both buffers are fully drained.
                         break
                     }
 
@@ -142,7 +141,7 @@ class AudioEffectInputStream(
 
     private fun waitForStreamReady(): Boolean =
         runBlocking {
-            repeat(20) {
+            repeat(100) {
                 if (isClosed) return@runBlocking false
                 try {
                     if (audioStream.available() > 0) return@runBlocking true
@@ -200,13 +199,18 @@ class AudioEffectInputStream(
         // Need more processed audio - process a chunk
         if (!ensureProcessedAudio()) {
             // No more data to process
-            return if (bytesCopied > 0) {
-                bytesCopied
-            } else if (streamEnded) {
-                -1
-            } else {
-                0
+            if (bytesCopied > 0) return bytesCopied
+
+            if (streamEnded) {
+                // Both raw and processed buffers are empty and FFmpeg is done — true EOF
+                if (!streamEndSignaled) {
+                    streamEndSignaled = true
+                    onStreamEnd?.invoke()
+                }
+                return -1
             }
+
+            return 0
         }
 
         // Try again after processing

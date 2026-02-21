@@ -3,6 +3,19 @@ package me.mochibit.createharmonics.audio.bin
 object FFMPEGProvider : BinProvider(
     "ffmpeg",
 ) {
+    val ffprobePath: String? by lazy {
+        val ffmpegPath = getExecutablePath() ?: return@lazy null
+        val ffmpegFile = java.io.File(ffmpegPath)
+        val probeName = if (isWindows) "ffprobe.exe" else "ffprobe"
+        val probe = java.io.File(ffmpegFile.parentFile, probeName)
+        return@lazy if (probe.exists()) {
+            ensureExecutable(probe)
+            probe.absolutePath
+        } else {
+            null
+        }
+    }
+
     override fun getDownloadUrl(): String =
         when {
             // Windows static builds from BtbN's FFmpeg-Builds (official source mentioned on ffmpeg.org)
