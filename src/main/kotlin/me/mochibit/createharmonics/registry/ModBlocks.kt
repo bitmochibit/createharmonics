@@ -1,12 +1,19 @@
 package me.mochibit.createharmonics.registry
 
+import com.simibubi.create.AllBlocks
 import com.simibubi.create.AllTags
 import com.simibubi.create.api.behaviour.display.DisplaySource.displaySource
 import com.simibubi.create.api.behaviour.movement.MovementBehaviour.movementBehaviour
 import com.simibubi.create.api.contraption.storage.item.MountedItemStorageType.mountedItemStorage
-import com.simibubi.create.foundation.data.AssetLookup
+import com.simibubi.create.content.kinetics.fan.EncasedFanBlock
+import com.simibubi.create.foundation.data.*
 import com.simibubi.create.foundation.data.ModelGen.customItemModel
+import com.simibubi.create.infrastructure.config.CStress
+import com.tterrag.registrate.builders.BlockBuilder
 import com.tterrag.registrate.util.entry.BlockEntry
+import com.tterrag.registrate.util.nullness.NonNullFunction
+import com.tterrag.registrate.util.nullness.NonNullSupplier
+import com.tterrag.registrate.util.nullness.NonNullUnaryOperator
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.ModStress
@@ -15,14 +22,20 @@ import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMov
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlock
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.brassJukebox.BrassJukeboxBlock
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlock
+import net.minecraft.client.renderer.RenderType
 import net.minecraft.core.Direction
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.tags.BlockTags
+import net.minecraft.world.item.BlockItem
+import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.SoundType
+import net.minecraft.world.level.block.state.BlockBehaviour
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
+import net.minecraft.world.level.material.MapColor
 import net.minecraftforge.client.model.generators.ConfiguredModel
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
+import java.util.function.Supplier
 
 object ModBlocks : AutoRegistrable {
     override val registrationOrder = 2
@@ -35,37 +48,9 @@ object ModBlocks : AutoRegistrable {
                 p
                     .strength(2.0f, 6.0f)
                     .sound(SoundType.WOOD)
-            }.blockstate { ctx, prov ->
-                prov
-                    .getVariantBuilder(ctx.entry)
-                    .forAllStatesExcept({ state ->
-                        val dir = state.getValue(BlockStateProperties.FACING)
-
-                        val modelFile = prov.models().getExistingFile(
-                            prov.modLoc("block/${ctx.name}/${ctx.name}")
-                        )
-
-                        val xRot = when (dir) {
-                            Direction.UP -> 0
-                            Direction.DOWN -> 180
-                            else -> 90
-                        }
-
-                        val yRot = when (dir) {
-                            Direction.NORTH -> 0
-                            Direction.SOUTH -> 180
-                            Direction.WEST -> 90
-                            Direction.EAST -> 270
-                            else -> 0
-                        }
-
-                        ConfiguredModel.builder()
-                            .modelFile(modelFile)
-                            .rotationX(xRot)
-                            .rotationY(yRot)
-                            .build()
-                    }, BlockStateProperties.WATERLOGGED)
-            }.onRegister(movementBehaviour(RecordPlayerMovementBehaviour()))
+            }.blockstate(BlockStateGen.directionalBlockProvider(true))
+                .addLayer { Supplier { RenderType.cutoutMipped() } }
+            .onRegister(movementBehaviour(RecordPlayerMovementBehaviour()))
             .tag(
                 AllTags.AllBlockTags.SAFE_NBT.tag,
                 BlockTags.create(ResourceLocation.fromNamespaceAndPath("carryon", "block_blacklist")),
