@@ -2,15 +2,12 @@ package me.mochibit.createharmonics.audio.stream
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeoutOrNull
 import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.coroutine.launchModCoroutine
+import me.mochibit.createharmonics.foundation.async.modLaunch
 import java.io.IOException
 import java.io.InputStream
-import java.util.concurrent.atomic.AtomicBoolean
 
 class AudioEffectInputStream(
     private val audioStream: InputStream,
@@ -67,7 +64,7 @@ class AudioEffectInputStream(
 
     init {
         processingJob =
-            launchModCoroutine(Dispatchers.IO) {
+            modLaunch(Dispatchers.IO) {
                 continuousRawBuffering()
             }
     }

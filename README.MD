@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="./src/main/resources/assets/createharmonics/textures/gui/logo_small.png" alt="Logo">
+    <img src="forge/src/main/resources/assets/createharmonics/textures/gui/logo_small.png" alt="Logo">
 </p>
 <h1 align="center"> Create: Harmonics <br><br>
     <a href="https://www.curseforge.com/minecraft/mc-mods/create-harmonics"><img alt="Curseforge Page" src="https://img.shields.io/badge/Harmonics-Curseforge?logo=curseforge&label=CurseForge&color=ff5277&style=for-the-badge"></a>

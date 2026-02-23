@@ -6,4 +6,4 @@
 /.idea/
 /.kotlin
 /out/
-/src/generated/resources/.cache/
+/forge/src/generated/resources/.cache/

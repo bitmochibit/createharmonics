@@ -5,7 +5,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
@@ -14,10 +13,12 @@ import me.mochibit.createharmonics.audio.source.AudioSource
 import me.mochibit.createharmonics.audio.source.HttpAudioSource
 import me.mochibit.createharmonics.audio.source.YtdlpAudioSource
 import me.mochibit.createharmonics.audio.stream.AudioEffectInputStream
-import me.mochibit.createharmonics.coroutine.MinecraftClientDispatcher
-import me.mochibit.createharmonics.coroutine.launchModCoroutine
-import me.mochibit.createharmonics.coroutine.withClientContext
-import me.mochibit.createharmonics.extension.ticks
+import me.mochibit.createharmonics.foundation.async.modLaunch
+import me.mochibit.createharmonics.foundation.async.withMainContext
+import me.mochibit.createharmonics.foundation.debug
+import me.mochibit.createharmonics.foundation.err
+import me.mochibit.createharmonics.foundation.ticks
+import me.mochibit.createharmonics.foundation.warn
 import me.mochibit.createharmonics.network.packet.AudioPlayerStreamEndPacket
 import me.mochibit.createharmonics.network.packet.UpdateAudioNamePacket
 import me.mochibit.createharmonics.registry.ModPackets
@@ -27,7 +28,7 @@ import java.io.InputStream
 import java.util.UUID
 
 typealias StreamId = String
-typealias StreamingSoundInstanceProvider = (streamId: StreamId, stream: InputStream) -> SoundInstance
+typealias StreamingSoundInstanceProvider = (streamId: me.mochibit.createharmonics.audio.StreamId, stream: InputStream) -> SoundInstance
 
 /**
  * Responsible for playing custom sound sources to the Minecraft engine.
@@ -44,10 +45,10 @@ typealias StreamingSoundInstanceProvider = (streamId: StreamId, stream: InputStr
  * @param sampleRate Sample rate of the streamed audio, default is 44100hz
  */
 class AudioPlayer(
-    val soundInstanceProvider: StreamingSoundInstanceProvider,
+    val soundInstanceProvider: me.mochibit.createharmonics.audio.StreamingSoundInstanceProvider,
     val playerId: String = UUID.randomUUID().toString(),
     val sampleRate: Int = 48000,
-    val onEffectChainCreate: ((effectChain: EffectChain) -> Unit)? = null,
+    val onEffectChainCreate: ((effectChain: me.mochibit.createharmonics.audio.effect.EffectChain) -> Unit)? = null,
 ) {
     /**
      * Represents the current playback state of the audio player.
@@ -85,11 +86,11 @@ class AudioPlayer(
      */
     private data class PlaybackContext(
         val source: PlaybackSource,
-        val effectChain: EffectChain,
-        val soundComposition: SoundEventComposition,
+        val effectChain: me.mochibit.createharmonics.audio.effect.EffectChain,
+        val soundComposition: me.mochibit.createharmonics.audio.comp.SoundEventComposition,
         val offsetSeconds: Double,
-        var ffmpegExecutor: FFmpegExecutor? = null,
-        var processingAudioStream: AudioEffectInputStream? = null,
+        var ffmpegExecutor: me.mochibit.createharmonics.audio.process.FFmpegExecutor? = null,
+        var processingAudioStream: me.mochibit.createharmonics.audio.stream.AudioEffectInputStream? = null,
         var soundInstance: SoundInstance? = null,
         var hasRetried: Boolean = false,
     ) {
@@ -104,23 +105,23 @@ class AudioPlayer(
             processingAudioStream = null
             soundInstance = null
 
-            launchModCoroutine(Dispatchers.IO) {
+            modLaunch(Dispatchers.IO) {
                 try {
                     composition.stopComposition()
                 } catch (e: Exception) {
-                    Logger.err("Error stopping composition: ${e.message}")
+                    "Error stopping composition: ${e.message}".err()
                 }
 
                 try {
                     executor?.destroy()
                 } catch (e: Exception) {
-                    Logger.err("Error destroying FFmpeg: ${e.message}")
+                    "Error destroying FFmpeg: ${e.message}".err()
                 }
 
                 try {
                     stream?.close()
                 } catch (e: Exception) {
-                    Logger.err("Error closing audio stream: ${e.message}")
+                    "Error closing audio stream: ${e.message}".err()
                 }
             }
         }
@@ -140,7 +141,7 @@ class AudioPlayer(
     private val soundManager: net.minecraft.client.sounds.SoundManager
         get() = Minecraft.getInstance().soundManager
 
-    fun getCurrentEffectChain(): EffectChain? = playbackContext?.effectChain
+    fun getCurrentEffectChain(): me.mochibit.createharmonics.audio.effect.EffectChain? = playbackContext?.effectChain
 
     /**
      * Start playing audio from the specified URL.
@@ -155,16 +156,20 @@ class AudioPlayer(
      */
     fun play(
         url: String,
-        effectChain: EffectChain = EffectChain.empty(),
-        soundEventComposition: SoundEventComposition = SoundEventComposition(),
+        effectChain: me.mochibit.createharmonics.audio.effect.EffectChain =
+            _root_ide_package_.me.mochibit.createharmonics.audio.effect.EffectChain
+                .empty(),
+        soundEventComposition: me.mochibit.createharmonics.audio.comp.SoundEventComposition =
+            _root_ide_package_.me.mochibit.createharmonics.audio.comp
+                .SoundEventComposition(),
         offsetSeconds: Double = 0.0,
     ) {
         if (url.isBlank()) {
-            Logger.err("AudioPlayer $playerId: Cannot play empty URL")
+            "AudioPlayer $playerId: Cannot play empty URL".err()
             return
         }
 
-        launchModCoroutine(Dispatchers.IO) {
+        modLaunch(Dispatchers.IO) {
             val source = PlaybackSource.Url(url)
             val context: PlaybackContext
 
@@ -173,7 +178,7 @@ class AudioPlayer(
                 if (playState == PlayState.PLAYING || playState == PlayState.LOADING) {
                     val currentSource = playbackContext?.source
                     if (currentSource == source && playbackContext?.effectChain == effectChain) {
-                        return@launchModCoroutine
+                        return@modLaunch
                     }
                 }
 
@@ -194,16 +199,16 @@ class AudioPlayer(
 
             stateMutex.withLock {
                 if (playbackContext != context) {
-                    Logger.debug("AudioPlayer $playerId: Context changed, cleaning up abandoned resources")
+                    "AudioPlayer $playerId: Context changed, cleaning up abandoned resources".debug()
                     context.cleanup()
-                    return@launchModCoroutine
+                    return@modLaunch
                 }
 
                 initResult
                     .onSuccess {
                         playState = PlayState.PLAYING
                     }.onFailure { e ->
-                        Logger.err("AudioPlayer $playerId: Error during playback: ${e.message}")
+                        "AudioPlayer $playerId: Error during playback: ${e.message}".err()
                         invalidateUrlCacheAndRetry(url, context)
                     }
             }
@@ -223,12 +228,12 @@ class AudioPlayer(
     fun playFromStream(
         inputStream: InputStream,
         audioName: String = "Stream",
-        effectChain: EffectChain = EffectChain.empty(),
+        effectChain: me.mochibit.createharmonics.audio.effect.EffectChain = EffectChain.empty(),
         soundEventComposition: SoundEventComposition = SoundEventComposition(),
         offsetSeconds: Double = 0.0,
         sampleRateOverride: Int? = null,
     ) {
-        launchModCoroutine(Dispatchers.IO) {
+        modLaunch(Dispatchers.IO) {
             val context: PlaybackContext
             stateMutex.withLock {
                 val source = PlaybackSource.Stream(inputStream, audioName)
@@ -251,15 +256,15 @@ class AudioPlayer(
             stateMutex.withLock {
                 // Verify we're still working with the same context
                 if (playbackContext != context) {
-                    Logger.debug("AudioPlayer $playerId: Context changed during stream initialization, aborting")
-                    return@launchModCoroutine
+                    "AudioPlayer $playerId: Context changed during stream initialization, aborting".debug()
+                    return@modLaunch
                 }
 
                 initResult
                     .onSuccess {
                         playState = PlayState.PLAYING
                     }.onFailure { e ->
-                        Logger.err("AudioPlayer $playerId: Error during stream playback: ${e.message}")
+                        "AudioPlayer $playerId: Error during stream playback: ${e.message}".err()
                         resetStateInternal()
                         notifyStreamFailure()
                     }
@@ -295,7 +300,6 @@ class AudioPlayer(
         val effectiveOffset =
             if (duration > 0 && context.offsetSeconds >= duration) {
                 val wrappedOffset = context.offsetSeconds % duration
-                Logger.info("AudioPlayer $playerId: Offset ${context.offsetSeconds}s wrapped to ${wrappedOffset}s (duration: ${duration}s)")
                 wrappedOffset
             } else {
                 context.offsetSeconds
@@ -345,7 +349,7 @@ class AudioPlayer(
         // Direct audio URLs (CDN links, etc.) can't be refreshed — the URL is the source of truth.
         // Retrying would just hit the same expired/missing resource again.
         if (isDirectAudioUrl(url)) {
-            Logger.err("AudioPlayer $playerId: Direct audio URL is unreachable (expired or invalid): $url")
+            "AudioPlayer $playerId: Direct audio URL is unreachable (expired or invalid): $url".err()
             resetStateInternal()
             notifyStreamFailure()
             return
@@ -353,7 +357,6 @@ class AudioPlayer(
 
         // Prevent infinite retry loops
         if (context.hasRetried) {
-            Logger.err("AudioPlayer $playerId: Already retried once, giving up")
             resetStateInternal()
             notifyStreamFailure()
             return
@@ -366,17 +369,14 @@ class AudioPlayer(
             .invalidate(url)
 
         // Small delay before retry
-        kotlinx.coroutines.delay(500)
+        delay(500)
 
-        // Retry the initialization
-        Logger.info("AudioPlayer $playerId: Retrying playback with fresh URL...")
         runCatching {
             initializeUrlPlayback(url, context)
         }.onSuccess {
             playState = PlayState.PLAYING
-            Logger.info("AudioPlayer $playerId: Retry successful!")
         }.onFailure { e ->
-            Logger.err("AudioPlayer $playerId: Retry failed: ${e.message}")
+            "AudioPlayer $playerId: Retry failed: ${e.message}".err()
             resetStateInternal()
             notifyStreamFailure()
         }
@@ -403,7 +403,7 @@ class AudioPlayer(
             // 16-bit PCM samples are 2 bytes each, so we must skip in multiples of 2
             if (bytesToSkip % 2 != 0L) {
                 bytesToSkip += 1 // Round up to next even number
-                Logger.warn("AudioPlayer $playerId: Adjusted skip to $bytesToSkip bytes for sample alignment")
+                "AudioPlayer $playerId: Adjusted skip to $bytesToSkip bytes for sample alignment".warn()
             }
 
             var totalSkipped = 0L
@@ -418,18 +418,12 @@ class AudioPlayer(
 
                     if (bytesRead <= 0) {
                         // End of stream or read error
-                        Logger.warn("AudioPlayer $playerId: Could only skip $totalSkipped of $bytesToSkip bytes (reached end of stream)")
+                        "AudioPlayer $playerId: Could only skip $totalSkipped of $bytesToSkip bytes (reached end of stream)".warn()
                         break
                     }
 
                     totalSkipped += bytesRead
                     remaining -= bytesRead
-                }
-            }
-
-            if (totalSkipped > 0) {
-                if (totalSkipped % 2 != 0L) {
-                    Logger.err("AudioPlayer $playerId: WARNING - Sample misalignment detected! Skipped odd number of bytes: $totalSkipped")
                 }
             }
         }
@@ -476,18 +470,16 @@ class AudioPlayer(
                 }
         context.soundInstance = soundInstance
 
-        withClientContext {
+        withMainContext {
             context.soundComposition.makeComposition(soundInstance)
             soundManager.play(soundInstance)
         }
     }
 
     private fun handleStreamEnd() {
-        launchModCoroutine(Dispatchers.IO) {
-            // Non-blocking tryLock with immediate bailout - no delays or retries
+        modLaunch(Dispatchers.IO) {
             if (!stateMutex.tryLock()) {
-                Logger.debug("AudioPlayer $playerId: Stream end - mutex busy, ignoring duplicate event")
-                return@launchModCoroutine
+                return@modLaunch
             }
 
             try {
@@ -517,14 +509,14 @@ class AudioPlayer(
         if (playState != PlayState.PLAYING) return
 
         playbackContext?.soundInstance?.let { soundInstance ->
-            launchModCoroutine(Dispatchers.IO) {
+            modLaunch(Dispatchers.IO) {
                 delay(1.ticks())
                 try {
-                    withClientContext {
+                    withMainContext {
                         soundManager.play(soundInstance)
                     }
                 } catch (e: Exception) {
-                    Logger.err("AudioPlayer $playerId: Error restarting hung stream: ${e.message}")
+                    "AudioPlayer $playerId: Error restarting hung stream: ${e.message}".err()
                 }
             }
         }
@@ -535,11 +527,11 @@ class AudioPlayer(
      * Transitions to STOPPED state.
      */
     fun stop() {
-        launchModCoroutine(Dispatchers.IO) {
+        modLaunch(Dispatchers.IO) {
             // Capture sound instance while holding lock briefly
             val soundInstanceToStop: SoundInstance?
             stateMutex.withLock {
-                if (playState == PlayState.STOPPED) return@launchModCoroutine
+                if (playState == PlayState.STOPPED) return@modLaunch
                 soundInstanceToStop = playbackContext?.soundInstance
                 cleanupResourcesInternal()
             }
@@ -547,11 +539,11 @@ class AudioPlayer(
             // Stop sound outside the lock to avoid blocking
             if (soundInstanceToStop != null) {
                 runCatching {
-                    withClientContext {
+                    withMainContext {
                         soundManager.stop(soundInstanceToStop)
                     }
                 }.onFailure { e ->
-                    Logger.err("AudioPlayer $playerId: Error stopping sound: ${e.message}")
+                    "AudioPlayer $playerId: Error stopping sound: ${e.message}".err()
                 }
             }
         }
@@ -562,12 +554,12 @@ class AudioPlayer(
      * Only works when in PLAYING state. Can be resumed later.
      */
     fun pause() {
-        launchModCoroutine {
+        modLaunch {
             // Capture what we need while holding lock briefly
             val soundInstanceToStop: SoundInstance?
             val compositionToStop: SoundEventComposition?
             stateMutex.withLock {
-                if (playState != PlayState.PLAYING) return@launchModCoroutine
+                if (playState != PlayState.PLAYING) return@modLaunch
                 soundInstanceToStop = playbackContext?.soundInstance
                 compositionToStop = playbackContext?.soundComposition
                 playState = PlayState.PAUSED
@@ -575,12 +567,12 @@ class AudioPlayer(
 
             // Stop sound and composition outside the lock to avoid blocking
             runCatching {
-                withClientContext {
+                withMainContext {
                     soundInstanceToStop?.let { soundManager.stop(it) }
                     compositionToStop?.stopComposition()
                 }
             }.onFailure { e ->
-                Logger.err("AudioPlayer $playerId: Error during pause: ${e.message}")
+                "AudioPlayer $playerId: Error during pause: ${e.message}".err()
             }
         }
     }
@@ -590,36 +582,33 @@ class AudioPlayer(
      * Only works when in PAUSED state.
      */
     fun resume() {
-        launchModCoroutine {
+        modLaunch {
             // Capture what we need while holding lock briefly
             val soundInstanceToResume: SoundInstance?
             val compositionToResume: SoundEventComposition?
 
             stateMutex.withLock {
-                if (playState != PlayState.PAUSED) return@launchModCoroutine
+                if (playState != PlayState.PAUSED) return@modLaunch
 
                 val context = playbackContext
                 if (context == null) {
-                    Logger.err("AudioPlayer $playerId: Cannot resume, no playback context")
                     playState = PlayState.STOPPED
                     notifyStreamFailure()
-                    return@launchModCoroutine
+                    return@modLaunch
                 }
 
                 if (context.soundInstance == null || context.processingAudioStream == null) {
-                    Logger.err("AudioPlayer $playerId: Cannot resume, resources were cleaned up (likely due to stream error)")
                     cleanupResourcesInternal()
                     notifyStreamFailure()
-                    return@launchModCoroutine
+                    return@modLaunch
                 }
 
                 // Verify FFmpeg is still running if this is a URL-based source
                 val ffmpegExecutor = context.ffmpegExecutor
                 if (ffmpegExecutor != null && !ffmpegExecutor.isRunning()) {
-                    Logger.err("AudioPlayer $playerId: Cannot resume, FFmpeg process has terminated")
                     cleanupResourcesInternal()
                     notifyStreamFailure()
-                    return@launchModCoroutine
+                    return@modLaunch
                 }
 
                 soundInstanceToResume = context.soundInstance
@@ -630,13 +619,11 @@ class AudioPlayer(
             // Resume playback outside the lock to avoid blocking
             if (soundInstanceToResume != null && compositionToResume != null) {
                 runCatching {
-                    withClientContext {
+                    withMainContext {
                         soundManager.play(soundInstanceToResume)
                         compositionToResume.makeComposition(soundInstanceToResume)
                     }
                 }.onFailure { e ->
-                    Logger.err("AudioPlayer $playerId: Error during resume: ${e.message}")
-                    // If resume failed, cleanup resources and notify
                     stateMutex.withLock {
                         cleanupResourcesInternal()
                         notifyStreamFailure()
@@ -728,7 +715,7 @@ class AudioPlayer(
     fun dispose() {
         stopSoundImmediately()
 
-        launchModCoroutine {
+        modLaunch {
             stateMutex.withLock {
                 cleanupResourcesInternal()
             }
@@ -747,34 +734,34 @@ class AudioPlayer(
                 try {
                     context.soundComposition.stopComposition()
                 } catch (e: Exception) {
-                    Logger.err("AudioPlayer $playerId: Error stopping composition: ${e.message}")
+                    "AudioPlayer $playerId: Error stopping composition: ${e.message}".err()
                 }
 
                 // Stop the sound instance on client thread
                 try {
                     context.soundInstance?.let { instance ->
                         // Launch on client thread to ensure thread safety
-                        launchModCoroutine(MinecraftClientDispatcher) {
+                        modLaunch {
                             try {
                                 soundManager.stop(instance)
                             } catch (e: Exception) {
-                                Logger.err("AudioPlayer $playerId: Error stopping sound instance: ${e.message}")
+                                "AudioPlayer $playerId: Error stopping sound instance: ${e.message}".err()
                             }
                         }
                     }
                 } catch (e: Exception) {
-                    Logger.err("AudioPlayer $playerId: Error stopping sound: ${e.message}")
+                    "AudioPlayer $playerId: Error stopping sound: ${e.message}".err()
                 }
 
                 // Cleanup resources
                 try {
                     context.cleanup()
                 } catch (e: Exception) {
-                    Logger.err("AudioPlayer $playerId: Error during cleanup: ${e.message}")
+                    "AudioPlayer $playerId: Error during cleanup: ${e.message}".err()
                 }
             }
         } catch (e: Exception) {
-            Logger.err("AudioPlayer $playerId: Error in stopSoundImmediately: ${e.message}")
+            "AudioPlayer $playerId: Error in stopSoundImmediately: ${e.message}".err()
         }
     }
 }
