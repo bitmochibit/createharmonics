@@ -1,5 +1,6 @@
-package me.mochibit.createharmonics.extension
+package me.mochibit.createharmonics.foundation
 
+import net.minecraft.network.chat.CommonComponents.minutes
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
