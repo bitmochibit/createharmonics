@@ -19,6 +19,14 @@ loom {
 }
 
 val minecraftVersion = rootProject.property("minecraft_version").toString()
+val createVersion = rootProject.property("create_version").toString()
+val ponderVersion = rootProject.property("ponder_version").toString()
+val flywheelVersion = rootProject.property("flywheel_version").toString()
+val registrateVersion = rootProject.property("registrate_version").toString()
+val jeiMinecraftVersion = rootProject.property("jei_minecraft_version").toString()
+val jeiVersion = rootProject.property("jei_version").toString()
+val vs2Version = rootProject.property("vs2_version").toString()
+val vsCoreVersion = rootProject.property("vs_core_version").toString()
 
 val common: Configuration by configurations.creating {
     isCanBeResolved = true
@@ -45,6 +53,28 @@ dependencies {
 
     // Kotlin for Forge
     implementation("thedarkcolour:kotlinforforge:${rootProject.property("kotlin_for_forge_version")}")
+
+    // Create mod
+    modImplementation("com.simibubi.create:create-$minecraftVersion:$createVersion:slim")
+    modImplementation("net.createmod.ponder:Ponder-Forge-$minecraftVersion:$ponderVersion")
+    compileOnly("dev.engine-room.flywheel:flywheel-forge-api-$minecraftVersion:$flywheelVersion")
+    runtimeOnly("dev.engine-room.flywheel:flywheel-forge-$minecraftVersion:$flywheelVersion")
+    modImplementation("com.tterrag.registrate:Registrate:$registrateVersion")
+
+    // VS2
+    modImplementation("org.valkyrienskies:valkyrienskies-120-forge:$vs2Version")
+    modImplementation("org.valkyrienskies.core:api:$vsCoreVersion") {
+        exclude(group = "org.joml")
+    }
+    modImplementation("org.valkyrienskies.core:internal:$vsCoreVersion") {
+        exclude(group = "org.joml")
+    }
+    modImplementation("org.valkyrienskies.core:util:$vsCoreVersion") {
+        exclude(group = "org.joml")
+    }
+
+    // JEI
+    runtimeOnly("mezz.jei:jei-$jeiMinecraftVersion-forge:$jeiVersion")
 
     common(project(path = ":common", configuration = "namedElements")) { isTransitive = false }
     shadowBundle(project(path = ":common", configuration = "transformProductionForge"))

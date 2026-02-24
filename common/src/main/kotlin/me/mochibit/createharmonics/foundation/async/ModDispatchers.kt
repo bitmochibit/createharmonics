@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.foundation.async
 
+import dev.architectury.platform.Platform
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Runnable
 import me.mochibit.createharmonics.foundation.err

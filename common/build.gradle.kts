@@ -15,10 +15,14 @@ loom {
 }
 
 val minecraftVersion = rootProject.property("minecraft_version").toString()
+val kotlinVersion = rootProject.property("kotlin_version").toString()
 
 dependencies {
     minecraft("net.minecraft:minecraft:$minecraftVersion")
     mappings(loom.officialMojangMappings())
+
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk21:$kotlinVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
 
     // We depend on Fabric Loader here to use the Fabric @Environment annotations,
     // which get remapped to the correct annotations on each platform.
