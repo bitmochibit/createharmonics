@@ -1,6 +1,6 @@
 package me.mochibit.createharmonics.content.records
 
-import me.mochibit.createharmonics.CreateHarmonicsMod
+import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
 import me.mochibit.createharmonics.event.crafting.RecipeAssembledEvent
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.resources.ResourceLocation
@@ -13,7 +13,7 @@ import net.minecraftforge.registries.ForgeRegistries
 object RecordCraftingHandler {
     const val CRAFTED_WITH_DISC_KEY = "crafted_with_disc"
 
-    @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE, modid = CreateHarmonicsMod.MOD_ID)
+    @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE, modid = ForgeCreateHarmonicsMod.MOD_ID)
     object Handler {
         @JvmStatic
         @SubscribeEvent

@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics.registry
 
 import com.tterrag.registrate.util.entry.ItemEntry
-import me.mochibit.createharmonics.CreateHarmonicsMod
+import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.cRegistrate
 import me.mochibit.createharmonics.content.records.BaseRecordItem
@@ -52,7 +52,7 @@ object ModItems : AutoRegistrable {
         eventBus: IEventBus,
         context: FMLJavaModLoadingContext,
     ) {
-        info("Registering items for ${CreateHarmonicsMod.MOD_ID}")
+        info("Registering items for ${ForgeCreateHarmonicsMod.MOD_ID}")
     }
 
     infix fun ModItems.etherealRecord(recordType: RecordType): EtherealRecordItem = getEtherealRecordItem(recordType).get()

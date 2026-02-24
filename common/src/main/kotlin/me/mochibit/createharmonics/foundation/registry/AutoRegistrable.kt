@@ -1,7 +1,4 @@
-package me.mochibit.createharmonics.registry
-
-import net.minecraftforge.eventbus.api.IEventBus
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
+package me.mochibit.createharmonics.foundation.registry
 
 sealed interface AutoRegistrable {
     /**
@@ -12,8 +9,5 @@ sealed interface AutoRegistrable {
     val registrationOrder: Int
         get() = 0
 
-    fun register(
-        eventBus: IEventBus,
-        context: FMLJavaModLoadingContext,
-    )
+    fun register()
 }

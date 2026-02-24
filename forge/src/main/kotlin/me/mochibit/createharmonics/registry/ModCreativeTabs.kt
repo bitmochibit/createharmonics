@@ -1,14 +1,12 @@
 package me.mochibit.createharmonics.registry
 
 import me.mochibit.createharmonics.CreateHarmonics
-import me.mochibit.createharmonics.CreateHarmonicsMod
+import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.registry.ModItems.etherealRecord
 import net.minecraft.core.registries.Registries
-import net.minecraft.network.chat.Component
 import net.minecraft.world.item.CreativeModeTab
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.item.Items
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 import net.minecraftforge.registries.DeferredRegister
@@ -18,7 +16,7 @@ object ModCreativeTabs : AutoRegistrable {
     override val registrationOrder = 4
 
     private val CREATIVE_MODE_TABS: DeferredRegister<CreativeModeTab> =
-        DeferredRegister.create(Registries.CREATIVE_MODE_TAB, CreateHarmonicsMod.MOD_ID)
+        DeferredRegister.create(Registries.CREATIVE_MODE_TAB, ForgeCreateHarmonicsMod.MOD_ID)
 
     val MAIN_TAB: RegistryObject<CreativeModeTab> =
         CREATIVE_MODE_TABS.register("main") {

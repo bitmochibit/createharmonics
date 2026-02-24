@@ -2,7 +2,7 @@ package me.mochibit.createharmonics.client.gui
 
 import com.mojang.blaze3d.systems.RenderSystem
 import dev.engine_room.flywheel.lib.model.baked.PartialModel
-import me.mochibit.createharmonics.CreateHarmonicsMod
+import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.foundation.gui.ModGuiTexture
 import me.mochibit.createharmonics.registry.ModLang
@@ -75,7 +75,7 @@ class HarmonicsMenuScreen(
                 .builder(
                     ModLang.translate("gui.main_menu.mod_settings_btn").component().withStyle(ChatFormatting.YELLOW),
                 ) {
-                    linkTo(BaseConfigScreen(this, CreateHarmonicsMod.MOD_ID))
+                    linkTo(BaseConfigScreen(this, ForgeCreateHarmonicsMod.MOD_ID))
                 }.bounds(center - buttonWidth / 2, yStart + 48, buttonWidth, buttonHeight)
                 .build(),
         )

@@ -2,38 +2,30 @@ package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
-import kotlinx.coroutines.Dispatchers
 import me.mochibit.createharmonics.ServerConfig
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import me.mochibit.createharmonics.audio.effect.EffectPreset
-import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.SimpleShipStreamSoundInstance
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.playFromRecord
-import me.mochibit.createharmonics.coroutine.launchDelayed
 import me.mochibit.createharmonics.extension.getManagingShip
-import me.mochibit.createharmonics.extension.lerpTo
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.extension.remapTo
 import me.mochibit.createharmonics.foundation.math.FloatSupplierInterpolated
-import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
+import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.registry.ModConfigurations
 import me.mochibit.createharmonics.registry.ModPackets
 import net.createmod.catnip.nbt.NBTHelper
-import net.minecraft.core.BlockPos
-import net.minecraft.core.Direction
-import net.minecraft.core.Vec3i
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.core.particles.ShriekParticleOption
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
-import net.minecraft.tags.FluidTags
 import net.minecraft.util.RandomSource
 import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
@@ -42,16 +34,9 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
 import net.minecraftforge.common.util.LazyOptional
-import net.minecraftforge.fml.ModList
 import net.minecraftforge.network.PacketDistributor
-import org.joml.Vector3d
-import org.valkyrienskies.core.api.ships.Ship
-import org.valkyrienskies.mod.common.getShipManagingPos
-import thedarkcolour.kotlinforforge.forge.vectorutil.v3d.toVec3
-import thedarkcolour.kotlinforforge.forge.vectorutil.v3d.toVector3d
 import java.util.UUID
 import kotlin.math.abs
-import kotlin.time.Duration.Companion.milliseconds
 
 // Todo: Refactor the track logic to be cleaner and reusable with other behaviours too
 class RecordPlayerBehaviour(

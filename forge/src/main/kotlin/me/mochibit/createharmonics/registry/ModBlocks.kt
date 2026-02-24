@@ -7,7 +7,7 @@ import com.simibubi.create.api.contraption.storage.item.MountedItemStorageType.m
 import com.simibubi.create.foundation.data.AssetLookup
 import com.simibubi.create.foundation.data.ModelGen.customItemModel
 import com.tterrag.registrate.util.entry.BlockEntry
-import me.mochibit.createharmonics.CreateHarmonicsMod
+import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.ModStress
 import me.mochibit.createharmonics.cRegistrate
@@ -109,6 +109,6 @@ object ModBlocks : AutoRegistrable {
         eventBus: IEventBus,
         context: FMLJavaModLoadingContext,
     ) {
-        info("Registering blocks for ${CreateHarmonicsMod.MOD_ID}")
+        info("Registering blocks for ${ForgeCreateHarmonicsMod.MOD_ID}")
     }
 }

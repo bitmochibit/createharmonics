@@ -3,7 +3,7 @@ package me.mochibit.createharmonics.registry
 import com.simibubi.create.api.stress.BlockStressValues
 import me.mochibit.createharmonics.ClientConfig
 import me.mochibit.createharmonics.CommonConfig
-import me.mochibit.createharmonics.CreateHarmonicsMod
+import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
 import me.mochibit.createharmonics.ServerConfig
 import net.createmod.catnip.config.ConfigBase
 import net.minecraftforge.common.ForgeConfigSpec
@@ -15,7 +15,7 @@ import net.minecraftforge.fml.event.config.ModConfigEvent
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 import java.util.EnumMap
 
-@Mod.EventBusSubscriber(modid = CreateHarmonicsMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
+@Mod.EventBusSubscriber(modid = ForgeCreateHarmonicsMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
 object ModConfigurations : AutoRegistrable {
     override val registrationOrder: Int = 1
 

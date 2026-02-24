@@ -1,13 +1,12 @@
 package me.mochibit.createharmonics.gametest.kinetics.recordPlayer
 
 import com.simibubi.create.AllBlocks
-import me.mochibit.createharmonics.CreateHarmonicsMod
+import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.content.records.RecordCraftingHandler
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.registry.ModBlocks
-import me.mochibit.createharmonics.registry.ModIcons
 import me.mochibit.createharmonics.registry.ModItems
 import me.mochibit.createharmonics.registry.ModItems.etherealRecord
 import net.minecraft.core.BlockPos
@@ -18,9 +17,8 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Blocks
 import net.minecraftforge.gametest.GameTestHolder
-import net.minecraftforge.gametest.PrefixGameTestTemplate
 
-@GameTestHolder(CreateHarmonicsMod.MOD_ID)
+@GameTestHolder(ForgeCreateHarmonicsMod.MOD_ID)
 class RecordPlayerBehaviourTest {
     private fun GameTestHelper.setupRecordPlayer(): Pair<RecordPlayerBlockEntity, RecordPlayerBehaviour> {
         val pos = BlockPos(1, 1, 1)

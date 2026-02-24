@@ -11,7 +11,7 @@ import net.minecraftforge.fml.common.Mod.EventBusSubscriber
  * These settings are synchronized to clients and can be adjusted by server administrators
  * to control gameplay mechanics and balance.
  */
-@EventBusSubscriber(modid = CreateHarmonicsMod.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = ForgeCreateHarmonicsMod.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
 object ServerConfig : ConfigBase() {
     // Stress configuration (nested)
     val modStress = nested(0, { ModStress }, "Mechanical stress impacts and capacities for CreateHarmonics blocks")

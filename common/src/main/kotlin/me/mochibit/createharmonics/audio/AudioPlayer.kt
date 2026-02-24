@@ -17,7 +17,7 @@ import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.async.withMainContext
 import me.mochibit.createharmonics.foundation.debug
 import me.mochibit.createharmonics.foundation.err
-import me.mochibit.createharmonics.foundation.ticks
+import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.warn
 import me.mochibit.createharmonics.network.packet.AudioPlayerStreamEndPacket
 import me.mochibit.createharmonics.network.packet.UpdateAudioNamePacket

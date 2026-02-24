@@ -2,8 +2,6 @@ package me.mochibit.createharmonics.registry
 
 import com.simibubi.create.api.contraption.storage.item.MountedItemStorageType
 import com.tterrag.registrate.util.entry.RegistryEntry
-import me.mochibit.createharmonics.CreateHarmonicsMod
-import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.cRegistrate
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMountedStorage

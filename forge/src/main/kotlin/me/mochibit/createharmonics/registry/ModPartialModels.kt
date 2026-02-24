@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics.registry
 
 import dev.engine_room.flywheel.lib.model.baked.PartialModel
-import me.mochibit.createharmonics.CreateHarmonicsMod
+import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.content.records.RecordType
 import net.minecraft.resources.ResourceLocation
@@ -20,10 +20,10 @@ object ModPartialModels : AutoRegistrable {
     fun getRecordModel(type: RecordType): PartialModel = recordModels.getValue(type)
 
     private fun block(path: String): PartialModel =
-        PartialModel.of(ResourceLocation.fromNamespaceAndPath(CreateHarmonicsMod.MOD_ID, "block/$path"))
+        PartialModel.of(ResourceLocation.fromNamespaceAndPath(ForgeCreateHarmonicsMod.MOD_ID, "block/$path"))
 
     private fun entity(path: String): PartialModel =
-        PartialModel.of(ResourceLocation.fromNamespaceAndPath(CreateHarmonicsMod.MOD_ID, "entity/$path"))
+        PartialModel.of(ResourceLocation.fromNamespaceAndPath(ForgeCreateHarmonicsMod.MOD_ID, "entity/$path"))
 
     override fun register(
         eventBus: IEventBus,

@@ -1,8 +1,12 @@
-package me.mochibit.createharmonics.registry
+package me.mochibit.createharmonics.foundation.registry
 
 import com.simibubi.create.foundation.networking.SimplePacketBase
-import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.asResource
+import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
+import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerStreamEndPacket
+import me.mochibit.createharmonics.foundation.network.packet.ConfigureRecordPressBasePacket
+import me.mochibit.createharmonics.foundation.network.packet.ContraptionBlockDataChangedPacket
+import me.mochibit.createharmonics.foundation.network.packet.UpdateAudioNamePacket
 import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.network.packet.AudioPlayerStreamEndPacket
 import me.mochibit.createharmonics.network.packet.ConfigureRecordPressBasePacket

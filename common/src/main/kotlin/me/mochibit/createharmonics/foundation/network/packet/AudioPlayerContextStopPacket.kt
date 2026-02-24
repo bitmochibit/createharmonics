@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.network.packet
+package me.mochibit.createharmonics.foundation.network.packet
 
 import com.simibubi.create.foundation.networking.SimplePacketBase
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry

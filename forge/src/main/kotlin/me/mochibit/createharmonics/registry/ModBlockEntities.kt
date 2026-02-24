@@ -2,9 +2,8 @@ package me.mochibit.createharmonics.registry
 
 import com.tterrag.registrate.util.entry.BlockEntityEntry
 import com.tterrag.registrate.util.nullness.NonNullFunction
-import com.tterrag.registrate.util.nullness.NonNullSupplier
 import dev.engine_room.flywheel.lib.visualization.SimpleBlockEntityVisualizer
-import me.mochibit.createharmonics.CreateHarmonicsMod
+import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.cRegistrate
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerRenderer
@@ -47,6 +46,6 @@ object ModBlockEntities : AutoRegistrable {
         eventBus: IEventBus,
         context: FMLJavaModLoadingContext,
     ) {
-        info("Registering block entities for ${CreateHarmonicsMod.MOD_ID}")
+        info("Registering block entities for ${ForgeCreateHarmonicsMod.MOD_ID}")
     }
 }

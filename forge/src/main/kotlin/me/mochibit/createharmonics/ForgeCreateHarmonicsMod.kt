@@ -4,7 +4,7 @@ import com.simibubi.create.foundation.data.CreateRegistrate
 import com.simibubi.create.foundation.item.ItemDescription
 import com.simibubi.create.foundation.item.KineticStats
 import com.simibubi.create.foundation.item.TooltipModifier
-import me.mochibit.createharmonics.CreateHarmonicsMod.Companion.MOD_ID
+import me.mochibit.createharmonics.ForgeCreateHarmonicsMod.Companion.MOD_ID
 import me.mochibit.createharmonics.Logger.err
 import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
@@ -19,7 +19,6 @@ import net.createmod.catnip.lang.FontHelper
 import net.createmod.ponder.foundation.PonderIndex
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
-import net.minecraft.resources.ResourceLocation
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory
 import net.minecraftforge.common.MinecraftForge
@@ -30,18 +29,17 @@ import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent
 import net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent
-import net.minecraftforge.fml.event.lifecycle.InterModEnqueueEvent
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
 @Mod(MOD_ID)
-class CreateHarmonicsMod(
+class ForgeCreateHarmonicsMod(
     val context: FMLJavaModLoadingContext,
 ) {
     companion object {
         const val MOD_ID: String = "createharmonics"
 
         @JvmStatic
-        lateinit var instance: CreateHarmonicsMod
+        lateinit var instance: ForgeCreateHarmonicsMod
             private set
     }
 
@@ -108,11 +106,6 @@ class CreateHarmonicsMod(
 
         ModPackets.register(modEventBus, context)
 
-        InterModComms.sendTo(
-            "carryon",
-            "blacklistBlock",
-        ) { "createharmonics:*" }
-
         Runtime.getRuntime().addShutdownHook(
             Thread {
                 info("Minecraft shutting down, cleaning up resources...")
@@ -134,9 +127,7 @@ class CreateHarmonicsMod(
     fun getRegistrate(): CreateRegistrate = registrate
 }
 
-val CreateHarmonics: CreateHarmonicsMod
-    get() = CreateHarmonicsMod.instance
-
-internal fun String.asResource() = ResourceLocation.fromNamespaceAndPath(MOD_ID, this)
+val CreateHarmonics: ForgeCreateHarmonicsMod
+    get() = ForgeCreateHarmonicsMod.instance
 
 internal fun cRegistrate() = CreateHarmonics.getRegistrate()

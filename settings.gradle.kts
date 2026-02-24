@@ -8,16 +8,19 @@ pluginManagement {
             name = "MinecraftForge"
             url = uri("https://maven.minecraftforge.net/")
         }
-        // Parchment
-        maven { url = uri("https://maven.parchmentmc.org") }
         // NeoForge
         maven { url = uri("https://maven.neoforged.net/releases") }
-        // Mixin (MixinGradle is applied as classpath in forge build script, but resolve here too)
+        // SpongePowered — MixinGradle plugin
         maven { url = uri("https://repo.spongepowered.org/repository/maven-public/") }
-        // Architectury plugin
+        // Architectury plugin + Loom
         maven {
             name = "Architectury"
             url = uri("https://maven.architectury.dev")
+        }
+        // Kotlin for Forge plugin repo
+        maven {
+            name = "Kotlin for Forge"
+            url = uri("https://thedarkcolour.github.io/KotlinForForge/")
         }
     }
 }

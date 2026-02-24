@@ -5,10 +5,9 @@ import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
 import me.mochibit.createharmonics.extension.renderTooltip
 import me.mochibit.createharmonics.extension.toMultilineComponent
-import me.mochibit.createharmonics.extension.toMultilineFormattedCharSequence
 import me.mochibit.createharmonics.foundation.gui.ModGuiTexture
 import me.mochibit.createharmonics.foundation.gui.widget.AdvancedIconButton
-import me.mochibit.createharmonics.network.packet.ConfigureRecordPressBasePacket
+import me.mochibit.createharmonics.foundation.network.packet.ConfigureRecordPressBasePacket
 import me.mochibit.createharmonics.registry.ModBlocks
 import me.mochibit.createharmonics.registry.ModLang
 import me.mochibit.createharmonics.registry.ModPackets
@@ -20,9 +19,7 @@ import net.createmod.catnip.gui.element.GuiGameElement
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.EditBox
 import net.minecraft.network.chat.Component
-import net.minecraft.util.FormattedCharSequence
 import net.minecraft.util.Mth
-import net.minecraft.world.inventory.tooltip.TooltipComponent
 import net.minecraft.world.item.ItemStack
 import kotlin.math.max
 

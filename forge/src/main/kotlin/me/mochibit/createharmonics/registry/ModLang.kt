@@ -1,17 +1,15 @@
 package me.mochibit.createharmonics.registry
 
-import com.simibubi.create.Create
-import me.mochibit.createharmonics.CreateHarmonicsMod
+import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
 import net.createmod.catnip.lang.Lang
 import net.createmod.catnip.lang.LangBuilder
 import net.createmod.catnip.lang.LangNumberFormat
-import net.minecraft.network.chat.Component
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraftforge.fluids.FluidStack
 
 internal object ModLang : Lang() {
-    fun builder(): LangBuilder = LangBuilder(CreateHarmonicsMod.MOD_ID)
+    fun builder(): LangBuilder = LangBuilder(ForgeCreateHarmonicsMod.MOD_ID)
 
     fun blockName(state: BlockState): LangBuilder =
         builder().add(
