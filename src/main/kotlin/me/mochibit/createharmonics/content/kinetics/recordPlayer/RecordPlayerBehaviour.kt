@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
+import com.simibubi.create.content.kinetics.base.KineticBlock
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import me.mochibit.createharmonics.ServerConfig
@@ -11,6 +12,7 @@ import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.playFromRecord
+import me.mochibit.createharmonics.extension.getFacingDirection
 import me.mochibit.createharmonics.extension.lerpTo
 import me.mochibit.createharmonics.extension.onClient
 import me.mochibit.createharmonics.extension.onServer
@@ -534,7 +536,7 @@ class RecordPlayerBehaviour(
                 result.isBroken -> {
                     setRecord(ItemStack.EMPTY)
 
-                    val facing = be.blockState.getValue(BlockStateProperties.FACING)
+                    val facing = be.blockState.getFacingDirection()
 
                     val dropPos =
                         Vec3.atCenterOf(be.blockPos).add(

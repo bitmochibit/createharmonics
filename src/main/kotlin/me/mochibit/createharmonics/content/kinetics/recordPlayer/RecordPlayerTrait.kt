@@ -33,7 +33,7 @@ interface RecordPlayerTrait {
         hit: BlockHitResult,
         facing: Direction
     ): InteractionResult {
-        val blockEntity = level.getBlockEntity(pos) as? AndesiteJukeboxBlockEntity ?: return InteractionResult.PASS
+        val blockEntity = level.getBlockEntity(pos) as? RecordPlayerBlockEntity ?: return InteractionResult.PASS
         val clickItem = player.getItemInHand(hand)
 
         if (AllItems.WRENCH.isIn(clickItem)) {

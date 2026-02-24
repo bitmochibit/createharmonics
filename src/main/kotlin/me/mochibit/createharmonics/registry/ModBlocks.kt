@@ -63,7 +63,7 @@ object ModBlocks : AutoRegistrable {
                 p
                     .strength(2.0f, 6.0f)
                     .sound(SoundType.METAL)
-            }.blockstate(BlockStateGen.directionalBlockProvider(true)) //todo:  need to change to horizontal
+            }.blockstate(BlockStateGen.horizontalBlockProvider(true))
             .addLayer { Supplier { RenderType.translucent() } }
             .onRegister(movementBehaviour(RecordPlayerMovementBehaviour()))
             .tag(

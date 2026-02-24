@@ -24,10 +24,22 @@ class RecordPlayerValueBoxTransform(
         pos: BlockPos,
         state: BlockState,
     ): Vec3 {
+        val facing =
+            when {
+                state.properties.contains(BlockStateProperties.FACING) ->
+                    state.getValue(BlockStateProperties.FACING)
+
+                state.properties.contains(BlockStateProperties.HORIZONTAL_FACING) ->
+                    state.getValue(BlockStateProperties.HORIZONTAL_FACING)
+
+                else ->
+                    Direction.NORTH
+            }
+
         val offset =
             super
                 .getLocalOffset(level, pos, state)
-                .add(Vec3.atLowerCornerOf(state.getValue(BlockStateProperties.FACING).normal).scale(2 / 5.35))
+                .add(Vec3.atLowerCornerOf(facing.normal).scale(2 / 5.35))
 
         val outwardOffset = Vec3.atLowerCornerOf(side.normal).scale(0.035)
 
@@ -40,11 +52,24 @@ class RecordPlayerValueBoxTransform(
         state: BlockState,
         ms: PoseStack,
     ) {
+        val facing =
+            when {
+                state.properties.contains(BlockStateProperties.FACING) ->
+                    state.getValue(BlockStateProperties.FACING)
+
+                state.properties.contains(BlockStateProperties.HORIZONTAL_FACING) ->
+                    state.getValue(BlockStateProperties.HORIZONTAL_FACING)
+
+                else ->
+                    Direction.NORTH
+            }
+
         if (!side.axis.isHorizontal) {
             TransformStack
                 .of(ms)
-                .rotateYDegrees(AngleHelper.horizontalAngle(state.getValue(BlockStateProperties.FACING)) + 180)
+                .rotateYDegrees(AngleHelper.horizontalAngle(facing) + 180)
         }
+
         super.rotate(level, pos, state, ms)
     }
 }
