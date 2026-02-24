@@ -91,11 +91,4 @@ interface RecordPlayerTrait {
 
         return InteractionResult.SUCCESS
     }
-
-    
-    fun getPower(
-        state: BlockState,
-        worldIn: Level,
-        pos: BlockPos,
-    ): Int = worldIn.getBestNeighborSignal(pos)
 }

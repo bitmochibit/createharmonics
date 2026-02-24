@@ -68,7 +68,7 @@ abstract class AllDirectionRecordPlayerBlock(
         return withWater(
             placed.setValue(
                 PackagerLinkBlock.POWERED,
-                getPower(placed, context.level, pos) > 0,
+                context.level.getBestNeighborSignal(pos) > 0,
             ),
             context,
         )
@@ -84,7 +84,7 @@ abstract class AllDirectionRecordPlayerBlock(
         isMoving: Boolean,
     ) {
         if (worldIn.isClientSide) return
-        val power = getPower(state, worldIn, pos)
+        val power = worldIn.getBestNeighborSignal(pos)
         val isUnderwater = worldIn.getFluidState(pos).`is`(FluidTags.WATER)
 
         withBlockEntityDo(
