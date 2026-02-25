@@ -4,7 +4,7 @@ import com.simibubi.create.api.data.recipe.DeployingRecipeGen
 import com.simibubi.create.content.kinetics.deployer.DeployerApplicationRecipe
 import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
 import me.mochibit.createharmonics.content.records.RecordType
-import me.mochibit.createharmonics.registry.ModItems
+import me.mochibit.createharmonics.foundation.registry.ModItems
 import net.minecraft.data.PackOutput
 
 class ModDeployingRecipeGen(

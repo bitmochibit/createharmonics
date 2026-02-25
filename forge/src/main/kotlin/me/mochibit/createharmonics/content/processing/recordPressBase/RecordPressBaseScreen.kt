@@ -7,9 +7,9 @@ import me.mochibit.createharmonics.extension.renderTooltip
 import me.mochibit.createharmonics.extension.toMultilineComponent
 import me.mochibit.createharmonics.foundation.gui.ModGuiTexture
 import me.mochibit.createharmonics.foundation.gui.widget.AdvancedIconButton
-import me.mochibit.createharmonics.foundation.network.packet.ConfigureRecordPressBasePacket
-import me.mochibit.createharmonics.registry.ModBlocks
-import me.mochibit.createharmonics.registry.ModLang
+import me.mochibit.createharmonics.foundation.locale.ModLang
+import me.mochibit.createharmonics.foundation.network.ConfigureRecordPressBasePacket
+import me.mochibit.createharmonics.foundation.registry.ModBlocks
 import me.mochibit.createharmonics.registry.ModPackets
 import net.createmod.catnip.animation.LerpedFloat
 import net.createmod.catnip.animation.LerpedFloat.Chaser

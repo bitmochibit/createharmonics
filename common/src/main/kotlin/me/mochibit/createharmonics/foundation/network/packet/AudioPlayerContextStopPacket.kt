@@ -1,13 +1,13 @@
 package me.mochibit.createharmonics.foundation.network.packet
 
-import com.simibubi.create.foundation.networking.SimplePacketBase
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
+import me.mochibit.createharmonics.foundation.network.ModPacket
 import net.minecraft.network.FriendlyByteBuf
-import net.minecraftforge.network.NetworkEvent
+import net.minecraft.server.level.ServerPlayer
 
 class AudioPlayerContextStopPacket(
     val audioPlayerId: String,
-) : SimplePacketBase() {
+) : ModPacket {
     constructor(buffer: FriendlyByteBuf) : this(
         audioPlayerId = buffer.readUtf(),
     )
@@ -16,10 +16,8 @@ class AudioPlayerContextStopPacket(
         buffer.writeUtf(audioPlayerId)
     }
 
-    override fun handle(context: NetworkEvent.Context): Boolean {
-        context.enqueueWork {
-            AudioPlayerRegistry.destroyPlayer(audioPlayerId)
-        }
+    override fun handle(player: ServerPlayer?): Boolean {
+        AudioPlayerRegistry.destroyPlayer(audioPlayerId)
         return true
     }
 }

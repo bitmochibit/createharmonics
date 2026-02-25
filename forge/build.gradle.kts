@@ -19,14 +19,16 @@ loom {
 }
 
 val minecraftVersion = rootProject.property("minecraft_version").toString()
-val createVersion = rootProject.property("create_version").toString()
-val ponderVersion = rootProject.property("ponder_version").toString()
-val flywheelVersion = rootProject.property("flywheel_version").toString()
-val registrateVersion = rootProject.property("registrate_version").toString()
+
 val jeiMinecraftVersion = rootProject.property("jei_minecraft_version").toString()
 val jeiVersion = rootProject.property("jei_version").toString()
 val vs2Version = rootProject.property("vs2_version").toString()
 val vsCoreVersion = rootProject.property("vs_core_version").toString()
+
+val createVersion = rootProject.property("create_version").toString()
+val ponderVersion = rootProject.property("ponder_version").toString()
+val flywheelVersion = rootProject.property("flywheel_version").toString()
+val registrateVersion = rootProject.property("registrate_version").toString()
 
 val common: Configuration by configurations.creating {
     isCanBeResolved = true
@@ -54,7 +56,7 @@ dependencies {
     // Kotlin for Forge
     implementation("thedarkcolour:kotlinforforge:${rootProject.property("kotlin_for_forge_version")}")
 
-    // Create mod
+    // Create for Forge
     modImplementation("com.simibubi.create:create-$minecraftVersion:$createVersion:slim")
     modImplementation("net.createmod.ponder:Ponder-Forge-$minecraftVersion:$ponderVersion")
     compileOnly("dev.engine-room.flywheel:flywheel-forge-api-$minecraftVersion:$flywheelVersion")
@@ -78,6 +80,7 @@ dependencies {
 
     common(project(path = ":common", configuration = "namedElements")) { isTransitive = false }
     shadowBundle(project(path = ":common", configuration = "transformProductionForge"))
+    shadowBundle("org.tukaani:xz:1.11")
 }
 
 java {
@@ -105,8 +108,29 @@ tasks.processResources {
 tasks.shadowJar {
     configurations = listOf(shadowBundle)
     archiveClassifier = "dev-shadow"
+
+    relocate("org.tukaani.xz", "me.mochibit.createharmonics.libs.xz")
+
+    if (project.hasProperty("curseforge")) {
+        exclude("me/mochibit/createharmonics/audio/bin/BackgroundBinInstaller.class")
+        exclude("me/mochibit/createharmonics/audio/bin/BackgroundBinInstaller\$*.class")
+        exclude("me/mochibit/createharmonics/audio/bin/BinInstaller.class")
+        exclude("me/mochibit/createharmonics/audio/bin/BinInstaller\$*.class")
+    }
 }
 
 tasks.remapJar {
     inputFile.set(tasks.shadowJar.get().archiveFile)
+}
+
+tasks.register("buildCurseForge") {
+    group = "build"
+    description = "Builds the Forge jar for CurseForge distribution"
+    dependsOn(tasks.remapJar)
+}
+
+gradle.taskGraph.whenReady {
+    if (gradle.taskGraph.hasTask(":forge:buildCurseForge")) {
+        project.ext.set("curseforge", true)
+    }
 }

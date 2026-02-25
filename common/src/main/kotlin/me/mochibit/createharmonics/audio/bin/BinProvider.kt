@@ -1,6 +1,6 @@
 package me.mochibit.createharmonics.audio.bin
 
-import me.mochibit.createharmonics.registry.ModLang
+import me.mochibit.createharmonics.foundation.locale.ModLang
 import net.minecraft.client.Minecraft
 import java.io.File
 

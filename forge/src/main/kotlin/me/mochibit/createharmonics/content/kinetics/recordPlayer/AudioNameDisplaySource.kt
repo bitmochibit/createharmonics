@@ -4,7 +4,7 @@ import com.simibubi.create.content.redstone.displayLink.DisplayLinkContext
 import com.simibubi.create.content.redstone.displayLink.source.SingleLineDisplaySource
 import com.simibubi.create.content.redstone.displayLink.target.DisplayTargetStats
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
-import me.mochibit.createharmonics.registry.ModLang
+import me.mochibit.createharmonics.foundation.locale.ModLang
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.MutableComponent
 

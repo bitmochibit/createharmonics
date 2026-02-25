@@ -46,6 +46,7 @@ dependencies {
 
     common(project(path = ":common", configuration = "namedElements")) { isTransitive = false }
     shadowBundle(project(path = ":common", configuration = "transformProductionNeoForge"))
+    shadowBundle("org.tukaani:xz:1.11")
 }
 
 java {
@@ -94,9 +95,30 @@ tasks.processResources {
 tasks.shadowJar {
     configurations = listOf(shadowBundle)
     archiveClassifier = "dev-shadow"
+
+    relocate("org.tukaani.xz", "me.mochibit.createharmonics.libs.xz")
+
+    if (project.hasProperty("curseforge")) {
+        exclude("me/mochibit/createharmonics/audio/bin/BackgroundBinInstaller.class")
+        exclude("me/mochibit/createharmonics/audio/bin/BackgroundBinInstaller\$*.class")
+        exclude("me/mochibit/createharmonics/audio/bin/BinInstaller.class")
+        exclude("me/mochibit/createharmonics/audio/bin/BinInstaller\$*.class")
+    }
 }
 
 tasks.remapJar {
     inputFile.set(tasks.shadowJar.get().archiveFile)
     archiveClassifier = ""
+}
+
+tasks.register("buildCurseForge") {
+    group = "build"
+    description = "Builds the NeoForge jar for CurseForge distribution"
+    dependsOn(tasks.remapJar)
+}
+
+gradle.taskGraph.whenReady {
+    if (gradle.taskGraph.hasTask(":neoforge:buildCurseForge")) {
+        project.ext.set("curseforge", true)
+    }
 }

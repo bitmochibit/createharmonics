@@ -4,7 +4,7 @@ import com.simibubi.create.api.data.recipe.PressingRecipeGen
 import com.simibubi.create.content.kinetics.press.PressingRecipe
 import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
 import me.mochibit.createharmonics.content.records.RecordType
-import me.mochibit.createharmonics.registry.ModItems
+import me.mochibit.createharmonics.foundation.registry.ModItems
 import net.minecraft.data.PackOutput
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items

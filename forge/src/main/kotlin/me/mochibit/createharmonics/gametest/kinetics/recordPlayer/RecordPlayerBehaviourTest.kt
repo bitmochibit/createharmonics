@@ -6,9 +6,9 @@ import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBeh
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.content.records.RecordCraftingHandler
 import me.mochibit.createharmonics.content.records.RecordType
-import me.mochibit.createharmonics.registry.ModBlocks
-import me.mochibit.createharmonics.registry.ModItems
-import me.mochibit.createharmonics.registry.ModItems.etherealRecord
+import me.mochibit.createharmonics.foundation.registry.ModBlocks
+import me.mochibit.createharmonics.foundation.registry.ModItems
+import me.mochibit.createharmonics.foundation.registry.ModItems.etherealRecord
 import net.minecraft.core.BlockPos
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper

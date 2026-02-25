@@ -12,10 +12,10 @@ import dev.engine_room.flywheel.lib.model.Models
 import dev.engine_room.flywheel.lib.model.baked.PartialModel
 import dev.engine_room.flywheel.lib.visual.SimpleDynamicVisual
 import dev.engine_room.flywheel.lib.visual.SimpleTickableVisual
-import me.mochibit.createharmonics.content.records.EtherealRecordItem
+import me.mochibit.createharmonics.content.record.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.extension.lerpTo
-import me.mochibit.createharmonics.registry.ModPartialModels
+import me.mochibit.createharmonics.foundation.registry.ModPartialModels
 import net.createmod.catnip.math.AngleHelper
 import net.minecraft.core.Direction
 import net.minecraft.world.level.block.state.properties.BlockStateProperties

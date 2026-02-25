@@ -3,8 +3,8 @@ package me.mochibit.createharmonics.client.gui
 import me.mochibit.createharmonics.client.gui.OpenLibMenuButton.MenuRows.leftTextKeys
 import me.mochibit.createharmonics.client.gui.OpenLibMenuButton.MenuRows.rightTextKeys
 import me.mochibit.createharmonics.content.records.RecordType
-import me.mochibit.createharmonics.registry.ModConfigurations
-import me.mochibit.createharmonics.registry.ModItems
+import me.mochibit.createharmonics.foundation.registry.ModConfigurations
+import me.mochibit.createharmonics.foundation.registry.ModItems
 import net.createmod.catnip.gui.ScreenOpener
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.Font

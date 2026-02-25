@@ -9,7 +9,7 @@ import com.simibubi.create.content.logistics.packagerLink.PackagerLinkBlockEntit
 import com.simibubi.create.foundation.block.IBE
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlockEntity
-import me.mochibit.createharmonics.content.records.EtherealRecordItem
+import me.mochibit.createharmonics.content.record.EtherealRecordItem
 import me.mochibit.createharmonics.extension.onServer
 import net.createmod.catnip.data.Iterate
 import net.minecraft.core.BlockPos

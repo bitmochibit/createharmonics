@@ -16,8 +16,8 @@ import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.PlaybackState
-import me.mochibit.createharmonics.content.records.EtherealRecordItem
-import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.playFromRecord
+import me.mochibit.createharmonics.content.record.EtherealRecordItem
+import me.mochibit.createharmonics.content.record.EtherealRecordItem.Companion.playFromRecord
 import me.mochibit.createharmonics.coroutine.MinecraftClientDispatcher
 import me.mochibit.createharmonics.coroutine.launchDelayed
 import me.mochibit.createharmonics.extension.onClient
@@ -25,8 +25,8 @@ import me.mochibit.createharmonics.extension.onServer
 import me.mochibit.createharmonics.extension.remapTo
 import me.mochibit.createharmonics.foundation.math.FloatSupplierInterpolated
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
-import me.mochibit.createharmonics.foundation.network.packet.setBlockData
-import me.mochibit.createharmonics.registry.ModConfigurations
+import me.mochibit.createharmonics.foundation.network.setBlockData
+import me.mochibit.createharmonics.foundation.registry.ModConfigurations
 import me.mochibit.createharmonics.registry.ModPackets
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos

@@ -3,13 +3,14 @@ package me.mochibit.createharmonics.foundation.network.packet
 import com.simibubi.create.foundation.networking.SimplePacketBase
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour
+import me.mochibit.createharmonics.foundation.network.ModPacket
 import net.minecraft.network.FriendlyByteBuf
-import net.minecraftforge.network.NetworkEvent
+import net.minecraft.server.level.ServerPlayer
 
 class AudioPlayerStreamEndPacket(
     val audioPlayerId: String,
     val failure: Boolean = false,
-) : SimplePacketBase() {
+) : ModPacket {
     constructor(buffer: FriendlyByteBuf) : this(
         audioPlayerId = buffer.readUtf(),
         failure = buffer.readBoolean(),
@@ -20,13 +21,11 @@ class AudioPlayerStreamEndPacket(
         buffer.writeBoolean(failure)
     }
 
-    override fun handle(context: NetworkEvent.Context): Boolean {
-        context.enqueueWork {
-            RecordPlayerBlockEntity.handlePlaybackEnd(audioPlayerId, failure)
+    override fun handle(player: ServerPlayer?): Boolean {
+        RecordPlayerBlockEntity.handlePlaybackEnd(audioPlayerId, failure)
 
-            RecordPlayerMovementBehaviour.getContextByPlayerUUID(audioPlayerId)?.let { movementContext ->
-                RecordPlayerMovementBehaviour.stopMovingPlayer(movementContext)
-            }
+        RecordPlayerMovementBehaviour.getContextByPlayerUUID(audioPlayerId)?.let { movementContext ->
+            RecordPlayerMovementBehaviour.stopMovingPlayer(movementContext)
         }
         return true
     }

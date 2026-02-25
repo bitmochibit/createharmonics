@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics.audio.bin
 
-import me.mochibit.createharmonics.Logger.err
-import me.mochibit.createharmonics.Logger.info
+import me.mochibit.createharmonics.foundation.err
+import me.mochibit.createharmonics.foundation.info
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.tukaani.xz.XZInputStream
 import java.io.File
@@ -26,18 +26,15 @@ object BinInstaller {
 
         synchronized(lockObject) {
             if (provider.isAvailable()) {
-                info("$providerName is already installed")
                 progressCallback?.invoke("already_installed", 1.0f, "")
                 return true
             }
 
             try {
-                info("Installing $providerName...")
                 progressCallback?.invoke("downloading", 0.0f, "")
                 provider.directory.mkdirs()
 
                 val downloadUrl = provider.getDownloadUrl()
-                info("Downloading from: $downloadUrl")
 
                 val tempFile = File.createTempFile("${providerName}_download", ".tmp")
                 try {
@@ -50,14 +47,13 @@ object BinInstaller {
                     progressCallback?.invoke("extracting", 0.0f, "")
                     extractDownloadedFile(downloadUrl, tempFile, provider)
 
-                    info("$providerName installed successfully")
                     progressCallback?.invoke("completed", 1.0f, "")
 
                     // Clear cache and verify
                     provider.clearCache()
                     return provider.isAvailable().also { available ->
                         if (!available) {
-                            err("Installation verification failed for $providerName")
+                            "Installation verification failed for $providerName".err()
                             progressCallback?.invoke("failed", 0.0f, "")
                         }
                     }
@@ -65,7 +61,7 @@ object BinInstaller {
                     tempFile.delete()
                 }
             } catch (e: Exception) {
-                err("Failed to install $providerName: ${e.message}")
+                "Failed to install $providerName: ${e.message}".err()
                 e.printStackTrace()
                 progressCallback?.invoke("failed", 0.0f, "")
                 return false
@@ -138,14 +134,8 @@ object BinInstaller {
 
                         lastUpdateTime = currentTime
                         lastUpdateBytes = totalBytes
-
-                        if (totalBytes % (1024 * 1024) < buffer.size) {
-                            info("Downloaded ${totalBytes / (1024 * 1024)} MB... ($speedText)")
-                        }
                     }
                 }
-
-                info("Download complete: ${totalBytes / (1024 * 1024)} MB")
             }
         }
     }
@@ -165,16 +155,12 @@ object BinInstaller {
         destDir.mkdirs()
         val destPath = destDir.canonicalFile.toPath()
 
-        info("Extracting zip archive...")
         var fileCount = 0
 
         ZipInputStream(zipFile.inputStream()).use { zis ->
             generateSequence { zis.nextEntry }
                 .forEach { entry ->
                     fileCount++
-                    if (fileCount % 10 == 0) {
-                        info("Extracted $fileCount files...")
-                    }
 
                     val entryPath = File(entry.name).toPath().normalize()
                     val resolvedPath = destPath.resolve(entryPath).normalize()
@@ -201,8 +187,6 @@ object BinInstaller {
                     zis.closeEntry()
                 }
         }
-
-        info("Extraction complete: $fileCount files extracted")
     }
 
     private fun shouldBeExecutable(
@@ -231,9 +215,6 @@ object BinInstaller {
                     var entry = tarInput.nextTarEntry
                     while (entry != null) {
                         fileCount++
-                        if (fileCount % 10 == 0) {
-                            info("Extracted $fileCount files...")
-                        }
 
                         val entryPath = File(entry.name).toPath().normalize()
                         val resolvedPath = destPath.resolve(entryPath).normalize()
@@ -250,7 +231,7 @@ object BinInstaller {
                             }
 
                             entry.isSymbolicLink -> {
-                                info("Skipping symbolic link: ${entry.name}")
+                                "Skipping symbolic link: ${entry.name}".info()
                             }
 
                             else -> {
@@ -274,7 +255,5 @@ object BinInstaller {
                 }
             }
         }
-
-        info("Extraction complete: $fileCount files extracted")
     }
 }

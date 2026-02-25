@@ -3,7 +3,7 @@ package me.mochibit.createharmonics.content.kinetics.recordPlayer
 import com.simibubi.create.content.kinetics.mechanicalArm.AllArmInteractionPointTypes
 import com.simibubi.create.content.kinetics.mechanicalArm.ArmInteractionPointType
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.PlaybackState
-import me.mochibit.createharmonics.content.records.EtherealRecordItem
+import me.mochibit.createharmonics.content.record.EtherealRecordItem
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level

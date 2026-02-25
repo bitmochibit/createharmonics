@@ -9,9 +9,8 @@ import com.simibubi.create.content.kinetics.base.KineticBlockEntityRenderer.stan
 import com.simibubi.create.foundation.blockEntity.renderer.SafeBlockEntityRenderer
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
-import me.mochibit.createharmonics.content.records.EtherealRecordItem
-import me.mochibit.createharmonics.extension.lerpTo
-import me.mochibit.createharmonics.registry.ModPartialModels
+import me.mochibit.createharmonics.content.record.EtherealRecordItem
+import me.mochibit.createharmonics.foundation.registry.ModPartialModels
 import net.createmod.catnip.animation.AnimationTickHolder
 import net.createmod.catnip.math.AngleHelper
 import net.createmod.catnip.render.CachedBuffers
@@ -20,9 +19,7 @@ import net.minecraft.client.renderer.LevelRenderer
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.client.renderer.RenderType
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider
-import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
-import kotlin.math.log
 
 class RecordPlayerRenderer(
     val context: BlockEntityRendererProvider.Context,

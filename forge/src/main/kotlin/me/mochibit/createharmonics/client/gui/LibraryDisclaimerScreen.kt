@@ -12,8 +12,8 @@ import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.extension.drawCenteredString
 import me.mochibit.createharmonics.extension.toMultilineFormattedCharSequence
-import me.mochibit.createharmonics.registry.ModConfigurations
-import me.mochibit.createharmonics.registry.ModLang
+import me.mochibit.createharmonics.foundation.locale.ModLang
+import me.mochibit.createharmonics.foundation.registry.ModConfigurations
 import net.minecraft.ChatFormatting
 import net.minecraft.Util
 import net.minecraft.client.gui.GuiGraphics

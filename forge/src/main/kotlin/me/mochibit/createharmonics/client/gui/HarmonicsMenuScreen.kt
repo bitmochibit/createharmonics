@@ -5,8 +5,8 @@ import dev.engine_room.flywheel.lib.model.baked.PartialModel
 import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.foundation.gui.ModGuiTexture
-import me.mochibit.createharmonics.registry.ModLang
-import me.mochibit.createharmonics.registry.ModPartialModels
+import me.mochibit.createharmonics.foundation.locale.ModLang
+import me.mochibit.createharmonics.foundation.registry.ModPartialModels
 import net.createmod.catnip.config.ui.BaseConfigScreen
 import net.createmod.catnip.data.Iterate
 import net.createmod.catnip.gui.AbstractSimiScreen

@@ -3,8 +3,8 @@ package me.mochibit.createharmonics.command
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
-import me.mochibit.createharmonics.content.records.EtherealRecordItem
-import me.mochibit.createharmonics.content.records.EtherealRecordItem.Companion.setAudioUrl
+import me.mochibit.createharmonics.content.record.EtherealRecordItem
+import me.mochibit.createharmonics.content.record.EtherealRecordItem.Companion.setAudioUrl
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.network.chat.Component

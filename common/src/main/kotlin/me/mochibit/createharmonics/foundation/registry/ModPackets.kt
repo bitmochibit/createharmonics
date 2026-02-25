@@ -1,85 +1,83 @@
 package me.mochibit.createharmonics.foundation.registry
 
-import com.simibubi.create.foundation.networking.SimplePacketBase
-import me.mochibit.createharmonics.asResource
+import dev.architectury.networking.NetworkManager
+import io.netty.buffer.Unpooled
+import me.mochibit.createharmonics.foundation.extension.asResource
+import me.mochibit.createharmonics.foundation.network.ModPacket
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerStreamEndPacket
-import me.mochibit.createharmonics.foundation.network.packet.ConfigureRecordPressBasePacket
-import me.mochibit.createharmonics.foundation.network.packet.ContraptionBlockDataChangedPacket
 import me.mochibit.createharmonics.foundation.network.packet.UpdateAudioNamePacket
-import me.mochibit.createharmonics.network.packet.AudioPlayerContextStopPacket
-import me.mochibit.createharmonics.network.packet.AudioPlayerStreamEndPacket
-import me.mochibit.createharmonics.network.packet.ConfigureRecordPressBasePacket
-import me.mochibit.createharmonics.network.packet.ContraptionBlockDataChangedPacket
-import me.mochibit.createharmonics.network.packet.UpdateAudioNamePacket
 import net.minecraft.network.FriendlyByteBuf
-import net.minecraftforge.eventbus.api.IEventBus
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
-import net.minecraftforge.network.NetworkDirection
-import net.minecraftforge.network.NetworkEvent
-import net.minecraftforge.network.NetworkRegistry
-import net.minecraftforge.network.simple.SimpleChannel
-import java.util.function.BiConsumer
-import java.util.function.Supplier
+import net.minecraft.resources.ResourceLocation
+import net.minecraft.server.level.ServerPlayer
 
 object ModPackets : AutoRegistrable {
-    private const val PROTOCOL_VERSION = "1"
-    private const val NETWORK_VERSION = "1"
-
-    val channel: SimpleChannel =
-        NetworkRegistry.ChannelBuilder
-            .named("main".asResource())
-            .serverAcceptedVersions { it == NETWORK_VERSION }
-            .clientAcceptedVersions { it == NETWORK_VERSION }
-            .networkProtocolVersion { PROTOCOL_VERSION }
-            .simpleChannel()
-
-    private val clientToServer =
-        listOf(
-            packet(::AudioPlayerStreamEndPacket),
-            packet(::ConfigureRecordPressBasePacket),
-            packet(::UpdateAudioNamePacket),
+    private val clientToServer: Map<ResourceLocation, PacketType<*>> =
+        mapOf(
+            "audio_stream_end".asResource() to PacketType(::AudioPlayerStreamEndPacket),
+            "update_audio_name".asResource() to PacketType(::UpdateAudioNamePacket),
         )
 
-    private val serverToClient =
-        listOf(
-            packet(::AudioPlayerContextStopPacket),
-            packet(::ContraptionBlockDataChangedPacket),
+    private val serverToClient: Map<ResourceLocation, PacketType<*>> =
+        mapOf(
+            "audio_context_stop".asResource() to PacketType(::AudioPlayerContextStopPacket),
         )
 
-    override fun register(
-        eventBus: IEventBus,
-        context: FMLJavaModLoadingContext,
+    private val c2sIds: Map<Class<*>, ResourceLocation> by lazy {
+        clientToServer.entries.associate { (id, pt) -> pt.packetClass to id }
+    }
+    private val s2cIds: Map<Class<*>, ResourceLocation> by lazy {
+        serverToClient.entries.associate { (id, pt) -> pt.packetClass to id }
+    }
+
+    override fun register() {
+        registerServer()
+        registerClient()
+    }
+
+    fun registerServer() {
+        clientToServer.forEach { (id, packetType) -> packetType.registerC2S(id) }
+    }
+
+    fun registerClient() {
+        serverToClient.forEach { (id, packetType) -> packetType.registerS2C(id) }
+    }
+
+    fun sendToServer(packet: ModPacket) {
+        val id =
+            c2sIds[packet::class.java]
+                ?: throw IllegalArgumentException("${packet::class.java} non registrato C2S")
+        NetworkManager.sendToServer(id, FriendlyByteBuf(Unpooled.buffer()).also(packet::write))
+    }
+
+    fun sendToPlayer(
+        player: ServerPlayer,
+        packet: ModPacket,
     ) {
-        var id = 0
-        clientToServer.forEach { it.register(channel, id++, NetworkDirection.PLAY_TO_SERVER) }
-        serverToClient.forEach { it.register(channel, id++, NetworkDirection.PLAY_TO_CLIENT) }
+        val id =
+            s2cIds[packet::class.java]
+                ?: throw IllegalArgumentException("${packet::class.java} non registrato S2C")
+        NetworkManager.sendToPlayer(player, id, FriendlyByteBuf(Unpooled.buffer()).also(packet::write))
     }
 }
 
-private class PacketType<T : SimplePacketBase>(
-    val clazz: Class<T>,
+private inline fun <reified T : ModPacket> PacketType(noinline factory: (FriendlyByteBuf) -> T) = PacketType(T::class.java, factory)
+
+private class PacketType<T : ModPacket>(
+    val packetClass: Class<*> = factory(FriendlyByteBuf(Unpooled.buffer()))::class.java,
     val factory: (FriendlyByteBuf) -> T,
 ) {
-    fun register(
-        channel: SimpleChannel,
-        id: Int,
-        direction: NetworkDirection,
-    ) {
-        channel
-            .messageBuilder(clazz, id, direction)
-            .encoder { packet, buffer -> packet.write(buffer) }
-            .decoder(factory)
-            .consumerNetworkThread(
-                BiConsumer { packet: T, ctxSupplier: Supplier<NetworkEvent.Context> ->
-                    ctxSupplier.get().apply {
-                        if (packet.handle(this)) {
-                            packetHandled = true
-                        }
-                    }
-                },
-            ).add()
+    fun registerC2S(id: ResourceLocation) {
+        NetworkManager.registerReceiver(NetworkManager.Side.C2S, id) { buf, context ->
+            val packet = factory(buf)
+            context.queue { packet.handle(context.player as? ServerPlayer) }
+        }
+    }
+
+    fun registerS2C(id: ResourceLocation) {
+        NetworkManager.registerReceiver(NetworkManager.Side.S2C, id) { buf, context ->
+            val packet = factory(buf)
+            context.queue { packet.handle(null) }
+        }
     }
 }
-
-private inline fun <reified T : SimplePacketBase> packet(noinline factory: (FriendlyByteBuf) -> T) = PacketType(T::class.java, factory)

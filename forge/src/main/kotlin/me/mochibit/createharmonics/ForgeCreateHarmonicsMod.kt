@@ -5,15 +5,15 @@ import com.simibubi.create.foundation.item.ItemDescription
 import com.simibubi.create.foundation.item.KineticStats
 import com.simibubi.create.foundation.item.TooltipModifier
 import me.mochibit.createharmonics.ForgeCreateHarmonicsMod.Companion.MOD_ID
-import me.mochibit.createharmonics.Logger.err
-import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
+import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.ponder.ModPonderPlugin
-import me.mochibit.createharmonics.registry.ModConfigurations
-import me.mochibit.createharmonics.registry.ModPackets
-import me.mochibit.createharmonics.registry.ModPartialModels
-import me.mochibit.createharmonics.registry.RegistryManager
+import me.mochibit.createharmonics.foundation.registry.ForgeModPackets
+import me.mochibit.createharmonics.foundation.registry.ModConfigurations
+import me.mochibit.createharmonics.foundation.registry.ModPackets
+import me.mochibit.createharmonics.foundation.registry.ModPartialModels
+import me.mochibit.createharmonics.foundation.registry.RegistryManager
 import net.createmod.catnip.config.ui.BaseConfigScreen
 import net.createmod.catnip.lang.FontHelper
 import net.createmod.ponder.foundation.PonderIndex
@@ -22,9 +22,9 @@ import net.minecraft.client.gui.screens.Screen
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory
 import net.minecraftforge.common.MinecraftForge
+import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.eventbus.api.SubscribeEvent
 import net.minecraftforge.fml.DistExecutor
-import net.minecraftforge.fml.InterModComms
 import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent
@@ -85,7 +85,6 @@ class ForgeCreateHarmonicsMod(
         @JvmStatic
         @SubscribeEvent
         fun onCommonSetup(event: FMLCommonSetupEvent) {
-            info("Create: Harmonics common setup complete!")
         }
     }
 
@@ -97,28 +96,21 @@ class ForgeCreateHarmonicsMod(
 
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT) {
             Runnable {
-                ModPartialModels.register(modEventBus, context)
                 PonderIndex.addPlugin(ModPonderPlugin())
             }
         }
 
-        RegistryManager.registerAll(modEventBus, context)
+        RegistryManager.registerAll()
 
-        ModPackets.register(modEventBus, context)
+        ForgeModPackets.register()
 
         Runtime.getRuntime().addShutdownHook(
             Thread {
-                info("Minecraft shutting down, cleaning up resources...")
                 try {
                     AudioPlayerRegistry.clear()
-                } catch (e: Exception) {
-                    err("Error clearing streams: ${e.message}")
-                }
-                try {
-                    // Then cleanup managed processes
                     ProcessLifecycleManager.shutdownAll()
                 } catch (e: Exception) {
-                    err("Error shutting down processes: ${e.message}")
+                    "Error shutting down processes: ${e.message}".err()
                 }
             },
         )
@@ -129,5 +121,8 @@ class ForgeCreateHarmonicsMod(
 
 val CreateHarmonics: ForgeCreateHarmonicsMod
     get() = ForgeCreateHarmonicsMod.instance
+
+internal val ModEventBus: IEventBus? = ForgeCreateHarmonicsMod.instance.context.modEventBus
+internal val ModLoadingContext = ForgeCreateHarmonicsMod.instance.context
 
 internal fun cRegistrate() = CreateHarmonics.getRegistrate()

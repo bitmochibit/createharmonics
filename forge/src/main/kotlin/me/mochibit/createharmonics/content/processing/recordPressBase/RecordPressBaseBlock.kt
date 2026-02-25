@@ -4,7 +4,6 @@ import com.simibubi.create.AllBlocks
 import com.simibubi.create.AllItems
 import com.simibubi.create.AllShapes
 import com.simibubi.create.AllSoundEvents
-import com.simibubi.create.Create
 import com.simibubi.create.content.equipment.wrench.IWrenchable
 import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack
 import com.simibubi.create.content.logistics.depot.SharedDepotBlockMethods
@@ -12,7 +11,7 @@ import com.simibubi.create.foundation.block.IBE
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock.WATERLOGGED
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
-import me.mochibit.createharmonics.registry.ModBlockEntities
+import me.mochibit.createharmonics.foundation.registry.ModBlockEntities
 import net.createmod.catnip.gui.ScreenOpener
 import net.minecraft.client.player.LocalPlayer
 import net.minecraft.core.BlockPos

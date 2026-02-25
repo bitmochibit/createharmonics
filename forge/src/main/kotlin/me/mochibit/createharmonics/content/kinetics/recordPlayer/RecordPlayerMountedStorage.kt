@@ -8,8 +8,8 @@ import com.simibubi.create.content.contraptions.Contraption
 import com.simibubi.create.foundation.utility.CreateCodecs
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMountedStorage.Handler
-import me.mochibit.createharmonics.content.records.EtherealRecordItem
-import me.mochibit.createharmonics.registry.ModMountedStorages
+import me.mochibit.createharmonics.content.record.EtherealRecordItem
+import me.mochibit.createharmonics.foundation.registry.ModMountedStorages
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer

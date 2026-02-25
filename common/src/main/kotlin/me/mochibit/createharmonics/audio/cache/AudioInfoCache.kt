@@ -1,8 +1,7 @@
 package me.mochibit.createharmonics.audio.cache
 
-import me.mochibit.createharmonics.Logger.err
-import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.audio.process.YTdlpExecutor
+import me.mochibit.createharmonics.foundation.err
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -37,18 +36,11 @@ object AudioInfoCache {
                 if (System.currentTimeMillis() - entry.timestamp < CACHE_TTL_MS) {
                     return entry
                 } else {
-                    info("AudioInfoCache: Cache entry expired for $url")
                     cache.remove(url)
                 }
             }
         }
-
-        // Extract URL and duration using yt-dlp
-        info("AudioInfoCache: Extracting audio info for $url")
-        val startTime = System.currentTimeMillis()
         val extractedInfo = ytdlpWrapper.extractAudioInfo(url)
-        val extractionTimeMs = System.currentTimeMillis() - startTime
-        info("AudioInfoCache: yt-dlp extraction took ${extractionTimeMs}ms")
 
         if (extractedInfo != null) {
             val audioInfo =
@@ -62,10 +54,9 @@ object AudioInfoCache {
             synchronized(cache) {
                 cache[url] = audioInfo
             }
-            info("AudioInfoCache: Cached audio info for $url (duration: ${audioInfo.durationSeconds}s)")
             return audioInfo
         } else {
-            err("AudioInfoCache: Failed to extract audio info for $url")
+            "AudioInfoCache: Failed to extract audio info for $url".err()
             return null
         }
     }
@@ -75,9 +66,7 @@ object AudioInfoCache {
      */
     fun invalidate(url: String) {
         synchronized(cache) {
-            if (cache.remove(url) != null) {
-                info("AudioInfoCache: Invalidated cache for $url")
-            }
+            cache.remove(url)
         }
     }
 
@@ -88,7 +77,6 @@ object AudioInfoCache {
         synchronized(cache) {
             cache.clear()
         }
-        info("AudioInfoCache: Cache cleared")
     }
 
     /**

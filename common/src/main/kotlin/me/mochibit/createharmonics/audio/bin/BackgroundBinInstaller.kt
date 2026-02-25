@@ -2,9 +2,11 @@ package me.mochibit.createharmonics.audio.bin
 
 import kotlinx.coroutines.Dispatchers
 import me.mochibit.createharmonics.BuildConfig
-import me.mochibit.createharmonics.Logger
-import me.mochibit.createharmonics.coroutine.launchModCoroutine
-import me.mochibit.createharmonics.registry.ModLang
+import me.mochibit.createharmonics.foundation.async.modLaunch
+import me.mochibit.createharmonics.foundation.err
+import me.mochibit.createharmonics.foundation.info
+import me.mochibit.createharmonics.foundation.locale.ModLang
+import me.mochibit.createharmonics.foundation.warn
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.components.toasts.SystemToast
 import net.minecraft.network.chat.Component
@@ -26,18 +28,16 @@ object BackgroundBinInstaller {
      */
     fun startBackgroundInstallation() {
         if (!isAutoInstallAllowed()) {
-            Logger.warn("Automatic installation is disabled on ${BuildConfig.PLATFORM}")
+            "Automatic installation is disabled on ${BuildConfig.PLATFORM}".warn()
             return
         }
 
         if (!installationInProgress.compareAndSet(false, true)) {
-            Logger.warn("Library installation already in progress")
+            "Library installation already in progress".warn()
             return
         }
 
-        Logger.info("Starting background library installation...")
-
-        launchModCoroutine(Dispatchers.IO) {
+        modLaunch(Dispatchers.IO) {
             try {
                 BinStatusManager.LibraryType.entries.forEach { libraryType ->
                     if (!BinStatusManager.isLibraryInstalled(libraryType)) {
@@ -50,7 +50,7 @@ object BackgroundBinInstaller {
                     }
                 }
             } catch (e: Exception) {
-                Logger.err("Background installation failed: ${e.message}")
+                "Background installation failed: ${e.message}".err()
                 e.printStackTrace()
             } finally {
                 installationInProgress.set(false)
@@ -59,7 +59,7 @@ object BackgroundBinInstaller {
     }
 
     private fun installLibrary(libraryType: BinStatusManager.LibraryType) {
-        Logger.info("Installing ${libraryType.displayName}...")
+        "Installing ${libraryType.displayName}...".info()
         BinStatusManager.updateStatus(
             libraryType,
             status = BinStatusManager.Status.DOWNLOADING,
@@ -90,7 +90,6 @@ object BackgroundBinInstaller {
                 }
 
             if (success) {
-                Logger.info("${libraryType.displayName} installed successfully")
                 BinStatusManager.updateStatus(
                     libraryType,
                     status = BinStatusManager.Status.INSTALLED,
@@ -98,7 +97,6 @@ object BackgroundBinInstaller {
                 )
                 showToast(libraryType, success = true)
             } else {
-                Logger.err("${libraryType.displayName} installation failed")
                 BinStatusManager.updateStatus(
                     libraryType,
                     status = BinStatusManager.Status.FAILED,
@@ -107,7 +105,7 @@ object BackgroundBinInstaller {
                 showToast(libraryType, success = false)
             }
         } catch (e: Exception) {
-            Logger.err("Error installing ${libraryType.displayName}: ${e.message}")
+            "Error installing ${libraryType.displayName}: ${e.message}".err()
             e.printStackTrace()
             BinStatusManager.updateStatus(
                 libraryType,

@@ -3,7 +3,7 @@ package me.mochibit.createharmonics.client.event
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.client.gui.LibraryDisclaimerScreen
-import me.mochibit.createharmonics.registry.ModConfigurations
+import me.mochibit.createharmonics.foundation.registry.ModConfigurations
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.TitleScreen
 import net.minecraftforge.event.TickEvent

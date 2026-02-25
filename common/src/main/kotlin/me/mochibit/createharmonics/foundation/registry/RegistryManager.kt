@@ -6,11 +6,10 @@ object RegistryManager {
     /**
      * Registers all mod registries sorted by their registration order.
      * Lower [AutoRegistrable.registrationOrder] values are registered first.
+     * It is platform-agnostic
      */
-    fun registerAll() {
-        val autoRegistrable: List<KClass<out AutoRegistrable>> = AutoRegistrable::class.sealedSubclasses
-        autoRegistrable
-            .mapNotNull { it.objectInstance }
+    fun registerAll(vararg registries: AutoRegistrable) {
+        registries
             .sortedBy { it.registrationOrder }
             .forEach { it.register() }
     }

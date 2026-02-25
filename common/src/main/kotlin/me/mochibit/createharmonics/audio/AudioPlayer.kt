@@ -18,10 +18,11 @@ import me.mochibit.createharmonics.foundation.async.withMainContext
 import me.mochibit.createharmonics.foundation.debug
 import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.extension.ticks
+import me.mochibit.createharmonics.foundation.network.ModPacket
+import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerStreamEndPacket
+import me.mochibit.createharmonics.foundation.network.packet.UpdateAudioNamePacket
+import me.mochibit.createharmonics.foundation.registry.ModPackets
 import me.mochibit.createharmonics.foundation.warn
-import me.mochibit.createharmonics.network.packet.AudioPlayerStreamEndPacket
-import me.mochibit.createharmonics.network.packet.UpdateAudioNamePacket
-import me.mochibit.createharmonics.registry.ModPackets
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import java.io.InputStream
@@ -292,7 +293,7 @@ class AudioPlayer(
         // Update audio name if available
         val audioName = audioSource.getAudioName()
         if (audioName != "Unknown") {
-            ModPackets.channel.sendToServer(UpdateAudioNamePacket(playerId, audioName))
+            ModPackets.sendToServer(UpdateAudioNamePacket(playerId, audioName))
         }
 
         // Wrap offset around duration if it exceeds
@@ -322,10 +323,6 @@ class AudioPlayer(
         // Create effect stream and start playback
         val audioStream = createAudioEffectInputStream(rawInputStream, context)
         context.processingAudioStream = audioStream
-
-//        if (!audioStream.awaitPreBuffering()) {
-//            throw IllegalStateException("Pre-buffering timeout")
-//        }
 
         if (playState != PlayState.LOADING) {
             throw IllegalStateException("Aborting playback")
@@ -390,7 +387,7 @@ class AudioPlayer(
     ) {
         // Update audio name
         if (audioName != "Unknown" && audioName.isNotBlank()) {
-            ModPackets.channel.sendToServer(UpdateAudioNamePacket(playerId, audioName))
+            ModPackets.sendToServer(UpdateAudioNamePacket(playerId, audioName))
         }
 
         // Skip bytes if offset is specified
@@ -701,11 +698,11 @@ class AudioPlayer(
     }
 
     private fun notifyStreamEnd() {
-        ModPackets.channel.sendToServer(AudioPlayerStreamEndPacket(playerId))
+        ModPackets.sendToServer(AudioPlayerStreamEndPacket(playerId))
     }
 
     private fun notifyStreamFailure() {
-        ModPackets.channel.sendToServer(AudioPlayerStreamEndPacket(playerId, true))
+        ModPackets.sendToServer(AudioPlayerStreamEndPacket(playerId, true))
     }
 
     /**

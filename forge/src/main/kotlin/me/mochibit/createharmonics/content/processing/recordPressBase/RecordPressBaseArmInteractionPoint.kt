@@ -1,8 +1,7 @@
 package me.mochibit.createharmonics.content.processing.recordPressBase
 
 import com.simibubi.create.content.kinetics.mechanicalArm.ArmInteractionPoint
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
-import me.mochibit.createharmonics.registry.ModArmInteractionPoints
+import me.mochibit.createharmonics.foundation.registry.ModArmInteractionPoints
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level

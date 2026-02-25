@@ -7,8 +7,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollOp
 import com.simibubi.create.foundation.gui.AllIcons
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
 import me.mochibit.createharmonics.extension.lerpTo
-import me.mochibit.createharmonics.extension.onServer
-import me.mochibit.createharmonics.registry.ModIcons
+import me.mochibit.createharmonics.foundation.registry.ModIcons
 import net.createmod.catnip.math.AngleHelper
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction

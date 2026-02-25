@@ -1,14 +1,14 @@
 package me.mochibit.createharmonics.foundation.network.packet
 
-import com.simibubi.create.foundation.networking.SimplePacketBase
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
+import me.mochibit.createharmonics.foundation.network.ModPacket
 import net.minecraft.network.FriendlyByteBuf
-import net.minecraftforge.network.NetworkEvent
+import net.minecraft.server.level.ServerPlayer
 
 class UpdateAudioNamePacket(
     val audioPlayerId: String,
     val audioName: String,
-) : SimplePacketBase() {
+) : ModPacket {
     constructor(buffer: FriendlyByteBuf) : this(
         audioPlayerId = buffer.readUtf(),
         audioName = buffer.readUtf(),
@@ -19,10 +19,8 @@ class UpdateAudioNamePacket(
         buffer.writeUtf(audioName)
     }
 
-    override fun handle(context: NetworkEvent.Context): Boolean {
-        context.enqueueWork {
-            RecordPlayerBlockEntity.handleAudioTitleChange(audioPlayerId, audioName)
-        }
+    override fun handle(player: ServerPlayer?): Boolean {
+        RecordPlayerBlockEntity.handleAudioTitleChange(audioPlayerId, audioName)
         return true
     }
 }

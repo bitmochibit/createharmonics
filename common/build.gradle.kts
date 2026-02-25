@@ -17,12 +17,49 @@ loom {
 val minecraftVersion = rootProject.property("minecraft_version").toString()
 val kotlinVersion = rootProject.property("kotlin_version").toString()
 
+val createVersion = rootProject.property("create_version").toString()
+val ponderVersion = rootProject.property("ponder_version").toString()
+val flywheelVersion = rootProject.property("flywheel_version").toString()
+val registrateVersion = rootProject.property("registrate_version").toString()
+
+val generateBuildConfigTask =
+    tasks.register("generateBuildConfig") {
+        val outputDir = file("$buildDir/generated/sources/buildConfig")
+        outputs.dir(outputDir)
+
+        doLast {
+            val isCurseForge = project.hasProperty("curseforge")
+            val file = file("$outputDir/me/mochibit/createharmonics/BuildConfig.kt")
+            file.parentFile.mkdirs()
+            file.writeText(
+                """
+                @file:Suppress("MayBeConstant")
+
+                package me.mochibit.createharmonics
+                  
+                object BuildConfig {
+                    val IS_CURSEFORGE = $isCurseForge
+                    val PLATFORM = "${if (isCurseForge) "CurseForge" else "Modrinth"}"
+                }
+                """.trimIndent(),
+            )
+        }
+    }
+
 dependencies {
     minecraft("net.minecraft:minecraft:$minecraftVersion")
     mappings(loom.officialMojangMappings())
 
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk21:$kotlinVersion")
+    implementation("org.tukaani:xz:1.11")
+
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+
+    modImplementation("com.simibubi.create:create-$minecraftVersion:$createVersion:slim")
+    modImplementation("net.createmod.ponder:Ponder-Forge-$minecraftVersion:$ponderVersion")
+    compileOnly("dev.engine-room.flywheel:flywheel-forge-api-$minecraftVersion:$flywheelVersion")
+    runtimeOnly("dev.engine-room.flywheel:flywheel-forge-$minecraftVersion:$flywheelVersion")
+    modImplementation("com.tterrag.registrate:Registrate:$registrateVersion")
 
     // We depend on Fabric Loader here to use the Fabric @Environment annotations,
     // which get remapped to the correct annotations on each platform.
@@ -39,9 +76,22 @@ java {
 
 kotlin {
     jvmToolchain(17)
+    sourceSets {
+        main {
+            kotlin.srcDir("$buildDir/generated/sources/buildConfig")
+        }
+    }
 }
 
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     options.release = 17
+}
+
+tasks.compileKotlin {
+    dependsOn(generateBuildConfigTask)
+}
+
+tasks.compileJava {
+    dependsOn(generateBuildConfigTask)
 }
