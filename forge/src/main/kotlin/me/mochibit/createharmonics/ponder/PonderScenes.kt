@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.foundation.ponder
+package me.mochibit.createharmonics.ponder
 
 import com.simibubi.create.AllBlocks
 import com.simibubi.create.content.kinetics.mechanicalArm.ArmBlockEntity
@@ -22,6 +22,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.LeverBlock
 import net.minecraft.world.phys.AABB
+import kotlin.jvm.java
 
 object PonderScenes {
     fun recordPressBase(

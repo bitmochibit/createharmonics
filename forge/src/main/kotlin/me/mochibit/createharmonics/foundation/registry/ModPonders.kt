@@ -4,7 +4,7 @@ import com.simibubi.create.infrastructure.ponder.AllCreatePonderTags
 import com.tterrag.registrate.util.entry.ItemProviderEntry
 import com.tterrag.registrate.util.entry.RegistryEntry
 import me.mochibit.createharmonics.foundation.info
-import me.mochibit.createharmonics.foundation.ponder.PonderScenes
+import me.mochibit.createharmonics.ponder.PonderScenes
 import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper
 import net.minecraft.resources.ResourceLocation
