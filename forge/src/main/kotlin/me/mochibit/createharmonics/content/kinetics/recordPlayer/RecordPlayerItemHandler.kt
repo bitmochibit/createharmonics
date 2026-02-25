@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import me.mochibit.createharmonics.content.record.EtherealRecordItem
-import me.mochibit.createharmonics.extension.onServer
+import me.mochibit.createharmonics.foundation.extension.onServer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.JukeboxBlock
 import net.minecraftforge.items.ItemStackHandler

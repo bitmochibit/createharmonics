@@ -10,8 +10,8 @@ import me.mochibit.createharmonics.audio.bin.BinProvider
 import me.mochibit.createharmonics.audio.bin.BinStatusManager
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
-import me.mochibit.createharmonics.extension.drawCenteredString
-import me.mochibit.createharmonics.extension.toMultilineFormattedCharSequence
+import me.mochibit.createharmonics.foundation.extension.drawCenteredString
+import me.mochibit.createharmonics.foundation.extension.toMultilineFormattedCharSequence
 import me.mochibit.createharmonics.foundation.locale.ModLang
 import me.mochibit.createharmonics.foundation.registry.ModConfigurations
 import net.minecraft.ChatFormatting

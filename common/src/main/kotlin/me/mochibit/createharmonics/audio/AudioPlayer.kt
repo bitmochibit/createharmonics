@@ -7,7 +7,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
+import me.mochibit.createharmonics.audio.instance.SampleRatedInstance
 import me.mochibit.createharmonics.audio.process.FFmpegExecutor
 import me.mochibit.createharmonics.audio.source.AudioSource
 import me.mochibit.createharmonics.audio.source.HttpAudioSource
@@ -18,7 +18,6 @@ import me.mochibit.createharmonics.foundation.async.withMainContext
 import me.mochibit.createharmonics.foundation.debug
 import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.extension.ticks
-import me.mochibit.createharmonics.foundation.network.ModPacket
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerStreamEndPacket
 import me.mochibit.createharmonics.foundation.network.packet.UpdateAudioNamePacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
@@ -461,7 +460,7 @@ class AudioPlayer(
         val soundInstance =
             soundInstanceProvider(playerId, audioStream)
                 .apply {
-                    if (this is StreamingSoundInstance) {
+                    if (this is SampleRatedInstance) {
                         sampleRate = sampleRateOverride ?: this@AudioPlayer.sampleRate
                     }
                 }

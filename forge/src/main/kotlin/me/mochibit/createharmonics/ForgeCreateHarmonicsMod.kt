@@ -8,12 +8,10 @@ import me.mochibit.createharmonics.ForgeCreateHarmonicsMod.Companion.MOD_ID
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
 import me.mochibit.createharmonics.foundation.err
-import me.mochibit.createharmonics.foundation.ponder.ModPonderPlugin
 import me.mochibit.createharmonics.foundation.registry.ForgeModPackets
 import me.mochibit.createharmonics.foundation.registry.ModConfigurations
-import me.mochibit.createharmonics.foundation.registry.ModPackets
-import me.mochibit.createharmonics.foundation.registry.ModPartialModels
 import me.mochibit.createharmonics.foundation.registry.RegistryManager
+import me.mochibit.createharmonics.ponder.ModPonderPlugin
 import net.createmod.catnip.config.ui.BaseConfigScreen
 import net.createmod.catnip.lang.FontHelper
 import net.createmod.ponder.foundation.PonderIndex

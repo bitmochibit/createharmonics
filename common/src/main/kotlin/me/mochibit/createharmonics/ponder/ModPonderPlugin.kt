@@ -1,8 +1,8 @@
-package me.mochibit.createharmonics.foundation.ponder
+package me.mochibit.createharmonics.ponder
 
 import com.simibubi.create.foundation.ponder.PonderWorldBlockEntityFix
 import me.mochibit.createharmonics.CreateHarmonicsMod
-import me.mochibit.createharmonics.foundation.registry.ModPonders
+import me.mochibit.createharmonics.foundation.shared.ModPonderHelper
 import net.createmod.ponder.api.level.PonderLevel
 import net.createmod.ponder.api.registration.PonderPlugin
 import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper
@@ -13,11 +13,11 @@ class ModPonderPlugin : PonderPlugin {
     override fun getModId(): String = CreateHarmonicsMod.MOD_ID
 
     override fun registerScenes(helper: PonderSceneRegistrationHelper<ResourceLocation>) {
-        ModPonders.addScenes(helper)
+        ModPonderHelper.addScenes(helper)
     }
 
     override fun registerTags(helper: PonderTagRegistrationHelper<ResourceLocation>) {
-        ModPonders.addTags(helper)
+        ModPonderHelper.addTags(helper)
     }
 
     override fun onPonderLevelRestore(ponderLevel: PonderLevel) {

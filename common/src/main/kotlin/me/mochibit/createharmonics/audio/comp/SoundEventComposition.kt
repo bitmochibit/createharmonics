@@ -1,18 +1,17 @@
 package me.mochibit.createharmonics.audio.comp
 
 import kotlinx.coroutines.Job
-import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.audio.instance.SimpleTickableSoundInstance
-import me.mochibit.createharmonics.coroutine.MinecraftClientDispatcher
-import me.mochibit.createharmonics.coroutine.launchModCoroutine
-import me.mochibit.createharmonics.coroutine.launchRepeating
+import me.mochibit.createharmonics.audio.instance.SuppliedSoundInstance
+import me.mochibit.createharmonics.foundation.async.every
+import me.mochibit.createharmonics.foundation.async.modLaunch
+import me.mochibit.createharmonics.foundation.err
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.core.BlockPos
 import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
-import java.time.Duration
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
 
@@ -46,7 +45,7 @@ class SoundEventComposition(
             // If sound has probabilitySupplier and is NOT looping, use coroutine-based probability system
             if (hasProbabilitySupplier && !isLooping) {
                 val job =
-                    launchRepeating(context = MinecraftClientDispatcher, Duration.ZERO, 30.seconds) {
+                    30.seconds.every {
                         val probability = soundEvent.probabilitySupplier?.invoke() ?: 0f
                         val randomValue = Random.nextFloat()
 
@@ -57,6 +56,7 @@ class SoundEventComposition(
                             Minecraft.getInstance().soundManager.play(newSoundInstance)
                         }
                     }
+
                 probabilityJobs.add(job)
             } else {
                 // Play normally for looping sounds or sounds without probabilitySupplier
@@ -73,7 +73,7 @@ class SoundEventComposition(
         isLooping: Boolean,
     ): SoundInstance =
         when (referenceSoundInstance) {
-            is SimpleStreamSoundInstance -> {
+            is SuppliedSoundInstance -> {
                 SimpleTickableSoundInstance(
                     soundEvent.event,
                     soundEvent.source ?: referenceSoundInstance.source,
@@ -120,7 +120,7 @@ class SoundEventComposition(
             try {
                 job.cancel()
             } catch (e: Exception) {
-                // Log but continue to cancel other jobs
+                "Could not cancel probability job: ${e.message}".err()
             }
         }
         probabilityJobs.clear()
@@ -131,12 +131,12 @@ class SoundEventComposition(
 
         // Stop all sound instances on the client thread (required by Minecraft)
         // Launch async to avoid blocking the caller
-        launchModCoroutine(MinecraftClientDispatcher) {
+        modLaunch {
             for (soundInstance in instancesToStop) {
                 try {
                     Minecraft.getInstance().soundManager.stop(soundInstance)
                 } catch (e: Exception) {
-                    // Log but continue to stop other sounds
+                    "Could not stop sound instance: ${e.message}".err()
                 }
             }
         }

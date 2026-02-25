@@ -5,10 +5,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import me.mochibit.createharmonics.Logger.err
-import me.mochibit.createharmonics.Logger.info
-import me.mochibit.createharmonics.audio.bin.BinProvider
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
+import me.mochibit.createharmonics.foundation.err
 import java.io.File
 
 /**
@@ -32,7 +30,7 @@ class FFprobeExecutor {
             try {
                 val probePath =
                     FFMPEGProvider.ffprobePath ?: run {
-                        err("FFprobeExecutor: ffprobe binary not found")
+                        "FFprobeExecutor: ffprobe binary not found".err()
                         return@withContext null
                     }
 
@@ -59,14 +57,9 @@ class FFprobeExecutor {
 
                 try {
                     val output = process.inputStream.bufferedReader().use { it.readText() }
-                    val errorOutput = process.errorStream.bufferedReader().use { it.readText() }
                     val exitCode = process.waitFor()
 
                     if (exitCode != 0) {
-                        err(
-                            "FFprobeExecutor: ffprobe exited with code $exitCode for $url" +
-                                if (errorOutput.isNotBlank()) ": ${errorOutput.take(200)}" else "",
-                        )
                         return@withContext null
                     }
 
@@ -99,7 +92,7 @@ class FFprobeExecutor {
                     ProcessLifecycleManager.destroyProcess(processId)
                 }
             } catch (e: Exception) {
-                err("FFprobeExecutor: probe failed for $url: ${e.message}")
+                "FFprobeExecutor: probe failed for $url: ${e.message}".err()
                 null
             }
         }

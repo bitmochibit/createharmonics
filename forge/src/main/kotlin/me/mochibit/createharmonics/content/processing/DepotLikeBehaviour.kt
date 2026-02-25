@@ -12,7 +12,7 @@ import com.simibubi.create.content.logistics.funnel.AbstractFunnelBlock
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.item.ItemHelper
-import me.mochibit.createharmonics.extension.onServer
+import me.mochibit.createharmonics.foundation.extension.onServer
 import net.createmod.catnip.math.VecHelper
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.core.Direction

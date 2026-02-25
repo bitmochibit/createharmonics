@@ -1,6 +1,5 @@
 package me.mochibit.createharmonics.foundation.async
 
-import dev.architectury.event.Event
 import dev.architectury.platform.Platform
 import dev.architectury.utils.Env
 import kotlinx.coroutines.CoroutineScope
@@ -8,11 +7,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import me.mochibit.createharmonics.foundation.warn
-import net.minecraftforge.event.server.ServerStoppingEvent
-import java.time.Duration
 import kotlin.coroutines.CoroutineContext
-import kotlin.time.Duration.Companion.minutes
 
 fun modLaunch(
     context: CoroutineContext = if (Platform.getEnvironment() == Env.CLIENT) ModDispatchers.Client() else ModDispatchers.Server(),
@@ -29,8 +24,6 @@ fun delayedLaunch(
 }
 
 infix fun kotlin.time.Duration.thenLaunch(block: suspend CoroutineScope.() -> Unit) = delayedLaunch(delay = this, block = block)
-
-infix fun (suspend CoroutineScope.() -> Unit).after(delay: kotlin.time.Duration) = delayedLaunch(delay = delay, block = this)
 
 fun repeatingLaunch(
     context: CoroutineContext = if (Platform.getEnvironment() == Env.CLIENT) ModDispatchers.Client() else ModDispatchers.Server(),
@@ -49,7 +42,7 @@ fun repeatingLaunch(
     }
 }
 
-infix fun (suspend CoroutineScope.() -> Unit).every(delay: kotlin.time.Duration) = repeatingLaunch(delay = delay, block = this)
+infix fun kotlin.time.Duration.every(block: suspend CoroutineScope.() -> Unit) = repeatingLaunch(delay = this, block = block)
 
 suspend fun <T> withMainContext(block: suspend CoroutineScope.() -> T): T =
     withContext(

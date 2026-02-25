@@ -1,17 +1,13 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.AllItems
-import com.simibubi.create.AllShapes
-import com.simibubi.create.content.kinetics.base.DirectionalAxisKineticBlock
 import com.simibubi.create.content.kinetics.base.DirectionalKineticBlock
 import com.simibubi.create.content.logistics.packagerLink.PackagerLinkBlock
-import com.simibubi.create.content.logistics.packagerLink.PackagerLinkBlockEntity
 import com.simibubi.create.foundation.block.IBE
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlockEntity
 import me.mochibit.createharmonics.content.record.EtherealRecordItem
-import me.mochibit.createharmonics.extension.onServer
-import net.createmod.catnip.data.Iterate
+import me.mochibit.createharmonics.foundation.extension.onServer
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.sounds.SoundEvents
@@ -22,7 +18,6 @@ import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.context.BlockPlaceContext
-import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelAccessor
 import net.minecraft.world.level.LevelReader
@@ -32,10 +27,6 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.StateDefinition
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.BlockHitResult
-import net.minecraft.world.phys.shapes.CollisionContext
-import net.minecraft.world.phys.shapes.VoxelShape
-import java.util.function.Consumer
-import kotlin.math.max
 
 abstract class RecordPlayerBlock(
     properties: Properties,

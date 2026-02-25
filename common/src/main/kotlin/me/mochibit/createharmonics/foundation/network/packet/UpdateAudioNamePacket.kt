@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics.foundation.network.packet
 
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.foundation.network.ModPacket
+import me.mochibit.createharmonics.foundation.shared.RecordPlayerHelper
 import net.minecraft.network.FriendlyByteBuf
 import net.minecraft.server.level.ServerPlayer
 
@@ -19,8 +19,5 @@ class UpdateAudioNamePacket(
         buffer.writeUtf(audioName)
     }
 
-    override fun handle(player: ServerPlayer?): Boolean {
-        RecordPlayerBlockEntity.handleAudioTitleChange(audioPlayerId, audioName)
-        return true
-    }
+    override fun handle(player: ServerPlayer?): Boolean = RecordPlayerHelper.onTitleChange(audioPlayerId, audioName)
 }

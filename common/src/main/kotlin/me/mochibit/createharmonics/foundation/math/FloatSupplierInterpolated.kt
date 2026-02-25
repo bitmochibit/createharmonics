@@ -1,6 +1,6 @@
 package me.mochibit.createharmonics.foundation.math
 
-import me.mochibit.createharmonics.extension.lerpTo
+import me.mochibit.createharmonics.foundation.extension.lerpTo
 
 /**
  * Thread-safe interpolated float supplier that smoothly transitions between values.

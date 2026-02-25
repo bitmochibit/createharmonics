@@ -5,9 +5,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
-import me.mochibit.createharmonics.coroutine.launchModCoroutine
+import me.mochibit.createharmonics.foundation.async.modLaunch
+import me.mochibit.createharmonics.foundation.err
 import java.io.InputStream
 
 class FFmpegExecutor {
@@ -47,11 +47,10 @@ class FFmpegExecutor {
         headers: Map<String, String> = emptyMap(),
     ): Boolean {
         if (!FFMPEGProvider.isAvailable()) {
-            Logger.err("FFmpeg is not available")
+            ("FFmpeg is not available").err()
             return false
         }
         if (isRunning()) {
-            Logger.err("FFmpeg process is already running")
             return false
         }
 
@@ -118,7 +117,7 @@ class FFmpegExecutor {
                         .start()
                 }
             } catch (e: Exception) {
-                Logger.err("Failed to start FFmpeg process: ${e.message}")
+                "Failed to start FFmpeg process: ${e.message}".err()
                 streamReady.complete(Result.failure(e))
                 return false
             }
@@ -126,11 +125,11 @@ class FFmpegExecutor {
         process = newProcess
         processId = ProcessLifecycleManager.registerProcess(newProcess)
 
-        launchModCoroutine(Dispatchers.IO) {
+        modLaunch(Dispatchers.IO) {
             newProcess.errorStream.bufferedReader().use { reader ->
                 try {
                     reader.forEachLine { line ->
-                        Logger.err("FFmpeg stderr: $line")
+                        "FFmpeg stderr: $line".err()
                     }
                 } catch (_: Exception) {
                 }
@@ -138,16 +137,7 @@ class FFmpegExecutor {
         }
 
         // Monitor process lifecycle
-        launchModCoroutine(Dispatchers.IO) {
-            val startTime = System.currentTimeMillis()
-            val exitCode = newProcess.waitFor()
-            val runtime = System.currentTimeMillis() - startTime
-
-            if (exitCode != 0) {
-                Logger.err("FFmpeg process exited with code $exitCode after ${runtime}ms")
-            }
-
-            // Clean up when process exits naturally
+        modLaunch(Dispatchers.IO) {
             if (process == newProcess) {
                 processId?.let { ProcessLifecycleManager.destroyProcess(it) }
                 process = null
@@ -156,7 +146,7 @@ class FFmpegExecutor {
         }
 
         // Monitor stream readiness
-        launchModCoroutine(Dispatchers.IO) {
+        modLaunch(Dispatchers.IO) {
             try {
                 // Wait for stream to have data available
                 var attempts = 0
@@ -166,7 +156,7 @@ class FFmpegExecutor {
                         val available = newProcess.inputStream.available()
                         if (available > 0) {
                             streamReady.complete(Result.success(Unit))
-                            return@launchModCoroutine
+                            return@modLaunch
                         }
                     } catch (_: Exception) {
                         // Stream not ready yet
@@ -189,7 +179,7 @@ class FFmpegExecutor {
             val result = streamReady.await()
             result.isSuccess
         } ?: false.also {
-            Logger.err("Timeout waiting for FFmpeg stream to be ready")
+            "Timeout waiting for FFmpeg stream to be ready".err()
         }
     }
 
@@ -209,7 +199,7 @@ class FFmpegExecutor {
 
         // Perform actual cleanup asynchronously to avoid blocking
         if (currentProcess != null) {
-            launchModCoroutine(Dispatchers.IO) {
+            modLaunch(Dispatchers.IO) {
                 try {
                     // Close streams first to signal shutdown
                     try {
@@ -236,10 +226,8 @@ class FFmpegExecutor {
                             currentProcess.waitFor(50, java.util.concurrent.TimeUnit.MILLISECONDS)
                         }
                     }
-
-                    Logger.info("FFmpeg process ${currentProcessId ?: "unknown"} terminated")
                 } catch (e: Exception) {
-                    Logger.err("Error destroying FFmpeg process: ${e.message}")
+                    "Error destroying FFmpeg process: ${e.message}".err()
                 }
 
                 // Unregister from ProcessLifecycleManager

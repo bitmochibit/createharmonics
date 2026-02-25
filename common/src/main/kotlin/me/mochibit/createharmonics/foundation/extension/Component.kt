@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.extension
+package me.mochibit.createharmonics.foundation.extension
 
 import net.minecraft.client.gui.Font
 import net.minecraft.client.gui.GuiGraphics

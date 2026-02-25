@@ -22,6 +22,9 @@ val ponderVersion = rootProject.property("ponder_version").toString()
 val flywheelVersion = rootProject.property("flywheel_version").toString()
 val registrateVersion = rootProject.property("registrate_version").toString()
 
+val vs2Version = rootProject.property("vs2_version").toString()
+val vsCoreVersion = rootProject.property("vs_core_version").toString()
+
 val generateBuildConfigTask =
     tasks.register("generateBuildConfig") {
         val outputDir = file("$buildDir/generated/sources/buildConfig")
@@ -53,13 +56,27 @@ dependencies {
     implementation("org.tukaani:xz:1.11")
 
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
 
+    // Create
     modImplementation("com.simibubi.create:create-$minecraftVersion:$createVersion:slim")
     modImplementation("net.createmod.ponder:Ponder-Forge-$minecraftVersion:$ponderVersion")
     compileOnly("dev.engine-room.flywheel:flywheel-forge-api-$minecraftVersion:$flywheelVersion")
     runtimeOnly("dev.engine-room.flywheel:flywheel-forge-$minecraftVersion:$flywheelVersion")
     modImplementation("com.tterrag.registrate:Registrate:$registrateVersion")
+
+    // VS2
+    modImplementation("org.valkyrienskies:valkyrienskies-120-forge:$vs2Version")
+    modImplementation("org.valkyrienskies.core:api:$vsCoreVersion") {
+        exclude(group = "org.joml")
+    }
+    modImplementation("org.valkyrienskies.core:internal:$vsCoreVersion") {
+        exclude(group = "org.joml")
+    }
+    modImplementation("org.valkyrienskies.core:util:$vsCoreVersion") {
+        exclude(group = "org.joml")
+    }
 
     // We depend on Fabric Loader here to use the Fabric @Environment annotations,
     // which get remapped to the correct annotations on each platform.

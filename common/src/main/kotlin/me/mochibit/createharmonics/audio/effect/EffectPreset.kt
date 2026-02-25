@@ -2,9 +2,8 @@ package me.mochibit.createharmonics.audio.effect
 
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import me.mochibit.createharmonics.audio.AudioPlayer
-import me.mochibit.createharmonics.extension.countLiquidCoveredFaces
-import me.mochibit.createharmonics.extension.getManagingShip
-import me.mochibit.createharmonics.extension.lerpTo
+import me.mochibit.createharmonics.foundation.extension.countLiquidCoveredFaces
+import me.mochibit.createharmonics.foundation.extension.lerpTo
 import me.mochibit.createharmonics.foundation.math.FloatSupplierInterpolated
 import net.minecraft.core.Vec3i
 import net.minecraft.world.level.Level

@@ -5,8 +5,8 @@ import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.cRegistrate
 import me.mochibit.createharmonics.data.recipe.ModRecipeProvider
-import me.mochibit.createharmonics.foundation.ponder.ModPonderPlugin
 import me.mochibit.createharmonics.foundation.utility.JsonResourceLoader
+import me.mochibit.createharmonics.ponder.ModPonderPlugin
 import net.createmod.ponder.foundation.PonderIndex
 import net.minecraftforge.data.event.GatherDataEvent
 import net.minecraftforge.eventbus.api.SubscribeEvent

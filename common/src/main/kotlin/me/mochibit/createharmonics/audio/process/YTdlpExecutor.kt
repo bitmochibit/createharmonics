@@ -6,10 +6,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import me.mochibit.createharmonics.ClientConfig
-import me.mochibit.createharmonics.Logger.err
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
-import me.mochibit.createharmonics.registry.ModConfigurations
+import me.mochibit.createharmonics.foundation.err
+import me.mochibit.createharmonics.foundation.shared.ConfigHelper
 
 class YTdlpExecutor {
     data class AudioUrlInfo(
@@ -30,7 +29,7 @@ class YTdlpExecutor {
                     YTDLProvider.getExecutablePath()
                         ?: return@withContext null
 
-                val configOverrides = ModConfigurations.client.ytdlpOverrideArgs.get()
+                val configOverrides = ConfigHelper.getYtdlpOverrideArgs()
 
                 val command =
                     if (configOverrides.isNotBlank()) {
@@ -69,10 +68,10 @@ class YTdlpExecutor {
                     val exitCode = process.waitFor()
 
                     if (exitCode != 0) {
-                        err("yt-dlp failed with exit code $exitCode")
+                        "yt-dlp failed with exit code $exitCode".err()
                         // Only log errors if there was a failure
                         if (errorOutput.isNotBlank()) {
-                            err("yt-dlp error: ${errorOutput.take(500)}") // Limit error message length
+                            "yt-dlp error: ${errorOutput.take(500)}".err() // Limit error message length
                         }
                         return@withContext null
                     }
@@ -113,7 +112,7 @@ class YTdlpExecutor {
                     ProcessLifecycleManager.destroyProcess(processId)
                 }
             } catch (e: Exception) {
-                err("Error extracting audio info: ${e.message}")
+                "Error extracting audio info: ${e.message}".err()
                 e.printStackTrace()
                 null
             }

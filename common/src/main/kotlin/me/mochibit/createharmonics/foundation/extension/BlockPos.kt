@@ -1,5 +1,7 @@
-package me.mochibit.createharmonics.extension
+package me.mochibit.createharmonics.foundation.extension
 
+import dev.architectury.platform.Platform
+import me.mochibit.createharmonics.foundation.shared.FluidStateHelper
 import net.minecraft.CrashReport
 import net.minecraft.CrashReportCategory
 import net.minecraft.CrashReportDetail
@@ -14,7 +16,6 @@ import net.minecraft.world.level.chunk.LevelChunk
 import net.minecraft.world.level.chunk.LevelChunkSection
 import net.minecraft.world.level.material.FluidState
 import net.minecraft.world.level.material.Fluids
-import net.minecraftforge.fml.ModList
 import org.joml.Vector3d
 import org.valkyrienskies.core.api.ships.Ship
 import org.valkyrienskies.mod.common.getShipManagingPos
@@ -32,7 +33,7 @@ fun Level.countLiquidCoveredFaces(
     fun accumulateFluid(fluidState: FluidState) {
         liquidCount++
         when {
-            fluidState.fluidType.viscosity > 1000 -> viscousCount++
+            FluidStateHelper.getViscosity(fluidState) > 1000 -> viscousCount++
             fluidState.`is`(FluidTags.WATER) -> waterCount++
         }
     }
@@ -44,7 +45,7 @@ fun Level.countLiquidCoveredFaces(
     if (ship != null) {
         val shipCenterFluid = getFluidState(x.toInt(), y.toInt(), z.toInt())
         if (!shipCenterFluid.isEmpty) {
-            return Direction.entries.size to (shipCenterFluid.fluidType.viscosity > 1000)
+            return Direction.entries.size to (FluidStateHelper.getViscosity(shipCenterFluid) > 1000)
         }
     }
 
@@ -58,7 +59,7 @@ fun Level.countLiquidCoveredFaces(
 
     val centerFluid = getFluidState(centerWorldPos.x.toInt(), centerWorldPos.y.toInt(), centerWorldPos.z.toInt())
     if (!centerFluid.isEmpty) {
-        return Direction.entries.size to (centerFluid.fluidType.viscosity > 1000)
+        return Direction.entries.size to (FluidStateHelper.getViscosity(centerFluid) > 1000)
     }
 
     for (direction in Direction.entries) {
@@ -98,7 +99,7 @@ fun Level.countLiquidCoveredFaces(
 }
 
 fun BlockPos.getManagingShip(level: Level): Ship? {
-    if (!ModList.get().isLoaded("valkyrienskies")) return null
+    if (!Platform.isModLoaded("valkyrienskies")) return null
     return level.getShipManagingPos(
         this.x.toDouble(),
         this.y.toDouble(),
@@ -128,20 +129,20 @@ fun Level.getBlockState(
     try {
         val l: Int = this.getSectionIndex(y)
         if (l >= 0 && l < chunk.sections.size) {
-            val levelchunksection: LevelChunkSection = chunk.sections[l]
-            if (!levelchunksection.hasOnlyAir()) {
-                return levelchunksection.getBlockState(x and 15, y and 15, z and 15)
+            val levelChunkSection: LevelChunkSection = chunk.sections[l]
+            if (!levelChunkSection.hasOnlyAir()) {
+                return levelChunkSection.getBlockState(x and 15, y and 15, z and 15)
             }
         }
 
         return Blocks.AIR.defaultBlockState()
     } catch (throwable: Throwable) {
-        val crashreport = CrashReport.forThrowable(throwable, "Getting block state")
-        val crashreportcategory = crashreport.addCategory("Block being got")
-        crashreportcategory.setDetail(
+        val crashReport = CrashReport.forThrowable(throwable, "Getting block state")
+        val crashReportCategory = crashReport.addCategory("Block being got")
+        crashReportCategory.setDetail(
             "Location",
             CrashReportDetail { CrashReportCategory.formatLocation(this, x, y, z) },
         )
-        throw ReportedException(crashreport)
+        throw ReportedException(crashReport)
     }
 }

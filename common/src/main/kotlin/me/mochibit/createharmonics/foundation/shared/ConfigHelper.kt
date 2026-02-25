@@ -9,4 +9,8 @@ object ConfigHelper {
     @JvmStatic
     @ExpectPlatform
     fun getRecordDurability(recordType: RecordType): Int? = throw AssertionError("Platform-specific implementation required")
+
+    @JvmStatic
+    @ExpectPlatform
+    fun getYtdlpOverrideArgs(): String = throw AssertionError("Platform-specific implementation required")
 }

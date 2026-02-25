@@ -20,9 +20,9 @@ import me.mochibit.createharmonics.content.record.EtherealRecordItem
 import me.mochibit.createharmonics.content.record.EtherealRecordItem.Companion.playFromRecord
 import me.mochibit.createharmonics.coroutine.MinecraftClientDispatcher
 import me.mochibit.createharmonics.coroutine.launchDelayed
-import me.mochibit.createharmonics.extension.onClient
-import me.mochibit.createharmonics.extension.onServer
-import me.mochibit.createharmonics.extension.remapTo
+import me.mochibit.createharmonics.foundation.extension.onClient
+import me.mochibit.createharmonics.foundation.extension.onServer
+import me.mochibit.createharmonics.foundation.extension.remapTo
 import me.mochibit.createharmonics.foundation.math.FloatSupplierInterpolated
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.foundation.network.setBlockData

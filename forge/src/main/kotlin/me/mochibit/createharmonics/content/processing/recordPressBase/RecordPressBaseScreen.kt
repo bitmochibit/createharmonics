@@ -3,8 +3,8 @@ package me.mochibit.createharmonics.content.processing.recordPressBase
 import com.simibubi.create.foundation.gui.AllGuiTextures
 import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
-import me.mochibit.createharmonics.extension.renderTooltip
-import me.mochibit.createharmonics.extension.toMultilineComponent
+import me.mochibit.createharmonics.foundation.extension.renderTooltip
+import me.mochibit.createharmonics.foundation.extension.toMultilineComponent
 import me.mochibit.createharmonics.foundation.gui.ModGuiTexture
 import me.mochibit.createharmonics.foundation.gui.widget.AdvancedIconButton
 import me.mochibit.createharmonics.foundation.locale.ModLang
