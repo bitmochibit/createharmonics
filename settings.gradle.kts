@@ -12,15 +12,14 @@ pluginManagement {
         maven { url = uri("https://maven.neoforged.net/releases") }
         // SpongePowered — MixinGradle plugin
         maven { url = uri("https://repo.spongepowered.org/repository/maven-public/") }
-        // Architectury plugin + Loom
-        maven {
-            name = "Architectury"
-            url = uri("https://maven.architectury.dev")
-        }
         // Kotlin for Forge plugin repo
         maven {
             name = "Kotlin for Forge"
             url = uri("https://thedarkcolour.github.io/KotlinForForge/")
+        }
+        // Unimined
+        maven {
+            url = uri("https://mcentral.firstdark.dev/releases")
         }
     }
 }

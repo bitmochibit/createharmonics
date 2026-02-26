@@ -3,7 +3,6 @@
   "package": "mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
-    "AssemblyOperatorBlockItemMixin",
     "RecipeApplierMixin",
     "RecipeGridHandlerMixin",
     "ShapedRecipeMixin",
