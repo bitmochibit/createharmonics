@@ -1,6 +1,6 @@
 package me.mochibit.createharmonics.data
 
-import me.mochibit.createharmonics.ForgeCreateHarmonicsMod.Companion.MOD_ID
+import me.mochibit.createharmonics.ForgeModEntryPoint.Companion.MOD_ID
 import me.mochibit.createharmonics.content.records.RecordType
 import net.minecraft.data.PackOutput
 import net.minecraftforge.client.model.generators.BlockModelProvider

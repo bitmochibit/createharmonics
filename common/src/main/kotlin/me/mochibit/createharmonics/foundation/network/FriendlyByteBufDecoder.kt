@@ -12,6 +12,7 @@ class FriendlyByteBufDecoder(
     private val buf: FriendlyByteBuf,
 ) : AbstractDecoder() {
     private var elementIndex = 0
+    private var collectionSize = -1
     override val serializersModule = EmptySerializersModule()
 
     override fun decodeBoolean() = buf.readBoolean()
@@ -37,8 +38,14 @@ class FriendlyByteBufDecoder(
     override fun decodeNotNullMark() = buf.readBoolean()
 
     override fun decodeElementIndex(descriptor: SerialDescriptor): Int {
-        if (elementIndex == descriptor.elementsCount) return CompositeDecoder.Companion.DECODE_DONE
+        val limit = if (collectionSize >= 0) collectionSize else descriptor.elementsCount
+        if (elementIndex == limit) return CompositeDecoder.Companion.DECODE_DONE
         return elementIndex++
+    }
+
+    override fun decodeCollectionSize(descriptor: SerialDescriptor): Int {
+        collectionSize = buf.readVarInt()
+        return collectionSize
     }
 
     override fun beginStructure(descriptor: SerialDescriptor) = FriendlyByteBufDecoder(buf)

@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics.data
 
 import com.tterrag.registrate.providers.ProviderType
-import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
+import me.mochibit.createharmonics.ForgeModEntryPoint
 import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.cRegistrate
 import me.mochibit.createharmonics.data.recipe.ModRecipeProvider
@@ -12,7 +12,7 @@ import net.minecraftforge.data.event.GatherDataEvent
 import net.minecraftforge.eventbus.api.SubscribeEvent
 import net.minecraftforge.fml.common.Mod
 
-@Mod.EventBusSubscriber(modid = ForgeCreateHarmonicsMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
+@Mod.EventBusSubscriber(modid = ForgeModEntryPoint.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
 object DataGenerators {
     @SubscribeEvent
     @JvmStatic
@@ -66,6 +66,6 @@ object DataGenerators {
         // Register this since FMLClientSetupEvent does not run during datagen
         PonderIndex.addPlugin(ModPonderPlugin())
 
-        PonderIndex.getLangAccess().provideLang(ForgeCreateHarmonicsMod.MOD_ID, consumer)
+        PonderIndex.getLangAccess().provideLang(ForgeModEntryPoint.MOD_ID, consumer)
     }
 }

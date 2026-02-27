@@ -3,6 +3,7 @@ package me.mochibit.createharmonics.foundation.network
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.AbstractEncoder
+import kotlinx.serialization.encoding.CompositeEncoder
 import kotlinx.serialization.modules.EmptySerializersModule
 import net.minecraft.network.FriendlyByteBuf
 
@@ -58,4 +59,14 @@ class FriendlyByteBufEncoder(
     override fun encodeNotNullMark() {
         buf.writeBoolean(true)
     }
+
+    override fun beginCollection(
+        descriptor: SerialDescriptor,
+        collectionSize: Int,
+    ): CompositeEncoder {
+        buf.writeVarInt(collectionSize)
+        return this
+    }
+
+    override fun beginStructure(descriptor: SerialDescriptor): CompositeEncoder = FriendlyByteBufEncoder(buf)
 }

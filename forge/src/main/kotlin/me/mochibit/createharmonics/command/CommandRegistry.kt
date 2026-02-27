@@ -1,6 +1,6 @@
 package me.mochibit.createharmonics.command
 
-import me.mochibit.createharmonics.ForgeCreateHarmonicsMod.Companion.MOD_ID
+import me.mochibit.createharmonics.ForgeModEntryPoint.Companion.MOD_ID
 import net.minecraftforge.client.event.RegisterClientCommandsEvent
 import net.minecraftforge.event.RegisterCommandsEvent
 import net.minecraftforge.eventbus.api.SubscribeEvent

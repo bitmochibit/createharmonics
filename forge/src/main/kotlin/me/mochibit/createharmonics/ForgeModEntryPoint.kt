@@ -4,13 +4,14 @@ import com.simibubi.create.foundation.data.CreateRegistrate
 import com.simibubi.create.foundation.item.ItemDescription
 import com.simibubi.create.foundation.item.KineticStats
 import com.simibubi.create.foundation.item.TooltipModifier
-import me.mochibit.createharmonics.ForgeCreateHarmonicsMod.Companion.MOD_ID
+import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
 import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.registry.ForgeModPackets
+import me.mochibit.createharmonics.foundation.registry.ForgeRegistry
 import me.mochibit.createharmonics.foundation.registry.ModConfigurations
-import me.mochibit.createharmonics.foundation.registry.RegistryManager
+import me.mochibit.createharmonics.foundation.registry.autoRegister
 import me.mochibit.createharmonics.ponder.ModPonderPlugin
 import net.createmod.catnip.config.ui.BaseConfigScreen
 import net.createmod.catnip.lang.FontHelper
@@ -30,14 +31,12 @@ import net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
 @Mod(MOD_ID)
-class ForgeCreateHarmonicsMod(
+class ForgeModEntryPoint(
     val context: FMLJavaModLoadingContext,
 ) {
     companion object {
-        const val MOD_ID: String = "createharmonics"
-
         @JvmStatic
-        lateinit var instance: ForgeCreateHarmonicsMod
+        lateinit var instance: ForgeModEntryPoint
             private set
     }
 
@@ -87,10 +86,8 @@ class ForgeCreateHarmonicsMod(
     }
 
     private fun initialize() {
-        val forgeEventBus = MinecraftForge.EVENT_BUS
-        val modEventBus = context.modEventBus
-        forgeEventBus.register(this)
-        registrate.registerEventListeners(modEventBus)
+        MinecraftForge.EVENT_BUS.register(this)
+        registrate.registerEventListeners(context.modEventBus)
 
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT) {
             Runnable {
@@ -98,29 +95,15 @@ class ForgeCreateHarmonicsMod(
             }
         }
 
-        RegistryManager.registerAll()
+        CreateHarmonicsMod.commonSetup()
 
-        ForgeModPackets.register()
-
-        Runtime.getRuntime().addShutdownHook(
-            Thread {
-                try {
-                    AudioPlayerRegistry.clear()
-                    ProcessLifecycleManager.shutdownAll()
-                } catch (e: Exception) {
-                    "Error shutting down processes: ${e.message}".err()
-                }
-            },
-        )
+        autoRegister<ForgeRegistry>()
     }
 
     fun getRegistrate(): CreateRegistrate = registrate
 }
 
-val CreateHarmonics: ForgeCreateHarmonicsMod
-    get() = ForgeCreateHarmonicsMod.instance
+internal val ModEventBus: IEventBus? = ForgeModEntryPoint.instance.context.modEventBus
+internal val ModLoadingContext = ForgeModEntryPoint.instance.context
 
-internal val ModEventBus: IEventBus? = ForgeCreateHarmonicsMod.instance.context.modEventBus
-internal val ModLoadingContext = ForgeCreateHarmonicsMod.instance.context
-
-internal fun cRegistrate() = CreateHarmonics.getRegistrate()
+internal fun cRegistrate() = ForgeModEntryPoint.instance.getRegistrate()

@@ -1,10 +1,11 @@
 package me.mochibit.createharmonics.foundation.registry
 
 import me.mochibit.createharmonics.foundation.info
-import me.mochibit.createharmonics.foundation.network.ModPacket
-import net.minecraft.server.level.ServerPlayer
+import me.mochibit.createharmonics.foundation.network.packet.ModPacket
+import me.mochibit.createharmonics.foundation.services.NetworkService
+import me.mochibit.createharmonics.foundation.services.networkService
 
-object ModPackets : Registrable {
+object ModPackets : Registrable, NetworkService by networkService {
     val packets: List<ModPacket> =
         mutableListOf<ModPacket>().apply {
             ModPacket::class.sealedSubclasses.forEach { subclass ->
@@ -17,14 +18,5 @@ object ModPackets : Registrable {
 
     override fun register() {
         "Loading Mod Packets".info()
-    }
-
-    fun sendToServer(packet: ModPacket) {
-    }
-
-    fun sendToPlayer(
-        player: ServerPlayer,
-        packet: ModPacket,
-    ) {
     }
 }

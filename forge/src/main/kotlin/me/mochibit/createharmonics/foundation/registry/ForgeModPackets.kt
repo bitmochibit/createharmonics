@@ -1,24 +1,16 @@
 package me.mochibit.createharmonics.foundation.registry
 
-import com.simibubi.create.foundation.networking.SimplePacketBase
 import me.mochibit.createharmonics.foundation.extension.asResource
-import me.mochibit.createharmonics.foundation.network.C2SPacket
-import me.mochibit.createharmonics.foundation.network.ConfigureRecordPressBasePacket
-import me.mochibit.createharmonics.foundation.network.ContraptionBlockDataChangedPacket
-import me.mochibit.createharmonics.foundation.network.ModPacket
-import me.mochibit.createharmonics.foundation.network.S2CPacket
-import me.mochibit.createharmonics.foundation.network.readPacket
-import me.mochibit.createharmonics.foundation.network.writeTo
-import net.minecraft.network.FriendlyByteBuf
-import net.minecraftforge.common.Tags
+import me.mochibit.createharmonics.foundation.network.packet.C2SPacket
+import me.mochibit.createharmonics.foundation.network.packet.ModPacket
+import me.mochibit.createharmonics.foundation.network.packet.S2CPacket
+import me.mochibit.createharmonics.foundation.network.packet.readPacket
+import me.mochibit.createharmonics.foundation.network.packet.writeTo
 import net.minecraftforge.network.NetworkDirection
-import net.minecraftforge.network.NetworkEvent
 import net.minecraftforge.network.NetworkRegistry
 import net.minecraftforge.network.simple.SimpleChannel
-import java.util.function.BiConsumer
-import java.util.function.Supplier
 
-object ForgeModPackets : Registrable {
+object ForgeModPackets : Registrable, ForgeRegistry {
     private const val PROTOCOL_VERSION = "1"
     private const val NETWORK_VERSION = "1"
 
@@ -63,10 +55,12 @@ object ForgeModPackets : Registrable {
             { packet, ctx ->
                 when (direction) {
                     NetworkDirection.PLAY_TO_SERVER -> {
+                        packet.handle(ModPacket.Context(ctx.get().sender))
                         if (packet is C2SPacket) packet.handleClient(ModPacket.Context(ctx.get().sender))
                     }
 
                     NetworkDirection.PLAY_TO_CLIENT -> {
+                        packet.handle(ModPacket.Context(ctx.get().sender))
                         if (packet is S2CPacket) packet.handleServer(ModPacket.Context(ctx.get().sender))
                     }
 

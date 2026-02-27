@@ -2,7 +2,7 @@ package me.mochibit.createharmonics.data.recipe
 
 import com.simibubi.create.api.data.recipe.PressingRecipeGen
 import com.simibubi.create.content.kinetics.press.PressingRecipe
-import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
+import me.mochibit.createharmonics.ForgeModEntryPoint
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.foundation.registry.ModItems
 import net.minecraft.data.PackOutput
@@ -11,7 +11,7 @@ import net.minecraft.world.item.Items
 
 class ModPressingRecipeGen(
     output: PackOutput,
-) : PressingRecipeGen(output, ForgeCreateHarmonicsMod.MOD_ID) {
+) : PressingRecipeGen(output, ForgeModEntryPoint.MOD_ID) {
     val discPressingRecipes: List<GeneratedRecipe> =
         RecordType.entries.map {
             // Simply create a recipe that returns itself, useful for the record stamping base

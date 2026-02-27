@@ -3,7 +3,8 @@ package me.mochibit.createharmonics.foundation.registry
 import com.simibubi.create.api.stress.BlockStressValues
 import me.mochibit.createharmonics.ClientConfig
 import me.mochibit.createharmonics.CommonConfig
-import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
+import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
+import me.mochibit.createharmonics.ForgeModEntryPoint
 import me.mochibit.createharmonics.ModLoadingContext
 import me.mochibit.createharmonics.ServerConfig
 import net.createmod.catnip.config.ConfigBase
@@ -14,8 +15,8 @@ import net.minecraftforge.fml.config.ModConfig
 import net.minecraftforge.fml.event.config.ModConfigEvent
 import java.util.EnumMap
 
-@Mod.EventBusSubscriber(modid = ForgeCreateHarmonicsMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
-object ModConfigurations : Registrable {
+@Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
+object ModConfigurations : Registrable, ForgeRegistry {
     override val registrationOrder: Int = 1
 
     val configs: EnumMap<ModConfig.Type, ConfigBase> = EnumMap(ModConfig.Type::class.java)

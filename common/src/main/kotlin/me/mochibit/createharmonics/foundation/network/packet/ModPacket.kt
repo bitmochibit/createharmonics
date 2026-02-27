@@ -1,6 +1,9 @@
-package me.mochibit.createharmonics.foundation.network
+package me.mochibit.createharmonics.foundation.network.packet
 
 import kotlinx.serialization.serializer
+import me.mochibit.createharmonics.foundation.network.FriendlyByteBufDecoder
+import me.mochibit.createharmonics.foundation.network.FriendlyByteBufEncoder
+import me.mochibit.createharmonics.foundation.network.NetDirection
 import net.minecraft.network.FriendlyByteBuf
 import net.minecraft.server.level.ServerPlayer
 
@@ -16,7 +19,12 @@ inline fun <reified T : ModPacket> T.writeTo(buf: FriendlyByteBuf) {
     serializer<T>().serialize(FriendlyByteBufEncoder(buf), this)
 }
 
-inline fun <reified T : ModPacket> FriendlyByteBuf.readPacket(): T = serializer<T>().deserialize(FriendlyByteBufDecoder(this))
+inline fun <reified T : ModPacket> FriendlyByteBuf.readPacket(): T =
+    serializer<T>().deserialize(
+        FriendlyByteBufDecoder(
+            this,
+        ),
+    )
 
 interface HasNetDirection {
     val netDirection: NetDirection

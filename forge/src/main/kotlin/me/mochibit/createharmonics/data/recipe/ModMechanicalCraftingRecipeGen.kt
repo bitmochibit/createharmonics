@@ -2,7 +2,7 @@ package me.mochibit.createharmonics.data.recipe
 
 import com.simibubi.create.AllItems
 import com.simibubi.create.api.data.recipe.MechanicalCraftingRecipeGen
-import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
+import me.mochibit.createharmonics.ForgeModEntryPoint
 import me.mochibit.createharmonics.foundation.registry.ModBlocks
 import net.minecraft.data.PackOutput
 import net.minecraft.world.item.Items
@@ -10,7 +10,7 @@ import net.minecraft.world.item.crafting.Ingredient
 
 class ModMechanicalCraftingRecipeGen(
     output: PackOutput,
-) : MechanicalCraftingRecipeGen(output, ForgeCreateHarmonicsMod.Companion.MOD_ID) {
+) : MechanicalCraftingRecipeGen(output, ForgeModEntryPoint.Companion.MOD_ID) {
     val recordPressBaseRecipe =
         create { ModBlocks.RECORD_PRESS_BASE }.returns(1).recipe { b ->
             b.apply {

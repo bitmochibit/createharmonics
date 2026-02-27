@@ -4,7 +4,7 @@ import me.mochibit.createharmonics.cRegistrate
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.AudioNameDisplaySource
 import me.mochibit.createharmonics.foundation.info
 
-object ModDisplaySources : Registrable {
+object ModDisplaySources : Registrable, ForgeRegistry {
     override val registrationOrder = 1
 
     val AUDIO_NAME =

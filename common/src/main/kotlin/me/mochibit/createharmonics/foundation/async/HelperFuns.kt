@@ -1,21 +1,31 @@
 package me.mochibit.createharmonics.foundation.async
 
-import dev.architectury.platform.Platform
-import dev.architectury.utils.Env
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import me.mochibit.createharmonics.foundation.services.PlatformService
+import me.mochibit.createharmonics.foundation.services.platformService
 import kotlin.coroutines.CoroutineContext
 
+val currentContext: CoroutineContext by lazy {
+    if (platformService isEnvironment
+        PlatformService.Environment.CLIENT
+    ) {
+        ModDispatchers.Client()
+    } else {
+        ModDispatchers.Server()
+    }
+}
+
 fun modLaunch(
-    context: CoroutineContext = if (Platform.getEnvironment() == Env.CLIENT) ModDispatchers.Client() else ModDispatchers.Server(),
+    context: CoroutineContext = currentContext,
     block: suspend CoroutineScope.() -> Unit,
 ) = ModCoroutineScope.launch(context, block = block)
 
 fun delayedLaunch(
-    context: CoroutineContext = if (Platform.getEnvironment() == Env.CLIENT) ModDispatchers.Client() else ModDispatchers.Server(),
+    context: CoroutineContext = currentContext,
     delay: kotlin.time.Duration,
     block: suspend CoroutineScope.() -> Unit,
 ) = ModCoroutineScope.launch(context) {
@@ -26,7 +36,7 @@ fun delayedLaunch(
 infix fun kotlin.time.Duration.thenLaunch(block: suspend CoroutineScope.() -> Unit) = delayedLaunch(delay = this, block = block)
 
 fun repeatingLaunch(
-    context: CoroutineContext = if (Platform.getEnvironment() == Env.CLIENT) ModDispatchers.Client() else ModDispatchers.Server(),
+    context: CoroutineContext = currentContext,
     initialDelay: kotlin.time.Duration = kotlin.time.Duration.ZERO,
     delay: kotlin.time.Duration,
     block: suspend CoroutineScope.() -> Unit,
@@ -46,6 +56,6 @@ infix fun kotlin.time.Duration.every(block: suspend CoroutineScope.() -> Unit) =
 
 suspend fun <T> withMainContext(block: suspend CoroutineScope.() -> T): T =
     withContext(
-        if (Platform.getEnvironment() == Env.CLIENT) ModDispatchers.Client() else ModDispatchers.Server(),
+        currentContext,
         block,
     )
