@@ -1,6 +1,6 @@
 package me.mochibit.createharmonics.foundation.registry
 
-interface AutoRegistrable {
+interface Registrable {
     /**
      * The registration order priority. Lower values are registered first.
      * Override this property to control registration order relative to other AutoRegistrable implementations.
@@ -11,3 +11,5 @@ interface AutoRegistrable {
 
     fun register()
 }
+
+sealed interface HasAutomaticRegistration

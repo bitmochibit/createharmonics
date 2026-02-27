@@ -2,8 +2,13 @@ package me.mochibit.createharmonics.foundation.registry
 
 import com.simibubi.create.foundation.networking.SimplePacketBase
 import me.mochibit.createharmonics.foundation.extension.asResource
+import me.mochibit.createharmonics.foundation.network.C2SPacket
 import me.mochibit.createharmonics.foundation.network.ConfigureRecordPressBasePacket
 import me.mochibit.createharmonics.foundation.network.ContraptionBlockDataChangedPacket
+import me.mochibit.createharmonics.foundation.network.ModPacket
+import me.mochibit.createharmonics.foundation.network.S2CPacket
+import me.mochibit.createharmonics.foundation.network.readPacket
+import me.mochibit.createharmonics.foundation.network.writeTo
 import net.minecraft.network.FriendlyByteBuf
 import net.minecraftforge.common.Tags
 import net.minecraftforge.network.NetworkDirection
@@ -13,9 +18,11 @@ import net.minecraftforge.network.simple.SimpleChannel
 import java.util.function.BiConsumer
 import java.util.function.Supplier
 
-object ForgeModPackets : AutoRegistrable {
+object ForgeModPackets : Registrable {
     private const val PROTOCOL_VERSION = "1"
     private const val NETWORK_VERSION = "1"
+
+    private var globalPacketId = 0
 
     val channel: SimpleChannel =
         NetworkRegistry.ChannelBuilder
@@ -25,47 +32,57 @@ object ForgeModPackets : AutoRegistrable {
             .networkProtocolVersion { PROTOCOL_VERSION }
             .simpleChannel()
 
-    private val clientToServer =
-        listOf(
-            packet(::ConfigureRecordPressBasePacket),
-        )
+    fun registerPacket(packet: ModPacket) {
+        val direction: Int =
+            (if (packet is C2SPacket) 1 else 0) or
+                (if (packet is S2CPacket) 2 else 0)
 
-    private val serverToClient =
-        listOf(
-            packet(::ContraptionBlockDataChangedPacket),
-        )
+        if (direction == 0) throw IllegalArgumentException("Packet must implement either C2SPacket or S2CPacket !! $packet")
 
-    override fun register() {
-        var id = 0
-        Tags.Items.STONE
-        clientToServer.forEach { it.register(channel, id++, NetworkDirection.PLAY_TO_SERVER) }
-        serverToClient.forEach { it.register(channel, id++, NetworkDirection.PLAY_TO_CLIENT) }
+        if (direction == 3) {
+            registerMessage(packet, NetworkDirection.PLAY_TO_SERVER)
+            registerMessage(packet, NetworkDirection.PLAY_TO_CLIENT)
+            return
+        }
+
+        registerMessage(
+            packet,
+            if (direction == 1) NetworkDirection.PLAY_TO_SERVER else NetworkDirection.PLAY_TO_CLIENT,
+        )
     }
-}
 
-private class PacketType<T : SimplePacketBase>(
-    val clazz: Class<T>,
-    val factory: (FriendlyByteBuf) -> T,
-) {
-    fun register(
-        channel: SimpleChannel,
-        id: Int,
+    private fun registerMessage(
+        messageType: ModPacket,
         direction: NetworkDirection,
     ) {
-        channel
-            .messageBuilder(clazz, id, direction)
-            .encoder { packet, buffer -> packet.write(buffer) }
-            .decoder(factory)
-            .consumerNetworkThread(
-                BiConsumer { packet: T, ctxSupplier: Supplier<NetworkEvent.Context> ->
-                    ctxSupplier.get().apply {
-                        if (packet.handle(this)) {
-                            packetHandled = true
-                        }
+        channel.registerMessage(
+            globalPacketId++,
+            messageType.javaClass,
+            { packet, buf -> packet.writeTo(buf) },
+            { buf -> buf.readPacket() },
+            { packet, ctx ->
+                when (direction) {
+                    NetworkDirection.PLAY_TO_SERVER -> {
+                        if (packet is C2SPacket) packet.handleClient(ModPacket.Context(ctx.get().sender))
                     }
-                },
-            ).add()
+
+                    NetworkDirection.PLAY_TO_CLIENT -> {
+                        if (packet is S2CPacket) packet.handleServer(ModPacket.Context(ctx.get().sender))
+                    }
+
+                    else -> {
+                        packet.handle(ModPacket.Context(ctx.get().sender))
+                    }
+                }
+
+                ctx.get().packetHandled = true
+            },
+        )
+    }
+
+    override fun register() {
+        ModPackets.packets.forEach {
+            registerPacket(it)
+        }
     }
 }
-
-private inline fun <reified T : SimplePacketBase> packet(noinline factory: (FriendlyByteBuf) -> T) = PacketType(T::class.java, factory)

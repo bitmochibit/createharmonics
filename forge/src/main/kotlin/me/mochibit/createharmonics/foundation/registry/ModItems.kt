@@ -11,7 +11,7 @@ import net.minecraft.world.item.Rarity
 import java.util.EnumMap
 import kotlin.collections.set
 
-object ModItems : AutoRegistrable {
+object ModItems : Registrable {
     override val registrationOrder = 3
 
     val BASE_RECORD: ItemEntry<BaseRecordItem> =

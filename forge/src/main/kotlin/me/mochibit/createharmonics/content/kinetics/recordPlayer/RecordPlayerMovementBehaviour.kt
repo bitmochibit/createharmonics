@@ -23,10 +23,10 @@ import me.mochibit.createharmonics.coroutine.launchDelayed
 import me.mochibit.createharmonics.foundation.extension.onClient
 import me.mochibit.createharmonics.foundation.extension.onServer
 import me.mochibit.createharmonics.foundation.extension.remapTo
-import me.mochibit.createharmonics.foundation.math.FloatSupplierInterpolated
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.foundation.network.setBlockData
 import me.mochibit.createharmonics.foundation.registry.ModConfigurations
+import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
 import me.mochibit.createharmonics.registry.ModPackets
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos

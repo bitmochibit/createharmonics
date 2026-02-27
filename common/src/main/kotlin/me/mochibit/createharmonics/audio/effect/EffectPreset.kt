@@ -4,7 +4,7 @@ import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.foundation.extension.countLiquidCoveredFaces
 import me.mochibit.createharmonics.foundation.extension.lerpTo
-import me.mochibit.createharmonics.foundation.math.FloatSupplierInterpolated
+import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
 import net.minecraft.core.Vec3i
 import net.minecraft.world.level.Level
 import net.minecraft.world.phys.Vec3

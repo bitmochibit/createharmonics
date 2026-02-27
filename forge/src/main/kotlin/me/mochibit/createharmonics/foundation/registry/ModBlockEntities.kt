@@ -11,7 +11,7 @@ import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPres
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseRenderer
 import me.mochibit.createharmonics.foundation.info
 
-object ModBlockEntities : AutoRegistrable {
+object ModBlockEntities : Registrable {
     override val registrationOrder = 3
 
     val ANDESITE_JUKEBOX: BlockEntityEntry<AndesiteJukeboxBlockEntity> =

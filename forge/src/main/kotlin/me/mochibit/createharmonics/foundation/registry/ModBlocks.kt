@@ -7,7 +7,6 @@ import com.simibubi.create.api.contraption.storage.item.MountedItemStorageType.m
 import com.simibubi.create.foundation.data.AssetLookup
 import com.simibubi.create.foundation.data.ModelGen.customItemModel
 import com.tterrag.registrate.util.entry.BlockEntry
-import me.mochibit.createharmonics.ForgeCreateHarmonicsMod
 import me.mochibit.createharmonics.ModStress
 import me.mochibit.createharmonics.cRegistrate
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour
@@ -20,10 +19,8 @@ import net.minecraft.tags.BlockTags
 import net.minecraft.world.level.block.SoundType
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraftforge.client.model.generators.ConfiguredModel
-import net.minecraftforge.eventbus.api.IEventBus
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 
-object ModBlocks : AutoRegistrable {
+object ModBlocks : Registrable {
     override val registrationOrder = 2
 
     val ANDESITE_JUKEBOX: BlockEntry<AndesiteJukeboxBlock> =

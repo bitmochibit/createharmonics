@@ -1,5 +1,6 @@
 plugins {
     id("xyz.wagyourtail.unimined")
+    id("com.gradleup.shadow")
 }
 
 base.archivesName.set("${rootProject.property("mod_name")}-Common-${rootProject.property("minecraft_version")}")
@@ -17,6 +18,7 @@ val vsCoreVersion = rootProject.property("vs_core_version").toString()
 
 val generateBuildConfigTask =
     tasks.register("generateBuildConfig") {
+        print("Generating BuildConfig.kt")
         val outputDir =
             layout.buildDirectory
                 .dir("generated/sources/buildConfig")
@@ -43,8 +45,18 @@ val generateBuildConfigTask =
         }
     }
 
+sourceSets["main"].kotlin.srcDir(
+    generateBuildConfigTask.map {
+        layout.buildDirectory.dir("generated/sources/buildConfig").get()
+    },
+)
+
+tasks.named("compileKotlin") {
+    dependsOn(generateBuildConfigTask)
+}
+
 dependencies {
-    implementation("org.tukaani:xz:1.11")
+    shadow("org.tukaani:xz:1.11")
 
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
@@ -84,4 +96,14 @@ tasks.named<ProcessResources>("processResources") {
     filesMatching(listOf("pack.mcmeta")) {
         expand(buildProps)
     }
+}
+
+tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
+    configurations = listOf(project.configurations["shadow"])
+    archiveClassifier.set("")
+    mergeServiceFiles()
+}
+
+tasks.named("jar") {
+    finalizedBy("shadowJar")
 }

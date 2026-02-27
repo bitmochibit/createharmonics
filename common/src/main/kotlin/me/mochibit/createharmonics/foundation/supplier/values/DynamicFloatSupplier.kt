@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.foundation.math
+package me.mochibit.createharmonics.foundation.supplier.values
 
 class DynamicFloatSupplier(
     val supplier: () -> Float,

@@ -1,6 +1,6 @@
 package me.mochibit.createharmonics.audio.effect
 
-import me.mochibit.createharmonics.foundation.math.FloatSupplier
+import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.roundToInt

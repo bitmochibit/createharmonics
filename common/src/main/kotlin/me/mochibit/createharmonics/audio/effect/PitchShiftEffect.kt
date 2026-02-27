@@ -1,6 +1,6 @@
 package me.mochibit.createharmonics.audio.effect
 
-import me.mochibit.createharmonics.foundation.math.FloatSupplier
+import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 
 /**
  * Simple pitch shift effect matching OpenAL/Minecraft behavior.

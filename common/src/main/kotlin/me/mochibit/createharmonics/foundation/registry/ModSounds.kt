@@ -7,7 +7,7 @@ import me.mochibit.createharmonics.foundation.extension.asResource
 import net.minecraft.core.registries.Registries
 import net.minecraft.sounds.SoundEvent
 
-object ModSounds : AutoRegistrable {
+object ModSounds : Registrable {
     private val SOUND_EVENTS: DeferredRegister<SoundEvent> =
         DeferredRegister.create(CreateHarmonicsMod.MOD_ID, Registries.SOUND_EVENT)
 

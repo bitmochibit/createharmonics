@@ -1,14 +1,12 @@
 package me.mochibit.createharmonics.foundation.registry
 
-import kotlin.reflect.KClass
-
 object RegistryManager {
     /**
      * Registers all mod registries sorted by their registration order.
-     * Lower [AutoRegistrable.registrationOrder] values are registered first.
+     * Lower [Registrable.registrationOrder] values are registered first.
      * It is platform-agnostic
      */
-    fun registerAll(vararg registries: AutoRegistrable) {
+    fun registerAll(vararg registries: Registrable) {
         registries
             .sortedBy { it.registrationOrder }
             .forEach { it.register() }

@@ -8,16 +8,14 @@ import me.mochibit.createharmonics.ModLoadingContext
 import me.mochibit.createharmonics.ServerConfig
 import net.createmod.catnip.config.ConfigBase
 import net.minecraftforge.common.ForgeConfigSpec
-import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.eventbus.api.SubscribeEvent
 import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.fml.config.ModConfig
 import net.minecraftforge.fml.event.config.ModConfigEvent
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 import java.util.EnumMap
 
 @Mod.EventBusSubscriber(modid = ForgeCreateHarmonicsMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
-object ModConfigurations : AutoRegistrable {
+object ModConfigurations : Registrable {
     override val registrationOrder: Int = 1
 
     val configs: EnumMap<ModConfig.Type, ConfigBase> = EnumMap(ModConfig.Type::class.java)

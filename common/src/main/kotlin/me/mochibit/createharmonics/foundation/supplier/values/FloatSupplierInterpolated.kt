@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.foundation.math
+package me.mochibit.createharmonics.foundation.supplier.values
 
 import me.mochibit.createharmonics.foundation.extension.lerpTo
 

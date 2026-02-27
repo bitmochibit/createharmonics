@@ -7,7 +7,7 @@ import me.mochibit.createharmonics.foundation.info
 import java.util.EnumMap
 import kotlin.collections.set
 
-object ModPartialModels : AutoRegistrable {
+object ModPartialModels : Registrable {
     private val recordModels =
         EnumMap<RecordType, PartialModel>(RecordType::class.java).apply {
             for (type in RecordType.entries) {

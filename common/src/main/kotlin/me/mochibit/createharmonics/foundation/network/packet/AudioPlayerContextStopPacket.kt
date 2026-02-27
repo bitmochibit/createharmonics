@@ -1,22 +1,16 @@
 package me.mochibit.createharmonics.foundation.network.packet
 
+import kotlinx.serialization.Serializable
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import me.mochibit.createharmonics.foundation.network.ModPacket
-import net.minecraft.network.FriendlyByteBuf
-import net.minecraft.server.level.ServerPlayer
+import me.mochibit.createharmonics.foundation.network.S2CPacket
 
+@Serializable
 class AudioPlayerContextStopPacket(
     val audioPlayerId: String,
-) : ModPacket {
-    constructor(buffer: FriendlyByteBuf) : this(
-        audioPlayerId = buffer.readUtf(),
-    )
-
-    override fun write(buffer: FriendlyByteBuf) {
-        buffer.writeUtf(audioPlayerId)
-    }
-
-    override fun handle(player: ServerPlayer?): Boolean {
+) : ModPacket,
+    S2CPacket {
+    override fun handle(context: ModPacket.Context): Boolean {
         AudioPlayerRegistry.destroyPlayer(audioPlayerId)
         return true
     }
