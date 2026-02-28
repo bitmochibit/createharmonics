@@ -1,5 +1,7 @@
 plugins {
     id("xyz.wagyourtail.unimined")
+    id("org.jetbrains.kotlin.jvm") version "2.2.21"
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.0"
 }
 
 version =
@@ -55,7 +57,7 @@ unimined.minecraft(sourceSets["main"]) {
     version(minecraftVersion)
     mappings {
         mojmap()
-        devNamespace("mojmap")
+        parchment("1.20.1", "2023.09.03")
     }
     minecraftForge {
         loader(forgeVersion)

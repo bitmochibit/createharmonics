@@ -1,10 +1,11 @@
 package me.mochibit.createharmonics.foundation.async
 
-import dev.architectury.event.events.common.LifecycleEvent
-import dev.architectury.platform.Platform
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Runnable
+import me.mochibit.createharmonics.event.lifecycle.ServerStartedEvent
+import me.mochibit.createharmonics.event.lifecycle.ServerStoppedEvent
 import me.mochibit.createharmonics.foundation.err
+import me.mochibit.createharmonics.foundation.eventbus.EventBus
 import net.minecraft.client.Minecraft
 import net.minecraft.server.MinecraftServer
 import kotlin.coroutines.CoroutineContext
@@ -13,11 +14,10 @@ object ModDispatchers {
     private var currentServer: MinecraftServer? = null
 
     init {
-        LifecycleEvent.SERVER_STARTED.register { server ->
-            currentServer = server
+        EventBus.on<ServerStartedEvent> { event ->
+            currentServer = event.server
         }
-
-        LifecycleEvent.SERVER_STOPPED.register {
+        EventBus.on<ServerStoppedEvent> { event ->
             currentServer = null
         }
     }

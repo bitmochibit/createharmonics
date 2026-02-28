@@ -2,6 +2,7 @@ package mixin;
 
 import com.simibubi.create.content.kinetics.crafter.RecipeGridHandler;
 import me.mochibit.createharmonics.event.crafting.RecipeAssembledEvent;
+import me.mochibit.createharmonics.foundation.eventbus.EventBus;
 import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -26,7 +27,7 @@ public abstract class RecipeGridHandlerMixin {
         if (result == null) return;
 
         if (!result.isEmpty()) {
-            RecipeAssembledEvent.EVENT.invoker().onRecipeAssembled(inv.getItems(), Collections.singletonList(result));
+            EventBus.INSTANCE.post(new RecipeAssembledEvent(inv.getItems(), Collections.singletonList(result)));
         }
     }
 }

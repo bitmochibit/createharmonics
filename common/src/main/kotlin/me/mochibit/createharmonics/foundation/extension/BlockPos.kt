@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics.foundation.extension
 
-import dev.architectury.platform.Platform
-import me.mochibit.createharmonics.foundation.shared.FluidStateHelper
+import me.mochibit.createharmonics.foundation.services.contentService
+import me.mochibit.createharmonics.foundation.services.platformService
 import net.minecraft.CrashReport
 import net.minecraft.CrashReportCategory
 import net.minecraft.CrashReportDetail
@@ -33,7 +33,7 @@ fun Level.countLiquidCoveredFaces(
     fun accumulateFluid(fluidState: FluidState) {
         liquidCount++
         when {
-            FluidStateHelper.getViscosity(fluidState) > 1000 -> viscousCount++
+            contentService.getViscosity(fluidState) > 1000 -> viscousCount++
             fluidState.`is`(FluidTags.WATER) -> waterCount++
         }
     }
@@ -45,7 +45,7 @@ fun Level.countLiquidCoveredFaces(
     if (ship != null) {
         val shipCenterFluid = getFluidState(x.toInt(), y.toInt(), z.toInt())
         if (!shipCenterFluid.isEmpty) {
-            return Direction.entries.size to (FluidStateHelper.getViscosity(shipCenterFluid) > 1000)
+            return Direction.entries.size to (contentService.getViscosity(shipCenterFluid) > 1000)
         }
     }
 
@@ -59,7 +59,7 @@ fun Level.countLiquidCoveredFaces(
 
     val centerFluid = getFluidState(centerWorldPos.x.toInt(), centerWorldPos.y.toInt(), centerWorldPos.z.toInt())
     if (!centerFluid.isEmpty) {
-        return Direction.entries.size to (FluidStateHelper.getViscosity(centerFluid) > 1000)
+        return Direction.entries.size to (contentService.getViscosity(centerFluid) > 1000)
     }
 
     for (direction in Direction.entries) {
@@ -99,7 +99,7 @@ fun Level.countLiquidCoveredFaces(
 }
 
 fun BlockPos.getManagingShip(level: Level): Ship? {
-    if (!Platform.isModLoaded("valkyrienskies")) return null
+    if (!platformService.isModLoaded("valkyrienskies")) return null
     return level.getShipManagingPos(
         this.x.toDouble(),
         this.y.toDouble(),
@@ -141,8 +141,7 @@ fun Level.getBlockState(
         val crashReportCategory = crashReport.addCategory("Block being got")
         crashReportCategory.setDetail(
             "Location",
-            CrashReportDetail { CrashReportCategory.formatLocation(this, x, y, z) },
-        )
+        ) { CrashReportCategory.formatLocation(this, x, y, z) }
         throw ReportedException(crashReport)
     }
 }

@@ -18,8 +18,8 @@ import me.mochibit.createharmonics.foundation.extension.onServer
 import me.mochibit.createharmonics.foundation.extension.remapTo
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.foundation.registry.ModConfigurations
+import me.mochibit.createharmonics.foundation.registry.ModPackets
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
-import me.mochibit.createharmonics.registry.ModPackets
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.core.particles.ShriekParticleOption
@@ -84,10 +84,7 @@ class RecordPlayerBehaviour(
         ) {
             blockEntity.level?.onServer {
                 activePlayersByUUID.remove(playerUUID)
-                ModPackets.channel.send(
-                    PacketDistributor.ALL.noArg(),
-                    AudioPlayerContextStopPacket(playerUUID),
-                )
+                ModPackets.broadcast(AudioPlayerContextStopPacket(playerUUID))
             }
         }
     }

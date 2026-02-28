@@ -4,6 +4,8 @@ import com.tterrag.registrate.builders.BlockBuilder
 import com.tterrag.registrate.util.nullness.NonNullUnaryOperator
 import it.unimi.dsi.fastutil.objects.Object2DoubleMap
 import it.unimi.dsi.fastutil.objects.Object2DoubleOpenHashMap
+import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
+import me.mochibit.createharmonics.foundation.extension.asResource
 import net.createmod.catnip.config.ConfigBase
 import net.createmod.catnip.platform.CatnipServices
 import net.minecraft.resources.ResourceLocation
@@ -18,7 +20,7 @@ import java.util.function.DoubleSupplier
  * This object manages stress-related values for all blocks added by CreateHarmonics,
  * allowing server administrators to fine-tune mechanical contraption behavior.
  */
-@Mod.EventBusSubscriber(modid = ForgeModEntryPoint.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
+@Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
 object ModStress : ConfigBase() {
     // Bump this version to reset configured values on major config changes
     private const val VERSION = 1
@@ -142,7 +144,7 @@ object ModStress : ConfigBase() {
     }
 
     private fun assertFromHarmonics(builder: BlockBuilder<*, *>) {
-        if (builder.owner.modid != ForgeModEntryPoint.MOD_ID) {
+        if (builder.owner.modid != MOD_ID) {
             throw IllegalStateException("Non-Harmonics blocks cannot be added to Harmonics' config.")
         }
     }

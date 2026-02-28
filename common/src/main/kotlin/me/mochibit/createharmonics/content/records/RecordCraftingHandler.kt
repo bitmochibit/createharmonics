@@ -1,6 +1,8 @@
 package me.mochibit.createharmonics.content.records
 
 import me.mochibit.createharmonics.event.crafting.RecipeAssembledEvent
+import me.mochibit.createharmonics.foundation.eventbus.EventBus
+import me.mochibit.createharmonics.foundation.eventbus.ModEvent
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.resources.ResourceLocation
@@ -28,7 +30,8 @@ object RecordCraftingHandler {
     }
 
     init {
-        RecipeAssembledEvent.EVENT.register { ingredients, result ->
+        EventBus.on<RecipeAssembledEvent> { event ->
+            val (ingredients, result) = event
             result.forEach { resultStack ->
                 when {
                     isBaseRecord(resultStack) -> {

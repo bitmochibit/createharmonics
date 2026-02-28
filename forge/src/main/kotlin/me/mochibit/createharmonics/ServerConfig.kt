@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics
 
+import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
 import me.mochibit.createharmonics.content.records.RecordType
 import net.createmod.catnip.config.ConfigBase
 import net.minecraftforge.common.ForgeConfigSpec
@@ -11,7 +12,7 @@ import net.minecraftforge.fml.common.Mod.EventBusSubscriber
  * These settings are synchronized to clients and can be adjusted by server administrators
  * to control gameplay mechanics and balance.
  */
-@EventBusSubscriber(modid = ForgeModEntryPoint.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = MOD_ID, bus = EventBusSubscriber.Bus.MOD)
 object ServerConfig : ConfigBase() {
     // Stress configuration (nested)
     val modStress = nested(0, { ModStress }, "Mechanical stress impacts and capacities for CreateHarmonics blocks")

@@ -8,7 +8,6 @@ import com.simibubi.create.content.contraptions.render.ContraptionMatrices
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import dev.engine_room.flywheel.api.visualization.VisualizationContext
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
-import me.mochibit.createharmonics.Logger
 import me.mochibit.createharmonics.ServerConfig
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
@@ -18,16 +17,16 @@ import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.PlaybackState
 import me.mochibit.createharmonics.content.record.EtherealRecordItem
 import me.mochibit.createharmonics.content.record.EtherealRecordItem.Companion.playFromRecord
-import me.mochibit.createharmonics.coroutine.MinecraftClientDispatcher
-import me.mochibit.createharmonics.coroutine.launchDelayed
+import me.mochibit.createharmonics.foundation.async.thenLaunch
+import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.extension.onClient
 import me.mochibit.createharmonics.foundation.extension.onServer
 import me.mochibit.createharmonics.foundation.extension.remapTo
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
-import me.mochibit.createharmonics.foundation.network.setBlockData
 import me.mochibit.createharmonics.foundation.registry.ModConfigurations
+import me.mochibit.createharmonics.foundation.registry.ModPackets
+import me.mochibit.createharmonics.foundation.services.setBlockData
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
-import me.mochibit.createharmonics.registry.ModPackets
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ParticleTypes
@@ -39,7 +38,6 @@ import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
-import net.minecraftforge.network.PacketDistributor
 import java.util.UUID
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.seconds
@@ -143,7 +141,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         level.onServer {
             val contraptionEntity = context.contraption.entity
             if (contraptionEntity is ControlledContraptionEntity) {
-                launchDelayed(MinecraftClientDispatcher, .1.seconds) {
+                .1.seconds.thenLaunch {
                     val contraptionEntity = context.contraption.entity
                     if (!contraptionEntity.isAlive) {
                         stopMovingPlayer(context)
@@ -159,10 +157,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
     private fun stopClientAudio(context: MovementContext) {
         val playerUUID = getPlayerUUID(context) ?: return
-        ModPackets.channel.send(
-            PacketDistributor.ALL.noArg(),
-            AudioPlayerContextStopPacket(playerUUID.toString()),
-        )
+        ModPackets.broadcast(AudioPlayerContextStopPacket(playerUUID.toString()))
         unregisterPlayer(playerUUID.toString())
     }
 
@@ -826,7 +821,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
     private fun getPlayerUUID(context: MovementContext): UUID? {
         if (!context.blockEntityData.contains(PLAYER_UUID_KEY)) {
-            Logger.err("PlayerUUID not found at ${context.localPos}")
+            "PlayerUUID not found at ${context.localPos}".err()
             return null
         }
         return context.blockEntityData.getUUID(PLAYER_UUID_KEY)

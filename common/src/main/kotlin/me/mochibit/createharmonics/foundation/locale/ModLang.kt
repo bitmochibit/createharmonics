@@ -1,6 +1,5 @@
 package me.mochibit.createharmonics.foundation.locale
 
-import dev.architectury.fluid.FluidStack
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import net.createmod.catnip.lang.Lang
 import net.createmod.catnip.lang.LangBuilder
@@ -22,13 +21,6 @@ object ModLang : Lang() {
         builder().add(
             stack
                 .hoverName
-                .copy(),
-        )
-
-    fun fluidName(stack: FluidStack): LangBuilder =
-        builder().add(
-            stack
-                .name
                 .copy(),
         )
 

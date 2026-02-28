@@ -8,15 +8,14 @@ import me.mochibit.createharmonics.audio.effect.EQBand
 import me.mochibit.createharmonics.audio.effect.EqualizerEffect
 import me.mochibit.createharmonics.foundation.extension.asResource
 import me.mochibit.createharmonics.foundation.extension.resPath
-import me.mochibit.createharmonics.foundation.registry.ModSounds
-import me.mochibit.createharmonics.foundation.shared.ConfigHelper
+import me.mochibit.createharmonics.foundation.services.configService
+import me.mochibit.createharmonics.foundation.services.contentService
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.core.registries.Registries
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.tags.TagKey
 import net.minecraft.util.RandomSource
 import net.minecraft.world.item.crafting.Ingredient
-import java.util.ServiceLoader
 
 enum class RecordType(
     val properties: Properties,
@@ -39,7 +38,7 @@ enum class RecordType(
             soundEventCompProvider = {
                 listOf(
                     SoundEventComposition.SoundEventDef(
-                        ModSounds.SLIDING_STONE.get(),
+                        contentService.slidingStoneSound,
                         looping = true,
                         relative = false,
                         volumeSupplier = { 0.25f },
@@ -108,7 +107,7 @@ enum class RecordType(
             soundEventCompProvider = {
                 listOf(
                     SoundEventComposition.SoundEventDef(
-                        ModSounds.GLITTER.get(),
+                        contentService.glitterSoundEvent,
                         looping = false,
                         relative = false,
                         volumeSupplier = { 0.7f },
@@ -174,7 +173,7 @@ enum class RecordType(
     // Get uses from config, with fallback defaults matching config defaults
     val uses: Int
         get() =
-            ConfigHelper.getRecordDurability(this) ?: this.properties.defaultDurability
+            configService.getRecordDurability(this) ?: this.properties.defaultDurability
 
     data class Properties(
         val recipe: Recipe? = null,

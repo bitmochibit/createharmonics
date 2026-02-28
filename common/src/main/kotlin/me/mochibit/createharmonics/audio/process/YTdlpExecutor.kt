@@ -8,7 +8,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.foundation.err
-import me.mochibit.createharmonics.foundation.shared.ConfigHelper
+import me.mochibit.createharmonics.foundation.services.configService
 
 class YTdlpExecutor {
     data class AudioUrlInfo(
@@ -29,7 +29,7 @@ class YTdlpExecutor {
                     YTDLProvider.getExecutablePath()
                         ?: return@withContext null
 
-                val configOverrides = ConfigHelper.getYtdlpOverrideArgs()
+                val configOverrides = configService.getYtdlpOverrideArgs()
 
                 val command =
                     if (configOverrides.isNotBlank()) {

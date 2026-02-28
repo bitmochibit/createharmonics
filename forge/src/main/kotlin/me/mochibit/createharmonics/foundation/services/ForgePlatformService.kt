@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.foundation.services
 
+import net.minecraftforge.fml.ModList
 import net.minecraftforge.fml.loading.FMLLoader
 
 class ForgePlatformService : PlatformService {
@@ -11,4 +12,6 @@ class ForgePlatformService : PlatformService {
                 FMLLoader.getDist().isDedicatedServer -> PlatformService.Environment.SERVER
                 else -> throw IllegalStateException("Unknown environment")
             }
+
+    override fun isModLoaded(modId: String): Boolean = ModList.get().isLoaded(modId)
 }

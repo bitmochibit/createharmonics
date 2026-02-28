@@ -2,8 +2,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "2.1.0" apply false
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.1.0" apply false
+    id("org.jetbrains.kotlin.jvm") version "2.2.21" apply false
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.0" apply false
     id("xyz.wagyourtail.unimined") version "1.4.1"
 }
 
@@ -50,6 +50,10 @@ subprojects {
         maven {
             name = "NeoForged"
             url = uri("https://maven.neoforged.net/releases")
+        }
+        maven {
+            name = "ParchmentMC"
+            url = uri("https://maven.parchmentmc.org")
         }
     }
 

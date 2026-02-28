@@ -1,6 +1,7 @@
 package mixin;
 
 import me.mochibit.createharmonics.event.crafting.RecipeAssembledEvent;
+import me.mochibit.createharmonics.foundation.eventbus.EventBus;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.item.ItemStack;
@@ -25,7 +26,7 @@ public abstract class ShapelessRecipeMixin {
             for (int i = 0; i < container.getContainerSize(); i++) {
                 ingredients.add(container.getItem(i));
             }
-            RecipeAssembledEvent.EVENT.invoker().onRecipeAssembled(ingredients, Collections.singletonList(result));
+            EventBus.INSTANCE.post(new RecipeAssembledEvent(ingredients, Collections.singletonList(result)));
         }
     }
 }

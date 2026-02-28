@@ -2,6 +2,7 @@ package mixin;
 
 import com.simibubi.create.foundation.recipe.RecipeApplier;
 import me.mochibit.createharmonics.event.crafting.RecipeAssembledEvent;
+import me.mochibit.createharmonics.foundation.eventbus.EventBus;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Recipe;
@@ -27,7 +28,9 @@ public abstract class RecipeApplierMixin {
         List<ItemStack> result = cir.getReturnValue();
         if (result == null) return;
         if (!result.isEmpty()) {
-            RecipeAssembledEvent.EVENT.invoker().onRecipeAssembled(new ArrayList<>(Collections.singleton(stackIn)), result);
+            EventBus.INSTANCE.post(
+                    new RecipeAssembledEvent((new ArrayList<>(Collections.singleton(stackIn))), result)
+            );
         }
     }
 
@@ -41,7 +44,9 @@ public abstract class RecipeApplierMixin {
         List<ItemStack> result = RecipeApplier.applyRecipeOn(entity.level(), stackIn, recipe, returnProcessingRemainder);
         if (result == null) return;
         if (!result.isEmpty()) {
-            RecipeAssembledEvent.EVENT.invoker().onRecipeAssembled(new ArrayList<>(Collections.singleton(stackIn)), result);
+            EventBus.INSTANCE.post(
+                    new RecipeAssembledEvent(new ArrayList<>(Collections.singleton(stackIn)), result)
+            );
         }
     }
 }

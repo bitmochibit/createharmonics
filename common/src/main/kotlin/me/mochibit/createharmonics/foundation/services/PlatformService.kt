@@ -11,6 +11,8 @@ interface PlatformService {
     val platformName: String
 
     val environment: Environment
+
+    fun isModLoaded(modId: String): Boolean
 }
 
 val platformService: PlatformService by lazy {

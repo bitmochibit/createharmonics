@@ -1,12 +1,16 @@
 plugins {
     id("xyz.wagyourtail.unimined")
     id("com.gradleup.shadow")
+    id("org.jetbrains.kotlin.jvm") version "2.2.21"
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.0"
 }
 
 base.archivesName.set("${rootProject.property("mod_name")}-Common-${rootProject.property("minecraft_version")}")
 
 val minecraftVersion = rootProject.property("minecraft_version").toString()
 val kotlinVersion = rootProject.property("kotlin_version").toString()
+val kotlinCoroutinesVersion = rootProject.property("kotlin_coroutines_version").toString()
+val kotlinSerializationVersion = rootProject.property("kotlin_serialization_version").toString()
 
 val createVersion = rootProject.property("create_version").toString()
 val ponderVersion = rootProject.property("ponder_version").toString()
@@ -58,9 +62,12 @@ tasks.named("compileKotlin") {
 dependencies {
     shadow("org.tukaani:xz:1.11")
 
+    // Mixin (for annotation processing in common module)
+    compileOnly("org.spongepowered:mixin:0.8.5")
+
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
-    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
-    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutinesVersion")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion")
 
     // Create
     compileOnly("com.simibubi.create:create-$minecraftVersion:$createVersion:slim") { isTransitive = false }
@@ -84,10 +91,10 @@ dependencies {
 unimined.minecraft(sourceSets["main"]) {
     version(minecraftVersion)
     mappings {
-        mojmap()
-        devNamespace("mojmap")
+        searge()
+        devNamespace("searge")
     }
-    defaultRemapJar = true
+    defaultRemapJar = false
 }
 
 tasks.named<ProcessResources>("processResources") {

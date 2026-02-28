@@ -18,7 +18,7 @@ unimined.minecraft(sourceSets["main"]) {
     version(minecraftVersion)
     mappings {
         mojmap()
-        devNamespace("mojmap")
+        parchment("1.20.1", "2023.09.03")
     }
     neoForged {
         loader(neoforgeVersion)

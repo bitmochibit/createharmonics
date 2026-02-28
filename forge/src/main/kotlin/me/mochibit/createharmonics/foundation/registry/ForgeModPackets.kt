@@ -53,19 +53,20 @@ object ForgeModPackets : Registrable, ForgeRegistry {
             { packet, buf -> packet.writeTo(buf) },
             { buf -> buf.readPacket() },
             { packet, ctx ->
+                val context = ModPacket.Context(ctx.get().sender)
                 when (direction) {
                     NetworkDirection.PLAY_TO_SERVER -> {
-                        packet.handle(ModPacket.Context(ctx.get().sender))
-                        if (packet is C2SPacket) packet.handleClient(ModPacket.Context(ctx.get().sender))
+                        packet.handle(context)
+                        if (packet is C2SPacket) packet.handleClient(context)
                     }
 
                     NetworkDirection.PLAY_TO_CLIENT -> {
-                        packet.handle(ModPacket.Context(ctx.get().sender))
-                        if (packet is S2CPacket) packet.handleServer(ModPacket.Context(ctx.get().sender))
+                        packet.handle(context)
+                        if (packet is S2CPacket) packet.handleServer(context)
                     }
 
                     else -> {
-                        packet.handle(ModPacket.Context(ctx.get().sender))
+                        packet.handle(context)
                     }
                 }
 
