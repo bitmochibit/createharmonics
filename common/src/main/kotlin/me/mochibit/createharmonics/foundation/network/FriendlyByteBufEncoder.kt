@@ -4,14 +4,13 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.AbstractEncoder
 import kotlinx.serialization.encoding.CompositeEncoder
-import kotlinx.serialization.modules.EmptySerializersModule
 import net.minecraft.network.FriendlyByteBuf
 
 @OptIn(ExperimentalSerializationApi::class)
 class FriendlyByteBufEncoder(
-    private val buf: FriendlyByteBuf,
+    internal val buf: FriendlyByteBuf,
 ) : AbstractEncoder() {
-    override val serializersModule = EmptySerializersModule()
+    override val serializersModule = MinecraftSerializersModule
 
     override fun encodeBoolean(value: Boolean) {
         buf.writeBoolean(value)

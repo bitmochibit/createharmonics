@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.gametest.kinetics.recordPlayer
 
 import com.simibubi.create.AllBlocks
+import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
 import me.mochibit.createharmonics.ForgeModEntryPoint
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
@@ -18,7 +19,7 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Blocks
 import net.minecraftforge.gametest.GameTestHolder
 
-@GameTestHolder(ForgeModEntryPoint.MOD_ID)
+@GameTestHolder(MOD_ID)
 class RecordPlayerBehaviourTest {
     private fun GameTestHelper.setupRecordPlayer(): Pair<RecordPlayerBlockEntity, RecordPlayerBehaviour> {
         val pos = BlockPos(1, 1, 1)

@@ -1,14 +1,19 @@
 package me.mochibit.createharmonics.foundation.registry
 
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.serializer
 import me.mochibit.createharmonics.foundation.extension.asResource
+import me.mochibit.createharmonics.foundation.network.FriendlyByteBufDecoder
+import me.mochibit.createharmonics.foundation.network.FriendlyByteBufEncoder
 import me.mochibit.createharmonics.foundation.network.packet.C2SPacket
 import me.mochibit.createharmonics.foundation.network.packet.ModPacket
 import me.mochibit.createharmonics.foundation.network.packet.S2CPacket
-import me.mochibit.createharmonics.foundation.network.packet.readPacket
-import me.mochibit.createharmonics.foundation.network.packet.writeTo
 import net.minecraftforge.network.NetworkDirection
 import net.minecraftforge.network.NetworkRegistry
 import net.minecraftforge.network.simple.SimpleChannel
+import kotlin.reflect.KClass
+import kotlin.reflect.full.isSubclassOf
+import kotlin.reflect.full.starProjectedType
 
 object ForgeModPackets : Registrable, ForgeRegistry {
     private const val PROTOCOL_VERSION = "1"
@@ -24,49 +29,52 @@ object ForgeModPackets : Registrable, ForgeRegistry {
             .networkProtocolVersion { PROTOCOL_VERSION }
             .simpleChannel()
 
-    fun registerPacket(packet: ModPacket) {
-        val direction: Int =
-            (if (packet is C2SPacket) 1 else 0) or
-                (if (packet is S2CPacket) 2 else 0)
+    fun registerPacket(packetClass: KClass<out ModPacket>) {
+        val isC2S = packetClass.isSubclassOf(C2SPacket::class)
+        val isS2C = packetClass.isSubclassOf(S2CPacket::class)
 
-        if (direction == 0) throw IllegalArgumentException("Packet must implement either C2SPacket or S2CPacket !! $packet")
+        if (!isC2S && !isS2C) throw IllegalArgumentException("Packet must implement either C2SPacket or S2CPacket !! $packetClass")
 
-        if (direction == 3) {
-            registerMessage(packet, NetworkDirection.PLAY_TO_SERVER)
-            registerMessage(packet, NetworkDirection.PLAY_TO_CLIENT)
+        if (isC2S && isS2C) {
+            registerMessage(packetClass, NetworkDirection.PLAY_TO_SERVER)
+            registerMessage(packetClass, NetworkDirection.PLAY_TO_CLIENT)
             return
         }
 
         registerMessage(
-            packet,
-            if (direction == 1) NetworkDirection.PLAY_TO_SERVER else NetworkDirection.PLAY_TO_CLIENT,
+            packetClass,
+            if (isC2S) NetworkDirection.PLAY_TO_SERVER else NetworkDirection.PLAY_TO_CLIENT,
         )
     }
 
-    private fun registerMessage(
-        messageType: ModPacket,
+    @Suppress("UNCHECKED_CAST")
+    private fun <T : ModPacket> registerMessage(
+        packetClass: KClass<T>,
         direction: NetworkDirection,
     ) {
+        val serializer = serializer(packetClass.starProjectedType) as KSerializer<T>
+
         channel.registerMessage(
             globalPacketId++,
-            messageType.javaClass,
-            { packet, buf -> packet.writeTo(buf) },
-            { buf -> buf.readPacket() },
+            packetClass.java,
+            { packet, buf -> serializer.serialize(FriendlyByteBufEncoder(buf), packet) },
+            { buf -> serializer.deserialize(FriendlyByteBufDecoder(buf)) },
             { packet, ctx ->
                 val context = ModPacket.Context(ctx.get().sender)
-                when (direction) {
-                    NetworkDirection.PLAY_TO_SERVER -> {
-                        packet.handle(context)
-                        if (packet is C2SPacket) packet.handleClient(context)
-                    }
+                ctx.get().enqueueWork {
+                    when (direction) {
+                        NetworkDirection.PLAY_TO_SERVER -> {
+                            packet.handle(context)
+                        }
 
-                    NetworkDirection.PLAY_TO_CLIENT -> {
-                        packet.handle(context)
-                        if (packet is S2CPacket) packet.handleServer(context)
-                    }
+                        NetworkDirection.PLAY_TO_CLIENT -> {
+                            packet.handle(context)
+                            if (packet is S2CPacket) packet.handleServer(context)
+                        }
 
-                    else -> {
-                        packet.handle(context)
+                        else -> {
+                            packet.handle(context)
+                        }
                     }
                 }
 
@@ -76,7 +84,7 @@ object ForgeModPackets : Registrable, ForgeRegistry {
     }
 
     override fun register() {
-        ModPackets.packets.forEach {
+        ModPackets.packetClasses.forEach {
             registerPacket(it)
         }
     }

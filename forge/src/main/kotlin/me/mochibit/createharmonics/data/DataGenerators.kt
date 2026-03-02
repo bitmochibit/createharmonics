@@ -1,10 +1,10 @@
 package me.mochibit.createharmonics.data
 
 import com.tterrag.registrate.providers.ProviderType
-import me.mochibit.createharmonics.ForgeModEntryPoint
-import me.mochibit.createharmonics.Logger
+import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
 import me.mochibit.createharmonics.cRegistrate
 import me.mochibit.createharmonics.data.recipe.ModRecipeProvider
+import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.utility.JsonResourceLoader
 import me.mochibit.createharmonics.ponder.ModPonderPlugin
 import net.createmod.ponder.foundation.PonderIndex
@@ -12,12 +12,12 @@ import net.minecraftforge.data.event.GatherDataEvent
 import net.minecraftforge.eventbus.api.SubscribeEvent
 import net.minecraftforge.fml.common.Mod
 
-@Mod.EventBusSubscriber(modid = ForgeModEntryPoint.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
+@Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
 object DataGenerators {
     @SubscribeEvent
     @JvmStatic
     fun onGatherData(event: GatherDataEvent) {
-        Logger.info("Generating data for Create: Harmonics")
+        "Generating data for Create: Harmonics".info()
         val generator = event.generator
         val output = generator.packOutput
         val lookUpProvider = event.lookupProvider
@@ -66,6 +66,6 @@ object DataGenerators {
         // Register this since FMLClientSetupEvent does not run during datagen
         PonderIndex.addPlugin(ModPonderPlugin())
 
-        PonderIndex.getLangAccess().provideLang(ForgeModEntryPoint.MOD_ID, consumer)
+        PonderIndex.getLangAccess().provideLang(MOD_ID, consumer)
     }
 }

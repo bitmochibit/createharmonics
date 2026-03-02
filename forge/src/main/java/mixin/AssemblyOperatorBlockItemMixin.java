@@ -1,6 +1,7 @@
 package mixin;
 
 import com.simibubi.create.content.processing.AssemblyOperatorBlockItem;
+import me.mochibit.createharmonics.foundation.registry.ModBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.state.BlockState;

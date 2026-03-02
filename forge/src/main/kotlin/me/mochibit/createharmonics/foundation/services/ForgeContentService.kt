@@ -1,7 +1,6 @@
 package me.mochibit.createharmonics.foundation.services
 
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity
-import com.simibubi.create.foundation.blockEntity.SyncedBlockEntity
 import com.simibubi.create.foundation.utility.AdventureUtil
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour
@@ -21,7 +20,6 @@ import net.minecraft.sounds.SoundEvent
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.StructureBlockInfo
 import net.minecraft.world.level.material.FluidState
 import net.minecraftforge.network.PacketDistributor
-import org.valkyrienskies.core.impl.shadow.be
 
 class ForgeContentService : ContentService {
     override fun getViscosity(fluidState: FluidState): Int = fluidState.fluidType.viscosity
@@ -67,8 +65,8 @@ class ForgeContentService : ContentService {
         }
     }
 
-    override val slidingStoneSound: SoundEvent = ModSounds.SLIDING_STONE.get()
-    override val glitterSoundEvent: SoundEvent = ModSounds.GLITTER.get()
+    override val slidingStoneSound: SoundEvent by lazy { ModSounds.SLIDING_STONE.get() }
+    override val glitterSoundEvent: SoundEvent by lazy { ModSounds.GLITTER.get() }
 
     override fun onStreamEnd(
         audioPlayerId: String,

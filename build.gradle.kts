@@ -1,24 +1,17 @@
 import java.text.SimpleDateFormat
 import java.util.Date
 
-plugins {
-    id("org.jetbrains.kotlin.jvm") version "2.2.21" apply false
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.0" apply false
-    id("xyz.wagyourtail.unimined") version "1.4.1"
-}
-
 subprojects {
     group = rootProject.property("mod_group_id").toString()
     version = "${rootProject.property("version_major")}.${rootProject.property("version_minor")}.${
         rootProject.property("version_patch")
     }"
 
-    apply(plugin = "org.jetbrains.kotlin.jvm")
-    apply(plugin = "org.jetbrains.kotlin.plugin.serialization")
-
-    extensions.configure<JavaPluginExtension> {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+    pluginManager.withPlugin("java") {
+        extensions.configure<JavaPluginExtension> {
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
+        }
     }
 
     repositories {
@@ -27,9 +20,6 @@ subprojects {
         maven { url = uri("https://maven.createmod.net") }
         maven { url = uri("https://maven.ithundxr.dev/mirror") }
         maven { url = uri("https://raw.githubusercontent.com/Fuzss/modresources/main/maven/") }
-
-        maven { url = uri("https://maven.firstdark.dev/releases") }
-        maven { url = uri("https://mcentral.firstdark.dev/releases") }
 
         maven {
             name = "Kotlin for Forge"
@@ -82,41 +72,6 @@ subprojects {
 
     tasks.withType<JavaCompile>().configureEach {
         options.encoding = "UTF-8"
-        options.release.set(21)
-    }
-
-    tasks.withType<GenerateModuleMetadata>().configureEach {
-        enabled = false
-    }
-
-    tasks.named("clean") {
-        delete("$rootDir/artifacts")
-    }
-
-    if (project.name != "common") {
-        tasks.register("delDevJar") {
-            doLast {
-                val tree = fileTree("build/libs")
-                tree.include("**/*-dev-shadow.jar")
-                tree.include("**/*-dev.jar")
-                tree.include("**/*-all.jar")
-                tree.include("**/*-slim.jar")
-                tree.forEach { it.delete() }
-            }
-        }
-
-        tasks.named("build") {
-            finalizedBy("delDevJar")
-        }
-
-        tasks.register<Copy>("copyAllArtifacts") {
-            from(layout.buildDirectory.dir("libs"))
-            into(rootProject.layout.projectDirectory.dir("artifacts"))
-            include("*.jar")
-        }
-
-        tasks.named("build") {
-            finalizedBy("copyAllArtifacts")
-        }
+        options.release.set(17)
     }
 }

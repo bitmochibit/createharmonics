@@ -62,16 +62,6 @@ class RecordPlayerRenderer(
         }
     }
 
-    override fun render(
-        one: RecordPlayerBlockEntity?,
-        two: Float,
-        three: PoseStack?,
-        four: MultiBufferSource?,
-        five: Int,
-        six: Int,
-    ) {
-    }
-
     companion object {
         fun renderInContraption(
             context: MovementContext,

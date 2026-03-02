@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.foundation.gui
 
+import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
 import me.mochibit.createharmonics.ForgeModEntryPoint
 import net.createmod.catnip.gui.TextureSheetSegment
 import net.createmod.catnip.gui.UIRenderHelper
@@ -16,7 +17,7 @@ data class ModGuiTexture(
     private val startY: Int,
     private val width: Int,
     private val height: Int,
-    private val namespace: String = ForgeModEntryPoint.MOD_ID,
+    private val namespace: String = MOD_ID,
 ) : ScreenElement,
     TextureSheetSegment {
     @OnlyIn(Dist.CLIENT)

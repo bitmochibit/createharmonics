@@ -1,14 +1,17 @@
 package me.mochibit.createharmonics.foundation.network.packet
 
+import kotlinx.serialization.Contextual
+import kotlinx.serialization.Serializable
 import me.mochibit.createharmonics.foundation.services.contentService
 import net.minecraft.core.BlockPos
 
+@Serializable
 class ConfigureRecordPressBasePacket(
-    @Transient private val blockPos: BlockPos,
+    @Contextual val blockPos: BlockPos,
     val audioUrls: MutableList<String>,
     val urlWeights: MutableList<Float>,
-    val randomMode: Boolean = false,
-    val newIndex: Int = 0,
+    val randomMode: Boolean,
+    val newIndex: Int,
 ) : ModPacket,
     C2SPacket {
     override fun handle(context: ModPacket.Context): Boolean {

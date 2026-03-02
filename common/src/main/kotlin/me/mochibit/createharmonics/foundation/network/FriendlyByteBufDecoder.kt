@@ -4,16 +4,15 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.AbstractDecoder
 import kotlinx.serialization.encoding.CompositeDecoder
-import kotlinx.serialization.modules.EmptySerializersModule
 import net.minecraft.network.FriendlyByteBuf
 
 @OptIn(ExperimentalSerializationApi::class)
 class FriendlyByteBufDecoder(
-    private val buf: FriendlyByteBuf,
+    internal val buf: FriendlyByteBuf,
 ) : AbstractDecoder() {
     private var elementIndex = 0
     private var collectionSize = -1
-    override val serializersModule = EmptySerializersModule()
+    override val serializersModule = MinecraftSerializersModule
 
     override fun decodeBoolean() = buf.readBoolean()
 
@@ -37,9 +36,11 @@ class FriendlyByteBufDecoder(
 
     override fun decodeNotNullMark() = buf.readBoolean()
 
+    override fun decodeSequentially() = true
+
     override fun decodeElementIndex(descriptor: SerialDescriptor): Int {
         val limit = if (collectionSize >= 0) collectionSize else descriptor.elementsCount
-        if (elementIndex == limit) return CompositeDecoder.Companion.DECODE_DONE
+        if (elementIndex == limit) return CompositeDecoder.DECODE_DONE
         return elementIndex++
     }
 

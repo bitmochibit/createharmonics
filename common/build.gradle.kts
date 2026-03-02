@@ -1,13 +1,22 @@
 plugins {
-    id("xyz.wagyourtail.unimined")
     id("com.gradleup.shadow")
-    id("org.jetbrains.kotlin.jvm") version "2.2.21"
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.0"
+    id("org.jetbrains.kotlin.jvm") version "2.1.21"
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.1.21"
+    id("net.neoforged.moddev.legacyforge") version "2.0.140"
+}
+
+kotlin {
+    jvmToolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+        vendor = JvmVendorSpec.ADOPTIUM
+    }
 }
 
 base.archivesName.set("${rootProject.property("mod_name")}-Common-${rootProject.property("minecraft_version")}")
 
-val minecraftVersion = rootProject.property("minecraft_version").toString()
+val minecraftVersionProp = rootProject.property("minecraft_version").toString()
+val parchmentMinecraftProp = rootProject.property("parchment_minecraft").toString()
+val parchmentVersionProp = rootProject.property("parchment_version").toString()
 val kotlinVersion = rootProject.property("kotlin_version").toString()
 val kotlinCoroutinesVersion = rootProject.property("kotlin_coroutines_version").toString()
 val kotlinSerializationVersion = rootProject.property("kotlin_serialization_version").toString()
@@ -59,8 +68,20 @@ tasks.named("compileKotlin") {
     dependsOn(generateBuildConfigTask)
 }
 
+legacyForge {
+    mcpVersion = "$minecraftVersionProp"
+    if (file("src/main/resources/META-INF/accesstransformer.cfg").exists()) {
+        accessTransformers.from(file("src/main/resources/META-INF/accesstransformer.cfg"))
+    }
+    parchment {
+        minecraftVersion = parchmentMinecraftProp
+        mappingsVersion = parchmentVersionProp
+    }
+}
+
 dependencies {
     shadow("org.tukaani:xz:1.11")
+    compileOnly("org.tukaani:xz:1.11")
 
     // Mixin (for annotation processing in common module)
     compileOnly("org.spongepowered:mixin:0.8.5")
@@ -70,9 +91,9 @@ dependencies {
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion")
 
     // Create
-    compileOnly("com.simibubi.create:create-$minecraftVersion:$createVersion:slim") { isTransitive = false }
-    compileOnly("net.createmod.ponder:Ponder-Forge-$minecraftVersion:$ponderVersion") { isTransitive = false }
-    compileOnly("dev.engine-room.flywheel:flywheel-forge-api-$minecraftVersion:$flywheelVersion")
+    compileOnly("com.simibubi.create:create-$minecraftVersionProp:$createVersion:slim") { isTransitive = false }
+    compileOnly("net.createmod.ponder:Ponder-Forge-$minecraftVersionProp:$ponderVersion") { isTransitive = false }
+    compileOnly("dev.engine-room.flywheel:flywheel-forge-api-$minecraftVersionProp:$flywheelVersion")
     compileOnly("com.tterrag.registrate:Registrate:$registrateVersion") { isTransitive = false }
 
     // VS2
@@ -88,21 +109,19 @@ dependencies {
     }
 }
 
-unimined.minecraft(sourceSets["main"]) {
-    version(minecraftVersion)
-    mappings {
-        searge()
-        devNamespace("searge")
-    }
-    defaultRemapJar = false
+project.configurations.create("commonJava").apply {
+    isCanBeResolved = false
+    isCanBeConsumed = true
 }
 
-tasks.named<ProcessResources>("processResources") {
-    val buildProps = project.properties.toMap()
+project.configurations.create("commonResources").apply {
+    isCanBeResolved = false
+    isCanBeConsumed = true
+}
 
-    filesMatching(listOf("pack.mcmeta")) {
-        expand(buildProps)
-    }
+artifacts {
+    add("commonJava", sourceSets["main"].java.sourceDirectories.singleFile)
+    add("commonResources", sourceSets["main"].resources.sourceDirectories.singleFile)
 }
 
 tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {

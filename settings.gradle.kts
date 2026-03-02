@@ -17,10 +17,6 @@ pluginManagement {
             name = "Kotlin for Forge"
             url = uri("https://thedarkcolour.github.io/KotlinForForge/")
         }
-        // Unimined
-        maven {
-            url = uri("https://mcentral.firstdark.dev/releases")
-        }
     }
 }
 
@@ -33,4 +29,4 @@ rootProject.name = "createharmonics"
 
 include("common")
 include("forge")
-include("neoforge")
+// include("neoforge")

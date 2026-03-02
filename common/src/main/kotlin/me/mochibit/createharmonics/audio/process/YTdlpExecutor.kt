@@ -76,9 +76,14 @@ class YTdlpExecutor {
                         return@withContext null
                     }
 
-                    // Parse JSON output
+                    val firstJsonLine =
+                        output.lineSequence().firstOrNull { it.trimStart().startsWith("{") }
+                            ?: run {
+                                "yt-dlp output contained no JSON object".err()
+                                return@withContext null
+                            }
                     val json = Json { ignoreUnknownKeys = true }
-                    val jsonElement = json.parseToJsonElement(output)
+                    val jsonElement = json.parseToJsonElement(firstJsonLine)
                     val jsonObject = jsonElement.jsonObject
 
                     val title = jsonObject["title"]?.jsonPrimitive?.content ?: "Unknown"

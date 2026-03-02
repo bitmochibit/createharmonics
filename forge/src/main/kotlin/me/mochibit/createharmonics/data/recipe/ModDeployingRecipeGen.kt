@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.data.recipe
 
 import com.simibubi.create.api.data.recipe.DeployingRecipeGen
 import com.simibubi.create.content.kinetics.deployer.DeployerApplicationRecipe
+import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
 import me.mochibit.createharmonics.ForgeModEntryPoint
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.foundation.registry.ModItems
@@ -9,7 +10,7 @@ import net.minecraft.data.PackOutput
 
 class ModDeployingRecipeGen(
     output: PackOutput,
-) : DeployingRecipeGen(output, ForgeModEntryPoint.MOD_ID) {
+) : DeployingRecipeGen(output, MOD_ID) {
     val discGeneratedRecipes: List<GeneratedRecipe> =
         RecordType.entries.filter { it.properties.recipe != null }.map {
             create<DeployerApplicationRecipe>("ethereal_record/${it.name.lowercase()}") { builder ->

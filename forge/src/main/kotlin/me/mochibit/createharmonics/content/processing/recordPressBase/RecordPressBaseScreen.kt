@@ -8,9 +8,9 @@ import me.mochibit.createharmonics.foundation.extension.toMultilineComponent
 import me.mochibit.createharmonics.foundation.gui.ModGuiTexture
 import me.mochibit.createharmonics.foundation.gui.widget.AdvancedIconButton
 import me.mochibit.createharmonics.foundation.locale.ModLang
-import me.mochibit.createharmonics.foundation.network.ConfigureRecordPressBasePacket
+import me.mochibit.createharmonics.foundation.network.packet.ConfigureRecordPressBasePacket
 import me.mochibit.createharmonics.foundation.registry.ModBlocks
-import me.mochibit.createharmonics.registry.ModPackets
+import me.mochibit.createharmonics.foundation.registry.ModPackets
 import net.createmod.catnip.animation.LerpedFloat
 import net.createmod.catnip.animation.LerpedFloat.Chaser
 import net.createmod.catnip.gui.AbstractSimiScreen
@@ -1148,13 +1148,19 @@ class RecordPressBaseScreen(
     }
 
     private fun sendPacket() {
-        ModPackets.channel.sendToServer(
+        val safeIndex =
+            if (configuration.urls.isEmpty()) {
+                0
+            } else {
+                configuration.currentUrlIndex.coerceIn(0, configuration.urls.size - 1)
+            }
+        ModPackets.sendToServer(
             ConfigureRecordPressBasePacket(
                 be.blockPos,
                 configuration.urls,
                 configuration.weights,
                 configuration.randomMode,
-                configuration.currentUrlIndex,
+                safeIndex,
             ),
         )
     }

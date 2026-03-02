@@ -136,10 +136,13 @@ class FFmpegExecutor {
             }
         }
 
-        // Monitor process lifecycle
+        // Monitor process lifecycle - wait for the process to exit naturally, then clean up
         modLaunch(Dispatchers.IO) {
+            try {
+                newProcess.waitFor()
+            } catch (_: Exception) {
+            }
             if (process == newProcess) {
-                processId?.let { ProcessLifecycleManager.destroyProcess(it) }
                 process = null
                 processId = null
             }
