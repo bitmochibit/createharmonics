@@ -16,7 +16,7 @@ import net.minecraftforge.fml.event.config.ModConfigEvent
 import java.util.EnumMap
 
 @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
-object ModConfigurations : Registrable, ForgeRegistry {
+object ModConfigurations : ForgeRegistry {
     override val registrationOrder: Int = 1
 
     val configs: EnumMap<ModConfig.Type, ConfigBase> = EnumMap(ModConfig.Type::class.java)

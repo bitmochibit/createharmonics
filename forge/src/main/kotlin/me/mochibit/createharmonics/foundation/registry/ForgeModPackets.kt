@@ -15,7 +15,7 @@ import kotlin.reflect.KClass
 import kotlin.reflect.full.isSubclassOf
 import kotlin.reflect.full.starProjectedType
 
-object ForgeModPackets : Registrable, ForgeRegistry {
+object ForgeModPackets : ForgeRegistry {
     private const val PROTOCOL_VERSION = "1"
     private const val NETWORK_VERSION = "1"
 

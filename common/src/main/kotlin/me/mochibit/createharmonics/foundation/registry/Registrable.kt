@@ -12,6 +12,19 @@ interface Registrable {
     fun register()
 }
 
+interface RegistrableWithContext<Context> : Registrable {
+    fun getContext(): Context? = null
+
+    fun registerWithCtx(ctx: Context)
+
+    override fun register() {
+        val ctx = getContext() ?: return
+        registerWithCtx(ctx)
+    }
+}
+
+sealed interface CommonRegistry : Registrable
+
 /**
  * Generic auto-registration function utility that uses sealed classes to automatically register, and discover, Registrable implementations.
  *
@@ -34,4 +47,18 @@ inline fun <reified AutoRegistrableMarker : Registrable> autoRegister() {
         .map { it.objectInstance as Registrable }
         .sortedBy { it.registrationOrder }
         .forEach { it.register() }
+}
+
+inline fun <reified Marker : RegistrableWithContext<Context>, Context> platformEventRegister(crossinline contextGetter: () -> Context) {
+    if (!Marker::class.isSealed) {
+        throw IllegalArgumentException("Marker must be a sealed interface")
+    }
+
+    val ctx = contextGetter()
+
+    Marker::class
+        .sealedSubclasses
+        .mapNotNull { it.objectInstance as? RegistrableWithContext<Context> }
+        .sortedBy { it.registrationOrder }
+        .forEach { it.registerWithCtx(ctx) }
 }

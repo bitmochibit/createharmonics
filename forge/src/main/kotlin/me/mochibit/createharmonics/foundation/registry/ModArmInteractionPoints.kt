@@ -12,7 +12,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.state.BlockState
 
-object ModArmInteractionPoints : Registrable, ForgeRegistry {
+object ModArmInteractionPoints : ForgeRegistry {
     override val registrationOrder = 3
 
     val RECORD_PLAYER_TYPE: RegistryEntry<RecordPlayerType> =

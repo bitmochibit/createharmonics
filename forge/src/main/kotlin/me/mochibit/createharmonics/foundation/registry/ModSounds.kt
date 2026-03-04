@@ -9,7 +9,7 @@ import net.minecraft.sounds.SoundEvent
 import net.minecraftforge.registries.DeferredRegister
 import net.minecraftforge.registries.RegistryObject
 
-object ModSounds : Registrable {
+object ModSounds : ForgeRegistry {
     private val SOUND_EVENTS: DeferredRegister<SoundEvent> =
         DeferredRegister.create(Registries.SOUND_EVENT, CreateHarmonicsMod.MOD_ID)
 

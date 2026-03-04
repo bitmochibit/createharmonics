@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.foundation.services
 
+import me.mochibit.createharmonics.content.records.RecordType
 import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper
 import net.minecraft.core.BlockPos
@@ -7,6 +8,7 @@ import net.minecraft.nbt.CompoundTag
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.sounds.SoundEvent
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.material.FluidState
 
 interface ContentService {
@@ -36,6 +38,7 @@ interface ContentService {
 
     val slidingStoneSound: SoundEvent
     val glitterSoundEvent: SoundEvent
+    val baseRecordItemStack: ItemStack
 
     fun onStreamEnd(
         audioPlayerId: String,
@@ -46,6 +49,14 @@ interface ContentService {
         audioPlayerId: String,
         audioName: String,
     ): Boolean
+
+    fun isEtherealRecord(stack: ItemStack): Boolean
+
+    fun getEtherealRecordType(stack: ItemStack): RecordType?
+
+    fun isEtherealRecordDamageable(stack: ItemStack): Boolean
+
+    fun isRecordBase(stack: ItemStack): Boolean
 }
 
 val contentService: ContentService by lazy {

@@ -5,7 +5,7 @@ import me.mochibit.createharmonics.ModEventBus
 import net.minecraft.core.registries.Registries
 import net.minecraftforge.registries.DeferredRegister
 
-object ModMenuTypes : Registrable {
+object ModMenuTypes : ForgeRegistry {
     private val MENUS = DeferredRegister.create(Registries.MENU, CreateHarmonicsMod.MOD_ID)
 
     override fun register() {

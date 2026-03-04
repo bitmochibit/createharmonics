@@ -13,7 +13,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraftforge.registries.DeferredRegister
 import net.minecraftforge.registries.RegistryObject
 
-object ModCreativeTabs : Registrable, ForgeRegistry {
+object ModCreativeTabs : ForgeRegistry {
     override val registrationOrder = 4
 
     private val CREATIVE_MODE_TABS: DeferredRegister<CreativeModeTab> =

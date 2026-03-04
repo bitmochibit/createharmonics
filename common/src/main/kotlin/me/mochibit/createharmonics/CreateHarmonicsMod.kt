@@ -3,6 +3,8 @@ package me.mochibit.createharmonics
 import me.mochibit.createharmonics.audio.AudioPlayerRegistry
 import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
 import me.mochibit.createharmonics.foundation.err
+import me.mochibit.createharmonics.foundation.registry.CommonRegistry
+import me.mochibit.createharmonics.foundation.registry.autoRegister
 
 object CreateHarmonicsMod {
     const val MOD_ID = "createharmonics"
@@ -13,6 +15,8 @@ object CreateHarmonicsMod {
             return "CreateHarmonicsMod is already initialized.".err()
         }
         initialized = true
+
+        autoRegister<CommonRegistry>()
 
         Runtime.getRuntime().addShutdownHook(
             Thread {

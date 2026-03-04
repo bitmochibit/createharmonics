@@ -9,7 +9,7 @@ import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper
 import net.minecraft.resources.ResourceLocation
 
-object ModPonders : Registrable, ForgeRegistry {
+object ModPonders : ForgeRegistry {
     override val registrationOrder = 5
 
     fun addTags(rawHelper: PonderTagRegistrationHelper<ResourceLocation>) {

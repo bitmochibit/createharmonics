@@ -6,7 +6,7 @@ import me.mochibit.createharmonics.foundation.services.NetworkService
 import me.mochibit.createharmonics.foundation.services.networkService
 import kotlin.reflect.KClass
 
-object ModPackets : Registrable, NetworkService by networkService {
+object ModPackets : CommonRegistry, NetworkService by networkService {
     val packetClasses: List<KClass<out ModPacket>> =
         mutableListOf<KClass<out ModPacket>>().apply {
             fun collectSubclasses(kClass: KClass<out ModPacket>) {

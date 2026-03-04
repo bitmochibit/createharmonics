@@ -5,8 +5,12 @@ import com.simibubi.create.foundation.utility.AdventureUtil
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
+import me.mochibit.createharmonics.content.record.EtherealRecordItem
+import me.mochibit.createharmonics.content.records.BaseRecordItem
+import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.foundation.network.packet.ContraptionBlockDataChangedPacket
 import me.mochibit.createharmonics.foundation.registry.ForgeModPackets
+import me.mochibit.createharmonics.foundation.registry.ModItems
 import me.mochibit.createharmonics.foundation.registry.ModPonders
 import me.mochibit.createharmonics.foundation.registry.ModSounds
 import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper
@@ -17,6 +21,7 @@ import net.minecraft.nbt.CompoundTag
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.sounds.SoundEvent
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.StructureBlockInfo
 import net.minecraft.world.level.material.FluidState
 import net.minecraftforge.network.PacketDistributor
@@ -87,6 +92,22 @@ class ForgeContentService : ContentService {
         RecordPlayerBlockEntity.handleAudioTitleChange(audioPlayerId, audioName)
         return true
     }
+
+    override val baseRecordItemStack: ItemStack by lazy { ItemStack(ModItems.BASE_RECORD.get()) }
+
+    override fun isEtherealRecord(stack: ItemStack): Boolean = stack.item is EtherealRecordItem
+
+    override fun getEtherealRecordType(stack: ItemStack): RecordType? {
+        val etherealRecord = stack.item as? EtherealRecordItem ?: return null
+        return etherealRecord.recordType
+    }
+
+    override fun isEtherealRecordDamageable(stack: ItemStack): Boolean {
+        val etherealRecord = stack.item as? EtherealRecordItem ?: return false
+        return etherealRecord.isDamageable(stack)
+    }
+
+    override fun isRecordBase(stack: ItemStack): Boolean = stack.item is BaseRecordItem
 }
 
 fun AbstractContraptionEntity.handleBlockDataChange(

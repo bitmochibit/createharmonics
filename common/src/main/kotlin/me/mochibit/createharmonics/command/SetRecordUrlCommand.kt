@@ -3,18 +3,15 @@ package me.mochibit.createharmonics.command
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
-import me.mochibit.createharmonics.content.record.EtherealRecordItem
-import me.mochibit.createharmonics.content.record.EtherealRecordItem.Companion.setAudioUrl
+import me.mochibit.createharmonics.content.records.RecordUtilities.setAudioUrl
+import me.mochibit.createharmonics.foundation.services.contentService
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.player.Player
 
-/**
- * Debug command to get a record item with urls and stuff
- */
-object SetRecordUrlCommand : Registrable<CommandDispatcher<CommandSourceStack>> {
-    override fun register(ctx: CommandDispatcher<CommandSourceStack>) {
+object SetRecordUrlCommand : CommandRegistry {
+    override fun registerWithCtx(ctx: CommandDispatcher<CommandSourceStack>) {
         ctx.register(
             Commands
                 .literal("set-record-url")
@@ -46,7 +43,7 @@ object SetRecordUrlCommand : Registrable<CommandDispatcher<CommandSourceStack>> 
         }
 
         val mainHandItem = player.mainHandItem
-        if (mainHandItem.item !is EtherealRecordItem) {
+        if (!contentService.isEtherealRecord(mainHandItem)) {
             source.sendFailure(Component.literal("You must be holding an Ethereal Record (main hand) to use this command."))
             return 0
         }

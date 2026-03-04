@@ -5,13 +5,11 @@ import com.simibubi.create.foundation.item.ItemDescription
 import com.simibubi.create.foundation.item.KineticStats
 import com.simibubi.create.foundation.item.TooltipModifier
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
-import me.mochibit.createharmonics.audio.AudioPlayerRegistry
-import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
-import me.mochibit.createharmonics.foundation.err
-import me.mochibit.createharmonics.foundation.registry.ForgeModPackets
+import me.mochibit.createharmonics.command.CommandRegistry
 import me.mochibit.createharmonics.foundation.registry.ForgeRegistry
 import me.mochibit.createharmonics.foundation.registry.ModConfigurations
 import me.mochibit.createharmonics.foundation.registry.autoRegister
+import me.mochibit.createharmonics.foundation.registry.eventAutoRegister
 import me.mochibit.createharmonics.ponder.ModPonderPlugin
 import net.createmod.catnip.config.ui.BaseConfigScreen
 import net.createmod.catnip.lang.FontHelper
@@ -21,6 +19,7 @@ import net.minecraft.client.gui.screens.Screen
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory
 import net.minecraftforge.common.MinecraftForge
+import net.minecraftforge.event.RegisterCommandsEvent
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.eventbus.api.SubscribeEvent
 import net.minecraftforge.fml.DistExecutor
@@ -94,6 +93,8 @@ class ForgeModEntryPoint(
                 PonderIndex.addPlugin(ModPonderPlugin())
             }
         }
+
+        eventAutoRegister<CommandRegistry, RegisterCommandsEvent, _> { dispatcher }
 
         CreateHarmonicsMod.commonSetup()
 

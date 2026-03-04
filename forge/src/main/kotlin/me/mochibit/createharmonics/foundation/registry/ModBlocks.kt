@@ -20,7 +20,7 @@ import net.minecraft.world.level.block.SoundType
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraftforge.client.model.generators.ConfiguredModel
 
-object ModBlocks : Registrable, ForgeRegistry {
+object ModBlocks : ForgeRegistry {
     override val registrationOrder = 2
 
     val ANDESITE_JUKEBOX: BlockEntry<AndesiteJukeboxBlock> =
