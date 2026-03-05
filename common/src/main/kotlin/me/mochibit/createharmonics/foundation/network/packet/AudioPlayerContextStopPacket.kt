@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics.foundation.network.packet
 
 import kotlinx.serialization.Serializable
-import me.mochibit.createharmonics.audio.AudioPlayerRegistry
+import me.mochibit.createharmonics.audio.AudioPlayerManager
 
 @Serializable
 class AudioPlayerContextStopPacket(
@@ -9,7 +9,7 @@ class AudioPlayerContextStopPacket(
 ) : ModPacket,
     S2CPacket {
     override fun handle(context: ModPacket.Context): Boolean {
-        AudioPlayerRegistry.destroyPlayer(audioPlayerId)
+        AudioPlayerManager.release(audioPlayerId)
         return true
     }
 }

@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.content.records
 
 import me.mochibit.createharmonics.audio.AudioPlayer
+import me.mochibit.createharmonics.audio.IAudioPlayer
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
@@ -109,7 +110,7 @@ object RecordUtilities {
      * @param offsetSeconds Playback offset, used mainly for synchronization
      * @param compPitchSupplier Pitch shift function supplier for composition effects
      */
-    fun AudioPlayer.playFromRecord(
+    fun IAudioPlayer.playFromRecord(
         etherealRecord: ItemStack,
         offsetSeconds: Double,
         compPitchSupplier: () -> Float = { 1f },
@@ -128,7 +129,7 @@ object RecordUtilities {
         }
 
         if (url.isNotBlank() && FFMPEGProvider.isAvailable() && YTDLProvider.isAvailable()) {
-            return this.play(
+            this.play(
                 url,
                 EffectChain(
                     recordProps.properties.audioEffectsProvider(),
@@ -136,6 +137,7 @@ object RecordUtilities {
                 SoundEventComposition(soundEvents),
                 offsetSeconds,
             )
+            return
         }
 
         // Try to play audio from the crafted-from record

@@ -10,13 +10,17 @@ import dev.engine_room.flywheel.api.visualization.VisualizationContext
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
 import me.mochibit.createharmonics.ServerConfig
 import me.mochibit.createharmonics.audio.AudioPlayer
-import me.mochibit.createharmonics.audio.AudioPlayerRegistry
+import me.mochibit.createharmonics.audio.AudioPlayerCallbacks
+import me.mochibit.createharmonics.audio.AudioPlayerManager
+import me.mochibit.createharmonics.audio.AudioPlayerState
+import me.mochibit.createharmonics.audio.IAudioPlayer
 import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.PlaybackState
 import me.mochibit.createharmonics.content.record.EtherealRecordItem
-import me.mochibit.createharmonics.content.record.EtherealRecordItem.Companion.playFromRecord
+import me.mochibit.createharmonics.content.records.RecordUtilities
+import me.mochibit.createharmonics.content.records.RecordUtilities.playFromRecord
 import me.mochibit.createharmonics.foundation.async.thenLaunch
 import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.extension.onClient
@@ -280,7 +284,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             val storage =
                 context.contraption.storage.allItemStorages[context.localPos] as? RecordPlayerMountedStorage ?: return
             val record = getRecordItem(context)
-            val result = EtherealRecordItem.handleRecordUse(record, RandomSource.create())
+            val result = RecordUtilities.handleRecordUse(record, RandomSource.create())
 
             when {
                 result.shouldReplace -> {
@@ -289,7 +293,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
                 result.isBroken -> {
                     storage.setRecord(ItemStack.EMPTY)
-                    val itemStack = (result as EtherealRecordItem.Companion.RecordUseResult.Broken).dropStack.copy()
+                    val itemStack = (result as RecordUtilities.RecordUseResult.Broken).dropStack.copy()
 
                     val pos = BlockPos.containing(context.position)
                     val facing = context.state.getValue(BlockStateProperties.FACING)
@@ -343,7 +347,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             val spawnPos = context.position.add(worldDirection.scale(0.7 + displacement))
 
             when (player.state) {
-                AudioPlayer.PlayState.LOADING -> {
+                AudioPlayerState.Loading -> {
                     level.addParticle(
                         ShriekParticleOption(2),
                         false,
@@ -356,7 +360,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                     )
                 }
 
-                AudioPlayer.PlayState.PLAYING -> {
+                AudioPlayerState.Playing -> {
                     level.addParticle(
                         ParticleTypes.NOTE,
                         spawnPos.x + displacement,
@@ -622,7 +626,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
         val player = getOrCreateAudioPlayer(playerId, context)
 
-        if (player.state == AudioPlayer.PlayState.LOADING) {
+        if (player.state == AudioPlayerState.Loading) {
             return
         }
 
@@ -695,11 +699,11 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         when (desiredState) {
             PlaybackState.PLAYING -> {
                 when (player.state) {
-                    AudioPlayer.PlayState.PAUSED -> {
+                    AudioPlayerState.Paused -> {
                         player.resume()
                     }
 
-                    AudioPlayer.PlayState.STOPPED -> {
+                    AudioPlayerState.Stopped -> {
                         val record = getRecordItem(context)
                         val offsetSeconds =
                             if (playTime > 0) {
@@ -719,20 +723,22 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                         )
                     }
 
-                    AudioPlayer.PlayState.PLAYING, AudioPlayer.PlayState.LOADING -> {
+                    AudioPlayerState.Playing, AudioPlayerState.Loading -> {
                         // Already in correct state, do nothing
                     }
+
+                    else -> {}
                 }
             }
 
             PlaybackState.PAUSED -> {
-                if (player.state == AudioPlayer.PlayState.PLAYING) {
+                if (player.state == AudioPlayerState.Playing) {
                     player.pause()
                 }
             }
 
             PlaybackState.STOPPED -> {
-                if (player.state != AudioPlayer.PlayState.STOPPED) {
+                if (player.state != AudioPlayerState.Stopped) {
                     player.stop()
                 }
             }
@@ -744,19 +750,17 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
     private fun getOrCreateAudioPlayer(
         playerId: String,
         context: MovementContext,
-    ): AudioPlayer {
+    ): IAudioPlayer {
         // Get or create temporaryData
         val tempData = getOrCreateTemporaryData(context)
 
-        val playerExists = AudioPlayerRegistry.containsStream(playerId)
+        val playerExists = AudioPlayerManager.containsStream(playerId)
 
         // Need to initialize if: not initialized yet, OR initialized but player was destroyed
         if (!tempData.playerInitialized || !playerExists) {
             // Clean up any stale player (shouldn't exist, but just in case)
             if (playerExists) {
-                val existingPlayer = AudioPlayerRegistry.getPlayer(playerId)
-                existingPlayer?.stopSoundImmediately()
-                AudioPlayerRegistry.destroyPlayer(playerId)
+                AudioPlayerManager.release(playerId)
             }
 
             // Only reset state flags, but keep playTime if it exists (e.g., when rejoining)
@@ -767,31 +771,32 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             tempData.playerInitialized = true
         }
 
-        return AudioPlayerRegistry.getOrCreatePlayer(playerId) {
-            AudioPlayer(
-                { streamId, stream ->
-                    SimpleStreamSoundInstance(
-                        stream,
-                        streamId,
-                        SoundEvents.EMPTY,
-                        posSupplier = { BlockPos.containing(context.position) },
-                        radiusSupplier = buildRadiusSupplier(context),
-                        volumeSupplier = buildVolumeSupplier(context),
-                    )
-                },
-                playerId,
-                onEffectChainCreate = { chain ->
-                    val effects = chain.getEffects()
-                    // Add a pitch shift effect to handle pitch changes based on speed, at 0 index in the chain
-                    if (effects.none { it is PitchShiftEffect }) {
-                        chain.addEffectAt(
-                            0,
-                            PitchShiftEffect(buildPitchSupplier(context)),
-                        )
-                    }
-                },
-            )
-        }
+        return AudioPlayerManager.getOrCreate(
+            playerId,
+            provider = { streamId, stream ->
+                SimpleStreamSoundInstance(
+                    stream,
+                    streamId,
+                    SoundEvents.EMPTY,
+                    posSupplier = { BlockPos.containing(context.position) },
+                    radiusSupplier = buildRadiusSupplier(context),
+                    volumeSupplier = buildVolumeSupplier(context),
+                )
+            },
+            sampleRate = 48_000,
+            callbacks =
+                AudioPlayerCallbacks(
+                    onEffectChainReady = { chain ->
+                        val effects = chain.getEffects()
+                        if (effects.none { it is PitchShiftEffect }) {
+                            chain.addEffectAt(
+                                0,
+                                PitchShiftEffect(buildPitchSupplier(context)),
+                            )
+                        }
+                    },
+                ),
+        )
     }
 
     private fun hasRecord(context: MovementContext): Boolean {

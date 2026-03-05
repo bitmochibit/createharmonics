@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics.audio.effect
 
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
-import me.mochibit.createharmonics.audio.AudioPlayer
+import me.mochibit.createharmonics.audio.IAudioPlayer
 import me.mochibit.createharmonics.foundation.extension.countLiquidCoveredFaces
 import me.mochibit.createharmonics.foundation.extension.lerpTo
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
@@ -12,7 +12,7 @@ import org.valkyrienskies.mod.common.getShipManagingPos
 
 sealed interface EffectPreset {
     fun update(
-        audioPlayer: AudioPlayer,
+        audioPlayer: IAudioPlayer,
         x: Double,
         y: Double,
         z: Double,
@@ -20,13 +20,13 @@ sealed interface EffectPreset {
     )
 
     fun update(
-        audioPlayer: AudioPlayer,
+        audioPlayer: IAudioPlayer,
         blockPos: Vec3,
         level: Level,
     ) = update(audioPlayer, blockPos.x, blockPos.y, blockPos.z, level)
 
     fun update(
-        audioPlayer: AudioPlayer,
+        audioPlayer: IAudioPlayer,
         blockPos: Vec3i,
         level: Level,
     ) = update(audioPlayer, blockPos.x.toDouble(), blockPos.y.toDouble(), blockPos.z.toDouble(), level)
@@ -39,11 +39,11 @@ sealed interface EffectPreset {
         val resonanceInterpolated = FloatSupplierInterpolated({ targetResonance }, 900)
 
         private fun applyLowPassFilter(
-            audioPlayer: AudioPlayer,
+            audioPlayer: IAudioPlayer,
             cutoffFrequency: Float,
             resonance: Float,
         ) {
-            val effectChain = audioPlayer.getCurrentEffectChain() ?: return
+            val effectChain = audioPlayer.currentEffectChain ?: return
             val effects = effectChain.getEffects()
             val existingFilter = effects.firstOrNull { it is LowPassFilterEffect } as? LowPassFilterEffect
 
@@ -66,8 +66,8 @@ sealed interface EffectPreset {
             }
         }
 
-        private fun removeLowPassFilter(audioPlayer: AudioPlayer) {
-            val effectChain = audioPlayer.getCurrentEffectChain() ?: return
+        private fun removeLowPassFilter(audioPlayer: IAudioPlayer) {
+            val effectChain = audioPlayer.currentEffectChain ?: return
             val effects = effectChain.getEffects()
             val lowPassIndex = effects.indexOfFirst { it is LowPassFilterEffect }
             if (lowPassIndex < 0) return
@@ -82,7 +82,7 @@ sealed interface EffectPreset {
         }
 
         override fun update(
-            audioPlayer: AudioPlayer,
+            audioPlayer: IAudioPlayer,
             x: Double,
             y: Double,
             z: Double,

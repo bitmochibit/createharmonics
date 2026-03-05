@@ -5,11 +5,9 @@ import com.simibubi.create.foundation.item.ItemDescription
 import com.simibubi.create.foundation.item.KineticStats
 import com.simibubi.create.foundation.item.TooltipModifier
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
-import me.mochibit.createharmonics.command.CommandRegistry
 import me.mochibit.createharmonics.foundation.registry.ForgeRegistry
 import me.mochibit.createharmonics.foundation.registry.ModConfigurations
 import me.mochibit.createharmonics.foundation.registry.autoRegister
-import me.mochibit.createharmonics.foundation.registry.eventAutoRegister
 import me.mochibit.createharmonics.ponder.ModPonderPlugin
 import net.createmod.catnip.config.ui.BaseConfigScreen
 import net.createmod.catnip.lang.FontHelper
@@ -93,8 +91,6 @@ class ForgeModEntryPoint(
                 PonderIndex.addPlugin(ModPonderPlugin())
             }
         }
-
-        eventAutoRegister<CommandRegistry, RegisterCommandsEvent, _> { dispatcher }
 
         CreateHarmonicsMod.commonSetup()
 

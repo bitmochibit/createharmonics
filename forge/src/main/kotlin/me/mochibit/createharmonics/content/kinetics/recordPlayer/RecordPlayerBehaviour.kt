@@ -4,14 +4,19 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import me.mochibit.createharmonics.ServerConfig
 import me.mochibit.createharmonics.audio.AudioPlayer
-import me.mochibit.createharmonics.audio.AudioPlayerRegistry
+import me.mochibit.createharmonics.audio.AudioPlayerCallbacks
+import me.mochibit.createharmonics.audio.AudioPlayerManager
+import me.mochibit.createharmonics.audio.AudioPlayerState
+import me.mochibit.createharmonics.audio.IAudioPlayer
 import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.SimpleShipStreamSoundInstance
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
 import me.mochibit.createharmonics.content.record.EtherealRecordItem
-import me.mochibit.createharmonics.content.record.EtherealRecordItem.Companion.playFromRecord
+import me.mochibit.createharmonics.content.records.RecordUtilities
+import me.mochibit.createharmonics.content.records.RecordUtilities.handleRecordUse
+import me.mochibit.createharmonics.content.records.RecordUtilities.playFromRecord
 import me.mochibit.createharmonics.foundation.extension.getManagingShip
 import me.mochibit.createharmonics.foundation.extension.onClient
 import me.mochibit.createharmonics.foundation.extension.onServer
@@ -21,6 +26,7 @@ import me.mochibit.createharmonics.foundation.registry.ModConfigurations
 import me.mochibit.createharmonics.foundation.registry.ModPackets
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
 import net.createmod.catnip.nbt.NBTHelper
+import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.core.particles.ShriekParticleOption
 import net.minecraft.nbt.CompoundTag
@@ -34,7 +40,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
 import net.minecraftforge.common.util.LazyOptional
-import net.minecraftforge.network.PacketDistributor
+import java.io.InputStream
 import java.util.UUID
 import kotlin.math.abs
 
@@ -204,38 +210,40 @@ class RecordPlayerBehaviour(
 
     private val underwaterEffect = EffectPreset.UnderwaterFilter()
 
-    private val audioPlayer: AudioPlayer
+    private val audioPlayer: IAudioPlayer
         get() =
-            AudioPlayerRegistry.getOrCreatePlayer(recordPlayerUUID.toString()) {
-                AudioPlayer(
-                    soundInstanceProvider = { streamId, stream ->
-                        try {
-                            createSoundInstance(streamId, stream)
-                        } catch (_: Exception) {
-                            // Fallback to simple instance without ship support
-                            SimpleStreamSoundInstance(
-                                stream,
-                                streamId,
-                                SoundEvents.EMPTY,
-                                { be.blockPos },
-                                radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
-                                volumeSupplier = { volumeSupplierInterpolated.getValue() },
-                            )
-                        }
-                    },
-                    playerId = recordPlayerUUID.toString(),
-                    onEffectChainCreate = { chain ->
-                        val effects = chain.getEffects()
-                        // Add a pitch shift effect to handle pitch changes based on speed, at 0 index in the chain
-                        if (effects.none { it is PitchShiftEffect }) {
-                            chain.addEffectAt(
-                                0,
-                                PitchShiftEffect(pitchSupplierInterpolated),
-                            )
-                        }
-                    },
-                )
-            }
+            AudioPlayerManager.getOrCreate(
+                recordPlayerUUID.toString(),
+                provider = { streamId, stream ->
+                    try {
+                        createSoundInstance(streamId, stream)
+                    } catch (_: Exception) {
+                        // Fallback to simple instance without ship support
+                        SimpleStreamSoundInstance(
+                            stream,
+                            streamId,
+                            SoundEvents.EMPTY,
+                            { be.blockPos },
+                            radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
+                            volumeSupplier = { volumeSupplierInterpolated.getValue() },
+                        )
+                    }
+                },
+                sampleRate = 48_000,
+                callbacks =
+                    AudioPlayerCallbacks(
+                        onEffectChainReady = { chain ->
+                            val effects = chain.getEffects()
+                            // Add a pitch shift effect to handle pitch changes based on speed, at 0 index in the chain
+                            if (effects.none { it is PitchShiftEffect }) {
+                                chain.addEffectAt(
+                                    0,
+                                    PitchShiftEffect(pitchSupplierInterpolated),
+                                )
+                            }
+                        },
+                    ),
+            )
 
     override fun getType(): BehaviourType<RecordPlayerBehaviour> = BEHAVIOUR_TYPE
 
@@ -257,8 +265,8 @@ class RecordPlayerBehaviour(
      */
     private fun createSoundInstance(
         streamId: String,
-        stream: java.io.InputStream,
-    ): net.minecraft.client.resources.sounds.SoundInstance {
+        stream: InputStream,
+    ): SoundInstance {
         val level = be.level ?: throw IllegalStateException("BlockEntity level is null")
         val ship = be.blockPos.getManagingShip(level)
 
@@ -423,7 +431,7 @@ class RecordPlayerBehaviour(
             val pos = Vec3.atBottomCenterOf(be.blockPos).add(0.0, 1.2, 0.0)
             val displacement = level.random.nextInt(4) / 24f
             when (audioPlayer.state) {
-                AudioPlayer.PlayState.LOADING -> {
+                AudioPlayerState.Loading -> {
                     level.addParticle(
                         ShriekParticleOption(2),
                         false,
@@ -436,7 +444,7 @@ class RecordPlayerBehaviour(
                     )
                 }
 
-                AudioPlayer.PlayState.PLAYING -> {
+                AudioPlayerState.Playing -> {
                     level.addParticle(
                         ParticleTypes.NOTE,
                         pos.x + displacement,
@@ -457,7 +465,7 @@ class RecordPlayerBehaviour(
     fun handleRecordUse() {
         be.level?.onServer { level ->
             val record = getRecord()
-            val result = EtherealRecordItem.handleRecordUse(record, RandomSource.create())
+            val result = handleRecordUse(record, RandomSource.create())
 
             when {
                 result.shouldReplace -> {
@@ -477,7 +485,7 @@ class RecordPlayerBehaviour(
                         )
 
                     for (i in 0 until itemHandler.slots) {
-                        val itemStack = (result as EtherealRecordItem.Companion.RecordUseResult.Broken).dropStack.copy()
+                        val itemStack = (result as RecordUtilities.RecordUseResult.Broken).dropStack.copy()
                         val itemEntity = ItemEntity(level, dropPos.x, dropPos.y, dropPos.z, itemStack)
 
                         // Launch in the facing direction
@@ -624,8 +632,7 @@ class RecordPlayerBehaviour(
 
     private fun startClientPlayer(currentRecord: ItemStack) {
         val level = be.level ?: return
-        // Destroy to avoid state conflicts (especially with Valkyrian Skies)
-        AudioPlayerRegistry.destroyPlayer(recordPlayerUUID.toString())
+        AudioPlayerManager.release(recordPlayerUUID.toString())
         val offsetSeconds =
             if (playTime > 0) {
                 // Calculate elapsed time minus any accumulated pause time
@@ -656,7 +663,6 @@ class RecordPlayerBehaviour(
     }
 
     private fun stopClientPlayer() {
-        audioPlayer.stopSoundImmediately()
         audioPlayer.stop()
     }
 
@@ -760,7 +766,7 @@ class RecordPlayerBehaviour(
                         PlaybackState.PLAYING -> {
                             val currentRecord = getRecord()
                             if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
-                                if (audioPlayer.state == AudioPlayer.PlayState.PAUSED) {
+                                if (audioPlayer.state == AudioPlayerState.Paused) {
                                     resumeClientPlayer()
                                 } else {
                                     startClientPlayer(currentRecord)
@@ -769,7 +775,7 @@ class RecordPlayerBehaviour(
                         }
 
                         PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
-                            if (audioPlayer.state == AudioPlayer.PlayState.PLAYING) {
+                            if (audioPlayer.state == AudioPlayerState.Playing) {
                                 pauseClientPlayer()
                             }
                         }

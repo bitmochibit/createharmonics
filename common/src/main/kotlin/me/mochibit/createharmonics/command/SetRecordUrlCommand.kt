@@ -3,16 +3,46 @@ package me.mochibit.createharmonics.command
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
+import me.mochibit.createharmonics.command.SetRecordUrlCommand.registerCommand
 import me.mochibit.createharmonics.content.records.RecordUtilities.setAudioUrl
+import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.services.contentService
+import net.minecraft.commands.CommandBuildContext
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.player.Player
 
-object SetRecordUrlCommand : CommandRegistry {
-    override fun registerWithCtx(ctx: CommandDispatcher<CommandSourceStack>) {
-        ctx.register(
+sealed interface CommandEntry {
+    fun registerCommand(
+        dispatcher: CommandDispatcher<CommandSourceStack>,
+        env: Commands.CommandSelection,
+        context: CommandBuildContext,
+    )
+
+    companion object {
+        fun registerAll(
+            dispatcher: CommandDispatcher<CommandSourceStack>,
+            env: Commands.CommandSelection,
+            context: CommandBuildContext,
+        ) {
+            "Registering mod events..".info()
+            CommandEntry::class
+                .sealedSubclasses
+                .filter { CommandEntry::class.java.isAssignableFrom(it.java) }
+                .map { it.objectInstance as CommandEntry }
+                .forEach { _ -> registerCommand(dispatcher, env, context) }
+        }
+    }
+}
+
+object SetRecordUrlCommand : CommandEntry {
+    override fun registerCommand(
+        dispatcher: CommandDispatcher<CommandSourceStack>,
+        env: Commands.CommandSelection,
+        context: CommandBuildContext,
+    ) {
+        dispatcher.register(
             Commands
                 .literal("set-record-url")
                 .requires { it.hasPermission(4) } // Admin only

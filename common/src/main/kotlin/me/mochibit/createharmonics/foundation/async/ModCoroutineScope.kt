@@ -25,7 +25,6 @@ object ModCoroutineScope : CoroutineScope {
      * This should be used if changing worlds or disconnecting from a server.
      */
     fun cancelAll() {
-        "Cancelling all active coroutines".warn()
         supervisor.cancelChildren()
     }
 
@@ -33,7 +32,6 @@ object ModCoroutineScope : CoroutineScope {
      * Shutdown the coroutine scope completely. This should only be called on mod unload.
      */
     fun shutdown() {
-        "Shutting down coroutine scope...".warn()
         supervisor.cancel()
     }
 }
