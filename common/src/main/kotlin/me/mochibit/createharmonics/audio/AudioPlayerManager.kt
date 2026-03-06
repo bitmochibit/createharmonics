@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.audio
 
 import kotlinx.coroutines.Dispatchers
+import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.event.proxy.ProxyEvent
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.debug
@@ -21,8 +22,8 @@ object AudioPlayerManager {
         id: String,
         provider: StreamingSoundInstanceProvider,
         sampleRate: Int = 48_000,
-        callbacks: AudioPlayerCallbacks = AudioPlayerCallbacks(),
-    ): IAudioPlayer {
+        onEffectChainCreate: ((effectChain: EffectChain) -> Unit)? = null,
+    ): AudioPlayer {
         require(id.isNotBlank()) { "Player ID cannot be blank" }
         require(!players.containsKey(id)) { "Player '$id' already exists — use get() or release() first" }
 
@@ -31,15 +32,7 @@ object AudioPlayerManager {
                 playerId = id,
                 soundInstanceProvider = provider,
                 sampleRate = sampleRate,
-                callbacks =
-                    callbacks.copy(
-                        onStreamEnd = { playerId, failed ->
-                            callbacks.onStreamEnd?.invoke(playerId, failed)
-                            // auto-rimozione quando lo stream finisce naturalmente
-                            players.remove(playerId)
-                            "$playerId auto-removed after stream end".debug()
-                        },
-                    ),
+                onEffectChainCreate = onEffectChainCreate,
             )
         players[id] = player
         return player
@@ -49,10 +42,10 @@ object AudioPlayerManager {
         id: String,
         provider: StreamingSoundInstanceProvider,
         sampleRate: Int = 48_000,
-        callbacks: AudioPlayerCallbacks = AudioPlayerCallbacks(),
-    ): IAudioPlayer = players[id] ?: create(id, provider, sampleRate, callbacks)
+        onEffectChainCreate: ((effectChain: EffectChain) -> Unit)? = null,
+    ): AudioPlayer = players[id] ?: create(id, provider, sampleRate, onEffectChainCreate)
 
-    fun get(id: String): IAudioPlayer? = players[id]
+    fun get(id: String): AudioPlayer? = players[id]
 
     fun release(id: String) {
         players.remove(id)?.dispose()

@@ -1,7 +1,6 @@
 package me.mochibit.createharmonics.content.records
 
 import me.mochibit.createharmonics.audio.AudioPlayer
-import me.mochibit.createharmonics.audio.IAudioPlayer
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
@@ -110,7 +109,7 @@ object RecordUtilities {
      * @param offsetSeconds Playback offset, used mainly for synchronization
      * @param compPitchSupplier Pitch shift function supplier for composition effects
      */
-    fun IAudioPlayer.playFromRecord(
+    fun AudioPlayer.playFromRecord(
         etherealRecord: ItemStack,
         offsetSeconds: Double,
         compPitchSupplier: () -> Float = { 1f },

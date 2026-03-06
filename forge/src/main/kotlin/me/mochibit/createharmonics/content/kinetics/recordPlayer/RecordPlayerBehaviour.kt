@@ -4,10 +4,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import me.mochibit.createharmonics.ServerConfig
 import me.mochibit.createharmonics.audio.AudioPlayer
-import me.mochibit.createharmonics.audio.AudioPlayerCallbacks
 import me.mochibit.createharmonics.audio.AudioPlayerManager
-import me.mochibit.createharmonics.audio.AudioPlayerState
-import me.mochibit.createharmonics.audio.IAudioPlayer
 import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.SimpleShipStreamSoundInstance
@@ -210,7 +207,7 @@ class RecordPlayerBehaviour(
 
     private val underwaterEffect = EffectPreset.UnderwaterFilter()
 
-    private val audioPlayer: IAudioPlayer
+    private val audioPlayer: AudioPlayer
         get() =
             AudioPlayerManager.getOrCreate(
                 recordPlayerUUID.toString(),
@@ -230,19 +227,16 @@ class RecordPlayerBehaviour(
                     }
                 },
                 sampleRate = 48_000,
-                callbacks =
-                    AudioPlayerCallbacks(
-                        onEffectChainReady = { chain ->
-                            val effects = chain.getEffects()
-                            // Add a pitch shift effect to handle pitch changes based on speed, at 0 index in the chain
-                            if (effects.none { it is PitchShiftEffect }) {
-                                chain.addEffectAt(
-                                    0,
-                                    PitchShiftEffect(pitchSupplierInterpolated),
-                                )
-                            }
-                        },
-                    ),
+                onEffectChainCreate = { chain ->
+                    val effects = chain.getEffects()
+                    // Add a pitch shift effect to handle pitch changes based on speed, at 0 index in the chain
+                    if (effects.none { it is PitchShiftEffect }) {
+                        chain.addEffectAt(
+                            0,
+                            PitchShiftEffect(pitchSupplierInterpolated),
+                        )
+                    }
+                },
             )
 
     override fun getType(): BehaviourType<RecordPlayerBehaviour> = BEHAVIOUR_TYPE
@@ -431,7 +425,7 @@ class RecordPlayerBehaviour(
             val pos = Vec3.atBottomCenterOf(be.blockPos).add(0.0, 1.2, 0.0)
             val displacement = level.random.nextInt(4) / 24f
             when (audioPlayer.state) {
-                AudioPlayerState.Loading -> {
+                AudioPlayer.PlayState.LOADING -> {
                     level.addParticle(
                         ShriekParticleOption(2),
                         false,
@@ -444,7 +438,7 @@ class RecordPlayerBehaviour(
                     )
                 }
 
-                AudioPlayerState.Playing -> {
+                AudioPlayer.PlayState.PLAYING -> {
                     level.addParticle(
                         ParticleTypes.NOTE,
                         pos.x + displacement,
@@ -766,7 +760,7 @@ class RecordPlayerBehaviour(
                         PlaybackState.PLAYING -> {
                             val currentRecord = getRecord()
                             if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
-                                if (audioPlayer.state == AudioPlayerState.Paused) {
+                                if (audioPlayer.state == AudioPlayer.PlayState.PAUSED) {
                                     resumeClientPlayer()
                                 } else {
                                     startClientPlayer(currentRecord)
@@ -775,7 +769,7 @@ class RecordPlayerBehaviour(
                         }
 
                         PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
-                            if (audioPlayer.state == AudioPlayerState.Playing) {
+                            if (audioPlayer.state == AudioPlayer.PlayState.PLAYING) {
                                 pauseClientPlayer()
                             }
                         }

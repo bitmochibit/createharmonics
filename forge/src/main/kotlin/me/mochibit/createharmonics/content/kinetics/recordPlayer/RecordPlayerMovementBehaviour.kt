@@ -10,10 +10,7 @@ import dev.engine_room.flywheel.api.visualization.VisualizationContext
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
 import me.mochibit.createharmonics.ServerConfig
 import me.mochibit.createharmonics.audio.AudioPlayer
-import me.mochibit.createharmonics.audio.AudioPlayerCallbacks
 import me.mochibit.createharmonics.audio.AudioPlayerManager
-import me.mochibit.createharmonics.audio.AudioPlayerState
-import me.mochibit.createharmonics.audio.IAudioPlayer
 import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
@@ -347,7 +344,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             val spawnPos = context.position.add(worldDirection.scale(0.7 + displacement))
 
             when (player.state) {
-                AudioPlayerState.Loading -> {
+                AudioPlayer.PlayState.LOADING -> {
                     level.addParticle(
                         ShriekParticleOption(2),
                         false,
@@ -360,7 +357,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                     )
                 }
 
-                AudioPlayerState.Playing -> {
+                AudioPlayer.PlayState.PLAYING -> {
                     level.addParticle(
                         ParticleTypes.NOTE,
                         spawnPos.x + displacement,
@@ -626,7 +623,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
         val player = getOrCreateAudioPlayer(playerId, context)
 
-        if (player.state == AudioPlayerState.Loading) {
+        if (player.state == AudioPlayer.PlayState.LOADING) {
             return
         }
 
@@ -699,11 +696,11 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         when (desiredState) {
             PlaybackState.PLAYING -> {
                 when (player.state) {
-                    AudioPlayerState.Paused -> {
+                    AudioPlayer.PlayState.PAUSED -> {
                         player.resume()
                     }
 
-                    AudioPlayerState.Stopped -> {
+                    AudioPlayer.PlayState.STOPPED -> {
                         val record = getRecordItem(context)
                         val offsetSeconds =
                             if (playTime > 0) {
@@ -723,22 +720,20 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                         )
                     }
 
-                    AudioPlayerState.Playing, AudioPlayerState.Loading -> {
+                    AudioPlayer.PlayState.PLAYING, AudioPlayer.PlayState.LOADING -> {
                         // Already in correct state, do nothing
                     }
-
-                    else -> {}
                 }
             }
 
             PlaybackState.PAUSED -> {
-                if (player.state == AudioPlayerState.Playing) {
+                if (player.state == AudioPlayer.PlayState.PLAYING) {
                     player.pause()
                 }
             }
 
             PlaybackState.STOPPED -> {
-                if (player.state != AudioPlayerState.Stopped) {
+                if (player.state != AudioPlayer.PlayState.STOPPED) {
                     player.stop()
                 }
             }
@@ -750,7 +745,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
     private fun getOrCreateAudioPlayer(
         playerId: String,
         context: MovementContext,
-    ): IAudioPlayer {
+    ): AudioPlayer {
         // Get or create temporaryData
         val tempData = getOrCreateTemporaryData(context)
 
@@ -784,18 +779,15 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                 )
             },
             sampleRate = 48_000,
-            callbacks =
-                AudioPlayerCallbacks(
-                    onEffectChainReady = { chain ->
-                        val effects = chain.getEffects()
-                        if (effects.none { it is PitchShiftEffect }) {
-                            chain.addEffectAt(
-                                0,
-                                PitchShiftEffect(buildPitchSupplier(context)),
-                            )
-                        }
-                    },
-                ),
+            onEffectChainCreate = { chain ->
+                val effects = chain.getEffects()
+                if (effects.none { it is PitchShiftEffect }) {
+                    chain.addEffectAt(
+                        0,
+                        PitchShiftEffect(buildPitchSupplier(context)),
+                    )
+                }
+            },
         )
     }
 
