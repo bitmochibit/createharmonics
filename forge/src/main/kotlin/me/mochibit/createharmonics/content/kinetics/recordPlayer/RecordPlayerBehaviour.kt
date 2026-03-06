@@ -624,22 +624,23 @@ class RecordPlayerBehaviour(
         be.notifyUpdate()
     }
 
+    /**
+     * Computes the current expected playback offset in seconds from the server-authoritative
+     * [playTime] and [totalPausedTime].  Returns `0.0` when playback has not started yet.
+     */
+    private fun computeOffsetSeconds(): Double {
+        if (playTime <= 0) return 0.0
+        val elapsed = System.currentTimeMillis() - playTime
+        return (elapsed - totalPausedTime).coerceAtLeast(0L) / 1000.0
+    }
+
     private fun startClientPlayer(currentRecord: ItemStack) {
         val level = be.level ?: return
         AudioPlayerManager.release(recordPlayerUUID.toString())
-        val offsetSeconds =
-            if (playTime > 0) {
-                // Calculate elapsed time minus any accumulated pause time
-                val elapsedTime = System.currentTimeMillis() - playTime
-                val adjustedTime = elapsedTime - totalPausedTime
-                adjustedTime / 1000.0
-            } else {
-                0.0
-            }
 
         audioPlayer.playFromRecord(
             currentRecord,
-            offsetSeconds,
+            computeOffsetSeconds(),
             { pitchSupplierInterpolated.getValue() },
             { radiusSupplierInterpolated.getValue().toInt() },
             { volumeSupplierInterpolated.getValue() },
@@ -755,31 +756,41 @@ class RecordPlayerBehaviour(
             val oldPlaybackState = playbackState
 
             be.level?.onClient { level, virtual ->
-                if (oldPlaybackState != newPlaybackState) {
-                    when (newPlaybackState) {
-                        PlaybackState.PLAYING -> {
-                            val currentRecord = getRecord()
-                            if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
-                                if (audioPlayer.state == AudioPlayer.PlayState.PAUSED) {
+                when (newPlaybackState) {
+                    PlaybackState.PLAYING -> {
+                        val currentRecord = getRecord()
+                        if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
+                            when (audioPlayer.state) {
+                                AudioPlayer.PlayState.PAUSED -> {
+                                    // Resuming from pause — let the internal clock continue
                                     resumeClientPlayer()
-                                } else {
+                                }
+
+                                AudioPlayer.PlayState.PLAYING -> {
+                                    // Already playing — sync clock against server time rather than restarting
+                                    val serverOffsetSeconds = computeOffsetSeconds()
+                                    audioPlayer.syncPosition(serverOffsetSeconds)
+                                }
+
+                                else -> {
+                                    // STOPPED or LOADING — do a full start
                                     startClientPlayer(currentRecord)
                                 }
                             }
                         }
-
-                        PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
-                            if (audioPlayer.state == AudioPlayer.PlayState.PLAYING) {
-                                pauseClientPlayer()
-                            }
-                        }
-
-                        PlaybackState.STOPPED -> {
-                            stopClientPlayer()
-                        }
-
-                        else -> {}
                     }
+
+                    PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
+                        if (audioPlayer.state == AudioPlayer.PlayState.PLAYING) {
+                            pauseClientPlayer()
+                        }
+                    }
+
+                    PlaybackState.STOPPED -> {
+                        stopClientPlayer()
+                    }
+
+                    else -> {}
                 }
             }
             playbackState = newPlaybackState

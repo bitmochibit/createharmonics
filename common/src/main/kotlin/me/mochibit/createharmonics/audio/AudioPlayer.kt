@@ -27,59 +27,208 @@ import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import java.io.InputStream
 import java.util.UUID
+import kotlin.math.abs
+import kotlin.time.Duration.Companion.milliseconds
 
 typealias StreamId = String
 typealias StreamingSoundInstanceProvider = (streamId: StreamId, stream: InputStream) -> SoundInstance
 
+// ---------------------------------------------------------------------------
+// Internal exceptions
+// ---------------------------------------------------------------------------
+
 /**
  * Thrown when an audio stream is fully consumed during the initial seek phase,
  * meaning the requested offset is past the natural end of the stream.
- * This is treated as a normal (non-failure) stream end, not an error.
+ * Treated as a normal (non-failure) stream end, not an error.
  */
 private class StreamExhaustedException(
     message: String,
 ) : Exception(message)
 
+// ---------------------------------------------------------------------------
+// PlaybackClock – tracks elapsed playback time, pause-aware
+// ---------------------------------------------------------------------------
+
+/**
+ * A monotonic clock that measures elapsed playback time.
+ *
+ * - [start] begins counting from an initial offset.
+ * - [pause] freezes the reading.
+ * - [resume] continues counting from the frozen position.
+ * - [reset] brings everything back to zero / stopped.
+ * - [syncTo] jumps to the supplied offset (used for external drift correction).
+ *
+ * **Not thread-safe.** All access must be guarded by the owning [AudioPlayer]'s
+ * [AudioPlayer.stateMutex].
+ */
+private class PlaybackClock {
+    /** Wall-clock timestamp (ms) when playback was last (re-)started. */
+    private var startWallMs: Long = 0L
+
+    /** Milliseconds already elapsed before the current [startWallMs] anchor. */
+    private var baseMs: Long = 0L
+
+    /**
+     * When non-null the clock is frozen at the given elapsed-ms value.
+     * Null means the clock is either ticking or has never been started.
+     */
+    private var frozenMs: Long? = null
+
+    // -----------------------------------------------------------------------
+    // Reads
+    // -----------------------------------------------------------------------
+
+    /**
+     * Current elapsed playback time in seconds.
+     * Returns `0.0` if the clock has never been started.
+     */
+    val elapsedSeconds: Double
+        get() =
+            when {
+                startWallMs == 0L -> 0.0
+                frozenMs != null -> frozenMs!! / 1000.0
+                else -> (baseMs + (System.currentTimeMillis() - startWallMs)) / 1000.0
+            }
+
+    // -----------------------------------------------------------------------
+    // Mutations
+    // -----------------------------------------------------------------------
+
+    /** Start (or restart) the clock from [offsetSeconds]. */
+    fun start(offsetSeconds: Double = 0.0) {
+        baseMs = (offsetSeconds * 1000.0).toLong()
+        startWallMs = System.currentTimeMillis()
+        frozenMs = null
+    }
+
+    /** Freeze the clock at the current reading. No-op if already frozen or never started. */
+    fun pause() {
+        if (frozenMs == null && startWallMs != 0L) {
+            frozenMs = baseMs + (System.currentTimeMillis() - startWallMs)
+        }
+    }
+
+    /** Unfreeze and continue ticking from the frozen position. No-op if not frozen. */
+    fun resume() {
+        val frozen = frozenMs ?: return
+        baseMs = frozen
+        startWallMs = System.currentTimeMillis()
+        frozenMs = null
+    }
+
+    /** Reset to zero and stop ticking. */
+    fun reset() {
+        startWallMs = 0L
+        baseMs = 0L
+        frozenMs = null
+    }
+
+    /**
+     * Externally correct the position to [offsetSeconds] without altering the
+     * running / paused / stopped status. Ignored if the clock was never started.
+     */
+    fun syncTo(offsetSeconds: Double) {
+        if (startWallMs == 0L) return
+        val newBaseMs = (offsetSeconds * 1000.0).toLong()
+        if (frozenMs != null) {
+            frozenMs = newBaseMs
+        } else {
+            baseMs = newBaseMs
+            startWallMs = System.currentTimeMillis()
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// AudioPlayer
+// ---------------------------------------------------------------------------
+
 /**
  * Responsible for playing custom sound sources to the Minecraft engine.
  *
- * This class manages audio playback with support for:
- * - Multiple audio sources (YouTube, HTTP, direct streams)
- * - Audio effect chains
- * - Playback control (play, pause, resume, stop)
- * - Automatic stream cleanup
- * - Thread-safe state management
+ * Supported features:
+ * - Multiple audio sources (YouTube, HTTP, direct streams via [playFromStream])
+ * - Audio effect chains applied on the PCM pipeline
+ * - Full playback control: [play], [playFromStream], [pause], [resume], [stop], [dispose]
+ * - **Internal playback clock** – [currentPositionSeconds] returns the running
+ *   elapsed time that automatically pauses/freezes with the player state.
+ * - **External position sync** – [syncPosition] lets authoritative callers (e.g.
+ *   `RecordPlayerBehaviour`) correct clock drift without triggering a full stream
+ *   restart unless the deviation is large (> [SYNC_DRIFT_THRESHOLD_SECONDS]).
+ * - Automatic stream cleanup and fully thread-safe state management via [stateMutex].
  *
- * @param soundInstanceProvider Provider for instancing the correct Minecraft's sound instance
- * @param playerId ID associated to the current audio player, must be unique
- * @param sampleRate Sample rate of the streamed audio, default is 44100hz
+ * @param soundInstanceProvider Factory that wraps a raw [InputStream] into a Minecraft [SoundInstance].
+ * @param playerId              Unique identifier for this player instance.
+ * @param sampleRate            PCM sample rate of the output stream (default 48 kHz).
+ * @param onEffectChainCreate   Optional callback invoked once for each new [EffectChain].
  */
 class AudioPlayer(
     val soundInstanceProvider: StreamingSoundInstanceProvider,
     val playerId: String = UUID.randomUUID().toString(),
-    val sampleRate: Int = 48000,
+    val sampleRate: Int = 48_000,
     val onEffectChainCreate: ((effectChain: EffectChain) -> Unit)? = null,
 ) {
-    /**
-     * Represents the current playback state of the audio player.
-     */
+    // -----------------------------------------------------------------------
+    // Companion – constants & pure helpers
+    // -----------------------------------------------------------------------
+
+    companion object {
+        /**
+         * Maximum allowable drift (seconds) between the internal clock and an
+         * externally supplied position before [syncPosition] triggers a full stream
+         * restart.  Below this threshold only the clock is nudged.
+         */
+        const val SYNC_DRIFT_THRESHOLD_SECONDS: Double = 3.0
+
+        private val DIRECT_AUDIO_EXTENSIONS =
+            setOf(
+                "mp3",
+                "mp4",
+                "m4a",
+                "m4b",
+                "wav",
+                "wave",
+                "ogg",
+                "oga",
+                "opus",
+                "flac",
+                "aac",
+                "webm",
+                "wma",
+                "aiff",
+                "aif",
+            )
+
+        private fun isDirectAudioUrl(url: String): Boolean {
+            val path = url.substringBefore('?').substringBefore('#')
+            return path.substringAfterLast('.', "").lowercase() in DIRECT_AUDIO_EXTENSIONS
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Public types
+    // -----------------------------------------------------------------------
+
+    /** Observable playback state machine. */
     enum class PlayState {
-        /** No audio is playing and resources are released */
+        /** No audio is playing; all resources are released. */
         STOPPED,
 
-        /** Audio is being initialized and will start playing soon */
+        /** Audio pipeline is being initialised (FFmpeg / source resolution). */
         LOADING,
 
-        /** Audio is currently playing */
+        /** Audio is actively playing. */
         PLAYING,
 
-        /** Audio is paused and can be resumed */
+        /** Audio is paused; can be resumed without restarting the stream. */
         PAUSED,
     }
 
-    /**
-     * Sealed class representing different playback sources
-     */
+    // -----------------------------------------------------------------------
+    // Private types
+    // -----------------------------------------------------------------------
+
     private sealed class PlaybackSource {
         data class Url(
             val url: String,
@@ -92,21 +241,22 @@ class AudioPlayer(
     }
 
     /**
-     * Holds all the current playback state and resources
+     * Holds every resource that belongs to one logical playback session.
+     * [cleanup] is idempotent and safe to call more than once from any thread.
      */
-    private data class PlaybackContext(
+    private inner class PlaybackContext(
         val source: PlaybackSource,
         val effectChain: EffectChain,
         val soundComposition: SoundEventComposition,
         val offsetSeconds: Double,
-        var ffmpegExecutor: FFmpegExecutor? = null,
-        var processingAudioStream: AudioEffectInputStream? = null,
-        var soundInstance: SoundInstance? = null,
-        var hasRetried: Boolean = false,
     ) {
+        var ffmpegExecutor: FFmpegExecutor? = null
+        var processingAudioStream: AudioEffectInputStream? = null
+        var soundInstance: SoundInstance? = null
+        var hasRetried: Boolean = false
+
         fun cleanup() {
-            // Immediately capture all references and clear them
-            // This ensures no further operations can use these resources
+            // Snapshot and null-out before async teardown to prevent double-close
             val composition = soundComposition
             val executor = ffmpegExecutor
             val stream = processingAudioStream
@@ -116,53 +266,66 @@ class AudioPlayer(
             soundInstance = null
 
             modLaunch(Dispatchers.IO) {
-                try {
-                    composition.stopComposition()
-                } catch (e: Exception) {
-                    "Error stopping composition: ${e.message}".err()
-                }
-
-                try {
-                    executor?.destroy()
-                } catch (e: Exception) {
-                    "Error destroying FFmpeg: ${e.message}".err()
-                }
-
-                try {
-                    stream?.close()
-                } catch (e: Exception) {
-                    "Error closing audio stream: ${e.message}".err()
-                }
+                runCatching { composition.stopComposition() }
+                    .onFailure { "AudioPlayer $playerId: Error stopping composition: ${it.message}".err() }
+                runCatching { executor?.destroy() }
+                    .onFailure { "AudioPlayer $playerId: Error destroying FFmpeg: ${it.message}".err() }
+                runCatching { stream?.close() }
+                    .onFailure { "AudioPlayer $playerId: Error closing audio stream: ${it.message}".err() }
             }
         }
     }
 
+    // -----------------------------------------------------------------------
+    // State  (all mutable state lives here; guard with stateMutex)
+    // -----------------------------------------------------------------------
+
+    /** Guards all mutable playback state and the [clock]. */
     private val stateMutex = Mutex()
 
-    @Volatile
-    private var playState = PlayState.STOPPED
+    @Volatile private var playState: PlayState = PlayState.STOPPED
 
-    @Volatile
-    private var playbackContext: PlaybackContext? = null
+    @Volatile private var playbackContext: PlaybackContext? = null
 
-    val state: PlayState
-        get() = playState
+    /** Pause-aware monotonic playback clock. Access only under [stateMutex]. */
+    private val clock = PlaybackClock()
 
-    private val soundManager: net.minecraft.client.sounds.SoundManager
-        get() = Minecraft.getInstance().soundManager
+    /**
+     * Wall-clock timestamp (ms) of the last sync-triggered stream restart.
+     * Used to enforce a cooldown so that rapid successive [syncPosition] calls
+     * do not spawn multiple overlapping restart coroutines.
+     * Access only under [stateMutex].
+     */
+    private var lastSyncRestartMs: Long = 0L
+
+    // -----------------------------------------------------------------------
+    // Public API – observable state
+    // -----------------------------------------------------------------------
+
+    val state: PlayState get() = playState
+
+    /**
+     * Current playback position in seconds since the start of the track.
+     *
+     * - Advances while [PlayState.PLAYING].
+     * - Frozen while [PlayState.PAUSED].
+     * - Returns `0.0` while [PlayState.STOPPED] or [PlayState.LOADING].
+     *
+     * Lock-free read; suitable for calling on any thread.
+     */
+    val currentPositionSeconds: Double get() = clock.elapsedSeconds
 
     fun getCurrentEffectChain(): EffectChain? = playbackContext?.effectChain
 
+    // -----------------------------------------------------------------------
+    // Public API – playback control
+    // -----------------------------------------------------------------------
+
     /**
-     * Start playing audio from the specified URL.
+     * Start playing audio from [url].
      *
-     * If already playing different content, the current playback will be stopped
-     * and the new audio will start. If the same content is already playing, this is a no-op.
-     *
-     * @param url The audio URL to play (YouTube or HTTP)
-     * @param effectChain Chain of audio effects to apply
-     * @param soundEventComposition Composition of sound events
-     * @param offsetSeconds Starting offset in seconds
+     * If already playing the same source with the same effect chain, this is a no-op.
+     * Otherwise, the current session is stopped and a new one is started from [offsetSeconds].
      */
     fun play(
         url: String,
@@ -180,39 +343,34 @@ class AudioPlayer(
             val context: PlaybackContext
 
             stateMutex.withLock {
-                // Check inside lock to prevent race conditions
-                if (playState == PlayState.PLAYING || playState == PlayState.LOADING) {
-                    val currentSource = playbackContext?.source
-                    if (currentSource == source && playbackContext?.effectChain == effectChain) {
-                        return@modLaunch
-                    }
-                }
-
-                if (playState != PlayState.STOPPED) {
-                    cleanupResourcesInternal()
-                }
-
-                playState = PlayState.LOADING
-                context = PlaybackContext(source, effectChain, soundEventComposition, offsetSeconds)
-                onEffectChainCreate?.invoke(effectChain)
-                playbackContext = context
-            }
-
-            val initResult =
-                runCatching {
-                    initializeUrlPlayback(url, context)
-                }
-
-            stateMutex.withLock {
-                if (playbackContext != context) {
-                    context.cleanup()
+                // Idempotency guard — same source + chain already active
+                if ((playState == PlayState.PLAYING || playState == PlayState.LOADING) &&
+                    playbackContext?.source == source &&
+                    playbackContext?.effectChain == effectChain
+                ) {
                     return@modLaunch
                 }
 
-                initResult
-                    .onSuccess {
-                        playState = PlayState.PLAYING
-                    }.onFailure { e ->
+                if (playState != PlayState.STOPPED) cleanupInternal()
+
+                playState = PlayState.LOADING
+                context =
+                    PlaybackContext(source, effectChain, soundEventComposition, offsetSeconds)
+                        .also { onEffectChainCreate?.invoke(effectChain) }
+                playbackContext = context
+            }
+
+            val result = runCatching { initializeUrlPlayback(url, context) }
+
+            stateMutex.withLock {
+                // Context may have been superseded by a concurrent stop/play
+                if (playbackContext !== context) {
+                    context.cleanup()
+                    return@modLaunch
+                }
+                result
+                    .onSuccess { transitionToPlaying(offsetSeconds) }
+                    .onFailure { e ->
                         "AudioPlayer $playerId: Error during playback: ${e.message}".err()
                         invalidateUrlCacheAndRetry(url, context)
                     }
@@ -221,14 +379,10 @@ class AudioPlayer(
     }
 
     /**
-     * Start playing audio from a direct input stream.
-     * This bypasses FFmpeg and plays the stream directly with optional effects.
+     * Start playing audio from a raw PCM [inputStream], bypassing FFmpeg.
+     * The stream is fed directly through the effect chain.
      *
-     * @param inputStream The raw audio input stream (should be PCM format at the specified sample rate)
-     * @param audioName Optional name for the audio source
-     * @param effectChain Chain of audio effects to apply
-     * @param soundEventComposition Composition of sound events
-     * @param offsetSeconds Starting offset in seconds to skip in the stream
+     * @param offsetSeconds Bytes corresponding to this many seconds will be skipped before playback starts.
      */
     fun playFromStream(
         inputStream: InputStream,
@@ -241,55 +395,256 @@ class AudioPlayer(
         modLaunch(Dispatchers.IO) {
             val context: PlaybackContext
             stateMutex.withLock {
-                val source = PlaybackSource.Stream(inputStream, audioName)
-
-                if (playState != PlayState.STOPPED) {
-                    cleanupResourcesInternal()
-                }
-
+                if (playState != PlayState.STOPPED) cleanupInternal()
                 playState = PlayState.LOADING
-                context = PlaybackContext(source, effectChain, soundEventComposition, offsetSeconds)
-                onEffectChainCreate?.invoke(effectChain)
+                context =
+                    PlaybackContext(
+                        PlaybackSource.Stream(inputStream, audioName),
+                        effectChain,
+                        soundEventComposition,
+                        offsetSeconds,
+                    ).also { onEffectChainCreate?.invoke(effectChain) }
                 playbackContext = context
             }
 
-            val initResult =
+            val result =
                 runCatching {
                     initializeStreamPlayback(inputStream, audioName, context, sampleRateOverride)
                 }
 
             stateMutex.withLock {
-                if (playbackContext != context) {
-                    return@modLaunch
-                }
-
-                initResult
-                    .onSuccess {
-                        playState = PlayState.PLAYING
-                    }.onFailure { e ->
+                if (playbackContext !== context) return@modLaunch
+                result
+                    .onSuccess { transitionToPlaying(offsetSeconds) }
+                    .onFailure { e ->
                         "AudioPlayer $playerId: Error during stream playback: ${e.message}".err()
-                        resetStateInternal()
-                        // A StreamExhaustedException means the offset was past the end of the
-                        // stream — this is a natural end (e.g. disc finished), not a real error.
-                        // Notify accordingly so the server can restart/stop playback as expected.
-                        if (e is StreamExhaustedException) {
-                            notifyStreamEnd()
-                        } else {
-                            notifyStreamFailure()
-                        }
+                        cleanupInternal()
+                        if (e is StreamExhaustedException) notifyStreamEnd() else notifyStreamFailure()
                     }
             }
         }
     }
 
-    private fun isAlreadyPlayingSameContent(
-        source: PlaybackSource,
-        effectChain: EffectChain,
-    ): Boolean {
-        if (playState != PlayState.PLAYING) return false
-        val context = playbackContext ?: return false
-        return context.source == source && context.effectChain == effectChain
+    /**
+     * Stop playback and release all resources. No-op when already [PlayState.STOPPED].
+     */
+    fun stop() {
+        modLaunch(Dispatchers.IO) {
+            val instanceToStop: SoundInstance?
+            stateMutex.withLock {
+                if (playState == PlayState.STOPPED) return@modLaunch
+                instanceToStop = playbackContext?.soundInstance
+                cleanupInternal()
+            }
+            instanceToStop?.stopInEngine()
+        }
     }
+
+    /**
+     * Pause playback. Only has an effect when [PlayState.PLAYING].
+     */
+    fun pause() {
+        modLaunch {
+            val instanceToStop: SoundInstance?
+            val compositionToStop: SoundEventComposition?
+            stateMutex.withLock {
+                if (playState != PlayState.PLAYING) return@modLaunch
+                instanceToStop = playbackContext?.soundInstance
+                compositionToStop = playbackContext?.soundComposition
+                playState = PlayState.PAUSED
+                clock.pause()
+            }
+            runCatching {
+                withMainContext {
+                    instanceToStop?.let { soundManager.stop(it) }
+                    compositionToStop?.stopComposition()
+                }
+            }.onFailure { "AudioPlayer $playerId: Error during pause: ${it.message}".err() }
+        }
+    }
+
+    /**
+     * Resume from [PlayState.PAUSED].
+     * Transitions back to [PlayState.PLAYING] and re-submits the existing sound instance
+     * to the Minecraft sound engine.
+     */
+    fun resume() {
+        modLaunch {
+            val instanceToResume: SoundInstance
+            val compositionToResume: SoundEventComposition
+
+            stateMutex.withLock {
+                if (playState != PlayState.PAUSED) return@modLaunch
+
+                val ctx = playbackContext
+                when {
+                    ctx == null -> {
+                        "AudioPlayer $playerId: Cannot resume – no playback context".err()
+                        cleanupInternal()
+                        notifyStreamFailure()
+                        return@modLaunch
+                    }
+
+                    ctx.soundInstance == null || ctx.processingAudioStream == null -> {
+                        "AudioPlayer $playerId: Cannot resume – resources were cleaned up".err()
+                        cleanupInternal()
+                        notifyStreamFailure()
+                        return@modLaunch
+                    }
+
+                    ctx.ffmpegExecutor?.isRunning() == false -> {
+                        "AudioPlayer $playerId: Cannot resume – FFmpeg has terminated".err()
+                        cleanupInternal()
+                        notifyStreamFailure()
+                        return@modLaunch
+                    }
+                }
+
+                // Safe: all null-checks passed above
+                instanceToResume = checkNotNull(ctx.soundInstance)
+                compositionToResume = ctx.soundComposition
+                playState = PlayState.PLAYING
+                clock.resume()
+            }
+
+            runCatching {
+                withMainContext {
+                    soundManager.play(instanceToResume)
+                    compositionToResume.makeComposition(instanceToResume)
+                }
+            }.onFailure { e ->
+                "AudioPlayer $playerId: Error during resume: ${e.message}".err()
+                stateMutex.withLock {
+                    cleanupInternal()
+                    notifyStreamFailure()
+                }
+            }
+        }
+    }
+
+    /**
+     * Correct the playback position to [targetPositionSeconds] as reported by an
+     * authoritative external source (e.g. `RecordPlayerBehaviour`).
+     *
+     * - Ignored while [PlayState.STOPPED] or [PlayState.LOADING].
+     * - If `|clock − target| ≤ [SYNC_DRIFT_THRESHOLD_SECONDS]`, only the clock is
+     *   nudged — the audio stream keeps running undisturbed.
+     * - If the deviation exceeds the threshold, the stream is fully restarted from
+     *   [targetPositionSeconds] to realign audio with the game world.
+     *
+     * Intentionally does **not** restart the stream on every call; this keeps
+     * network and CPU overhead low for the common small-drift case.
+     */
+    fun syncPosition(targetPositionSeconds: Double) {
+        modLaunch(Dispatchers.IO) {
+            // Snapshot of everything we need to restart, captured under the lock.
+            // Declared outside the lambda so the data class isn't a local class inside a coroutine.
+            var snapshotUrl: String? = null
+            var snapshotEffectChain: EffectChain? = null
+            var snapshotComposition: SoundEventComposition? = null
+            var needsStreamRestart = false
+            var isStream = false
+
+            stateMutex.withLock {
+                // Ignore while no audio is active or while a previous restart is still loading
+                if (playState == PlayState.STOPPED || playState == PlayState.LOADING) return@modLaunch
+
+                val drift = targetPositionSeconds - clock.elapsedSeconds
+                if (abs(drift) <= SYNC_DRIFT_THRESHOLD_SECONDS) {
+                    // Small drift — just nudge the clock, keep stream alive
+                    clock.syncTo(targetPositionSeconds)
+                    "AudioPlayer $playerId: clock nudged to %.2fs (drift %.2fs)"
+                        .format(targetPositionSeconds, drift)
+                        .debug()
+                    return@modLaunch
+                }
+
+                // Large drift — but only restart if we're past the cooldown window.
+                // This prevents rapid-fire restart loops where each restart briefly
+                // produces a new drift reading before the clock stabilises.
+                val now = System.currentTimeMillis()
+                val cooldownMs = (SYNC_DRIFT_THRESHOLD_SECONDS * 1000).toLong() + 2_000L
+                if (now - lastSyncRestartMs < cooldownMs) {
+                    // Still inside the cooldown — just nudge the clock instead
+                    clock.syncTo(targetPositionSeconds)
+                    "AudioPlayer $playerId: sync cooldown active, nudging clock to %.2fs (drift %.2fs)"
+                        .format(targetPositionSeconds, drift)
+                        .debug()
+                    return@modLaunch
+                }
+
+                "AudioPlayer $playerId: drift %.2fs exceeds threshold – restarting from %.2fs"
+                    .format(drift, targetPositionSeconds)
+                    .info()
+
+                lastSyncRestartMs = now
+
+                val ctx = playbackContext
+                when (val src = ctx?.source) {
+                    is PlaybackSource.Url -> {
+                        snapshotUrl = src.url
+                        snapshotEffectChain = ctx.effectChain
+                        snapshotComposition = ctx.soundComposition
+                        needsStreamRestart = true
+                    }
+
+                    is PlaybackSource.Stream -> {
+                        isStream = true
+                    }
+
+                    null -> {}
+                }
+            }
+
+            // Restart outside the lock to avoid dead-locking play()
+            when {
+                needsStreamRestart -> {
+                    play(
+                        snapshotUrl!!,
+                        snapshotEffectChain!!,
+                        snapshotComposition!!,
+                        targetPositionSeconds,
+                    )
+                }
+
+                isStream -> {
+                    // Raw streams can't be seeked — just correct the clock
+                    stateMutex.withLock { clock.syncTo(targetPositionSeconds) }
+                }
+            }
+        }
+    }
+
+    /**
+     * Dispose of this player and release all resources unconditionally.
+     * The player must not be used after this call.
+     */
+    fun dispose() {
+        stopSoundImmediately()
+        modLaunch { stateMutex.withLock { cleanupInternal() } }
+    }
+
+    /**
+     * Synchronously cancel the sound without waiting for coroutines.
+     * Safe to call from any thread (e.g. during level/world unload).
+     */
+    fun stopSoundImmediately() {
+        val ctx = playbackContext ?: return
+        runCatching { ctx.soundComposition.stopComposition() }
+            .onFailure { "AudioPlayer $playerId: Error stopping composition: ${it.message}".err() }
+        ctx.soundInstance?.let { instance ->
+            modLaunch {
+                runCatching { withMainContext { soundManager.stop(instance) } }
+                    .onFailure { "AudioPlayer $playerId: Error stopping sound instance: ${it.message}".err() }
+            }
+        }
+        runCatching { ctx.cleanup() }
+            .onFailure { "AudioPlayer $playerId: Error during immediate cleanup: ${it.message}".err() }
+    }
+
+    // -----------------------------------------------------------------------
+    // Stream initialisation
+    // -----------------------------------------------------------------------
 
     private suspend fun initializeUrlPlayback(
         url: String,
@@ -299,98 +654,40 @@ class AudioPlayer(
             resolveAudioSource(url)
                 ?: throw IllegalArgumentException("Unsupported audio source for URL: $url")
 
-        // Update audio name if available
-        val audioName = audioSource.getAudioName()
-        if (audioName != "Unknown") {
-            ModPackets.sendToServer(UpdateAudioNamePacket(playerId, audioName))
-        }
+        audioSource
+            .getAudioName()
+            .takeIf { it != "Unknown" }
+            ?.let { ModPackets.sendToServer(UpdateAudioNamePacket(playerId, it)) }
 
-        // Wrap offset around duration if it exceeds
         val duration = audioSource.getDurationSeconds()
         val effectiveOffset =
-            if (duration > 0 && context.offsetSeconds >= duration) {
-                val wrappedOffset = context.offsetSeconds % duration
-                "AudioPlayer $playerId: Offset ${context.offsetSeconds}s wrapped to ${wrappedOffset}s (duration: ${duration}s)".info()
-                wrappedOffset
-            } else {
-                context.offsetSeconds
+            when {
+                duration > 0 && context.offsetSeconds >= duration -> {
+                    (context.offsetSeconds % duration).also {
+                        "AudioPlayer $playerId: offset ${context.offsetSeconds}s wrapped to ${it}s (duration ${duration}s)".info()
+                    }
+                }
+
+                else -> {
+                    context.offsetSeconds
+                }
             }
 
-        // Initialize FFmpeg executor
-        val ffmpegExecutor = FFmpegExecutor()
-        context.ffmpegExecutor = ffmpegExecutor
-
+        val ffmpegExecutor = FFmpegExecutor().also { context.ffmpegExecutor = it }
         val effectiveUrl = audioSource.resolveAudioUrl()
 
         if (!ffmpegExecutor.createStream(effectiveUrl, sampleRate, effectiveOffset, audioSource.getHttpHeaders())) {
-            throw IllegalStateException("FFmpeg stream initialization failed")
+            throw IllegalStateException("FFmpeg stream initialisation failed")
         }
 
-        val rawInputStream =
+        val rawStream =
             ffmpegExecutor.inputStream
-                ?: throw IllegalStateException("FFmpeg input stream is null")
+                ?: throw IllegalStateException("FFmpeg input stream is null after successful createStream")
 
-        // Create effect stream and start playback
-        val audioStream = createAudioEffectInputStream(rawInputStream, context)
-        context.processingAudioStream = audioStream
+        context.processingAudioStream = createAudioEffectInputStream(rawStream, context)
 
-        if (playState != PlayState.LOADING) {
-            throw IllegalStateException("Aborting playback")
-        }
-
-        startPlayback(audioStream, context)
-    }
-
-    /**
-     * Invalidate the cached URL and retry playback once.
-     * This is called when FFmpeg fails (e.g. expired extracted URL from yt-dlp).
-     *
-     * For direct HTTP URLs there is no cache to invalidate — the URL itself is the
-     * problem (e.g. an expired CDN token). In that case we fail immediately with a
-     * clear message rather than pointlessly retrying the same dead URL.
-     */
-    private suspend fun invalidateUrlCacheAndRetry(
-        url: String,
-        context: PlaybackContext,
-    ) {
-        // Direct audio URLs (CDN links, etc.) can't be refreshed — the URL is the source of truth.
-        // Retrying would just hit the same expired/missing resource again.
-        if (isDirectAudioUrl(url)) {
-            "AudioPlayer $playerId: Direct audio URL is unreachable (expired or invalid): $url".err()
-            resetStateInternal()
-            notifyStreamFailure()
-            return
-        }
-
-        // Prevent infinite retry loops
-        if (context.hasRetried) {
-            "AudioPlayer $playerId: Already retried once, giving up".err()
-            resetStateInternal()
-            notifyStreamFailure()
-            return
-        }
-
-        context.hasRetried = true
-
-        // Invalidate the cache to force fresh URL extraction
-        me.mochibit.createharmonics.audio.cache.AudioInfoCache
-            .invalidate(url)
-
-        // Small delay before retry
-        delay(500)
-
-        // Retry the initialization
-        "AudioPlayer $playerId: Retrying playback with fresh URL...".info()
-        runCatching {
-            initializeUrlPlayback(url, context)
-        }.onSuccess {
-            playState = PlayState.PLAYING
-            "AudioPlayer $playerId: Retry successful!".info()
-        }.onFailure { e ->
-            "AudioPlayer $playerId: Retry failed: ${e.message}".err()
-            resetStateInternal()
-            notifyStreamFailure()
-        }
+        check(playState == PlayState.LOADING) { "Aborting playback – state changed during initialisation" }
+        startPlayback(context.processingAudioStream!!, context)
     }
 
     private suspend fun initializeStreamPlayback(
@@ -399,63 +696,54 @@ class AudioPlayer(
         context: PlaybackContext,
         sampleRateOverride: Int?,
     ) {
-        // Update audio name
-        if (audioName != "Unknown" && audioName.isNotBlank()) {
+        if (audioName.isNotBlank() && audioName != "Unknown") {
             ModPackets.sendToServer(UpdateAudioNamePacket(playerId, audioName))
         }
 
-        // Skip bytes if offset is specified
         if (context.offsetSeconds > 0.0) {
-            // For 48kHz mono PCM: 48000 samples/sec * 2 bytes/sample = 96000 bytes/sec
-            val bytesPerSecond = (sampleRateOverride ?: sampleRate) * 2L // 2 bytes per sample for 16-bit PCM
-            var bytesToSkip = (context.offsetSeconds * bytesPerSecond).toLong()
+            skipStreamToOffset(inputStream, context.offsetSeconds, sampleRateOverride ?: sampleRate)
+        }
 
-            // CRITICAL: Ensure we skip an even number of bytes to maintain sample alignment
-            // 16-bit PCM samples are 2 bytes each, so we must skip in multiples of 2
-            if (bytesToSkip % 2 != 0L) {
-                bytesToSkip += 1 // Round up to next even number
-                "AudioPlayer $playerId: Adjusted skip to $bytesToSkip bytes for sample alignment".warn()
-            }
+        context.processingAudioStream = createAudioEffectInputStream(inputStream, context, sampleRateOverride)
 
-            var totalSkipped = 0L
-            val skipBuffer = ByteArray(8192) // Use read buffer instead of skip() for reliability
+        check(playState == PlayState.LOADING) { "Aborting playback – state changed during initialisation" }
+        startPlayback(context.processingAudioStream!!, context, sampleRateOverride)
+    }
 
-            withContext(Dispatchers.IO) {
-                var remaining = bytesToSkip
+    /**
+     * Skips bytes in [inputStream] to reach [offsetSeconds].
+     * @throws [StreamExhaustedException] if the stream ends before the target offset.
+     */
+    private suspend fun skipStreamToOffset(
+        inputStream: InputStream,
+        offsetSeconds: Double,
+        effectiveSampleRate: Int,
+    ) {
+        val bytesPerSecond = effectiveSampleRate * 2L // 16-bit mono → 2 bytes/sample
+        var bytesToSkip = (offsetSeconds * bytesPerSecond).toLong()
+        if (bytesToSkip % 2 != 0L) {
+            bytesToSkip += 1
+            "AudioPlayer $playerId: Adjusted skip to $bytesToSkip bytes for sample alignment".warn()
+        }
 
-                while (remaining > 0) {
-                    val toRead = minOf(remaining, skipBuffer.size.toLong()).toInt()
-                    val bytesRead = inputStream.read(skipBuffer, 0, toRead)
+        val buf = ByteArray(8192)
+        var totalSkipped = 0L
+        var remaining = bytesToSkip
 
-                    if (bytesRead <= 0) {
-                        // End of stream reached before we could skip the full offset.
-                        // This means the requested offset is past (or at) the end of the stream,
-                        // so there is nothing left to play. Throw to let the caller handle this
-                        // as a stream-end event and properly release all resources.
-                        "AudioPlayer $playerId: Could only skip $totalSkipped of $bytesToSkip bytes" +
-                            " — offset (${context.offsetSeconds}s) exceeds stream length, treating as stream end"
-                                .warn()
-                        throw StreamExhaustedException(
-                            "Stream exhausted during seek: offset (${context.offsetSeconds}s)" +
-                                " is past the end of the audio stream",
-                        )
-                    }
-
-                    totalSkipped += bytesRead
-                    remaining -= bytesRead
+        withContext(Dispatchers.IO) {
+            while (remaining > 0) {
+                val toRead = minOf(remaining, buf.size.toLong()).toInt()
+                val read = inputStream.read(buf, 0, toRead)
+                if (read <= 0) {
+                    "AudioPlayer $playerId: Skipped only $totalSkipped/$bytesToSkip bytes – offset past stream end".warn()
+                    throw StreamExhaustedException(
+                        "Stream exhausted during seek: offset ${offsetSeconds}s is past the end of the stream",
+                    )
                 }
+                totalSkipped += read
+                remaining -= read
             }
         }
-
-        // Create effect stream directly from input (no FFmpeg)
-        val audioStream = createAudioEffectInputStream(inputStream, context, sampleRateOverride)
-        context.processingAudioStream = audioStream
-
-        if (playState != PlayState.LOADING) {
-            throw IllegalStateException("Aborting playback")
-        }
-
-        startPlayback(audioStream, context, sampleRateOverride)
     }
 
     private fun createAudioEffectInputStream(
@@ -477,13 +765,12 @@ class AudioPlayer(
         sampleRateOverride: Int? = null,
     ) {
         val soundInstance =
-            soundInstanceProvider(playerId, audioStream)
-                .apply {
-                    if (this is SampleRatedInstance) {
-                        sampleRate = sampleRateOverride ?: this@AudioPlayer.sampleRate
-                    }
+            soundInstanceProvider(playerId, audioStream).also { instance ->
+                if (instance is SampleRatedInstance) {
+                    instance.sampleRate = sampleRateOverride ?: sampleRate
                 }
-        context.soundInstance = soundInstance
+                context.soundInstance = instance
+            }
 
         withMainContext {
             context.soundComposition.makeComposition(soundInstance)
@@ -491,31 +778,30 @@ class AudioPlayer(
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Stream event handlers
+    // -----------------------------------------------------------------------
+
     private fun handleStreamEnd() {
         modLaunch(Dispatchers.IO) {
-            // Non-blocking tryLock with immediate bailout - no delays or retries
             if (!stateMutex.tryLock()) {
-                "AudioPlayer $playerId: Stream end - mutex busy, ignoring duplicate event".debug()
+                "AudioPlayer $playerId: Stream end – mutex busy, ignoring duplicate event".debug()
                 return@modLaunch
             }
-
             try {
                 when (playState) {
                     PlayState.PLAYING -> {
-                        cleanupResourcesInternal()
+                        cleanupInternal()
                         notifyStreamEnd()
                     }
 
                     PlayState.PAUSED -> {
-                        cleanupResourcesInternal()
+                        cleanupInternal()
                         notifyStreamFailure()
                     }
 
-                    PlayState.LOADING, PlayState.STOPPED -> {
-                    }
+                    else -> {} // LOADING / STOPPED – nothing to do
                 }
-
-                playState = PlayState.STOPPED
             } finally {
                 stateMutex.unlock()
             }
@@ -524,266 +810,108 @@ class AudioPlayer(
 
     private fun handleStreamHang() {
         if (playState != PlayState.PLAYING) return
-
-        playbackContext?.soundInstance?.let { soundInstance ->
-            modLaunch(Dispatchers.IO) {
-                delay(1.ticks())
-                try {
-                    withMainContext {
-                        soundManager.play(soundInstance)
-                    }
-                } catch (e: Exception) {
-                    "AudioPlayer $playerId: Error restarting hung stream: ${e.message}".err()
-                }
-            }
-        }
-    }
-
-    /**
-     * Stop playback and release all resources.
-     * Transitions to STOPPED state.
-     */
-    fun stop() {
+        val instance = playbackContext?.soundInstance ?: return
         modLaunch(Dispatchers.IO) {
-            // Capture sound instance while holding lock briefly
-            val soundInstanceToStop: SoundInstance?
-            stateMutex.withLock {
-                if (playState == PlayState.STOPPED) return@modLaunch
-                soundInstanceToStop = playbackContext?.soundInstance
-                cleanupResourcesInternal()
-            }
-
-            // Stop sound outside the lock to avoid blocking
-            if (soundInstanceToStop != null) {
-                runCatching {
-                    withMainContext {
-                        soundManager.stop(soundInstanceToStop)
-                    }
-                }.onFailure { e ->
-                    "AudioPlayer $playerId: Error stopping sound: ${e.message}".err()
-                }
-            }
+            delay(1.ticks())
+            runCatching { withMainContext { soundManager.play(instance) } }
+                .onFailure { "AudioPlayer $playerId: Error restarting hung stream: ${it.message}".err() }
         }
     }
 
-    /**
-     * Pause the current playback.
-     * Only works when in PLAYING state. Can be resumed later.
-     */
-    fun pause() {
-        modLaunch {
-            // Capture what we need while holding lock briefly
-            val soundInstanceToStop: SoundInstance?
-            val compositionToStop: SoundEventComposition?
-            stateMutex.withLock {
-                if (playState != PlayState.PLAYING) return@modLaunch
-                soundInstanceToStop = playbackContext?.soundInstance
-                compositionToStop = playbackContext?.soundComposition
-                playState = PlayState.PAUSED
-            }
+    // -----------------------------------------------------------------------
+    // URL retry / cache invalidation
+    // -----------------------------------------------------------------------
 
-            // Stop sound and composition outside the lock to avoid blocking
-            runCatching {
-                withMainContext {
-                    soundInstanceToStop?.let { soundManager.stop(it) }
-                    compositionToStop?.stopComposition()
-                }
-            }.onFailure { e ->
-                "AudioPlayer $playerId: Error during pause: ${e.message}".err()
-            }
+    /**
+     * Called under [stateMutex] after a URL playback failure.
+     * For direct URLs the failure is final; for resolved URLs one retry is attempted
+     * after invalidating the audio info cache.
+     */
+    private suspend fun invalidateUrlCacheAndRetry(
+        url: String,
+        context: PlaybackContext,
+    ) {
+        if (isDirectAudioUrl(url)) {
+            "AudioPlayer $playerId: Direct audio URL unreachable: $url".err()
+            cleanupInternal()
+            notifyStreamFailure()
+            return
         }
-    }
+        if (context.hasRetried) {
+            "AudioPlayer $playerId: Already retried once – giving up".err()
+            cleanupInternal()
+            notifyStreamFailure()
+            return
+        }
 
-    /**
-     * Resume playback from a paused state.
-     * Only works when in PAUSED state.
-     */
-    fun resume() {
-        modLaunch {
-            // Capture what we need while holding lock briefly
-            val soundInstanceToResume: SoundInstance?
-            val compositionToResume: SoundEventComposition?
+        context.hasRetried = true
+        me.mochibit.createharmonics.audio.cache.AudioInfoCache
+            .invalidate(url)
+        delay(500.milliseconds)
+        "AudioPlayer $playerId: Retrying with fresh URL…".info()
 
-            stateMutex.withLock {
-                if (playState != PlayState.PAUSED) return@modLaunch
-
-                val context = playbackContext
-                if (context == null) {
-                    "AudioPlayer $playerId: Cannot resume, no playback context".err()
-                    playState = PlayState.STOPPED
-                    notifyStreamFailure()
-                    return@modLaunch
-                }
-
-                if (context.soundInstance == null || context.processingAudioStream == null) {
-                    "AudioPlayer $playerId: Cannot resume, resources were cleaned up (likely due to stream error)".err()
-                    cleanupResourcesInternal()
-                    notifyStreamFailure()
-                    return@modLaunch
-                }
-
-                // Verify FFmpeg is still running if this is a URL-based source
-                val ffmpegExecutor = context.ffmpegExecutor
-                if (ffmpegExecutor != null && !ffmpegExecutor.isRunning()) {
-                    "AudioPlayer $playerId: Cannot resume, FFmpeg process has terminated".err()
-                    cleanupResourcesInternal()
-                    notifyStreamFailure()
-                    return@modLaunch
-                }
-
-                soundInstanceToResume = context.soundInstance
-                compositionToResume = context.soundComposition
+        runCatching { initializeUrlPlayback(url, context) }
+            .onSuccess {
                 playState = PlayState.PLAYING
+                "AudioPlayer $playerId: Retry successful".info()
+            }.onFailure { e ->
+                "AudioPlayer $playerId: Retry failed: ${e.message}".err()
+                cleanupInternal()
+                notifyStreamFailure()
             }
+    }
 
-            // Resume playback outside the lock to avoid blocking
-            if (soundInstanceToResume != null && compositionToResume != null) {
-                runCatching {
-                    withMainContext {
-                        soundManager.play(soundInstanceToResume)
-                        compositionToResume.makeComposition(soundInstanceToResume)
-                    }
-                }.onFailure { e ->
-                    "AudioPlayer $playerId: Error during resume: ${e.message}".err()
-                    // If resume failed, cleanup resources and notify
-                    stateMutex.withLock {
-                        cleanupResourcesInternal()
-                        notifyStreamFailure()
-                    }
-                }
-            }
-        }
+    // -----------------------------------------------------------------------
+    // Source resolution
+    // -----------------------------------------------------------------------
+
+    private fun resolveAudioSource(url: String): AudioSource? = if (isDirectAudioUrl(url)) HttpAudioSource(url) else YtdlpAudioSource(url)
+
+    // -----------------------------------------------------------------------
+    // Internal state helpers  (must always be called under stateMutex)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Transitions to [PlayState.PLAYING] and starts the internal clock from [offsetSeconds].
+     * **Requires [stateMutex].**
+     */
+    private fun transitionToPlaying(offsetSeconds: Double) {
+        playState = PlayState.PLAYING
+        clock.start(offsetSeconds)
+        // Stamp the start time so syncPosition won't immediately restart a freshly-started stream
+        // (FFmpeg has startup latency that would otherwise look like a large drift).
+        lastSyncRestartMs = System.currentTimeMillis()
     }
 
     /**
-     * Resolves the appropriate audio source for the given URL.
-     *
-     * Direct audio file URLs (e.g. CDN-hosted mp3/wav/m4a/etc.) are fed straight
-     * to FFmpeg without going through yt-dlp, which significantly reduces startup
-     * latency for self-hosted files.
+     * Releases all resources, resets the clock, and transitions to [PlayState.STOPPED].
+     * **Requires [stateMutex].**
      */
-    private fun resolveAudioSource(url: String): AudioSource? =
-        when {
-            isDirectAudioUrl(url) -> {
-                HttpAudioSource(url)
-            }
-
-            else -> {
-                YtdlpAudioSource(url)
-            }
-        }
-
-    /**
-     * Returns true if the URL points directly to a known audio/video file format,
-     * meaning it can be streamed by FFmpeg without yt-dlp resolution.
-     *
-     * Detection is done on the path portion only (before any query string / fragment)
-     * so CDN URLs with tokens like `?token=abc` are handled correctly.
-     */
-    private fun isDirectAudioUrl(url: String): Boolean {
-        val directAudioExtensions =
-            setOf(
-                "mp3",
-                "mp4",
-                "m4a",
-                "m4b",
-                "wav",
-                "wave",
-                "ogg",
-                "oga",
-                "opus",
-                "flac",
-                "aac",
-                "webm",
-                "wma",
-                "aiff",
-                "aif",
-            )
-        // Strip query params and fragment, grab the extension of the last path segment
-        val path = url.substringBefore('?').substringBefore('#')
-        val extension = path.substringAfterLast('.', "").lowercase()
-        return extension in directAudioExtensions
-    }
-
-    /**
-     * Internal cleanup - must be called within stateMutex.withLock
-     */
-    private fun cleanupResourcesInternal() {
+    private fun cleanupInternal() {
         playbackContext?.cleanup()
         playbackContext = null
         playState = PlayState.STOPPED
+        clock.reset()
+        lastSyncRestartMs = 0L
     }
 
-    /**
-     * Internal state reset - must be called within stateMutex.withLock
-     */
-    private fun resetStateInternal() {
-        cleanupResourcesInternal()
-        playState = PlayState.STOPPED
-    }
+    // -----------------------------------------------------------------------
+    // Notifications
+    // -----------------------------------------------------------------------
 
-    private fun notifyStreamEnd() {
-        ModPackets.sendToServer(AudioPlayerStreamEndPacket(playerId))
-    }
+    private fun notifyStreamEnd() = ModPackets.sendToServer(AudioPlayerStreamEndPacket(playerId))
 
-    private fun notifyStreamFailure() {
-        ModPackets.sendToServer(AudioPlayerStreamEndPacket(playerId, true))
-    }
+    private fun notifyStreamFailure() = ModPackets.sendToServer(AudioPlayerStreamEndPacket(playerId, true))
 
-    /**
-     * Dispose of this audio player and release all resources.
-     * Should be called when the player is no longer needed.
-     */
-    fun dispose() {
-        stopSoundImmediately()
+    // -----------------------------------------------------------------------
+    // Minecraft sound engine helpers
+    // -----------------------------------------------------------------------
 
-        modLaunch {
-            stateMutex.withLock {
-                cleanupResourcesInternal()
-            }
-        }
-    }
+    private val soundManager get() = Minecraft.getInstance().soundManager
 
-    /**
-     * Synchronously stop the sound immediately, without waiting for coroutines.
-     * This is useful for cases where immediate cleanup is required.
-     */
-    fun stopSoundImmediately() {
-        try {
-            val context = playbackContext
-            if (context != null) {
-                // Stop composition (launches async on client thread)
-                try {
-                    context.soundComposition.stopComposition()
-                } catch (e: Exception) {
-                    "AudioPlayer $playerId: Error stopping composition: ${e.message}".err()
-                }
-
-                // Stop the sound instance on client thread
-                try {
-                    context.soundInstance?.let { instance ->
-                        // Launch on client thread to ensure thread safety
-                        modLaunch {
-                            try {
-                                soundManager.stop(instance)
-                            } catch (e: Exception) {
-                                "AudioPlayer $playerId: Error stopping sound instance: ${e.message}".err()
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    "AudioPlayer $playerId: Error stopping sound: ${e.message}".err()
-                }
-
-                // Cleanup resources
-                try {
-                    context.cleanup()
-                } catch (e: Exception) {
-                    "AudioPlayer $playerId: Error during cleanup: ${e.message}".err()
-                }
-            }
-        } catch (e: Exception) {
-            "AudioPlayer $playerId: Error in stopSoundImmediately: ${e.message}".err()
-        }
+    /** Stops [this] sound instance in the Minecraft sound engine, suppressing all errors. */
+    private suspend fun SoundInstance.stopInEngine() {
+        runCatching { withMainContext { soundManager.stop(this@stopInEngine) } }
+            .onFailure { "AudioPlayer $playerId: Error stopping sound instance: ${it.message}".err() }
     }
 }

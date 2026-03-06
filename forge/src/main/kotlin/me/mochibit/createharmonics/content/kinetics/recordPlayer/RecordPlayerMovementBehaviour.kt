@@ -702,14 +702,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
                     AudioPlayer.PlayState.STOPPED -> {
                         val record = getRecordItem(context)
-                        val offsetSeconds =
-                            if (playTime > 0) {
-                                val elapsedTime = System.currentTimeMillis() - playTime
-                                val adjustedTime = elapsedTime - tempData.totalPausedTime
-                                adjustedTime / 1000.0
-                            } else {
-                                0.0
-                            }
+                        val offsetSeconds = computeOffsetSeconds(tempData)
 
                         player.playFromRecord(
                             record,
@@ -720,8 +713,13 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                         )
                     }
 
-                    AudioPlayer.PlayState.PLAYING, AudioPlayer.PlayState.LOADING -> {
-                        // Already in correct state, do nothing
+                    AudioPlayer.PlayState.PLAYING -> {
+                        // Already playing – let syncPosition decide if a restart is needed
+                        player.syncPosition(computeOffsetSeconds(tempData))
+                    }
+
+                    AudioPlayer.PlayState.LOADING -> {
+                        // Initialising – nothing to do
                     }
                 }
             }
@@ -794,6 +792,18 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
     private fun hasRecord(context: MovementContext): Boolean {
         val record = getRecordItem(context)
         return !record.isEmpty && record.item is EtherealRecordItem
+    }
+
+    /**
+     * Computes the expected playback offset in seconds from the contraption's
+     * server-authoritative [RecordPlayerContextData.playTime] and
+     * [RecordPlayerContextData.totalPausedTime].
+     */
+    private fun computeOffsetSeconds(tempData: RecordPlayerContextData): Double {
+        val playTime = tempData.playTime
+        if (playTime <= 0L) return 0.0
+        val elapsed = System.currentTimeMillis() - playTime
+        return (elapsed - tempData.totalPausedTime).coerceAtLeast(0L) / 1000.0
     }
 
     override fun createVisual(
