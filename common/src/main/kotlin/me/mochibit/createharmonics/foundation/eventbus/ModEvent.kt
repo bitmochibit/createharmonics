@@ -11,13 +11,6 @@ interface Cancellable : ModEvent {
     var isCancelled: Boolean
 }
 
-/**
- * This event type is used to register platform specific event handlers that are required even for the common layer
- */
-interface ProxyEvent : ModEvent {
-    val proxyRegistrar: () -> Unit
-}
-
 /** Convenience base class providing a real [isCancelled] backing field. */
 abstract class CancellableEvent : Cancellable {
     override var isCancelled: Boolean = false

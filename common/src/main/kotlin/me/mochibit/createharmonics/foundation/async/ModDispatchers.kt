@@ -2,8 +2,7 @@ package me.mochibit.createharmonics.foundation.async
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Runnable
-import me.mochibit.createharmonics.event.proxy.ServerStartedEventProxy
-import me.mochibit.createharmonics.event.proxy.ServerStoppedEventProxy
+import me.mochibit.createharmonics.event.proxy.ProxyEvent
 import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
 import net.minecraft.client.Minecraft
@@ -14,10 +13,10 @@ object ModDispatchers {
     private var currentServer: MinecraftServer? = null
 
     init {
-        EventBus.on<ServerStartedEventProxy> { event ->
+        EventBus.on<ProxyEvent.ServerStartedEventProxy> { event ->
             currentServer = event.server
         }
-        EventBus.on<ServerStoppedEventProxy> { event ->
+        EventBus.on<ProxyEvent.ServerStoppedEventProxy> { event ->
             currentServer = null
         }
     }

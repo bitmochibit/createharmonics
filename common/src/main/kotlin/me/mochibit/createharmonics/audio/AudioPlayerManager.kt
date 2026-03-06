@@ -1,8 +1,7 @@
 package me.mochibit.createharmonics.audio
 
 import kotlinx.coroutines.Dispatchers
-import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
-import me.mochibit.createharmonics.event.proxy.LevelUnloadEventProxy
+import me.mochibit.createharmonics.event.proxy.ProxyEvent
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.debug
 import me.mochibit.createharmonics.foundation.err
@@ -13,7 +12,7 @@ object AudioPlayerManager {
     private val players = ConcurrentHashMap<String, AudioPlayer>()
 
     init {
-        EventBus.on<LevelUnloadEventProxy> { event ->
+        EventBus.on<ProxyEvent.LevelUnloadEventProxy> { event ->
             closeAll()
         }
     }
@@ -25,7 +24,7 @@ object AudioPlayerManager {
         callbacks: AudioPlayerCallbacks = AudioPlayerCallbacks(),
     ): IAudioPlayer {
         require(id.isNotBlank()) { "Player ID cannot be blank" }
-        require(players.containsKey(id)) { "Player '$id' already exists — use get() or release() first" }
+        require(!players.containsKey(id)) { "Player '$id' already exists — use get() or release() first" }
 
         val player =
             AudioPlayer(

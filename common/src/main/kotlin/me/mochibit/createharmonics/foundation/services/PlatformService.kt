@@ -14,18 +14,7 @@ interface PlatformService {
 
     fun isModLoaded(modId: String): Boolean
 
-    // Proxy events
-    fun serverStartedEventProxy()
-
-    fun serverStoppedEventProxy()
-
-    fun clientDisconnectedEventProxy()
-
-    fun registerCommandsEventProxy()
-
-    fun levelUnloadEventProxy()
-
-    fun gameShuttingDownEventProxy()
+    fun setupEventBridge()
 }
 
 val platformService: PlatformService by lazy {

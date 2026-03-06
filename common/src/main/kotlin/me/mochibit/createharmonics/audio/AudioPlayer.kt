@@ -28,6 +28,9 @@ import java.io.InputStream
 typealias StreamId = String
 typealias StreamingSoundInstanceProvider = (streamId: StreamId, stream: InputStream) -> SoundInstance
 
+/** Thrown when an input-stream source is fully consumed by the offset skip — treated as a natural end, not a failure. */
+private class StreamExhaustedException : Exception("Stream exhausted during offset skip — nothing left to play")
+
 class AudioPlayer internal constructor(
     override val playerId: String,
     private val soundInstanceProvider: StreamingSoundInstanceProvider,
@@ -171,18 +174,26 @@ class AudioPlayer internal constructor(
                 return
             }
             result
-                .onSuccess { transitionTo(AudioPlayerState.Playing) }
-                .onFailure { e ->
+                .onSuccess {
+                    // handleStreamEnd() may have already fired and closed the session while
+                    // we were outside the lock (e.g. exhausted stream). If the session is
+                    // gone, do not re-transition to Playing on top of a dead session.
+                    if (session === newSession) {
+                        transitionTo(AudioPlayerState.Playing)
+                    }
+                }.onFailure { e ->
                     "$playerId init error: ${e.message}".err()
+                    val isNaturalEnd = e is StreamExhaustedException
                     val canRetry =
-                        source is AudioPlaybackSource.FromUrl &&
+                        !isNaturalEnd &&
+                            source is AudioPlaybackSource.FromUrl &&
                             !AudioSourceResolver.isDirect(source.url) &&
                             !newSession.hasRetried
                     if (canRetry) {
                         retryAfterCacheInvalidation(source.url, newSession)
                     } else {
                         closeSessionInternal()
-                        notifyEnd(failed = true)
+                        notifyEnd(failed = !isNaturalEnd)
                     }
                 }
         }
@@ -205,8 +216,9 @@ class AudioPlayer internal constructor(
                 session.offsetSeconds
             }
 
+        val resolvedUrl = audioSource.resolveAudioUrl()
         val ffmpeg = FFmpegExecutor().also { session.ffmpegExecutor = it }
-        if (!ffmpeg.createStream(url, sampleRate, offset, audioSource.getHttpHeaders())) {
+        if (!ffmpeg.createStream(resolvedUrl, sampleRate, offset, audioSource.getHttpHeaders())) {
             throw IllegalStateException("FFmpeg stream init failed")
         }
 
@@ -225,26 +237,34 @@ class AudioPlayer internal constructor(
 
         val effectiveSampleRate = source.sampleRateOverride ?: sampleRate
         if (session.offsetSeconds > 0.0) {
-            skipStreamOffset(source.stream, session.offsetSeconds, effectiveSampleRate)
+            val exhausted = skipStreamOffset(source.stream, session.offsetSeconds, effectiveSampleRate)
+            if (exhausted) throw StreamExhaustedException()
         }
 
         session.audioStream = buildEffectStream(source.stream, session, source.sampleRateOverride)
         startPlayback(session, source.sampleRateOverride)
     }
 
+    /**
+     * Skips [offsetSeconds] worth of audio from [stream].
+     * Returns `true` if the stream was exhausted before the skip completed (nothing left to play),
+     * `false` if audio data remains.
+     */
     private suspend fun skipStreamOffset(
         stream: InputStream,
         offsetSeconds: Double,
         sr: Int,
-    ) = withContext(Dispatchers.IO) {
-        var remaining = (offsetSeconds * sr * 2L).let { if ((it % 2).toLong() != 0L) it + 1 else it }
-        val buf = ByteArray(8_192)
-        while (remaining > 0) {
-            val read = stream.read(buf, 0, minOf(remaining, buf.size.toDouble()).toInt())
-            if (read <= 0) break
-            remaining -= read
+    ): Boolean =
+        withContext(Dispatchers.IO) {
+            var remaining = (offsetSeconds * sr * 2L).let { if ((it % 2).toLong() != 0L) it + 1 else it }
+            val buf = ByteArray(8_192)
+            while (remaining > 0) {
+                val read = stream.read(buf, 0, minOf(remaining, buf.size.toDouble()).toInt())
+                if (read <= 0) return@withContext true // stream exhausted before skip completed
+                remaining -= read
+            }
+            false
         }
-    }
 
     private suspend fun startPlayback(
         session: PlaybackSession,
@@ -276,22 +296,27 @@ class AudioPlayer internal constructor(
 
     private fun handleStreamEnd() =
         modLaunch(Dispatchers.IO) {
-            mutex.withLock {
-                when (state) {
-                    is AudioPlayerState.Playing -> {
-                        closeSessionInternal()
-                        notifyEnd(failed = false)
-                    }
+            val failed: Boolean? =
+                mutex.withLock {
+                    when (state) {
+                        is AudioPlayerState.Playing,
+                        is AudioPlayerState.Loading,
+                        -> {
+                            closeSessionInternal()
+                            false
+                        }
 
-                    is AudioPlayerState.Paused -> {
-                        closeSessionInternal()
-                        notifyEnd(failed = true)
-                    }
+                        is AudioPlayerState.Paused -> {
+                            closeSessionInternal()
+                            true
+                        }
 
-                    else -> {
+                        else -> {
+                            null
+                        } // already stopped, nothing to do
                     }
                 }
-            }
+            if (failed != null) notifyEnd(failed)
         }
 
     private fun handleStreamHang() {
@@ -309,8 +334,7 @@ class AudioPlayer internal constructor(
         currentSession: PlaybackSession,
     ) {
         currentSession.hasRetried = true
-        AudioInfoCache
-            .invalidate(url)
+        AudioInfoCache.invalidate(url)
         delay(500)
         runCatching { initUrlSession(url, currentSession) }
             .onSuccess { transitionTo(AudioPlayerState.Playing) }
