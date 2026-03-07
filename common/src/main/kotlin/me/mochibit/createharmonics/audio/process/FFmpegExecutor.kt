@@ -13,7 +13,20 @@ import java.io.InputStream
 class FFmpegExecutor {
     companion object {
         private const val CHUNK_SIZE = 8192
-        private const val STREAM_READY_TIMEOUT_MS = 5000L
+
+        /** Base timeout when no seeking is needed. */
+        private const val STREAM_READY_BASE_TIMEOUT_MS = 10_000L
+
+        /**
+         * Extra milliseconds added per second of seek offset.
+         * For large offsets (e.g. 390 s into an 11-hour file) FFmpeg needs
+         * more time to fast-seek before it can start writing PCM output.
+         * 50 ms/s means a 390-second seek gets ~29 s extra on top of the base.
+         */
+        private const val STREAM_READY_EXTRA_MS_PER_SEEK_SECOND = 50L
+
+        /** Hard ceiling so we never wait forever. */
+        private const val STREAM_READY_MAX_TIMEOUT_MS = 60_000L
     }
 
     private var process: Process? = null
@@ -148,12 +161,20 @@ class FFmpegExecutor {
             }
         }
 
+        // Dynamic timeout: base + extra per seek-second, capped at the hard ceiling.
+        val streamReadyTimeoutMs =
+            minOf(
+                STREAM_READY_BASE_TIMEOUT_MS + (seekSeconds * STREAM_READY_EXTRA_MS_PER_SEEK_SECOND).toLong(),
+                STREAM_READY_MAX_TIMEOUT_MS,
+            )
+        val pollIntervalMs = 100L
+        val maxAttempts = (streamReadyTimeoutMs / pollIntervalMs).toInt()
+
         // Monitor stream readiness
         modLaunch(Dispatchers.IO) {
             try {
                 // Wait for stream to have data available
                 var attempts = 0
-                val maxAttempts = 50 // 50 * 100ms = 5 seconds
                 while (attempts < maxAttempts && newProcess.isAlive) {
                     try {
                         val available = newProcess.inputStream.available()
@@ -164,7 +185,7 @@ class FFmpegExecutor {
                     } catch (_: Exception) {
                         // Stream not ready yet
                     }
-                    delay(100)
+                    delay(pollIntervalMs)
                     attempts++
                 }
 
@@ -178,7 +199,7 @@ class FFmpegExecutor {
             }
         }
 
-        return withTimeoutOrNull(STREAM_READY_TIMEOUT_MS) {
+        return withTimeoutOrNull(streamReadyTimeoutMs) {
             val result = streamReady.await()
             result.isSuccess
         } ?: false.also {

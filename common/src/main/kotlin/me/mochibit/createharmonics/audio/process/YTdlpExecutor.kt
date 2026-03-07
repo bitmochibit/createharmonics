@@ -3,7 +3,8 @@ package me.mochibit.createharmonics.audio.process
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.int
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
@@ -43,7 +44,11 @@ class YTdlpExecutor {
                         listOf(
                             ytdlPath,
                             "-f",
-                            "bestaudio[protocol^=http][protocol!*=m3u8]/bestaudio[protocol=https]/bestaudio[ext!=m3u8]/bestaudio/best",
+                            // Prefer formats that serve the full file in a single request.
+                            // HLS/DASH segments only have per-fragment durations and cause
+                            // wrap-around issues for very long videos (e.g. 11 h YouTube streams).
+                            // Fall back to bestaudio only when no single-file audio is available.
+                            "bestaudio[protocol=https]/bestaudio[protocol=http]/bestaudio",
                             // Output in JSON format to get all metadata including HTTP headers
                             "-j",
                             "--quiet", // Minimal output for faster execution
@@ -91,18 +96,18 @@ class YTdlpExecutor {
                         jsonObject["url"]?.jsonPrimitive?.content
                             ?: throw IllegalStateException("No URL found in yt-dlp output")
 
-                    // Duration can be either int or double, convert to int seconds
-                    val duration =
-                        try {
-                            jsonObject["duration"]?.jsonPrimitive?.int ?: 0
-                        } catch (e: Exception) {
-                            // Try parsing as double and convert to int
-                            jsonObject["duration"]
-                                ?.jsonPrimitive
-                                ?.content
-                                ?.toDoubleOrNull()
-                                ?.toInt() ?: 0
-                        }
+                    // yt-dlp's -j output merges the selected format dict into the root info
+                    // dict.  For segmented formats (DASH/HLS) the format-level "duration" is
+                    // the per-fragment length (e.g. 85 s), NOT the full video duration.
+                    // The actual full duration is always stored on the info dict itself, but
+                    // because of the merge it may be shadowed.
+                    //
+                    // Resolution strategy (most-reliable → least-reliable):
+                    //  1. "duration" from the root info dict – reliable when not shadowed
+                    //  2. "duration_string" parsed as H:M:S – unaffected by the format merge
+                    //  3. Largest duration found inside the "formats" array
+                    //  4. Fallback to 0 (means "unknown")
+                    val duration = extractFullDuration(jsonObject)
 
                     // Extract HTTP headers if available
                     val httpHeaders = mutableMapOf<String, String>()
@@ -122,4 +127,88 @@ class YTdlpExecutor {
                 null
             }
         }
+
+    /**
+     * Extracts the *full* video/audio duration (in whole seconds) from a yt-dlp info-dict
+     * JSON object.
+     *
+     * yt-dlp's `-j` output merges the selected format dict into the root info dict, which
+     * means the root-level `"duration"` field can be overwritten by the format's own
+     * `"duration"` value.  For segmented DASH/HLS formats that value is the per-fragment
+     * length (commonly ~85 s for YouTube), not the full video duration.
+     *
+     * We therefore try multiple fields in descending order of reliability:
+     *  1. `"duration_string"` – a human-readable `"H:MM:SS"` field that is set from the
+     *     info dict and is **not** overwritten by format merging.
+     *  2. `"duration"` as a numeric value, accepted only when it is implausibly large
+     *     enough to be the real duration (> the fragment threshold).
+     *  3. The maximum `"duration"` found across all entries in the `"formats"` array –
+     *     the info-dict value should appear there as the highest entry.
+     *  4. `0` (unknown) as a last resort.
+     */
+    private fun extractFullDuration(jsonObject: JsonObject): Int {
+        // 1. duration_string is "H:MM:SS" or "M:SS" – always refers to the full video
+        val durationString = jsonObject["duration_string"]?.jsonPrimitive?.content
+        if (!durationString.isNullOrBlank()) {
+            val parsed = parseDurationString(durationString)
+            if (parsed > 0) return parsed
+        }
+
+        // 2. Numeric "duration" – only trust it when it looks like a full-video length.
+        //    A value ≤ SEGMENT_DURATION_CEILING_S is suspiciously small and likely a
+        //    per-segment length injected by the format merge.
+        val numericDuration =
+            try {
+                jsonObject["duration"]
+                    ?.jsonPrimitive
+                    ?.content
+                    ?.toDoubleOrNull()
+                    ?.toInt() ?: 0
+            } catch (_: Exception) {
+                0
+            }
+
+        if (numericDuration > SEGMENT_DURATION_CEILING_S) return numericDuration
+
+        // 3. Scan the "formats" array and take the maximum reported duration
+        val maxFormatDuration =
+            jsonObject["formats"]
+                ?.let { it as? JsonArray }
+                ?.mapNotNull { el ->
+                    (el as? JsonObject)
+                        ?.get("duration")
+                        ?.jsonPrimitive
+                        ?.content
+                        ?.toDoubleOrNull()
+                        ?.toInt()
+                }?.maxOrNull() ?: 0
+
+        if (maxFormatDuration > 0) return maxFormatDuration
+
+        // 4. Give up – return whatever numeric value we had (may be 0)
+        return numericDuration
+    }
+
+    /**
+     * Parses a yt-dlp `duration_string` value into whole seconds.
+     * Accepts `"H:MM:SS"`, `"M:SS"`, `"SS"` and decimal variants.
+     */
+    private fun parseDurationString(s: String): Int {
+        val parts = s.trim().split(":").map { it.toDoubleOrNull() ?: return 0 }
+        return when (parts.size) {
+            1 -> parts[0].toInt()
+            2 -> (parts[0] * 60 + parts[1]).toInt()
+            3 -> (parts[0] * 3600 + parts[1] * 60 + parts[2]).toInt()
+            else -> 0
+        }
+    }
+
+    companion object {
+        /**
+         * Durations at or below this value (seconds) are assumed to be per-segment
+         * lengths rather than full-video durations and are discarded in favour of
+         * more reliable sources.  YouTube DASH audio segments are typically 85–120 s.
+         */
+        private const val SEGMENT_DURATION_CEILING_S = 300
+    }
 }

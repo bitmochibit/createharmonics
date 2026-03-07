@@ -369,7 +369,7 @@ class AudioPlayer(
                     return@modLaunch
                 }
                 result
-                    .onSuccess { transitionToPlaying(offsetSeconds) }
+                    .onSuccess { effectiveOffset -> transitionToPlaying(effectiveOffset) }
                     .onFailure { e ->
                         "AudioPlayer $playerId: Error during playback: ${e.message}".err()
                         invalidateUrlCacheAndRetry(url, context)
@@ -599,7 +599,7 @@ class AudioPlayer(
             // Restart outside the lock to avoid dead-locking play()
             when {
                 needsStreamRestart -> {
-                    play(
+                    forceRestartFromOffset(
                         snapshotUrl!!,
                         snapshotEffectChain!!,
                         snapshotComposition!!,
@@ -612,6 +612,52 @@ class AudioPlayer(
                     stateMutex.withLock { clock.syncTo(targetPositionSeconds) }
                 }
             }
+        }
+    }
+
+    /**
+     * Forces a stream restart from [offsetSeconds], bypassing the idempotency guard in [play].
+     * Used by [syncPosition] to ensure the restart actually happens even when the source URL
+     * and effect chain are identical to the currently-playing session.
+     */
+    private suspend fun forceRestartFromOffset(
+        url: String,
+        effectChain: EffectChain,
+        soundEventComposition: SoundEventComposition,
+        offsetSeconds: Double,
+    ) {
+        val source = PlaybackSource.Url(url)
+        val context: PlaybackContext
+
+        stateMutex.withLock {
+            // If another restart already started while we were waiting for the lock, bail out
+            if (playState == PlayState.LOADING) {
+                "AudioPlayer $playerId: forceRestartFromOffset – already loading, skipping".debug()
+                return
+            }
+
+            if (playState != PlayState.STOPPED) cleanupInternal()
+
+            playState = PlayState.LOADING
+            context =
+                PlaybackContext(source, effectChain, soundEventComposition, offsetSeconds)
+                    .also { onEffectChainCreate?.invoke(effectChain) }
+            playbackContext = context
+        }
+
+        val result = runCatching { initializeUrlPlayback(url, context) }
+
+        stateMutex.withLock {
+            if (playbackContext !== context) {
+                context.cleanup()
+                return
+            }
+            result
+                .onSuccess { transitionToPlaying(offsetSeconds) }
+                .onFailure { e ->
+                    "AudioPlayer $playerId: Error during sync-restart: ${e.message}".err()
+                    invalidateUrlCacheAndRetry(url, context)
+                }
         }
     }
 
@@ -646,10 +692,14 @@ class AudioPlayer(
     // Stream initialisation
     // -----------------------------------------------------------------------
 
+    /**
+     * Initialises URL-based playback and returns the effective start offset in seconds
+     * (which may differ from [PlaybackContext.offsetSeconds] when looping wrap-around applies).
+     */
     private suspend fun initializeUrlPlayback(
         url: String,
         context: PlaybackContext,
-    ) {
+    ): Double {
         val audioSource =
             resolveAudioSource(url)
                 ?: throw IllegalArgumentException("Unsupported audio source for URL: $url")
@@ -688,6 +738,8 @@ class AudioPlayer(
 
         check(playState == PlayState.LOADING) { "Aborting playback – state changed during initialisation" }
         startPlayback(context.processingAudioStream!!, context)
+
+        return effectiveOffset
     }
 
     private suspend fun initializeStreamPlayback(
