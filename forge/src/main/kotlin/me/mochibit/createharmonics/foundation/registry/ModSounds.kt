@@ -7,23 +7,27 @@ import me.mochibit.createharmonics.foundation.extension.asResource
 import net.minecraft.core.registries.Registries
 import net.minecraft.sounds.SoundEvent
 import net.minecraftforge.registries.DeferredRegister
+import net.minecraftforge.registries.ForgeRegistries
 import net.minecraftforge.registries.RegistryObject
 
-object ModSounds : ForgeRegistry {
+object ModSounds : ForgeRegistry, HasModSound<RegistryObject<SoundEvent>> {
     private val SOUND_EVENTS: DeferredRegister<SoundEvent> =
         DeferredRegister.create(Registries.SOUND_EVENT, CreateHarmonicsMod.MOD_ID)
 
-    val SLIDING_STONE = registerSoundEvent("sliding_stone")
-    val GLITTER = registerSoundEvent("glitter")
-
-    private fun registerSoundEvent(name: String): RegistryObject<SoundEvent> =
-        SOUND_EVENTS.register(name) {
-            SoundEvent.createVariableRangeEvent(
-                name.asResource(),
-            )
-        }
+    override val slidingStoneSound = "sliding_stone".register()
+    override val glitterSoundEvent = "glitter".register()
 
     override fun register() {
         SOUND_EVENTS.register(ModEventBus)
+    }
+
+    override fun String.register(): CrossPlatformRegistry.ConvertibleEntry<RegistryObject<SoundEvent>, SoundEvent> {
+        val registered =
+            SOUND_EVENTS.register(this) {
+                SoundEvent.createVariableRangeEvent(
+                    this.asResource(),
+                )
+            }
+        return CrossPlatformRegistry.ConvertibleEntry(registered) { registered.get() }
     }
 }

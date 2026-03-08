@@ -1,9 +1,11 @@
 package me.mochibit.createharmonics.foundation.services
 
 import me.mochibit.createharmonics.content.records.RecordType
+import me.mochibit.createharmonics.foundation.registry.HasModSound
 import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Registry
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerPlayer
@@ -38,8 +40,7 @@ interface ContentService {
         newIndex: Int = 0,
     )
 
-    val slidingStoneSound: SoundEvent
-    val glitterSoundEvent: SoundEvent
+    val soundEventRegistry: HasModSound<*>
     val baseRecordItemStack: ItemStack
 
     fun onStreamEnd(

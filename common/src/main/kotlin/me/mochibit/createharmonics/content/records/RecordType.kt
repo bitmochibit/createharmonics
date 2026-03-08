@@ -41,7 +41,7 @@ enum class RecordType(
             soundEventCompProvider = {
                 listOf(
                     SoundEventComposition.SoundEventDef(
-                        contentService.slidingStoneSound,
+                        contentService.soundEventRegistry.slidingStoneSound.get(),
                         looping = true,
                         relative = false,
                         volumeSupplier = { 0.25f },
@@ -110,7 +110,7 @@ enum class RecordType(
             soundEventCompProvider = {
                 listOf(
                     SoundEventComposition.SoundEventDef(
-                        contentService.glitterSoundEvent,
+                        contentService.soundEventRegistry.glitterSoundEvent.get(),
                         looping = false,
                         relative = false,
                         volumeSupplier = { 0.7f },
