@@ -21,9 +21,12 @@ import net.minecraft.nbt.CompoundTag
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.sounds.SoundEvent
+import net.minecraft.tags.TagKey
+import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.StructureBlockInfo
 import net.minecraft.world.level.material.FluidState
+import net.minecraftforge.common.Tags
 import net.minecraftforge.network.PacketDistributor
 
 class ForgeContentService : ContentService {

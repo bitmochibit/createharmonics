@@ -5,7 +5,7 @@ import net.minecraftforge.fml.ModList
 import net.minecraftforge.fml.loading.FMLLoader
 
 class ForgePlatformService : PlatformService {
-    override val platformName: String = "Forge"
+    override val currentPlatform: PlatformService.Platform = PlatformService.Platform.FORGE
     override val environment: PlatformService.Environment
         get() =
             when {

@@ -6,8 +6,11 @@ import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.BitCrushEffect
 import me.mochibit.createharmonics.audio.effect.EQBand
 import me.mochibit.createharmonics.audio.effect.EqualizerEffect
+import me.mochibit.createharmonics.foundation.extension.Tags
 import me.mochibit.createharmonics.foundation.extension.asResource
+import me.mochibit.createharmonics.foundation.extension.butOnForge
 import me.mochibit.createharmonics.foundation.extension.resPath
+import me.mochibit.createharmonics.foundation.extension.withPath
 import me.mochibit.createharmonics.foundation.services.configService
 import me.mochibit.createharmonics.foundation.services.contentService
 import net.minecraft.core.registries.BuiltInRegistries
@@ -26,7 +29,7 @@ enum class RecordType(
                 Properties.Recipe(
                     secondaryIngredientProvider = {
                         Ingredient.of(
-                            TagKey.create(Registries.ITEM, "c" resPath "stones"),
+                            Tags.Items withPath "stone",
                         )
                     },
                 ),
@@ -55,7 +58,7 @@ enum class RecordType(
                 Properties.Recipe(
                     secondaryIngredientProvider = {
                         Ingredient.of(
-                            TagKey.create(Registries.ITEM, "c" resPath "ingots/gold"),
+                            Tags.Items withPath "ingots/gold",
                         )
                     },
                 ),
@@ -69,7 +72,7 @@ enum class RecordType(
                 Properties.Recipe(
                     secondaryIngredientProvider = {
                         Ingredient.of(
-                            TagKey.create(Registries.ITEM, "c" resPath "gems/emerald"),
+                            Tags.Items withPath "gems/emerald",
                         )
                     },
                 ),
@@ -100,7 +103,7 @@ enum class RecordType(
                 Properties.Recipe(
                     secondaryIngredientProvider = {
                         Ingredient.of(
-                            TagKey.create(Registries.ITEM, "c" resPath "gems/diamond"),
+                            Tags.Items withPath "gems/diamond",
                         )
                     },
                 ),
@@ -126,7 +129,7 @@ enum class RecordType(
                     { Ingredient.of(BuiltInRegistries.ITEM.get("diamond_ethereal_record".asResource())) },
                     {
                         Ingredient.of(
-                            TagKey.create(Registries.ITEM, "c" resPath "ingots/netherite"),
+                            Tags.Items withPath "ingots/netherite",
                         )
                     },
                 ),

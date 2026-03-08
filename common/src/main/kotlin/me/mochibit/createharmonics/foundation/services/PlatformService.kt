@@ -1,6 +1,11 @@
 package me.mochibit.createharmonics.foundation.services
 
 interface PlatformService {
+    enum class Platform {
+        NEOFORGE,
+        FORGE,
+    }
+
     enum class Environment {
         SERVER,
         CLIENT,
@@ -8,7 +13,7 @@ interface PlatformService {
 
     infix fun isEnvironment(env: Environment): Boolean = environment == env
 
-    val platformName: String
+    val currentPlatform: Platform
 
     val environment: Environment
 

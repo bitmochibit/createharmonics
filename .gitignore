@@ -15,3 +15,8 @@
 /common/build/
 /forge/run/
 /common/run/
+
+/forge/src/generated/resources/.cache
+/forge/src/generated/resources/assets/createharmonics/blockstates
+/forge/src/generated/resources/assets/createharmonics/models
+/forge/src/generated/resources/data
