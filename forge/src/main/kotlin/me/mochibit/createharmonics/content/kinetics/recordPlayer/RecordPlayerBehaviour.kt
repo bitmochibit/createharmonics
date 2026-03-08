@@ -2,13 +2,13 @@ package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
-import me.mochibit.createharmonics.ServerConfig
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerManager
 import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.SimpleShipStreamSoundInstance
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
+import me.mochibit.createharmonics.config.ServerConfig
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
 import me.mochibit.createharmonics.content.record.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordUtilities

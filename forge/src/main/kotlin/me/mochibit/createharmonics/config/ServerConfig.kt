@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics
+package me.mochibit.createharmonics.config
 
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
 import me.mochibit.createharmonics.content.records.RecordType
@@ -15,7 +15,7 @@ import net.minecraftforge.fml.common.Mod.EventBusSubscriber
 @EventBusSubscriber(modid = MOD_ID, bus = EventBusSubscriber.Bus.MOD)
 object ServerConfig : ConfigBase() {
     // Stress configuration (nested)
-    val modStress = nested(0, { ModStress }, "Mechanical stress impacts and capacities for CreateHarmonics blocks")
+    val modStress = nested(0, { ModStressConfig }, "Mechanical stress impacts and capacities for CreateHarmonics blocks")
 
     // Record durability configuration
     private val recordDurabilities: MutableMap<RecordType, ConfigInt> = mutableMapOf()

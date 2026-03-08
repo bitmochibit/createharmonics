@@ -32,6 +32,9 @@ val registrateVersion = rootProject.property("registrate_version").toString()
 val modId = rootProject.property("mod_id").toString()
 val forgeVersion = rootProject.property("forge_version").toString()
 
+val forgeProject = project
+val commonProject = project(":common")
+
 mixin {
     add(sourceSets["main"], "$modId.refmap.json")
     config("$modId.mixins.json")
@@ -72,9 +75,11 @@ legacyForge {
                 modId,
                 "--all",
                 "--output",
-                file("src/generated/resources/").absolutePath,
+                forgeProject.file("src/generated/resources/").absolutePath,
                 "--existing",
-                file("src/main/resources/").absolutePath,
+                forgeProject.file("src/main/resources/").absolutePath,
+                "--existing",
+                commonProject.file("src/main/resources/").absolutePath,
             )
         }
         register("server") {

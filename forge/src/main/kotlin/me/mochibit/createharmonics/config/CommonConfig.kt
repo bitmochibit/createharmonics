@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics
+package me.mochibit.createharmonics.config
 
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
 import net.createmod.catnip.config.ConfigBase

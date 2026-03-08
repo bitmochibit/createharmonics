@@ -1,12 +1,11 @@
 package me.mochibit.createharmonics.foundation.registry
 
 import com.simibubi.create.api.stress.BlockStressValues
-import me.mochibit.createharmonics.ClientConfig
-import me.mochibit.createharmonics.CommonConfig
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
-import me.mochibit.createharmonics.ForgeModEntryPoint
 import me.mochibit.createharmonics.ModLoadingContext
-import me.mochibit.createharmonics.ServerConfig
+import me.mochibit.createharmonics.config.ClientConfig
+import me.mochibit.createharmonics.config.CommonConfig
+import me.mochibit.createharmonics.config.ServerConfig
 import net.createmod.catnip.config.ConfigBase
 import net.minecraftforge.common.ForgeConfigSpec
 import net.minecraftforge.eventbus.api.SubscribeEvent

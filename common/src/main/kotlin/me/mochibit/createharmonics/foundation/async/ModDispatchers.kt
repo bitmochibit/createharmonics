@@ -2,9 +2,9 @@ package me.mochibit.createharmonics.foundation.async
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Runnable
-import me.mochibit.createharmonics.event.proxy.ProxyEvent
 import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
+import me.mochibit.createharmonics.foundation.eventbus.ProxyEvent
 import net.minecraft.client.Minecraft
 import net.minecraft.server.MinecraftServer
 import kotlin.coroutines.CoroutineContext

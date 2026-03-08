@@ -1,6 +1,5 @@
 package me.mochibit.createharmonics.foundation.eventbus
 
-import me.mochibit.createharmonics.event.proxy.ProxyEvent
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent
 import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.event.GameShuttingDownEvent

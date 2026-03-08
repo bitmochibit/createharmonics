@@ -1,9 +1,9 @@
 package me.mochibit.createharmonics.foundation.registry
 
 import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
-import me.mochibit.createharmonics.event.proxy.ProxyEvent
 import me.mochibit.createharmonics.foundation.async.ModCoroutineScope
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
+import me.mochibit.createharmonics.foundation.eventbus.ProxyEvent
 
 object ModLifecycleHandlers : CommonRegistry {
     override fun register() {

@@ -7,8 +7,8 @@ import com.simibubi.create.api.contraption.storage.item.MountedItemStorageType.m
 import com.simibubi.create.foundation.data.AssetLookup
 import com.simibubi.create.foundation.data.ModelGen.customItemModel
 import com.tterrag.registrate.util.entry.BlockEntry
-import me.mochibit.createharmonics.ModStress
 import me.mochibit.createharmonics.cRegistrate
+import me.mochibit.createharmonics.config.ModStressConfig
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlock
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlock
@@ -80,7 +80,7 @@ object ModBlocks : ForgeRegistry {
             ).tag(AllTags.AllBlockTags.SIMPLE_MOUNTED_STORAGE.tag)
             .transform(mountedItemStorage(ModMountedStorages.SIMPLE_RECORD_PLAYER_STORAGE))
             .transform(displaySource(ModDisplaySources.AUDIO_NAME))
-            .transform(ModStress.setImpact(1.0))
+            .transform(ModStressConfig.setImpact(1.0))
             .item()
             .tag(AllTags.AllItemTags.CONTRAPTION_CONTROLLED.tag)
             .transform(customItemModel())

@@ -27,6 +27,9 @@ import net.minecraft.world.level.material.FluidState
 import net.minecraftforge.network.PacketDistributor
 
 class ForgeContentService : ContentService {
+    override val slidingStoneSound: SoundEvent by lazy { ModSounds.SLIDING_STONE.get() }
+    override val glitterSoundEvent: SoundEvent by lazy { ModSounds.GLITTER.get() }
+
     override fun getViscosity(fluidState: FluidState): Int = fluidState.fluidType.viscosity
 
     override fun addTags(rawHelper: PonderTagRegistrationHelper<ResourceLocation>) {
@@ -70,9 +73,6 @@ class ForgeContentService : ContentService {
         }
     }
 
-    override val slidingStoneSound: SoundEvent by lazy { ModSounds.SLIDING_STONE.get() }
-    override val glitterSoundEvent: SoundEvent by lazy { ModSounds.GLITTER.get() }
-
     override fun onStreamEnd(
         audioPlayerId: String,
         failure: Boolean,
@@ -110,6 +110,10 @@ class ForgeContentService : ContentService {
     override fun isRecordBase(stack: ItemStack): Boolean = stack.item is BaseRecordItem
 }
 
+/**
+ * Create mod lacks a way to update contraption block data without replacing the entire block state
+ * This function updates the block data of a contraption block and syncs it to clients
+ */
 fun AbstractContraptionEntity.handleBlockDataChange(
     localPos: BlockPos,
     newData: CompoundTag,
@@ -119,9 +123,6 @@ fun AbstractContraptionEntity.handleBlockDataChange(
     contraption.blocks[localPos] = StructureBlockInfo(info.pos(), info.state, newData)
 }
 
-/**
- * Easily synchronizes blockdata server to client
- */
 fun AbstractContraptionEntity.setBlockData(
     localPos: BlockPos,
     newInfo: StructureBlockInfo,

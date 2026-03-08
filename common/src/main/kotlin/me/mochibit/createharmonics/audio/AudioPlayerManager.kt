@@ -2,11 +2,10 @@ package me.mochibit.createharmonics.audio
 
 import kotlinx.coroutines.Dispatchers
 import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.event.proxy.ProxyEvent
 import me.mochibit.createharmonics.foundation.async.modLaunch
-import me.mochibit.createharmonics.foundation.debug
 import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
+import me.mochibit.createharmonics.foundation.eventbus.ProxyEvent
 import java.util.concurrent.ConcurrentHashMap
 
 object AudioPlayerManager {

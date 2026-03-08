@@ -1,8 +1,8 @@
 package me.mochibit.createharmonics.foundation.registry
 
 import me.mochibit.createharmonics.command.CommandEntry
-import me.mochibit.createharmonics.event.proxy.ProxyEvent
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
+import me.mochibit.createharmonics.foundation.eventbus.ProxyEvent
 import me.mochibit.createharmonics.foundation.info
 
 object ModCommands : CommonRegistry {

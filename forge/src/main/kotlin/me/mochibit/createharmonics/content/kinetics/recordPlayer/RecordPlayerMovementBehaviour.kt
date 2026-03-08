@@ -8,12 +8,12 @@ import com.simibubi.create.content.contraptions.render.ContraptionMatrices
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import dev.engine_room.flywheel.api.visualization.VisualizationContext
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
-import me.mochibit.createharmonics.ServerConfig
 import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.AudioPlayerManager
 import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
+import me.mochibit.createharmonics.config.ServerConfig
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.PlaybackState
 import me.mochibit.createharmonics.content.record.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordUtilities
@@ -43,6 +43,7 @@ import java.util.UUID
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.seconds
 
+// TODO: This thing needs a refactor and cleanup, it's not scalable enough for future features
 class RecordPlayerMovementBehaviour : MovementBehaviour {
     /**
      * Data class to hold temporary context data that persists during runtime.
@@ -258,6 +259,8 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         // Sync at least every 20 ticks (1 second) when playing
         val currentTick = context.world.gameTime
         val shouldForceSync = shouldBePlaying && (currentTick - tempData.lastSyncTick) >= 20
+
+        // TODO: optimize and extract this (it should sync based on events like player join, or when the block is loaded (along with the contraption) instead of using periodic syncs
 
         // Sync to contraption block data if something changed OR periodic sync is needed
         if (dataChanged || shouldForceSync) {

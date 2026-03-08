@@ -1,8 +1,6 @@
-package me.mochibit.createharmonics.event.proxy
+package me.mochibit.createharmonics.foundation.eventbus
 
 import com.mojang.brigadier.CommandDispatcher
-import me.mochibit.createharmonics.foundation.eventbus.ModEvent
-import me.mochibit.createharmonics.foundation.services.platformService
 import net.minecraft.client.multiplayer.MultiPlayerGameMode
 import net.minecraft.client.player.LocalPlayer
 import net.minecraft.commands.CommandBuildContext
