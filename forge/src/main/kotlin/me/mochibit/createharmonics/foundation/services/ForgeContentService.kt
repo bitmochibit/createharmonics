@@ -10,7 +10,6 @@ import me.mochibit.createharmonics.content.records.BaseRecordItem
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.foundation.network.packet.ContraptionBlockDataChangedPacket
 import me.mochibit.createharmonics.foundation.registry.ForgeModPackets
-import me.mochibit.createharmonics.foundation.registry.HasModSound
 import me.mochibit.createharmonics.foundation.registry.ModItems
 import me.mochibit.createharmonics.foundation.registry.ModPonders
 import me.mochibit.createharmonics.foundation.registry.ModSounds
@@ -18,21 +17,13 @@ import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper
 import net.minecraft.client.Minecraft
 import net.minecraft.core.BlockPos
-import net.minecraft.core.Registry
-import net.minecraft.core.registries.BuiltInRegistries
-import net.minecraft.core.registries.Registries
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.sounds.SoundEvent
-import net.minecraft.tags.TagKey
-import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.StructureBlockInfo
 import net.minecraft.world.level.material.FluidState
-import net.minecraftforge.common.Tags
 import net.minecraftforge.network.PacketDistributor
-import net.minecraftforge.registries.ForgeRegistries
 
 class ForgeContentService : ContentService {
     override fun getViscosity(fluidState: FluidState): Int = fluidState.fluidType.viscosity

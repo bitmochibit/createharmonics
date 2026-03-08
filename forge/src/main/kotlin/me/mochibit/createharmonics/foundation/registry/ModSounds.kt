@@ -1,16 +1,14 @@
 package me.mochibit.createharmonics.foundation.registry
 
-import com.tterrag.registrate.util.entry.RegistryEntry
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.ModEventBus
 import me.mochibit.createharmonics.foundation.extension.asResource
 import net.minecraft.core.registries.Registries
 import net.minecraft.sounds.SoundEvent
 import net.minecraftforge.registries.DeferredRegister
-import net.minecraftforge.registries.ForgeRegistries
 import net.minecraftforge.registries.RegistryObject
 
-object ModSounds : ForgeRegistry, HasModSound<RegistryObject<SoundEvent>> {
+object ModSounds : ForgeRegistry, ModSoundRegistry<RegistryObject<SoundEvent>> {
     private val SOUND_EVENTS: DeferredRegister<SoundEvent> =
         DeferredRegister.create(Registries.SOUND_EVENT, CreateHarmonicsMod.MOD_ID)
 
