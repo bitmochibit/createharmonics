@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.registry
+package me.mochibit.createharmonics.foundation.registry
 
 import com.simibubi.create.AllTags
 import com.simibubi.create.api.behaviour.display.DisplaySource.displaySource
@@ -9,26 +9,20 @@ import com.simibubi.create.foundation.data.BlockStateGen
 import com.simibubi.create.foundation.data.ModelGen.customItemModel
 import com.simibubi.create.foundation.data.SharedProperties
 import com.tterrag.registrate.util.entry.BlockEntry
-import me.mochibit.createharmonics.CreateHarmonicsMod
-import me.mochibit.createharmonics.Logger.info
-import me.mochibit.createharmonics.ModStress
 import me.mochibit.createharmonics.cRegistrate
+import me.mochibit.createharmonics.config.ModStressConfig
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlock
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.brassJukebox.BrassJukeboxBlock
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlock
+import me.mochibit.createharmonics.foundation.info
 import net.minecraft.client.renderer.RenderType
-import net.minecraft.core.Direction
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.tags.BlockTags
 import net.minecraft.world.level.block.SoundType
-import net.minecraft.world.level.block.state.properties.BlockStateProperties
-import net.minecraftforge.client.model.generators.ConfiguredModel
-import net.minecraftforge.eventbus.api.IEventBus
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
 import java.util.function.Supplier
 
-object ModBlocks : AutoRegistrable {
+object ModBlocks : ForgeRegistry {
     override val registrationOrder = 2
 
     val ANDESITE_JUKEBOX: BlockEntry<AndesiteJukeboxBlock> =
@@ -48,7 +42,7 @@ object ModBlocks : AutoRegistrable {
             ).tag(AllTags.AllBlockTags.SIMPLE_MOUNTED_STORAGE.tag)
             .transform(mountedItemStorage(ModMountedStorages.SIMPLE_RECORD_PLAYER_STORAGE))
             .transform(displaySource(ModDisplaySources.AUDIO_NAME))
-            .transform(ModStress.setImpact(1.0))
+            .transform(ModStressConfig.setImpact(1.0))
             .blockstate(BlockStateGen.directionalBlockProvider(true))
             .item()
             .tag(AllTags.AllItemTags.CONTRAPTION_CONTROLLED.tag)
@@ -72,7 +66,7 @@ object ModBlocks : AutoRegistrable {
             ).tag(AllTags.AllBlockTags.SIMPLE_MOUNTED_STORAGE.tag)
             .transform(mountedItemStorage(ModMountedStorages.SIMPLE_RECORD_PLAYER_STORAGE))
             .transform(displaySource(ModDisplaySources.AUDIO_NAME))
-            .transform(ModStress.setImpact(1.0))
+            .transform(ModStressConfig.setImpact(1.0))
             .item()
             .tag(AllTags.AllItemTags.CONTRAPTION_CONTROLLED.tag)
             .transform(customItemModel())
@@ -94,10 +88,7 @@ object ModBlocks : AutoRegistrable {
             .transform(customItemModel())
             .register()
 
-    override fun register(
-        eventBus: IEventBus,
-        context: FMLJavaModLoadingContext,
-    ) {
-        info("Registering blocks for ${CreateHarmonicsMod.MOD_ID}")
+    override fun register() {
+        "Registering blocks".info()
     }
 }

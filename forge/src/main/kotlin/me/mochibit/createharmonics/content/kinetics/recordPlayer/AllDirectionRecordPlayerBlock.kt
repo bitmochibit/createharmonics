@@ -1,19 +1,9 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
-<<<<<<<< HEAD:forge/src/main/kotlin/me/mochibit/createharmonics/content/kinetics/recordPlayer/RecordPlayerBlock.kt
-import com.simibubi.create.AllItems
-========
->>>>>>>> brass-jukebox:forge/src/main/kotlin/me/mochibit/createharmonics/content/kinetics/recordPlayer/AllDirectionRecordPlayerBlock.kt
 import com.simibubi.create.content.kinetics.base.DirectionalKineticBlock
 import com.simibubi.create.content.logistics.packagerLink.PackagerLinkBlock
 import com.simibubi.create.foundation.block.IBE
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock
-<<<<<<<< HEAD:forge/src/main/kotlin/me/mochibit/createharmonics/content/kinetics/recordPlayer/RecordPlayerBlock.kt
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlockEntity
-import me.mochibit.createharmonics.content.record.EtherealRecordItem
-import me.mochibit.createharmonics.foundation.extension.onServer
-========
->>>>>>>> brass-jukebox:forge/src/main/kotlin/me/mochibit/createharmonics/content/kinetics/recordPlayer/AllDirectionRecordPlayerBlock.kt
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.tags.FluidTags
@@ -27,7 +17,6 @@ import net.minecraft.world.level.LevelAccessor
 import net.minecraft.world.level.LevelReader
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.JukeboxBlock
-import net.minecraft.world.level.block.Mirror
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.StateDefinition
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
@@ -36,12 +25,9 @@ import net.minecraft.world.phys.BlockHitResult
 abstract class AllDirectionRecordPlayerBlock(
     properties: Properties,
 ) : DirectionalKineticBlock(properties),
-<<<<<<<< HEAD:forge/src/main/kotlin/me/mochibit/createharmonics/content/kinetics/recordPlayer/RecordPlayerBlock.kt
-    IBE<RecordPlayerBlockEntity> {
-========
     IBE<RecordPlayerBlockEntity>,
-    ProperWaterloggedBlock, RecordPlayerTrait{
->>>>>>>> brass-jukebox:forge/src/main/kotlin/me/mochibit/createharmonics/content/kinetics/recordPlayer/AllDirectionRecordPlayerBlock.kt
+    ProperWaterloggedBlock,
+    RecordPlayerTrait {
     companion object {
         private val RANDOM = RandomSource.create()
         val POWERED = BlockStateProperties.POWERED
@@ -51,6 +37,7 @@ abstract class AllDirectionRecordPlayerBlock(
         registerDefaultState(
             defaultBlockState()
                 .setValue(JukeboxBlock.HAS_RECORD, false)
+                .setValue(ProperWaterloggedBlock.WATERLOGGED, false)
                 .setValue(POWERED, false),
         )
     }
@@ -65,9 +52,7 @@ abstract class AllDirectionRecordPlayerBlock(
         pPlayer: Player,
         pHand: InteractionHand,
         pHit: BlockHitResult,
-    ): InteractionResult {
-        return handleRecordUse(pState, pLevel, pPos, pPlayer, pHand, pHit, pState.getValue(FACING))
-    }
+    ): InteractionResult = handleRecordUse(pState, pLevel, pPos, pPlayer, pHand, pHit, pState.getValue(FACING))
 
     override fun hasShaftTowards(
         world: LevelReader?,
@@ -79,18 +64,12 @@ abstract class AllDirectionRecordPlayerBlock(
     override fun getStateForPlacement(context: BlockPlaceContext): BlockState? {
         val pos = context.clickedPos
         val placed = super.getStateForPlacement(context) ?: return null
-<<<<<<<< HEAD:forge/src/main/kotlin/me/mochibit/createharmonics/content/kinetics/recordPlayer/RecordPlayerBlock.kt
-        return placed.setValue(
-            PackagerLinkBlock.POWERED,
-            getPower(placed, context.level, pos) > 0,
-========
         return withWater(
             placed.setValue(
                 PackagerLinkBlock.POWERED,
                 context.level.getBestNeighborSignal(pos) > 0,
             ),
             context,
->>>>>>>> brass-jukebox:forge/src/main/kotlin/me/mochibit/createharmonics/content/kinetics/recordPlayer/AllDirectionRecordPlayerBlock.kt
         )
     }
 
@@ -117,7 +96,7 @@ abstract class AllDirectionRecordPlayerBlock(
             }
         }
     }
-    
+
     @Deprecated("Deprecated in Java")
     override fun updateShape(
         pState: BlockState,
@@ -126,7 +105,10 @@ abstract class AllDirectionRecordPlayerBlock(
         pLevel: LevelAccessor,
         pPos: BlockPos,
         pNeighborPos: BlockPos,
-    ): BlockState = pState
+    ): BlockState {
+        updateWater(pLevel, pState, pPos)
+        return pState
+    }
 
     override fun getRotationAxis(state: BlockState): Direction.Axis = state.getValue(FACING).axis
 

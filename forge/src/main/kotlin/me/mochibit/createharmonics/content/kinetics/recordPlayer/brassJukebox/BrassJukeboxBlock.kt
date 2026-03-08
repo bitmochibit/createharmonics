@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer.brassJukebox
 
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.HorizontalRecordPlayerBlock
-import me.mochibit.createharmonics.registry.ModBlockEntities
+import me.mochibit.createharmonics.foundation.registry.ModBlockEntities
 import net.minecraft.world.level.block.entity.BlockEntityType
 
 class BrassJukeboxBlock(

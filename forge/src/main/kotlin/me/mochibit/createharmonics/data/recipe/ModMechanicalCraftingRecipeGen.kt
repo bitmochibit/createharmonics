@@ -3,7 +3,6 @@ package me.mochibit.createharmonics.data.recipe
 import com.simibubi.create.AllItems
 import com.simibubi.create.api.data.recipe.MechanicalCraftingRecipeGen
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
-import me.mochibit.createharmonics.ForgeModEntryPoint
 import me.mochibit.createharmonics.foundation.registry.ModBlocks
 import net.minecraft.data.PackOutput
 import net.minecraft.world.item.Items

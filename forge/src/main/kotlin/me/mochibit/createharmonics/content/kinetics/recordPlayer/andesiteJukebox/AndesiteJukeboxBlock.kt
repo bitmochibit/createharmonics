@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox
 
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.AllDirectionRecordPlayerBlock
-import me.mochibit.createharmonics.registry.ModBlockEntities
+import me.mochibit.createharmonics.foundation.registry.ModBlockEntities
 import net.minecraft.world.level.block.entity.BlockEntityType
 
 class AndesiteJukeboxBlock(

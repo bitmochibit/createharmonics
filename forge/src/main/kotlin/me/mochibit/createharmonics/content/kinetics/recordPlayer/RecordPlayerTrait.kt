@@ -1,9 +1,8 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.AllItems
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlockEntity
-import me.mochibit.createharmonics.content.records.EtherealRecordItem
-import me.mochibit.createharmonics.extension.onServer
+import me.mochibit.createharmonics.content.record.EtherealRecordItem
+import me.mochibit.createharmonics.foundation.extension.onServer
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.sounds.SoundEvents
@@ -17,12 +16,10 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.BlockHitResult
 
 interface RecordPlayerTrait {
-
     fun getRecordPlayerBlockEntity(
         level: Level,
-        pos: BlockPos
-    ): RecordPlayerBlockEntity? =
-        level.getBlockEntity(pos) as? RecordPlayerBlockEntity
+        pos: BlockPos,
+    ): RecordPlayerBlockEntity? = level.getBlockEntity(pos) as? RecordPlayerBlockEntity
 
     fun handleRecordUse(
         state: BlockState,
@@ -31,7 +28,7 @@ interface RecordPlayerTrait {
         player: Player,
         hand: InteractionHand,
         hit: BlockHitResult,
-        facing: Direction
+        facing: Direction,
     ): InteractionResult {
         val blockEntity = level.getBlockEntity(pos) as? RecordPlayerBlockEntity ?: return InteractionResult.PASS
         val clickItem = player.getItemInHand(hand)

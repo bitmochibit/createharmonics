@@ -7,8 +7,8 @@ import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.INamedIc
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollOptionBehaviour
 import com.simibubi.create.foundation.gui.AllIcons
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
-import me.mochibit.createharmonics.extension.lerpTo
-import me.mochibit.createharmonics.registry.ModIcons
+import me.mochibit.createharmonics.foundation.extension.lerpTo
+import me.mochibit.createharmonics.foundation.registry.ModIcons
 import net.createmod.catnip.math.AngleHelper
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -109,7 +109,7 @@ abstract class RecordPlayerBlockEntity(
                 this,
                 RecordPlayerValueBoxTransform { blockState, direction ->
                     val axis: Direction.Axis = direction.axis
-                    val beAxis: Direction.Axis =  (blockState.block as? KineticBlock)?.getRotationAxis(blockState) ?: direction.axis
+                    val beAxis: Direction.Axis = (blockState.block as? KineticBlock)?.getRotationAxis(blockState) ?: direction.axis
                     beAxis !== axis
                 },
             )
