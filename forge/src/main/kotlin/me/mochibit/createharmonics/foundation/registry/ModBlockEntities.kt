@@ -7,6 +7,7 @@ import me.mochibit.createharmonics.cRegistrate
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerRenderer
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerVisual
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlockEntity
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.brassJukebox.BrassJukeboxBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseRenderer
 import me.mochibit.createharmonics.foundation.info
@@ -23,6 +24,21 @@ object ModBlockEntities : ForgeRegistry {
                 }
             }, false)
             .validBlocks(ModBlocks.ANDESITE_JUKEBOX)
+            .renderer {
+                NonNullFunction { ctx ->
+                    RecordPlayerRenderer(ctx)
+                }
+            }.register()
+
+    val BRASS_JUKEBOX: BlockEntityEntry<BrassJukeboxBlockEntity> =
+        cRegistrate()
+            .blockEntity("brass_jukebox", ::BrassJukeboxBlockEntity)
+            .visual({
+                SimpleBlockEntityVisualizer.Factory { ctx, be, pt ->
+                    RecordPlayerVisual(ctx, be, pt)
+                }
+            }, false)
+            .validBlocks(ModBlocks.BRASS_JUKEBOX)
             .renderer {
                 NonNullFunction { ctx ->
                     RecordPlayerRenderer(ctx)

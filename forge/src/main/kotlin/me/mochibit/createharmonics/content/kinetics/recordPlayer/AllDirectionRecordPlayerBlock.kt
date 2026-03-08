@@ -1,17 +1,21 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
+<<<<<<<< HEAD:forge/src/main/kotlin/me/mochibit/createharmonics/content/kinetics/recordPlayer/RecordPlayerBlock.kt
 import com.simibubi.create.AllItems
+========
+>>>>>>>> brass-jukebox:forge/src/main/kotlin/me/mochibit/createharmonics/content/kinetics/recordPlayer/AllDirectionRecordPlayerBlock.kt
 import com.simibubi.create.content.kinetics.base.DirectionalKineticBlock
 import com.simibubi.create.content.logistics.packagerLink.PackagerLinkBlock
 import com.simibubi.create.foundation.block.IBE
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock
+<<<<<<<< HEAD:forge/src/main/kotlin/me/mochibit/createharmonics/content/kinetics/recordPlayer/RecordPlayerBlock.kt
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlockEntity
 import me.mochibit.createharmonics.content.record.EtherealRecordItem
 import me.mochibit.createharmonics.foundation.extension.onServer
+========
+>>>>>>>> brass-jukebox:forge/src/main/kotlin/me/mochibit/createharmonics/content/kinetics/recordPlayer/AllDirectionRecordPlayerBlock.kt
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
-import net.minecraft.sounds.SoundEvents
-import net.minecraft.sounds.SoundSource
 import net.minecraft.tags.FluidTags
 import net.minecraft.util.RandomSource
 import net.minecraft.world.InteractionHand
@@ -29,10 +33,15 @@ import net.minecraft.world.level.block.state.StateDefinition
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.BlockHitResult
 
-abstract class RecordPlayerBlock(
+abstract class AllDirectionRecordPlayerBlock(
     properties: Properties,
 ) : DirectionalKineticBlock(properties),
+<<<<<<<< HEAD:forge/src/main/kotlin/me/mochibit/createharmonics/content/kinetics/recordPlayer/RecordPlayerBlock.kt
     IBE<RecordPlayerBlockEntity> {
+========
+    IBE<RecordPlayerBlockEntity>,
+    ProperWaterloggedBlock, RecordPlayerTrait{
+>>>>>>>> brass-jukebox:forge/src/main/kotlin/me/mochibit/createharmonics/content/kinetics/recordPlayer/AllDirectionRecordPlayerBlock.kt
     companion object {
         private val RANDOM = RandomSource.create()
         val POWERED = BlockStateProperties.POWERED
@@ -57,64 +66,7 @@ abstract class RecordPlayerBlock(
         pHand: InteractionHand,
         pHit: BlockHitResult,
     ): InteractionResult {
-        val blockEntity = pLevel.getBlockEntity(pPos) as? AndesiteJukeboxBlockEntity ?: return InteractionResult.PASS
-        val clickItem = pPlayer.getItemInHand(pHand)
-
-        if (AllItems.WRENCH.isIn(clickItem)) {
-            return InteractionResult.PASS
-        }
-
-        // Only allow interactions on the FACING direction (the head/slot side)
-        val facing = pState.getValue(FACING)
-        if (pHit.direction != facing) {
-            return InteractionResult.PASS
-        }
-
-        if (!clickItem.isEmpty && clickItem.item !is EtherealRecordItem) {
-            return InteractionResult.PASS
-        }
-
-        pLevel.onServer {
-            if (clickItem.item is EtherealRecordItem && !blockEntity.playerBehaviour.hasRecord()) {
-                // Click with record: insert and play
-                blockEntity.playerBehaviour.insertRecord(clickItem)
-                clickItem.shrink(1)
-
-                // Play insertion sound
-                pLevel.playSound(
-                    null,
-                    pPos,
-                    SoundEvents.ITEM_FRAME_ADD_ITEM,
-                    SoundSource.PLAYERS,
-                    0.2f,
-                    1f + RANDOM.nextFloat(),
-                )
-
-                return InteractionResult.SUCCESS
-            }
-
-            if (clickItem.isEmpty && blockEntity.playerBehaviour.hasRecord()) {
-                // Click with empty hand: remove record
-                val disc = blockEntity.playerBehaviour.popRecord() ?: return@onServer
-                pPlayer.addItem(disc)
-
-                blockEntity.playerBehaviour.stopPlayer()
-
-                // Play removal sound
-                pLevel.playSound(
-                    null,
-                    pPos,
-                    SoundEvents.ITEM_PICKUP,
-                    SoundSource.PLAYERS,
-                    0.2f,
-                    1f + RANDOM.nextFloat(),
-                )
-
-                return InteractionResult.SUCCESS
-            }
-        }
-
-        return InteractionResult.SUCCESS
+        return handleRecordUse(pState, pLevel, pPos, pPlayer, pHand, pHit, pState.getValue(FACING))
     }
 
     override fun hasShaftTowards(
@@ -127,9 +79,18 @@ abstract class RecordPlayerBlock(
     override fun getStateForPlacement(context: BlockPlaceContext): BlockState? {
         val pos = context.clickedPos
         val placed = super.getStateForPlacement(context) ?: return null
+<<<<<<<< HEAD:forge/src/main/kotlin/me/mochibit/createharmonics/content/kinetics/recordPlayer/RecordPlayerBlock.kt
         return placed.setValue(
             PackagerLinkBlock.POWERED,
             getPower(placed, context.level, pos) > 0,
+========
+        return withWater(
+            placed.setValue(
+                PackagerLinkBlock.POWERED,
+                context.level.getBestNeighborSignal(pos) > 0,
+            ),
+            context,
+>>>>>>>> brass-jukebox:forge/src/main/kotlin/me/mochibit/createharmonics/content/kinetics/recordPlayer/AllDirectionRecordPlayerBlock.kt
         )
     }
 
@@ -143,7 +104,7 @@ abstract class RecordPlayerBlock(
         isMoving: Boolean,
     ) {
         if (worldIn.isClientSide) return
-        val power = getPower(state, worldIn, pos)
+        val power = worldIn.getBestNeighborSignal(pos)
         val isUnderwater = worldIn.getFluidState(pos).`is`(FluidTags.WATER)
 
         withBlockEntityDo(
@@ -156,13 +117,7 @@ abstract class RecordPlayerBlock(
             }
         }
     }
-
-    fun getPower(
-        state: BlockState,
-        worldIn: Level,
-        pos: BlockPos,
-    ): Int = worldIn.getBestNeighborSignal(pos)
-
+    
     @Deprecated("Deprecated in Java")
     override fun updateShape(
         pState: BlockState,

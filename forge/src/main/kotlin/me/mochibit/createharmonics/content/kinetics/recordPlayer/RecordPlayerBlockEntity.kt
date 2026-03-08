@@ -1,13 +1,14 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
+import com.simibubi.create.content.kinetics.base.KineticBlock
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.INamedIconOptions
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollOptionBehaviour
 import com.simibubi.create.foundation.gui.AllIcons
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
-import me.mochibit.createharmonics.foundation.extension.lerpTo
-import me.mochibit.createharmonics.foundation.registry.ModIcons
+import me.mochibit.createharmonics.extension.lerpTo
+import me.mochibit.createharmonics.registry.ModIcons
 import net.createmod.catnip.math.AngleHelper
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -16,7 +17,6 @@ import net.minecraft.world.Clearable
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
-import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraftforge.common.capabilities.Capability
 import net.minecraftforge.common.capabilities.ForgeCapabilities
 import net.minecraftforge.common.util.LazyOptional
@@ -109,10 +109,7 @@ abstract class RecordPlayerBlockEntity(
                 this,
                 RecordPlayerValueBoxTransform { blockState, direction ->
                     val axis: Direction.Axis = direction.axis
-                    val beAxis: Direction.Axis =
-                        blockState
-                            .getValue(BlockStateProperties.FACING)
-                            .axis
+                    val beAxis: Direction.Axis =  (blockState.block as? KineticBlock)?.getRotationAxis(blockState) ?: direction.axis
                     beAxis !== axis
                 },
             )

@@ -1,8 +1,11 @@
 package me.mochibit.createharmonics.lifecycle
 
+import me.mochibit.createharmonics.Logger.info
 import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
 import me.mochibit.createharmonics.client.event.MainMenuDisclaimerHandler
-import me.mochibit.createharmonics.foundation.info
+import me.mochibit.createharmonics.registry.ModBlocks
+import net.minecraft.client.renderer.ItemBlockRenderTypes
+import net.minecraft.client.renderer.RenderType
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.event.server.ServerStartingEvent
@@ -16,16 +19,17 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent
  */
 @EventBusSubscriber(bus = EventBusSubscriber.Bus.FORGE)
 object ServerLifecycleHandler {
+
     @JvmStatic
     @SubscribeEvent
     fun onServerStarting(event: ServerStartingEvent) {
-        "Create: Harmonics server is starting!".info()
+        info("Create: Harmonics server is starting!")
     }
 
     @JvmStatic
     @SubscribeEvent
     fun onServerStopping(event: ServerStoppingEvent) {
-        "Create: Harmonics server is stopping, cleaning up processes...".info()
+        info("Create: Harmonics server is stopping, cleaning up processes...")
         ProcessLifecycleManager.shutdownAll()
     }
 }
@@ -35,10 +39,11 @@ object ServerLifecycleHandler {
  */
 @EventBusSubscriber(bus = EventBusSubscriber.Bus.FORGE, value = [Dist.CLIENT])
 object ClientLifecycleHandler {
+
     @JvmStatic
     @SubscribeEvent
     fun onClientDisconnect(event: net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut) {
-        "Client disconnecting from world, cleaning up processes...".info()
+        info("Client disconnecting from world, cleaning up processes...")
         ProcessLifecycleManager.shutdownAll()
     }
 }
@@ -48,10 +53,12 @@ object ClientLifecycleHandler {
  */
 @EventBusSubscriber(bus = EventBusSubscriber.Bus.MOD, value = [Dist.CLIENT])
 object ClientModBusHandler {
+
     @SubscribeEvent
     @JvmStatic
     fun onClientSetup(event: FMLClientSetupEvent) {
-        "Create: Harmonics client is setting up!".info()
+        info("Create: Harmonics client is setting up!")
         MinecraftForge.EVENT_BUS.register(MainMenuDisclaimerHandler)
     }
 }
+
