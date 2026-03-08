@@ -1,0 +1,11 @@
+{
+  "type": "createharmonics:add_record_to_end_ship",
+  "conditions": [
+    {
+      "condition": "forge:loot_table_id",
+      "loot_table_id": "minecraft:chests/end_city_treasure"
+    }
+  ],
+  "item": "createharmonics:ethereal_record_base",
+  "chance": 0.10
+}
