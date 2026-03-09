@@ -3,6 +3,7 @@ package me.mochibit.createharmonics.audio.process
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
@@ -19,6 +20,7 @@ class FFprobeExecutor {
     data class ProbeInfo(
         val durationSeconds: Int,
         val title: String,
+        val sampleRate: Float,
     )
 
     /**
@@ -69,6 +71,7 @@ class FFprobeExecutor {
                     val root = json.parseToJsonElement(output).jsonObject
 
                     val format = root["format"]?.jsonObject
+                    val streams = root["streams"]?.jsonArray
 
                     val duration =
                         format
@@ -87,7 +90,17 @@ class FFprobeExecutor {
                             ?.content
                             ?.takeIf { it.isNotBlank() }
 
-                    ProbeInfo(durationSeconds = duration, title = title ?: "")
+                    val sampleRate =
+                        streams
+                            ?.jsonArray
+                            ?.firstOrNull()
+                            ?.jsonObject
+                            ?.get("sample_rate")
+                            ?.jsonPrimitive
+                            ?.content
+                            ?.toFloatOrNull() ?: 48000f
+
+                    ProbeInfo(durationSeconds = duration, title = title ?: "", sampleRate = sampleRate)
                 } finally {
                     ProcessLifecycleManager.destroyProcess(processId)
                 }

@@ -4,7 +4,7 @@ package me.mochibit.createharmonics.audio.source
  * Interface representing an audio source that can provide raw audio data.
  * Implementations can include YouTube, local files, HTTP streams, etc.
  */
-interface AudioSource {
+sealed interface AudioSource {
     /**
      * Get a unique identifier for this audio source.
      */
@@ -21,6 +21,8 @@ interface AudioSource {
      * Used to determine whether to stream or download the audio.
      */
     suspend fun getDurationSeconds(): Int
+
+    suspend fun getSampleRate(): Int
 
     /**
      * Optional: Get metadata about this audio source (title, duration, etc.)

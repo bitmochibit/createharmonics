@@ -33,6 +33,11 @@ class HttpAudioSource(
         return probeInfo?.durationSeconds ?: 0
     }
 
+    override suspend fun getSampleRate(): Int {
+        ensureProbed()
+        return probeInfo?.sampleRate?.toInt() ?: 48000
+    }
+
     override suspend fun getAudioName(): String {
         ensureProbed()
         val probedTitle = probeInfo?.title?.takeIf { it.isNotBlank() }

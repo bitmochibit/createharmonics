@@ -30,6 +30,14 @@ class YtdlpAudioSource(
         return cachedInfo!!.durationSeconds
     }
 
+    override suspend fun getSampleRate(): Int {
+        if (cachedInfo == null) {
+            cachedInfo = AudioInfoCache.getAudioInfo(url)
+                ?: throw IllegalStateException("Failed to extract audio info from: $url")
+        }
+        return cachedInfo!!.sampleRate.toInt()
+    }
+
     override suspend fun getAudioName(): String {
         if (cachedInfo == null) {
             cachedInfo = AudioInfoCache.getAudioInfo(url)

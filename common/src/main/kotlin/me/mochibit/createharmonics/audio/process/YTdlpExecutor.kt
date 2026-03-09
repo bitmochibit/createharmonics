@@ -5,6 +5,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.float
+import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
@@ -16,6 +18,7 @@ class YTdlpExecutor {
         val audioUrl: String,
         val durationSeconds: Int,
         val title: String,
+        val sampleRate: Float,
         val httpHeaders: Map<String, String> = emptyMap(),
     )
 
@@ -96,6 +99,8 @@ class YTdlpExecutor {
                         jsonObject["url"]?.jsonPrimitive?.content
                             ?: throw IllegalStateException("No URL found in yt-dlp output")
 
+                    val sampleRate = jsonObject["asr"]?.jsonPrimitive?.floatOrNull ?: 48_000f
+
                     // yt-dlp's -j output merges the selected format dict into the root info
                     // dict.  For segmented formats (DASH/HLS) the format-level "duration" is
                     // the per-fragment length (e.g. 85 s), NOT the full video duration.
@@ -117,7 +122,7 @@ class YTdlpExecutor {
                         }
                     }
 
-                    AudioUrlInfo(audioUrl, duration, title, httpHeaders)
+                    AudioUrlInfo(audioUrl, duration, title, sampleRate, httpHeaders)
                 } finally {
                     ProcessLifecycleManager.destroyProcess(processId)
                 }

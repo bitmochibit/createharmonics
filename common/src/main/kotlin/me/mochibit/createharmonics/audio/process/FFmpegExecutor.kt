@@ -10,7 +10,7 @@ import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.err
 import java.io.InputStream
 
-class FFmpegExecutor {
+class FFmpegExecutor private constructor() {
     companion object {
         private const val CHUNK_SIZE = 8192
 
@@ -27,6 +27,20 @@ class FFmpegExecutor {
 
         /** Hard ceiling so we never wait forever. */
         private const val STREAM_READY_MAX_TIMEOUT_MS = 60_000L
+
+        /**
+         * Use a managed FFMPEG process for creating an [InputStream] bound to a url
+         */
+        suspend fun makeStream(
+            url: String,
+            sampleRate: Int = 44100,
+            seekSeconds: Double = 0.0,
+            headers: Map<String, String> = emptyMap(),
+        ): InputStream? {
+            val executor = FFmpegExecutor()
+            executor.createStream(url, sampleRate, seekSeconds, headers)
+            return executor.inputStream
+        }
     }
 
     private var process: Process? = null

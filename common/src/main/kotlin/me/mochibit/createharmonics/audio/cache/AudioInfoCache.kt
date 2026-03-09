@@ -16,6 +16,7 @@ object AudioInfoCache {
         val durationSeconds: Int,
         val timestamp: Long = System.currentTimeMillis(),
         val title: String,
+        val sampleRate: Float,
         val httpHeaders: Map<String, String> = emptyMap(),
     )
 
@@ -48,6 +49,7 @@ object AudioInfoCache {
                     audioUrl = extractedInfo.audioUrl,
                     durationSeconds = extractedInfo.durationSeconds,
                     title = extractedInfo.title,
+                    sampleRate = extractedInfo.sampleRate,
                     httpHeaders = extractedInfo.httpHeaders,
                 )
 
