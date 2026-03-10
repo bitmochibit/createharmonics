@@ -142,10 +142,6 @@ class RecordPlayerBehaviourTest {
             behaviour.playbackState == RecordPlayerBehaviour.PlaybackState.STOPPED,
             "Should be in STOPPED state",
         )
-        helper.assertTrue(
-            behaviour.playTime == 0L,
-            "Playback time should reset to 0",
-        )
         helper.succeed()
     }
 

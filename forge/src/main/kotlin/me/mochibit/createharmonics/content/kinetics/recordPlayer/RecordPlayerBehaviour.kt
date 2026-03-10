@@ -11,12 +11,16 @@ import me.mochibit.createharmonics.audio.instance.SimpleShipStreamSoundInstance
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.audio.player.PlayerState
+import me.mochibit.createharmonics.audio.player.PlaytimeClock
+import me.mochibit.createharmonics.audio.player.putClock
+import me.mochibit.createharmonics.audio.player.updateClock
 import me.mochibit.createharmonics.config.ServerConfig
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
 import me.mochibit.createharmonics.content.record.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordUtilities
 import me.mochibit.createharmonics.content.records.RecordUtilities.handleRecordUse
 import me.mochibit.createharmonics.content.records.RecordUtilities.playFromRecord
+import me.mochibit.createharmonics.foundation.async.every
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.extension.getManagingShip
 import me.mochibit.createharmonics.foundation.extension.onClient
@@ -167,18 +171,6 @@ class RecordPlayerBehaviour(
         private set
 
     @Volatile
-    var playTime: Long = 0
-        private set
-
-    @Volatile
-    var pauseStartTime: Long = 0
-        private set
-
-    @Volatile
-    var totalPausedTime: Long = 0
-        private set
-
-    @Volatile
     var audioPlayCount: Long = 0
         private set
 
@@ -193,6 +185,8 @@ class RecordPlayerBehaviour(
     @Volatile
     var redstonePower = 0
         private set
+
+    val playtimeClock = PlaytimeClock()
 
     // Track previous playback mode to detect user changes
     private var previousPlaybackMode: RecordPlayerBlockEntity.PlaybackMode? = null
@@ -243,43 +237,40 @@ class RecordPlayerBehaviour(
                 },
             )
 
+    private val particleRandom: RandomSource = RandomSource.create()
     private val playerParticleJob =
-        modLaunch {
-            val level = this@RecordPlayerBehaviour.be.level ?: return@modLaunch
+        10.ticks().every {
+            val level = this@RecordPlayerBehaviour.be.level ?: return@every
             val be = this@RecordPlayerBehaviour.be
             val pos = Vec3.atBottomCenterOf(be.blockPos).add(0.0, 1.2, 0.0)
-            val displacement = level.random.nextInt(4) / 24f
-            audioPlayer.state.collectLatest { state ->
-                when (state) {
-                    PlayerState.LOADING -> {
-                        level.addParticle(
-                            ShriekParticleOption(2),
-                            false,
-                            pos.x,
-                            pos.y,
-                            pos.z,
-                            0.0,
-                            12.5,
-                            0.0,
-                        )
-                    }
-
-                    PlayerState.PLAYING -> {
-                        level.addParticle(
-                            ParticleTypes.NOTE,
-                            pos.x + displacement,
-                            pos.y + displacement,
-                            pos.z + displacement,
-                            level.random.nextFloat().toDouble(),
-                            0.0,
-                            0.0,
-                        )
-                    }
-
-                    else -> {
-                    }
+            val displacement = particleRandom.nextInt(4) / 24f
+            when (audioPlayer.state.value) {
+                PlayerState.LOADING -> {
+                    level.addParticle(
+                        ShriekParticleOption(2),
+                        false,
+                        pos.x,
+                        pos.y,
+                        pos.z,
+                        0.0,
+                        12.5,
+                        0.0,
+                    )
                 }
-                delay(10.ticks())
+
+                PlayerState.PLAYING -> {
+                    level.addParticle(
+                        ParticleTypes.NOTE,
+                        pos.x + displacement,
+                        pos.y + displacement,
+                        pos.z + displacement,
+                        particleRandom.nextFloat().toDouble(),
+                        0.0,
+                        0.0,
+                    )
+                }
+
+                else -> {}
             }
         }
 
@@ -581,36 +572,18 @@ class RecordPlayerBehaviour(
         val oldState = playbackState
         playbackState = newState
 
-        when {
-            resetTime -> {
-                playTime = 0
-                pauseStartTime = 0
-                totalPausedTime = 0
-            }
-
-            setCurrentTime -> {
-                playTime = System.currentTimeMillis()
-                pauseStartTime = 0
-                totalPausedTime = 0
-            }
-        }
-
         // Handle pause timing
         when (newState) {
             PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
                 if (oldState == PlaybackState.PLAYING) {
-                    // Started pausing, record when
-                    pauseStartTime = System.currentTimeMillis()
+                    playtimeClock.pause()
                 }
             }
 
             PlaybackState.PLAYING -> {
                 if (oldState == PlaybackState.PAUSED || oldState == PlaybackState.MANUALLY_PAUSED) {
                     // Resumed from pause, accumulate the paused duration
-                    if (pauseStartTime > 0) {
-                        totalPausedTime += (System.currentTimeMillis() - pauseStartTime)
-                        pauseStartTime = 0
-                    }
+                    playtimeClock.play()
                 }
             }
 
@@ -620,26 +593,18 @@ class RecordPlayerBehaviour(
         when (newState) {
             PlaybackState.PLAYING if oldState != PlaybackState.PLAYING -> {
                 registerPlayer(recordPlayerUUID.toString(), be)
+                playtimeClock.play()
             }
 
             PlaybackState.STOPPED if oldState != PlaybackState.STOPPED -> {
                 unregisterPlayer(recordPlayerUUID.toString(), be)
+                playtimeClock.stop()
             }
 
             else -> {}
         }
 
         be.notifyUpdate()
-    }
-
-    /**
-     * Computes the current expected playback offset in seconds from the server-authoritative
-     * [playTime] and [totalPausedTime].  Returns `0.0` when playback has not started yet.
-     */
-    private fun computeOffsetSeconds(): Double {
-        if (playTime <= 0) return 0.0
-        val elapsed = System.currentTimeMillis() - playTime
-        return (elapsed - totalPausedTime).coerceAtLeast(0L) / 1000.0
     }
 
     private fun startClientPlayer(currentRecord: ItemStack) {
@@ -714,9 +679,9 @@ class RecordPlayerBehaviour(
         _recordPlayerUUID?.let {
             compound.putUUID("RecordPlayerUUID", it)
         }
-        compound.putLong("PlayTime", playTime)
-        compound.putLong("PauseStartTime", pauseStartTime)
-        compound.putLong("TotalPausedTime", totalPausedTime)
+
+        compound.putClock(playtimeClock)
+
         compound.putLong("AudioPlayCount", audioPlayCount)
         compound.putBoolean("SpeedInterrupted", speedInterrupted)
         compound.putInt("RedstonePower", redstonePower)
@@ -746,17 +711,7 @@ class RecordPlayerBehaviour(
             speedInterrupted = compound.getBoolean("SpeedInterrupted")
         }
 
-        if (compound.contains("PlayTime")) {
-            playTime = compound.getLong("PlayTime")
-        }
-
-        if (compound.contains("PauseStartTime")) {
-            pauseStartTime = compound.getLong("PauseStartTime")
-        }
-
-        if (compound.contains("TotalPausedTime")) {
-            totalPausedTime = compound.getLong("TotalPausedTime")
-        }
+        compound.updateClock(playtimeClock)
 
         if (compound.contains("AudioPlayingTitle")) {
             audioPlayingTitle = compound.getString("AudioPlayingTitle")
@@ -778,12 +733,13 @@ class RecordPlayerBehaviour(
                                 }
 
                                 PlayerState.PLAYING -> {
-                                    // TODO: Handle synchronization if the playclock is too different from the server's
+                                    audioPlayer.syncWith(playtimeClock)
                                 }
 
                                 else -> {
-                                    // STOPPED or LOADING — do a full start
+                                    // STOPPED or LOADING
                                     startClientPlayer(currentRecord)
+                                    audioPlayer.seek(playtimeClock.currentPlaytime)
                                 }
                             }
                         }

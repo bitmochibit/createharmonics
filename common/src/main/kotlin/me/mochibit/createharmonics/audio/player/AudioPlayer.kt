@@ -20,8 +20,7 @@ import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import java.io.Closeable
 import java.io.InputStream
-import kotlin.time.Duration.Companion.seconds
-import kotlin.uuid.ExperimentalUuidApi
+import kotlin.math.abs
 
 typealias SoundInstanceFactory = (streamId: String, stream: InputStream) -> SoundInstance
 
@@ -56,6 +55,8 @@ class AudioPlayer(
     private var currentSoundInstance: SoundInstance? = null
 
     val state: StateFlow<PlayerState> = _state.asStateFlow()
+
+    val clock = PlaytimeClock()
 
     init {
         stateMachineJob =
@@ -140,7 +141,6 @@ class AudioPlayer(
         }
     }
 
-    @OptIn(ExperimentalUuidApi::class)
     private suspend fun startPlayback(pos: Double = 0.0) {
         val request = currentAudioRequest ?: return
         transition(PlayerState.LOADING)
@@ -170,6 +170,7 @@ class AudioPlayer(
 
         currentSoundInstance = soundInstance
         currentAudioEffectInputStream = stream
+        clock.play(pos)
         transition(PlayerState.PLAYING)
     }
 
@@ -185,6 +186,8 @@ class AudioPlayer(
             soundManager.stop(soundInstance)
             soundEventComposition.stopComposition()
         }
+        clock.pause()
+        transition(PlayerState.PAUSED)
     }
 
     private suspend fun resumePlayback() {
@@ -199,6 +202,8 @@ class AudioPlayer(
             soundManager.play(soundInstance)
             soundEventComposition.makeComposition(soundInstance)
         }
+        clock.play()
+        transition(PlayerState.PLAYING)
     }
 
     private suspend fun unstuckPlayback() {
@@ -221,6 +226,7 @@ class AudioPlayer(
             soundEventComposition.stopComposition()
         }
         currentSoundInstance = null
+        clock.stop()
         transition(PlayerState.STOPPED)
     }
 
@@ -264,6 +270,13 @@ class AudioPlayer(
 
     fun request(req: AudioRequest) {
         intents.trySend(PlayerIntent.NewRequest(req))
+    }
+
+    fun syncWith(other: PlaytimeClock) {
+        if (!clock.isPlaying) return
+        if (abs(other.currentPlaytime - clock.currentPlaytime) > 5) {
+            seek(other.currentPlaytime)
+        }
     }
 
     override fun close() {
