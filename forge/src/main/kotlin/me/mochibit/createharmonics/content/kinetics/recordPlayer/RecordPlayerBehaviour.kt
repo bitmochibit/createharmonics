@@ -2,22 +2,27 @@ package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
-import me.mochibit.createharmonics.audio.AudioPlayer
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import me.mochibit.createharmonics.audio.AudioPlayerManager
 import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.SimpleShipStreamSoundInstance
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
+import me.mochibit.createharmonics.audio.player.AudioPlayer
+import me.mochibit.createharmonics.audio.player.PlayerState
 import me.mochibit.createharmonics.config.ServerConfig
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
 import me.mochibit.createharmonics.content.record.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordUtilities
 import me.mochibit.createharmonics.content.records.RecordUtilities.handleRecordUse
 import me.mochibit.createharmonics.content.records.RecordUtilities.playFromRecord
+import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.extension.getManagingShip
 import me.mochibit.createharmonics.foundation.extension.onClient
 import me.mochibit.createharmonics.foundation.extension.onServer
 import me.mochibit.createharmonics.foundation.extension.remapTo
+import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.foundation.registry.ModConfigurations
 import me.mochibit.createharmonics.foundation.registry.ModPackets
@@ -210,7 +215,7 @@ class RecordPlayerBehaviour(
     private val audioPlayer: AudioPlayer
         get() =
             AudioPlayerManager.getOrCreate(
-                recordPlayerUUID.toString(),
+                id = recordPlayerUUID.toString(),
                 provider = { streamId, stream ->
                     try {
                         createSoundInstance(streamId, stream)
@@ -226,18 +231,57 @@ class RecordPlayerBehaviour(
                         )
                     }
                 },
-                sampleRate = 48_000,
-                onEffectChainCreate = { chain ->
-                    val effects = chain.getEffects()
+                effectChainConfiguration = {
+                    val effects = this.getEffects()
                     // Add a pitch shift effect to handle pitch changes based on speed, at 0 index in the chain
                     if (effects.none { it is PitchShiftEffect }) {
-                        chain.addEffectAt(
+                        this.addEffectAt(
                             0,
                             PitchShiftEffect(pitchSupplierInterpolated),
                         )
                     }
                 },
             )
+
+    private val playerParticleJob =
+        modLaunch {
+            val level = this@RecordPlayerBehaviour.be.level ?: return@modLaunch
+            val be = this@RecordPlayerBehaviour.be
+            val pos = Vec3.atBottomCenterOf(be.blockPos).add(0.0, 1.2, 0.0)
+            val displacement = level.random.nextInt(4) / 24f
+            audioPlayer.state.collectLatest { state ->
+                when (state) {
+                    PlayerState.LOADING -> {
+                        level.addParticle(
+                            ShriekParticleOption(2),
+                            false,
+                            pos.x,
+                            pos.y,
+                            pos.z,
+                            0.0,
+                            12.5,
+                            0.0,
+                        )
+                    }
+
+                    PlayerState.PLAYING -> {
+                        level.addParticle(
+                            ParticleTypes.NOTE,
+                            pos.x + displacement,
+                            pos.y + displacement,
+                            pos.z + displacement,
+                            level.random.nextFloat().toDouble(),
+                            0.0,
+                            0.0,
+                        )
+                    }
+
+                    else -> {
+                    }
+                }
+                delay(10.ticks())
+            }
+        }
 
     override fun getType(): BehaviourType<RecordPlayerBehaviour> = BEHAVIOUR_TYPE
 
@@ -417,42 +461,6 @@ class RecordPlayerBehaviour(
 
         level.onClient { level, virtual ->
             underwaterEffect.update(audioPlayer, be.blockPos, level)
-        }
-    }
-
-    override fun lazyTick() {
-        this.be.level?.onClient { level, virtual ->
-            val pos = Vec3.atBottomCenterOf(be.blockPos).add(0.0, 1.2, 0.0)
-            val displacement = level.random.nextInt(4) / 24f
-            when (audioPlayer.state) {
-                AudioPlayer.PlayState.LOADING -> {
-                    level.addParticle(
-                        ShriekParticleOption(2),
-                        false,
-                        pos.x,
-                        pos.y,
-                        pos.z,
-                        0.0,
-                        12.5,
-                        0.0,
-                    )
-                }
-
-                AudioPlayer.PlayState.PLAYING -> {
-                    level.addParticle(
-                        ParticleTypes.NOTE,
-                        pos.x + displacement,
-                        pos.y + displacement,
-                        pos.z + displacement,
-                        level.random.nextFloat().toDouble(),
-                        0.0,
-                        0.0,
-                    )
-                }
-
-                else -> {
-                }
-            }
         }
     }
 
@@ -640,7 +648,6 @@ class RecordPlayerBehaviour(
 
         audioPlayer.playFromRecord(
             currentRecord,
-            computeOffsetSeconds(),
             { pitchSupplierInterpolated.getValue() },
             { radiusSupplierInterpolated.getValue().toInt() },
             { volumeSupplierInterpolated.getValue() },
@@ -650,7 +657,7 @@ class RecordPlayerBehaviour(
     }
 
     private fun resumeClientPlayer() {
-        audioPlayer.resume()
+        audioPlayer.play()
     }
 
     private fun pauseClientPlayer() {
@@ -675,6 +682,8 @@ class RecordPlayerBehaviour(
     override fun unload() {
         val uuidStr = recordPlayerUUID.toString()
 
+        playerParticleJob.cancel()
+
         be.onServer {
             unregisterPlayer(uuidStr, be)
         }
@@ -685,6 +694,8 @@ class RecordPlayerBehaviour(
 
     override fun destroy() {
         val uuidStr = recordPlayerUUID.toString()
+
+        playerParticleJob.cancel()
 
         be.onServer {
             unregisterPlayer(uuidStr, be)
@@ -760,16 +771,14 @@ class RecordPlayerBehaviour(
                     PlaybackState.PLAYING -> {
                         val currentRecord = getRecord()
                         if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
-                            when (audioPlayer.state) {
-                                AudioPlayer.PlayState.PAUSED -> {
+                            when (audioPlayer.state.value) {
+                                PlayerState.PAUSED -> {
                                     // Resuming from pause — let the internal clock continue
                                     resumeClientPlayer()
                                 }
 
-                                AudioPlayer.PlayState.PLAYING -> {
-                                    // Already playing — sync clock against server time rather than restarting
-                                    val serverOffsetSeconds = computeOffsetSeconds()
-                                    audioPlayer.syncPosition(serverOffsetSeconds)
+                                PlayerState.PLAYING -> {
+                                    // TODO: Handle synchronization if the playclock is too different from the server's
                                 }
 
                                 else -> {
@@ -781,7 +790,7 @@ class RecordPlayerBehaviour(
                     }
 
                     PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
-                        if (audioPlayer.state == AudioPlayer.PlayState.PLAYING) {
+                        if (audioPlayer.state.value == PlayerState.PLAYING) {
                             pauseClientPlayer()
                         }
                     }

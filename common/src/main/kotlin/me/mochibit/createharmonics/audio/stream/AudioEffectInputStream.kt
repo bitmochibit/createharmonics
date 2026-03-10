@@ -3,7 +3,6 @@ package me.mochibit.createharmonics.audio.stream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import java.io.IOException
@@ -49,7 +48,8 @@ class AudioEffectInputStream(
     private var samplesProcessed = 0L
 
     @Volatile
-    private var isClosed = false
+    var isClosed = false
+        private set
 
     @Volatile
     private var streamEnded = false
@@ -73,11 +73,6 @@ class AudioEffectInputStream(
      * Continuously read RAW audio from FFmpeg and buffer it (unprocessed).
      */
     private suspend fun continuousRawBuffering() {
-        if (!waitForStreamReady()) {
-            isReady = true
-            return
-        }
-
         try {
             while (!isClosed && !streamEnded) {
                 val currentBufferSize = synchronized(rawBufferLock) { rawAudioBuffer.size }
@@ -86,10 +81,6 @@ class AudioEffectInputStream(
                 if (currentBufferSize >= targetSize) {
                     delay(20)
                     continue
-                }
-
-                if (currentBufferSize < LOW_BUFFER_THRESHOLD && isReady) {
-                    onStreamHang?.invoke()
                 }
 
                 when (val bytesRead = readFromStreamSync()) {
@@ -135,19 +126,6 @@ class AudioEffectInputStream(
             else -> RAW_BUFFER_TARGET
         }.coerceIn(RAW_BUFFER_MIN, RAW_BUFFER_MAX)
     }
-
-    private fun waitForStreamReady(): Boolean =
-        runBlocking {
-            repeat(100) {
-                if (isClosed) return@runBlocking false
-                try {
-                    if (audioStream.available() > 0) return@runBlocking true
-                } catch (_: Exception) {
-                }
-                delay(100)
-            }
-            false
-        }
 
     private fun readFromStreamSync(): Int =
         try {

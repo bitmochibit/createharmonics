@@ -1,17 +1,20 @@
 package me.mochibit.createharmonics.content.records
 
-import me.mochibit.createharmonics.audio.AudioPlayer
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
-import me.mochibit.createharmonics.audio.comp.SoundEventComposition
-import me.mochibit.createharmonics.audio.effect.EffectChain
+import me.mochibit.createharmonics.audio.player.AudioPlayer
+import me.mochibit.createharmonics.audio.player.AudioRequest
+import me.mochibit.createharmonics.audio.source.StreamAudioSource
 import me.mochibit.createharmonics.audio.stream.Ogg2PcmInputStream
 import me.mochibit.createharmonics.audio.utils.getStreamDirectly
 import me.mochibit.createharmonics.foundation.services.contentService
+import net.minecraft.client.Minecraft
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.resources.ResourceLocation
 import net.minecraft.util.RandomSource
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.RecordItem
+import javax.sound.sampled.AudioSystem
 
 // TODO This will be refactored to be more robust
 object RecordUtilities {
@@ -111,7 +114,6 @@ object RecordUtilities {
      */
     fun AudioPlayer.playFromRecord(
         etherealRecord: ItemStack,
-        offsetSeconds: Double,
         compPitchSupplier: () -> Float = { 1f },
         compRadiusSupplier: () -> Int = { 1 },
         compVolumeSupplier: () -> Float = { 1f },
@@ -125,33 +127,39 @@ object RecordUtilities {
             event.pitchSupplier = compPitchSupplier
             event.radiusSupplier = compRadiusSupplier
             event.volumeSupplier = compVolumeSupplier
+            this.soundEventComposition.add(event)
+        }
+
+        recordProps.properties.audioEffectsProvider().forEach { effect ->
+            this.effectChain.addEffect(effect)
         }
 
         if (url.isNotBlank() && FFMPEGProvider.isAvailable() && YTDLProvider.isAvailable()) {
-            this.play(
-                url,
-                EffectChain(
-                    recordProps.properties.audioEffectsProvider(),
-                ),
-                SoundEventComposition(soundEvents),
-                offsetSeconds,
+            this.request(
+                AudioRequest.Url(url),
             )
-            return
+            return this.play()
         }
 
         // Try to play audio from the crafted-from record
         val craftedWith = RecordCraftingHandler.getCraftedWithDisc(etherealRecord).item as? RecordItem ?: return
-        val stream = craftedWith.sound.getStreamDirectly(false).get()
+        val sampleRate =
+            craftedWith.sound.getStreamDirectly(false).get().use { audio ->
+                audio.format.sampleRate
+            }
 
-        this.playFromStream(
-            Ogg2PcmInputStream(stream),
-            craftedWith.displayName.getString(48),
-            EffectChain(
-                recordProps.properties.audioEffectsProvider(),
+        this.request(
+            AudioRequest.Stream(
+                {
+                    Ogg2PcmInputStream(craftedWith.sound.getStreamDirectly(false).get())
+                },
+                StreamAudioSource.Information(
+                    name = craftedWith.displayName.getString(48),
+                    bitrate = sampleRate.toInt(),
+                    duration = 1000,
+                ),
             ),
-            SoundEventComposition(soundEvents),
-            offsetSeconds,
-            stream.format.sampleRate.toInt(),
         )
+        this.play()
     }
 }

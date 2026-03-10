@@ -1,6 +1,5 @@
 package me.mochibit.createharmonics.audio.instance
 
-import me.mochibit.createharmonics.audio.StreamId
 import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.core.BlockPos
 import net.minecraft.sounds.SoundEvent
@@ -15,7 +14,7 @@ import java.io.InputStream
 // VS2 compatible streaming sound instance that moves with a ship and has velocity
 class SimpleShipStreamSoundInstance(
     inStream: InputStream,
-    streamId: StreamId,
+    streamId: String,
     soundEvent: SoundEvent,
     posSupplier: () -> BlockPos,
     private val ship: Ship,

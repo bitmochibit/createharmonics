@@ -8,21 +8,26 @@ import com.simibubi.create.content.contraptions.render.ContraptionMatrices
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import dev.engine_room.flywheel.api.visualization.VisualizationContext
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
-import me.mochibit.createharmonics.audio.AudioPlayer
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import me.mochibit.createharmonics.audio.AudioPlayerManager
 import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
+import me.mochibit.createharmonics.audio.player.AudioPlayer
+import me.mochibit.createharmonics.audio.player.PlayerState
 import me.mochibit.createharmonics.config.ServerConfig
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.PlaybackState
 import me.mochibit.createharmonics.content.record.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordUtilities
 import me.mochibit.createharmonics.content.records.RecordUtilities.playFromRecord
+import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.async.thenLaunch
 import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.extension.onClient
 import me.mochibit.createharmonics.foundation.extension.onServer
 import me.mochibit.createharmonics.foundation.extension.remapTo
+import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.foundation.registry.ModConfigurations
 import me.mochibit.createharmonics.foundation.registry.ModPackets
@@ -67,8 +72,6 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         var playerInitialized: Boolean = false,
         var skipNextUpdate: Boolean = false,
         var lastSyncTick: Long = 0L, // Track when we last synced to force periodic updates
-        val lazyTickRate: Int = 10,
-        var tickCounter: Int = lazyTickRate,
         // Interpolated suppliers for underwater filter effect
         // Start with "no filter" values (very high cutoff, flat resonance)
         var targetCutoffFrequency: Float = 20000f,
@@ -76,6 +79,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         var cutoffFrequencyInterpolated: FloatSupplierInterpolated? = null,
         var resonanceInterpolated: FloatSupplierInterpolated? = null,
         val underwaterFilter: EffectPreset.UnderwaterFilter = EffectPreset.UnderwaterFilter(),
+        var particleJob: Job? = null,
     )
 
     companion object {
@@ -319,10 +323,6 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
     override fun tick(context: MovementContext) {
         val tempData = getOrCreateTemporaryData(context)
-        if (tempData.tickCounter-- <= 0) {
-            tempData.tickCounter = tempData.lazyTickRate
-            tickLazy(context)
-        }
 
         context.world.onServer {
             registerContextIfNotPresent(getPlayerUUID(context).toString(), context)
@@ -332,49 +332,6 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         context.world.onClient { _, _ ->
             updateClientState(context)
             handleClientPlayback(context)
-        }
-    }
-
-    fun tickLazy(context: MovementContext) {
-        context.world.onClient { level, virtual ->
-            val player = getOrCreateAudioPlayer(getPlayerUUID(context).toString(), context)
-            val displacement = level.random.nextInt(4) / 24f
-
-            val facing = context.state.getValue(BlockStateProperties.FACING)
-            val localDirection = Vec3(facing.stepX.toDouble(), facing.stepY.toDouble(), facing.stepZ.toDouble())
-            val worldDirection = context.rotation.apply(localDirection).normalize()
-
-            val spawnPos = context.position.add(worldDirection.scale(0.7 + displacement))
-
-            when (player.state) {
-                AudioPlayer.PlayState.LOADING -> {
-                    level.addParticle(
-                        ShriekParticleOption(2),
-                        false,
-                        spawnPos.x,
-                        spawnPos.y,
-                        spawnPos.z,
-                        0.0,
-                        12.5,
-                        0.0,
-                    )
-                }
-
-                AudioPlayer.PlayState.PLAYING -> {
-                    level.addParticle(
-                        ParticleTypes.NOTE,
-                        spawnPos.x + displacement,
-                        spawnPos.y + displacement,
-                        spawnPos.z + displacement,
-                        level.random.nextFloat().toDouble(),
-                        0.0,
-                        0.0,
-                    )
-                }
-
-                else -> {
-                }
-            }
         }
     }
 
@@ -447,6 +404,9 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
             val savedIsPaused = context.data.getBoolean("IsPaused")
             val savedPauseStartTime = context.data.getLong("PauseStartTime")
             val savedTotalPausedTime = context.data.getLong("TotalPausedTime")
+
+            // Particle job
+
             context.temporaryData =
                 RecordPlayerContextData(
                     pitchSupplier = null,
@@ -464,6 +424,55 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                     val recordStack = ItemStack.of(itemNbt)
                     val be = context.contraption.getBlockEntityClientSide(context.localPos) as? RecordPlayerBlockEntity
                     be?.playerBehaviour?.setRecord(recordStack)
+                }
+
+                (context.temporaryData as RecordPlayerContextData).apply {
+                    this.particleJob =
+                        modLaunch {
+                            val player = getOrCreateAudioPlayer(getPlayerUUID(context).toString(), context)
+                            val displacement = context.world.random.nextInt(4) / 24f
+
+                            val facing = context.state.getValue(BlockStateProperties.FACING)
+                            val localDirection = Vec3(facing.stepX.toDouble(), facing.stepY.toDouble(), facing.stepZ.toDouble())
+                            val worldDirection = context.rotation.apply(localDirection).normalize()
+
+                            val spawnPos = context.position.add(worldDirection.scale(0.7 + displacement))
+
+                            player.state.collect { state ->
+                                when (state) {
+                                    PlayerState.LOADING -> {
+                                        context.world.addParticle(
+                                            ShriekParticleOption(2),
+                                            false,
+                                            spawnPos.x,
+                                            spawnPos.y,
+                                            spawnPos.z,
+                                            0.0,
+                                            12.5,
+                                            0.0,
+                                        )
+                                    }
+
+                                    PlayerState.PLAYING -> {
+                                        context.world.addParticle(
+                                            ParticleTypes.NOTE,
+                                            spawnPos.x + displacement,
+                                            spawnPos.y + displacement,
+                                            spawnPos.z + displacement,
+                                            context.world.random
+                                                .nextFloat()
+                                                .toDouble(),
+                                            0.0,
+                                            0.0,
+                                        )
+                                    }
+
+                                    else -> {
+                                    }
+                                }
+                                delay(10.ticks())
+                            }
+                        }
                 }
             }
         }
@@ -626,7 +635,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
         val player = getOrCreateAudioPlayer(playerId, context)
 
-        if (player.state == AudioPlayer.PlayState.LOADING) {
+        if (player.state.value == PlayerState.LOADING) {
             return
         }
 
@@ -698,43 +707,38 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
 
         when (desiredState) {
             PlaybackState.PLAYING -> {
-                when (player.state) {
-                    AudioPlayer.PlayState.PAUSED -> {
-                        player.resume()
+                when (player.state.value) {
+                    PlayerState.PAUSED -> {
+                        player.play()
                     }
 
-                    AudioPlayer.PlayState.STOPPED -> {
+                    PlayerState.STOPPED -> {
                         val record = getRecordItem(context)
-                        val offsetSeconds = computeOffsetSeconds(tempData)
 
                         player.playFromRecord(
                             record,
-                            offsetSeconds,
                             buildPitchSupplier(context),
                             buildRadiusSupplier(context),
                             buildVolumeSupplier(context),
                         )
                     }
 
-                    AudioPlayer.PlayState.PLAYING -> {
-                        // Already playing – let syncPosition decide if a restart is needed
-                        player.syncPosition(computeOffsetSeconds(tempData))
+                    PlayerState.PLAYING -> {
+                        // player.seek(computeOffsetSeconds(tempData))
                     }
 
-                    AudioPlayer.PlayState.LOADING -> {
-                        // Initialising – nothing to do
-                    }
+                    else -> {}
                 }
             }
 
             PlaybackState.PAUSED -> {
-                if (player.state == AudioPlayer.PlayState.PLAYING) {
+                if (player.state.value == PlayerState.PLAYING) {
                     player.pause()
                 }
             }
 
             PlaybackState.STOPPED -> {
-                if (player.state != AudioPlayer.PlayState.STOPPED) {
+                if (player.state.value != PlayerState.STOPPED) {
                     player.stop()
                 }
             }
@@ -779,11 +783,10 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                     volumeSupplier = buildVolumeSupplier(context),
                 )
             },
-            sampleRate = 48_000,
-            onEffectChainCreate = { chain ->
-                val effects = chain.getEffects()
+            effectChainConfiguration = {
+                val effects = this.getEffects()
                 if (effects.none { it is PitchShiftEffect }) {
-                    chain.addEffectAt(
+                    this.addEffectAt(
                         0,
                         PitchShiftEffect(buildPitchSupplier(context)),
                     )

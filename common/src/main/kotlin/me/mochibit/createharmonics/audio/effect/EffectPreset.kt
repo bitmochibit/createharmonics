@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics.audio.effect
 
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
-import me.mochibit.createharmonics.audio.AudioPlayer
+import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.foundation.extension.countLiquidCoveredFaces
 import me.mochibit.createharmonics.foundation.extension.lerpTo
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
@@ -43,7 +43,7 @@ sealed interface EffectPreset {
             cutoffFrequency: Float,
             resonance: Float,
         ) {
-            val effectChain = audioPlayer.getCurrentEffectChain() ?: return
+            val effectChain = audioPlayer.effectChain ?: return
             val effects = effectChain.getEffects()
             val existingFilter = effects.firstOrNull { it is LowPassFilterEffect } as? LowPassFilterEffect
 
@@ -67,7 +67,7 @@ sealed interface EffectPreset {
         }
 
         private fun removeLowPassFilter(audioPlayer: AudioPlayer) {
-            val effectChain = audioPlayer.getCurrentEffectChain() ?: return
+            val effectChain = audioPlayer.effectChain ?: return
             val effects = effectChain.getEffects()
             val lowPassIndex = effects.indexOfFirst { it is LowPassFilterEffect }
             if (lowPassIndex < 0) return

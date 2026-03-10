@@ -69,12 +69,18 @@ class PcmAudioStream(
         when (inputStream) {
             is AudioEffectInputStream -> {
                 // Since the buffer is smaller (and more susceptible to hanging) the stream closure will be handled by the stream directly
-                inputStream.onStreamHang?.let { it() }
+                if (!inputStream.isClosed) {
+                    inputStream.onStreamHang?.let { it() }
+                }
             }
 
             else -> {
                 inputStream.close()
             }
         }
+    }
+
+    fun normallyClose() {
+        inputStream.close()
     }
 }

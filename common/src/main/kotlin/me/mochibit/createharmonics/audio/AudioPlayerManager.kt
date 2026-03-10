@@ -2,6 +2,8 @@ package me.mochibit.createharmonics.audio
 
 import kotlinx.coroutines.Dispatchers
 import me.mochibit.createharmonics.audio.effect.EffectChain
+import me.mochibit.createharmonics.audio.player.AudioPlayer
+import me.mochibit.createharmonics.audio.player.SoundInstanceFactory
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
@@ -17,37 +19,31 @@ object AudioPlayerManager {
         }
     }
 
-    fun create(
+    fun getOrCreate(
         id: String,
-        provider: StreamingSoundInstanceProvider,
-        sampleRate: Int = 48_000,
-        onEffectChainCreate: ((effectChain: EffectChain) -> Unit)? = null,
+        provider: SoundInstanceFactory,
+        effectChainConfiguration: EffectChain.() -> Unit,
     ): AudioPlayer {
+        val existing = players[id]
+        if (existing != null) return existing
+
         require(id.isNotBlank()) { "Player ID cannot be blank" }
         require(!players.containsKey(id)) { "Player '$id' already exists — use get() or release() first" }
 
         val player =
             AudioPlayer(
                 playerId = id,
-                soundInstanceProvider = provider,
-                sampleRate = sampleRate,
-                onEffectChainCreate = onEffectChainCreate,
+                soundInstanceFactory = provider,
             )
+        player.effectChain.effectChainConfiguration()
         players[id] = player
         return player
     }
 
-    fun getOrCreate(
-        id: String,
-        provider: StreamingSoundInstanceProvider,
-        sampleRate: Int = 48_000,
-        onEffectChainCreate: ((effectChain: EffectChain) -> Unit)? = null,
-    ): AudioPlayer = players[id] ?: create(id, provider, sampleRate, onEffectChainCreate)
-
     fun get(id: String): AudioPlayer? = players[id]
 
     fun release(id: String) {
-        players.remove(id)?.dispose()
+        players.remove(id)?.close()
     }
 
     fun closeAll() {
@@ -55,7 +51,7 @@ object AudioPlayerManager {
 
         modLaunch(Dispatchers.IO) {
             snapshot.forEach { player ->
-                runCatching { player.dispose() }
+                runCatching { player.close() }
                     .onFailure { "Error disposing ${player.playerId}: ${it.message}".err() }
             }
         }

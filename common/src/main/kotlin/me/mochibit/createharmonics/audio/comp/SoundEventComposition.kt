@@ -16,7 +16,7 @@ import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
 
 class SoundEventComposition(
-    val soundList: List<SoundEventDef> = listOf(),
+    soundList: List<SoundEventDef> = listOf(),
 ) {
     data class SoundEventDef(
         val event: SoundEvent,
@@ -34,35 +34,101 @@ class SoundEventComposition(
         var probabilitySupplier: (() -> Float)? = null,
     )
 
-    private val soundInstances: MutableList<SoundInstance> = mutableListOf()
-    private val probabilityJobs: MutableList<Job> = mutableListOf()
+    private data class ActiveEntry(
+        val def: SoundEventDef,
+        val instances: MutableList<SoundInstance> = mutableListOf(),
+        val jobs: MutableList<Job> = mutableListOf(),
+    )
+
+    private val entries: MutableList<ActiveEntry> = soundList.map { ActiveEntry(it) }.toMutableList()
+    private var referenceSoundInstance: SoundInstance? = null
+
+    val soundList: List<SoundEventDef> get() = entries.map { it.def }
+    val isRunning: Boolean get() = entries.any { it.instances.isNotEmpty() || it.jobs.isNotEmpty() }
 
     fun makeComposition(referenceSoundInstance: SoundInstance) {
-        for (soundEvent in soundList) {
-            val isLooping = soundEvent.looping ?: false
-            val hasProbabilitySupplier = soundEvent.probabilitySupplier != null
+        this.referenceSoundInstance = referenceSoundInstance
+        entries.forEach { startEntry(it, referenceSoundInstance) }
+    }
 
-            // If sound has probabilitySupplier and is NOT looping, use coroutine-based probability system
-            if (hasProbabilitySupplier && !isLooping) {
-                val job =
-                    30.seconds.every {
-                        val probability = soundEvent.probabilitySupplier?.invoke() ?: 0f
-                        val randomValue = Random.nextFloat()
+    fun stopComposition() {
+        entries.forEach { stopEntry(it) }
+        referenceSoundInstance = null
+    }
 
-                        if (randomValue <= probability) {
-                            // Create and play the sound instance
-                            val newSoundInstance = createSoundInstance(soundEvent, referenceSoundInstance, false)
-                            soundInstances.add(newSoundInstance)
-                            Minecraft.getInstance().soundManager.play(newSoundInstance)
-                        }
+    fun add(def: SoundEventDef) {
+        val entry = ActiveEntry(def)
+        entries.add(entry)
+        referenceSoundInstance?.let { startEntry(entry, it) }
+    }
+
+    fun remove(def: SoundEventDef) {
+        val entry = entries.find { it.def == def } ?: return
+        stopEntry(entry)
+        entries.remove(entry)
+    }
+
+    fun removeAll(predicate: (SoundEventDef) -> Boolean) {
+        val toRemove = entries.filter { predicate(it.def) }
+        toRemove.forEach { stopEntry(it) }
+        entries.removeAll(toRemove)
+    }
+
+    fun replace(
+        old: SoundEventDef,
+        new: SoundEventDef,
+    ) {
+        val entry = entries.find { it.def == old } ?: return
+        stopEntry(entry)
+        val newEntry = ActiveEntry(new)
+        entries[entries.indexOf(entry)] = newEntry
+        referenceSoundInstance?.let { startEntry(newEntry, it) }
+    }
+
+    private fun startEntry(
+        entry: ActiveEntry,
+        ref: SoundInstance,
+    ) {
+        val isLooping = entry.def.looping ?: false
+
+        if (entry.def.probabilitySupplier != null && !isLooping) {
+            val job =
+                30.seconds.every {
+                    val probability = entry.def.probabilitySupplier?.invoke() ?: 0f
+                    if (Random.nextFloat() <= probability) {
+                        val instance = createSoundInstance(entry.def, ref, false)
+                        entry.instances.add(instance)
+                        Minecraft.getInstance().soundManager.play(instance)
                     }
+                }
+            entry.jobs.add(job)
+        } else {
+            val instance = createSoundInstance(entry.def, ref, isLooping)
+            Minecraft.getInstance().soundManager.play(instance)
+            entry.instances.add(instance)
+        }
+    }
 
-                probabilityJobs.add(job)
-            } else {
-                // Play normally for looping sounds or sounds without probabilitySupplier
-                val newSoundInstance = createSoundInstance(soundEvent, referenceSoundInstance, isLooping)
-                Minecraft.getInstance().soundManager.play(newSoundInstance)
-                soundInstances.add(newSoundInstance)
+    private fun stopEntry(entry: ActiveEntry) {
+        entry.jobs.forEach { job ->
+            try {
+                job.cancel()
+            } catch (e: Exception) {
+                "Could not cancel probability job: ${e.message}".err()
+            }
+        }
+        entry.jobs.clear()
+
+        val instancesToStop = entry.instances.toList()
+        entry.instances.clear()
+
+        modLaunch {
+            instancesToStop.forEach { instance ->
+                try {
+                    Minecraft.getInstance().soundManager.stop(instance)
+                } catch (e: Exception) {
+                    "Could not stop sound instance: ${e.message}".err()
+                }
             }
         }
     }
@@ -113,32 +179,4 @@ class SoundEventComposition(
                 )
             }
         }
-
-    fun stopComposition() {
-        // Cancel all coroutine jobs immediately (can be done from any thread)
-        for (job in probabilityJobs) {
-            try {
-                job.cancel()
-            } catch (e: Exception) {
-                "Could not cancel probability job: ${e.message}".err()
-            }
-        }
-        probabilityJobs.clear()
-
-        // Copy the list to avoid concurrent modification issues
-        val instancesToStop = soundInstances.toList()
-        soundInstances.clear()
-
-        // Stop all sound instances on the client thread (required by Minecraft)
-        // Launch async to avoid blocking the caller
-        modLaunch {
-            for (soundInstance in instancesToStop) {
-                try {
-                    Minecraft.getInstance().soundManager.stop(soundInstance)
-                } catch (e: Exception) {
-                    "Could not stop sound instance: ${e.message}".err()
-                }
-            }
-        }
-    }
 }

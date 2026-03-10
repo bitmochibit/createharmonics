@@ -6,6 +6,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
+import me.mochibit.createharmonics.audio.stream.ProcessBoundInputStream
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.err
 import java.io.InputStream
@@ -39,12 +40,25 @@ class FFmpegExecutor private constructor() {
         ): InputStream? {
             val executor = FFmpegExecutor()
             executor.createStream(url, sampleRate, seekSeconds, headers)
-            return executor.inputStream
+            val currentPid =
+                executor.processId ?: return null.also {
+                    "Null PID process detected, aborting..".err()
+                    executor.destroy()
+                }
+
+            val currentStream =
+                executor.inputStream ?: return null.also {
+                    "Null stream detected, aborting...".err()
+                    executor.destroy()
+                }
+
+            return ProcessBoundInputStream(currentPid, currentStream)
         }
     }
 
     private var process: Process? = null
     private var processId: Long? = null
+    val currentProcessId get() = processId
 
     private val streamReady = CompletableDeferred<Result<Unit>>()
 
