@@ -52,6 +52,7 @@ legacyForge {
     }
 
     parchment {
+        enabled = true
         minecraftVersion = parchmentMinecraftProp
         mappingsVersion = parchmentVersionProp
     }

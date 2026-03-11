@@ -74,6 +74,7 @@ legacyForge {
         accessTransformers.from(file("src/main/resources/META-INF/accesstransformer.cfg"))
     }
     parchment {
+        enabled = true
         minecraftVersion = parchmentMinecraftProp
         mappingsVersion = parchmentVersionProp
     }
@@ -91,20 +92,20 @@ dependencies {
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion")
 
     // Create
-    compileOnly("com.simibubi.create:create-$minecraftVersionProp:$createVersion:slim") { isTransitive = false }
-    compileOnly("net.createmod.ponder:Ponder-Forge-$minecraftVersionProp:$ponderVersion") { isTransitive = false }
-    compileOnly("dev.engine-room.flywheel:flywheel-forge-api-$minecraftVersionProp:$flywheelVersion")
-    compileOnly("com.tterrag.registrate:Registrate:$registrateVersion") { isTransitive = false }
+    modCompileOnly("com.simibubi.create:create-$minecraftVersionProp:$createVersion:slim") { isTransitive = false }
+    modCompileOnly("net.createmod.ponder:Ponder-Forge-$minecraftVersionProp:$ponderVersion") { isTransitive = false }
+    modCompileOnly("dev.engine-room.flywheel:flywheel-forge-api-$minecraftVersionProp:$flywheelVersion")
+    modCompileOnly("com.tterrag.registrate:Registrate:$registrateVersion") { isTransitive = false }
 
     // VS2
-    compileOnly("org.valkyrienskies:valkyrienskies-120-forge:$vs2Version") { isTransitive = false }
-    compileOnly("org.valkyrienskies.core:api:$vsCoreVersion") {
+    modCompileOnly("org.valkyrienskies:valkyrienskies-120-forge:$vs2Version") { isTransitive = false }
+    modCompileOnly("org.valkyrienskies.core:api:$vsCoreVersion") {
         exclude(group = "org.joml")
     }
-    compileOnly("org.valkyrienskies.core:internal:$vsCoreVersion") {
+    modCompileOnly("org.valkyrienskies.core:internal:$vsCoreVersion") {
         exclude(group = "org.joml")
     }
-    compileOnly("org.valkyrienskies.core:util:$vsCoreVersion") {
+    modCompileOnly("org.valkyrienskies.core:util:$vsCoreVersion") {
         exclude(group = "org.joml")
     }
 }
