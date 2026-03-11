@@ -23,7 +23,11 @@ object AudioPlayerManager {
         effectChainConfiguration: EffectChain.() -> Unit,
     ): AudioPlayer {
         val existing = players[id]
-        if (existing != null) return existing
+        if (existing != null) {
+            return existing.also {
+                it.startStateMachine()
+            }
+        }
 
         require(id.isNotBlank()) { "Player ID cannot be blank" }
         require(!players.containsKey(id)) { "Player '$id' already exists — use get() or release() first" }

@@ -11,6 +11,8 @@ sealed interface PlayerIntent {
 
     data object AudioFinished : PlayerIntent
 
+    data object Shutdown : PlayerIntent
+
     data class Seek(
         val position: Double,
     ) : PlayerIntent

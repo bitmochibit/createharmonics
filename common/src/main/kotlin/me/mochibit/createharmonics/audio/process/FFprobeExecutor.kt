@@ -1,6 +1,8 @@
 package me.mochibit.createharmonics.audio.process
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
@@ -8,7 +10,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.foundation.err
-import java.io.File
 
 /**
  * Runs ffprobe (bundled alongside ffmpeg) to extract container metadata from a URL
@@ -58,14 +59,19 @@ class FFprobeExecutor {
                 val processId = ProcessLifecycleManager.registerProcess(process)
 
                 try {
-                    val output = process.inputStream.bufferedReader().use { it.readText() }
+                    // Drain both pipes concurrently to prevent pipe-buffer deadlocks.
+                    // Even with -v quiet, ffprobe may write to stderr; leaving it unread
+                    // risks stalling the process if the OS buffer fills up.
+                    val (output, _) =
+                        coroutineScope {
+                            val stdout = async { process.inputStream.bufferedReader().use { it.readText() } }
+                            val stderr = async { process.errorStream.bufferedReader().use { it.readText() } }
+                            stdout.await() to stderr.await()
+                        }
+
                     val exitCode = process.waitFor()
 
-                    if (exitCode != 0) {
-                        return@withContext null
-                    }
-
-                    if (output.isBlank()) return@withContext null
+                    if (exitCode != 0 || output.isBlank()) return@withContext null
 
                     val json = Json { ignoreUnknownKeys = true }
                     val root = json.parseToJsonElement(output).jsonObject
@@ -92,13 +98,12 @@ class FFprobeExecutor {
 
                     val sampleRate =
                         streams
-                            ?.jsonArray
                             ?.firstOrNull()
                             ?.jsonObject
                             ?.get("sample_rate")
                             ?.jsonPrimitive
                             ?.content
-                            ?.toFloatOrNull() ?: 48000f
+                            ?.toFloatOrNull() ?: 48_000f
 
                     ProbeInfo(durationSeconds = duration, title = title ?: "", sampleRate = sampleRate)
                 } finally {

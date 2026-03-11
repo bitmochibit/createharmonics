@@ -8,6 +8,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.instance.SampleRatedInstance
@@ -15,6 +16,7 @@ import me.mochibit.createharmonics.audio.stream.AudioEffectInputStream
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.async.withMainContext
 import me.mochibit.createharmonics.foundation.extension.ticks
+import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerStreamEndPacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
 import net.minecraft.client.Minecraft
@@ -45,7 +47,7 @@ class AudioPlayer(
 
     private val intents = Channel<PlayerIntent>(Channel.UNLIMITED)
 
-    private val stateMachineJob: Job
+    private var stateMachineJob: Job? = null
 
     val effectChain = EffectChain()
 
@@ -60,18 +62,30 @@ class AudioPlayer(
     val clock = PlaytimeClock()
 
     init {
-        stateMachineJob =
-            modLaunch(Dispatchers.IO) {
-                for (intent in intents) {
+        startStateMachine()
+    }
+
+    fun startStateMachine() {
+        val currentSm = stateMachineJob
+        if (currentSm == null || !currentSm.isActive) {
+            stateMachineJob =
+                modLaunch(Dispatchers.IO) {
                     try {
-                        handleIntent(intent)
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                        for (intent in intents) {
+                            try {
+                                if (intent is PlayerIntent.Shutdown) break
+                                handleIntent(intent)
+                            } catch (e: CancellationException) {
+                                if (!isActive) throw e
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                    } finally {
+                        doStopPlayback()
                     }
                 }
-            }
+        }
     }
 
     private suspend fun handleIntent(intent: PlayerIntent) {
@@ -144,14 +158,23 @@ class AudioPlayer(
                     startPlayback(intent.position)
                 }
             }
+
+            else -> {}
         }
     }
 
     private suspend fun startPlayback(pos: Double = 0.0) {
         val request = currentAudioRequest ?: return
         transition(PlayerState.LOADING)
-        val source = AudioSourceResolver.resolve(request)
-        val resolvedInputStream = SourceStreamResolver.resolveInputStream(source, pos)
+        val resolvedInputStream =
+            try {
+                val source = AudioSourceResolver.resolve(request)
+                SourceStreamResolver.resolveInputStream(source, pos)
+            } catch (e: Exception) {
+                "Something went wrong when creating the source $e".info()
+                handleStreamEnd()
+                return transition(PlayerState.PAUSED)
+            }
         if (resolvedInputStream.status == SourceStreamResolver.Result.StreamStatus.FINISHED || resolvedInputStream.inputStream == null) {
             handleStreamEnd()
             return transition(PlayerState.STOPPED)
@@ -222,18 +245,19 @@ class AudioPlayer(
 
     private suspend fun stopPlayback() {
         if (_state.value == PlayerState.STOPPED) return
-        currentAudioEffectInputStream?.close().also {
-            currentAudioEffectInputStream = null
-        }
+        doStopPlayback()
+    }
+
+    private suspend fun doStopPlayback() {
+        currentAudioEffectInputStream?.close()
+        currentAudioEffectInputStream = null
         withMainContext {
-            currentSoundInstance?.let {
-                soundManager.stop(it)
-            }
+            currentSoundInstance?.let { soundManager.stop(it) }
             soundEventComposition.stopComposition()
         }
         currentSoundInstance = null
         clock.stop()
-        transition(PlayerState.STOPPED)
+        _state.value = PlayerState.STOPPED
     }
 
     private fun transition(next: PlayerState) {
@@ -286,11 +310,7 @@ class AudioPlayer(
     }
 
     override fun close() {
-        intents.cancel()
-        stateMachineJob.cancel()
-        currentAudioEffectInputStream?.close()
-        currentSoundInstance?.let { soundManager.stop(it) }
-        soundEventComposition.stopComposition()
-        currentSoundInstance = null
+        intents.trySend(PlayerIntent.Shutdown)
+        intents.close()
     }
 }

@@ -1,11 +1,12 @@
 package me.mochibit.createharmonics.audio.process
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.float
 import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -25,14 +26,9 @@ class YTdlpExecutor {
     suspend fun extractAudioInfo(youtubeUrl: String): AudioUrlInfo? =
         withContext(Dispatchers.IO) {
             try {
-                if (!YTDLProvider.isAvailable()) {
-                    return@withContext null
-                }
+                if (!YTDLProvider.isAvailable()) return@withContext null
 
-                val ytdlPath =
-                    YTDLProvider.getExecutablePath()
-                        ?: return@withContext null
-
+                val ytdlPath = YTDLProvider.getExecutablePath() ?: return@withContext null
                 val configOverrides = configService.getYtdlpOverrideArgs()
 
                 val command =
@@ -52,9 +48,8 @@ class YTdlpExecutor {
                             // wrap-around issues for very long videos (e.g. 11 h YouTube streams).
                             // Fall back to bestaudio only when no single-file audio is available.
                             "bestaudio[protocol=https]/bestaudio[protocol=http]/bestaudio",
-                            // Output in JSON format to get all metadata including HTTP headers
                             "-j",
-                            "--quiet", // Minimal output for faster execution
+                            "--quiet",
                             "--no-playlist",
                             "--no-call-home",
                             "--skip-download",
@@ -70,16 +65,22 @@ class YTdlpExecutor {
                 val processId = ProcessLifecycleManager.registerProcess(process)
 
                 try {
-                    val output = process.inputStream.bufferedReader().use { it.readText() }
-                    val errorOutput = process.errorStream.bufferedReader().use { it.readText() }
+                    // Read stdout and stderr concurrently to prevent pipe-buffer deadlocks.
+                    // Sequential reads can deadlock when the process fills one pipe's OS buffer
+                    // while we're blocked draining the other.
+                    val (output, errorOutput) =
+                        coroutineScope {
+                            val stdout = async { process.inputStream.bufferedReader().use { it.readText() } }
+                            val stderr = async { process.errorStream.bufferedReader().use { it.readText() } }
+                            stdout.await() to stderr.await()
+                        }
 
                     val exitCode = process.waitFor()
 
                     if (exitCode != 0) {
                         "yt-dlp failed with exit code $exitCode".err()
-                        // Only log errors if there was a failure
                         if (errorOutput.isNotBlank()) {
-                            "yt-dlp error: ${errorOutput.take(500)}".err() // Limit error message length
+                            "yt-dlp error: ${errorOutput.take(500)}".err()
                         }
                         return@withContext null
                     }
@@ -90,37 +91,23 @@ class YTdlpExecutor {
                                 "yt-dlp output contained no JSON object".err()
                                 return@withContext null
                             }
+
                     val json = Json { ignoreUnknownKeys = true }
-                    val jsonElement = json.parseToJsonElement(firstJsonLine)
-                    val jsonObject = jsonElement.jsonObject
+                    val jsonObject = json.parseToJsonElement(firstJsonLine).jsonObject
 
                     val title = jsonObject["title"]?.jsonPrimitive?.content ?: "Unknown"
                     val audioUrl =
                         jsonObject["url"]?.jsonPrimitive?.content
                             ?: throw IllegalStateException("No URL found in yt-dlp output")
-
                     val sampleRate = jsonObject["asr"]?.jsonPrimitive?.floatOrNull ?: 48_000f
-
-                    // yt-dlp's -j output merges the selected format dict into the root info
-                    // dict.  For segmented formats (DASH/HLS) the format-level "duration" is
-                    // the per-fragment length (e.g. 85 s), NOT the full video duration.
-                    // The actual full duration is always stored on the info dict itself, but
-                    // because of the merge it may be shadowed.
-                    //
-                    // Resolution strategy (most-reliable → least-reliable):
-                    //  1. "duration" from the root info dict – reliable when not shadowed
-                    //  2. "duration_string" parsed as H:M:S – unaffected by the format merge
-                    //  3. Largest duration found inside the "formats" array
-                    //  4. Fallback to 0 (means "unknown")
                     val duration = extractFullDuration(jsonObject)
 
-                    // Extract HTTP headers if available
-                    val httpHeaders = mutableMapOf<String, String>()
-                    jsonObject["http_headers"]?.jsonObject?.let { headers ->
-                        headers.forEach { (key, value) ->
-                            httpHeaders[key] = value.jsonPrimitive.content
+                    val httpHeaders =
+                        buildMap {
+                            jsonObject["http_headers"]?.jsonObject?.forEach { (key, value) ->
+                                put(key, value.jsonPrimitive.content)
+                            }
                         }
-                    }
 
                     AudioUrlInfo(audioUrl, duration, title, sampleRate, httpHeaders)
                 } finally {
@@ -139,16 +126,15 @@ class YTdlpExecutor {
      *
      * yt-dlp's `-j` output merges the selected format dict into the root info dict, which
      * means the root-level `"duration"` field can be overwritten by the format's own
-     * `"duration"` value.  For segmented DASH/HLS formats that value is the per-fragment
+     * `"duration"` value. For segmented DASH/HLS formats that value is the per-fragment
      * length (commonly ~85 s for YouTube), not the full video duration.
      *
      * We therefore try multiple fields in descending order of reliability:
      *  1. `"duration_string"` – a human-readable `"H:MM:SS"` field that is set from the
      *     info dict and is **not** overwritten by format merging.
-     *  2. `"duration"` as a numeric value, accepted only when it is implausibly large
-     *     enough to be the real duration (> the fragment threshold).
-     *  3. The maximum `"duration"` found across all entries in the `"formats"` array –
-     *     the info-dict value should appear there as the highest entry.
+     *  2. `"duration"` as a numeric value, accepted only when it is large enough to be
+     *     the real duration (> the fragment threshold).
+     *  3. The maximum `"duration"` found across all entries in the `"formats"` array.
      *  4. `0` (unknown) as a last resort.
      */
     private fun extractFullDuration(jsonObject: JsonObject): Int {
@@ -163,22 +149,19 @@ class YTdlpExecutor {
         //    A value ≤ SEGMENT_DURATION_CEILING_S is suspiciously small and likely a
         //    per-segment length injected by the format merge.
         val numericDuration =
-            try {
+            runCatching {
                 jsonObject["duration"]
                     ?.jsonPrimitive
                     ?.content
                     ?.toDoubleOrNull()
                     ?.toInt() ?: 0
-            } catch (_: Exception) {
-                0
-            }
+            }.getOrDefault(0)
 
         if (numericDuration > SEGMENT_DURATION_CEILING_S) return numericDuration
 
         // 3. Scan the "formats" array and take the maximum reported duration
         val maxFormatDuration =
-            jsonObject["formats"]
-                ?.let { it as? JsonArray }
+            (jsonObject["formats"] as? JsonArray)
                 ?.mapNotNull { el ->
                     (el as? JsonObject)
                         ?.get("duration")
@@ -190,7 +173,7 @@ class YTdlpExecutor {
 
         if (maxFormatDuration > 0) return maxFormatDuration
 
-        // 4. Give up – return whatever numeric value we had (may be 0)
+        // 4. Give up
         return numericDuration
     }
 
@@ -212,7 +195,7 @@ class YTdlpExecutor {
         /**
          * Durations at or below this value (seconds) are assumed to be per-segment
          * lengths rather than full-video durations and are discarded in favour of
-         * more reliable sources.  YouTube DASH audio segments are typically 85–120 s.
+         * more reliable sources. YouTube DASH audio segments are typically 85–120 s.
          */
         private const val SEGMENT_DURATION_CEILING_S = 300
     }

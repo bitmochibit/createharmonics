@@ -3,6 +3,8 @@ package me.mochibit.createharmonics.audio.process
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
@@ -56,8 +58,11 @@ class FFmpegExecutor private constructor() {
         }
     }
 
-    private var process: Process? = null
-    private var processId: Long? = null
+    @Volatile private var process: Process? = null
+
+    @Volatile private var processId: Long? = null
+    private val lifecycleMutex = Mutex()
+
     val currentProcessId get() = processId
 
     private val streamReady = CompletableDeferred<Result<Unit>>()
@@ -76,9 +81,11 @@ class FFmpegExecutor private constructor() {
         return String.format("%d:%02d:%02d.%03d", hours, minutes, secs, millis)
     }
 
+    fun isRunning(): Boolean = process?.isAlive == true
+
     /**
      * Creates an FFmpeg stream and suspends until the stream is ready or timeout occurs.
-
+     *
      * @return true if stream was successfully created and is ready, false otherwise
      */
     suspend fun createStream(
@@ -88,18 +95,13 @@ class FFmpegExecutor private constructor() {
         headers: Map<String, String> = emptyMap(),
     ): Boolean {
         if (!FFMPEGProvider.isAvailable()) {
-            ("FFmpeg is not available").err()
+            "FFmpeg is not available".err()
             return false
         }
-        if (isRunning()) {
-            return false
-        }
-
-        val ffmpegPath = FFMPEGProvider.getExecutablePath()
 
         val command =
             buildList {
-                add(ffmpegPath)
+                add(FFMPEGProvider.getExecutablePath())
 
                 // Add seek offset before input for faster seeking
                 if (seekSeconds > 0.0) {
@@ -118,9 +120,8 @@ class FFmpegExecutor private constructor() {
                 if (headers.isNotEmpty()) {
                     val headerString =
                         headers.entries
-                            .joinToString("\r\n") { (key, value) ->
-                                "$key: $value"
-                            }.plus("\r\n")
+                            .joinToString("\r\n") { (key, value) -> "$key: $value" }
+                            .plus("\r\n")
                     add("-headers")
                     add(headerString)
                 }
@@ -133,10 +134,8 @@ class FFmpegExecutor private constructor() {
                 add("5")
                 add("-multiple_requests")
                 add("1")
-
                 add("-timeout")
                 add("10000000")
-
                 add("-i")
                 add(url)
                 add("-f")
@@ -150,46 +149,52 @@ class FFmpegExecutor private constructor() {
                 add("pipe:1")
             }
 
+        // Guard the entire start sequence so that isRunning() check + assignment are atomic
         val newProcess =
-            try {
-                withContext(Dispatchers.IO) {
-                    ProcessBuilder(command)
-                        .redirectErrorStream(false)
-                        .start()
+            lifecycleMutex.withLock {
+                if (isRunning()) return false
+
+                try {
+                    withContext(Dispatchers.IO) {
+                        ProcessBuilder(command)
+                            .redirectErrorStream(false)
+                            .start()
+                    }
+                } catch (e: Exception) {
+                    "Failed to start FFmpeg process: ${e.message}".err()
+                    streamReady.complete(Result.failure(e))
+                    return false
+                }.also { p ->
+                    process = p
+                    processId = ProcessLifecycleManager.registerProcess(p)
                 }
-            } catch (e: Exception) {
-                "Failed to start FFmpeg process: ${e.message}".err()
-                streamReady.complete(Result.failure(e))
-                return false
             }
 
-        process = newProcess
-        processId = ProcessLifecycleManager.registerProcess(newProcess)
-
+        // Drain stderr so the process doesn't block on a full pipe buffer
         modLaunch(Dispatchers.IO) {
             newProcess.errorStream.bufferedReader().use { reader ->
                 try {
-                    reader.forEachLine { line ->
-                        "FFmpeg stderr: $line".err()
-                    }
+                    reader.forEachLine { line -> "FFmpeg stderr: $line".err() }
                 } catch (_: Exception) {
                 }
             }
         }
 
-        // Monitor process lifecycle - wait for the process to exit naturally, then clean up
+        // Monitor process lifecycle — clear refs under the mutex to avoid racing with destroy()
         modLaunch(Dispatchers.IO) {
             try {
                 newProcess.waitFor()
             } catch (_: Exception) {
             }
-            if (process == newProcess) {
-                process = null
-                processId = null
+            lifecycleMutex.withLock {
+                if (process == newProcess) {
+                    process = null
+                    processId = null
+                }
             }
         }
 
-        // Dynamic timeout: base + extra per seek-second, capped at the hard ceiling.
+        // Dynamic timeout: base + extra per seek-second, capped at the hard ceiling
         val streamReadyTimeoutMs =
             minOf(
                 STREAM_READY_BASE_TIMEOUT_MS + (seekSeconds * STREAM_READY_EXTRA_MS_PER_SEEK_SECOND).toLong(),
@@ -201,12 +206,10 @@ class FFmpegExecutor private constructor() {
         // Monitor stream readiness
         modLaunch(Dispatchers.IO) {
             try {
-                // Wait for stream to have data available
                 var attempts = 0
                 while (attempts < maxAttempts && newProcess.isAlive) {
                     try {
-                        val available = newProcess.inputStream.available()
-                        if (available > 0) {
+                        if (newProcess.inputStream.available() > 0) {
                             streamReady.complete(Result.success(Unit))
                             return@modLaunch
                         }
@@ -228,66 +231,51 @@ class FFmpegExecutor private constructor() {
         }
 
         return withTimeoutOrNull(streamReadyTimeoutMs) {
-            val result = streamReady.await()
-            result.isSuccess
+            streamReady.await().isSuccess
         } ?: false.also {
             "Timeout waiting for FFmpeg stream to be ready".err()
         }
     }
 
-    fun isRunning(): Boolean = process?.isAlive == true
-
     /**
-     * Destroys the FFmpeg process asynchronously.
-     * This method returns immediately and performs cleanup in the background.
+     * Destroys the FFmpeg process.
+     * Fields are cleared immediately under the mutex; blocking teardown runs outside it.
      */
-    fun destroy() {
-        val currentProcess = process
-        val currentProcessId = processId
+    suspend fun destroy() {
+        val (currentProcess, currentPid) =
+            lifecycleMutex.withLock {
+                val p = process
+                val id = processId
+                process = null
+                processId = null
+                p to id
+            }
 
-        // Clear references immediately
-        process = null
-        processId = null
+        currentProcess ?: return
 
-        // Perform actual cleanup asynchronously to avoid blocking
-        if (currentProcess != null) {
-            modLaunch(Dispatchers.IO) {
+        withContext(Dispatchers.IO) {
+            try {
                 try {
-                    // Close streams first to signal shutdown
-                    try {
-                        currentProcess.inputStream?.close()
-                    } catch (_: Exception) {
-                        // Already closed or error, continue
-                    }
-
-                    try {
-                        currentProcess.errorStream?.close()
-                    } catch (_: Exception) {
-                        // Already closed or error, continue
-                    }
-
-                    // Attempt graceful termination if still alive
-                    if (currentProcess.isAlive) {
-                        currentProcess.destroy()
-
-                        // Wait briefly for graceful shutdown (100ms)
-                        if (!currentProcess.waitFor(100, java.util.concurrent.TimeUnit.MILLISECONDS)) {
-                            // Still alive, force kill
-                            currentProcess.destroyForcibly()
-                            // Wait a bit for force kill
-                            currentProcess.waitFor(50, java.util.concurrent.TimeUnit.MILLISECONDS)
-                        }
-                    }
-                } catch (e: Exception) {
-                    "Error destroying FFmpeg process: ${e.message}".err()
+                    currentProcess.inputStream?.close()
+                } catch (_: Exception) {
+                }
+                try {
+                    currentProcess.errorStream?.close()
+                } catch (_: Exception) {
                 }
 
-                // Unregister from ProcessLifecycleManager
-                currentProcessId?.let { id ->
-                    // Just remove from tracking (process is already terminated above)
-                    ProcessLifecycleManager.unregisterProcess(id)
+                if (currentProcess.isAlive) {
+                    currentProcess.destroy()
+                    if (!currentProcess.waitFor(100, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                        currentProcess.destroyForcibly()
+                        currentProcess.waitFor(50, java.util.concurrent.TimeUnit.MILLISECONDS)
+                    }
                 }
+            } catch (e: Exception) {
+                "Error destroying FFmpeg process: ${e.message}".err()
             }
         }
+
+        currentPid?.let { ProcessLifecycleManager.unregisterProcess(it) }
     }
 }
