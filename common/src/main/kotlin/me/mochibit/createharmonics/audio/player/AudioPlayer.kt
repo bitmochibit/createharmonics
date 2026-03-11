@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.audio.player
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -62,7 +63,13 @@ class AudioPlayer(
         stateMachineJob =
             modLaunch(Dispatchers.IO) {
                 for (intent in intents) {
-                    handleIntent(intent)
+                    try {
+                        handleIntent(intent)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }
             }
     }
@@ -70,7 +77,6 @@ class AudioPlayer(
     private suspend fun handleIntent(intent: PlayerIntent) {
         when (intent) {
             PlayerIntent.AudioFinished -> {
-                if (_state.value == PlayerState.STOPPED) return
                 notifyStreamEnd()
                 stopPlayback()
             }
@@ -280,12 +286,11 @@ class AudioPlayer(
     }
 
     override fun close() {
-        intents.close()
+        intents.cancel()
         stateMachineJob.cancel()
         currentAudioEffectInputStream?.close()
-        modLaunch {
-            currentSoundInstance?.let { soundManager.stop(it) }
-            soundEventComposition.stopComposition()
-        }
+        currentSoundInstance?.let { soundManager.stop(it) }
+        soundEventComposition.stopComposition()
+        currentSoundInstance = null
     }
 }

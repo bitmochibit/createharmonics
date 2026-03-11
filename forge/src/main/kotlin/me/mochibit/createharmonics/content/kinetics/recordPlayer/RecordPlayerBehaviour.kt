@@ -609,7 +609,7 @@ class RecordPlayerBehaviour(
 
     private fun startClientPlayer(currentRecord: ItemStack) {
         val level = be.level ?: return
-        AudioPlayerManager.release(recordPlayerUUID.toString())
+//        AudioPlayerManager.release(recordPlayerUUID.toString())
 
         audioPlayer.playFromRecord(
             currentRecord,

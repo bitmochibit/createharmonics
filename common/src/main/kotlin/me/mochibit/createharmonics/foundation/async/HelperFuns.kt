@@ -9,26 +9,29 @@ import me.mochibit.createharmonics.foundation.services.PlatformService
 import me.mochibit.createharmonics.foundation.services.platformService
 import kotlin.coroutines.CoroutineContext
 
-val currentContext: CoroutineContext by lazy {
-    if (platformService isEnvironment
-        PlatformService.Environment.CLIENT
-    ) {
-        ModDispatchers.Client()
+private val isClient: Boolean
+    get() = platformService isEnvironment PlatformService.Environment.CLIENT
+
+val currentContext: CoroutineContext
+    get() = if (isClient) ModDispatchers.Client() else ModDispatchers.Server()
+
+private fun currentScope(): CoroutineScope =
+    if (isClient) {
+        CoroutineScope(ClientCoroutineScope.coroutineContext)
     } else {
-        ModDispatchers.Server()
+        CoroutineScope(ServerCoroutineScope.coroutineContext)
     }
-}
 
 fun modLaunch(
     context: CoroutineContext = currentContext,
     block: suspend CoroutineScope.() -> Unit,
-) = ModCoroutineScope.launch(context, block = block)
+) = currentScope().launch(context, block = block)
 
 fun delayedLaunch(
     context: CoroutineContext = currentContext,
     delay: kotlin.time.Duration,
     block: suspend CoroutineScope.() -> Unit,
-) = ModCoroutineScope.launch(context) {
+) = currentScope().launch(context) {
     delay(delay.inWholeMilliseconds)
     block()
 }
@@ -40,7 +43,7 @@ fun repeatingLaunch(
     initialDelay: kotlin.time.Duration = kotlin.time.Duration.ZERO,
     delay: kotlin.time.Duration,
     block: suspend CoroutineScope.() -> Unit,
-) = ModCoroutineScope.launch(context) {
+) = currentScope().launch(context) {
     if (initialDelay.inWholeMilliseconds > 0) {
         delay(initialDelay.inWholeMilliseconds)
     }

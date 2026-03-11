@@ -1,10 +1,8 @@
 package me.mochibit.createharmonics.audio
 
-import kotlinx.coroutines.Dispatchers
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.audio.player.SoundInstanceFactory
-import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
 import me.mochibit.createharmonics.foundation.eventbus.ProxyEvent
@@ -48,12 +46,9 @@ object AudioPlayerManager {
 
     fun closeAll() {
         val snapshot = players.values.toList().also { players.clear() }
-
-        modLaunch(Dispatchers.IO) {
-            snapshot.forEach { player ->
-                runCatching { player.close() }
-                    .onFailure { "Error disposing ${player.playerId}: ${it.message}".err() }
-            }
+        snapshot.forEach { player ->
+            runCatching { player.close() }
+                .onFailure { "Error disposing ${player.playerId}: ${it.message}".err() }
         }
     }
 
