@@ -57,8 +57,8 @@ object ModBlocks : ForgeRegistry {
                 p
                     .strength(2.0f, 6.0f)
                     .sound(SoundType.METAL)
+                    .noOcclusion()
             }.blockstate(BlockStateGen.horizontalBlockProvider(true))
-            .addLayer { Supplier { RenderType.translucent() } }
             .onRegister(movementBehaviour(RecordPlayerMovementBehaviour()))
             .tag(
                 AllTags.AllBlockTags.SAFE_NBT.tag,
