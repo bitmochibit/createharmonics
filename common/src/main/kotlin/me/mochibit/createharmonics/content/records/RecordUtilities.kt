@@ -8,6 +8,7 @@ import me.mochibit.createharmonics.audio.source.StreamAudioSource
 import me.mochibit.createharmonics.audio.stream.Ogg2PcmInputStream
 import me.mochibit.createharmonics.audio.utils.getStreamDirectly
 import me.mochibit.createharmonics.foundation.services.contentService
+import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import net.minecraft.client.Minecraft
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.resources.ResourceLocation
@@ -114,9 +115,9 @@ object RecordUtilities {
      */
     fun AudioPlayer.playFromRecord(
         etherealRecord: ItemStack,
-        compPitchSupplier: () -> Float = { 1f },
-        compRadiusSupplier: () -> Float = { 1f },
-        compVolumeSupplier: () -> Float = { 1f },
+        compPitchSupplier: FloatSupplier = FloatSupplier { 1f },
+        compRadiusSupplier: FloatSupplier = FloatSupplier { 1f },
+        compVolumeSupplier: FloatSupplier = FloatSupplier { 1f },
     ) {
         if (!contentService.isEtherealRecord(etherealRecord)) return
         val url = getAudioUrl(etherealRecord) ?: ""

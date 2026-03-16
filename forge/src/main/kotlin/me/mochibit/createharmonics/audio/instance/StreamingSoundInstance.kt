@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.audio.instance
 
 import me.mochibit.createharmonics.audio.stream.PcmAudioStream
 import me.mochibit.createharmonics.foundation.extension.asResource
+import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import net.minecraft.client.resources.sounds.Sound
 import net.minecraft.client.sounds.AudioStream
 import net.minecraft.client.sounds.SoundBufferLibrary
@@ -20,10 +21,10 @@ abstract class StreamingSoundInstance(
     soundEvent: SoundEvent,
     soundSource: SoundSource = SoundSource.RECORDS,
     randomSource: RandomSource = RandomSource.create(),
-    volumeSupplier: () -> Float = { 1.0f },
-    pitchSupplier: () -> Float = { 1.0f },
+    volumeSupplier: FloatSupplier = FloatSupplier { 1.0f },
+    pitchSupplier: FloatSupplier = FloatSupplier { 1.0f },
     posSupplier: () -> BlockPos = { BlockPos.ZERO },
-    radiusSupplier: () -> Float = { 64f },
+    radiusSupplier: FloatSupplier = FloatSupplier { 64f },
 ) : SuppliedSoundInstance(
         soundEvent,
         soundSource,

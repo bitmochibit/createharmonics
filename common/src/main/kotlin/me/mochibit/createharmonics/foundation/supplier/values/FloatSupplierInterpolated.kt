@@ -6,7 +6,7 @@ import me.mochibit.createharmonics.foundation.extension.lerpTo
  * Thread-safe interpolated float supplier that smoothly transitions between values.
  */
 class FloatSupplierInterpolated(
-    private val valueSupplier: () -> Float,
+    private val valueSupplier: FloatSupplier,
     private val interpolationDurationMs: Long = 100,
 ) : FloatSupplier {
     @Volatile
@@ -46,7 +46,7 @@ class FloatSupplierInterpolated(
         // Wrap valueSupplier in try-catch to prevent crashes
         val newValue =
             try {
-                valueSupplier()
+                valueSupplier.getValue()
             } catch (e: Exception) {
                 // If supplier fails, keep using current target
                 targetValue
@@ -71,7 +71,7 @@ class FloatSupplierInterpolated(
     private fun initialize(currentTime: Long): Float {
         val initialValue =
             try {
-                valueSupplier()
+                valueSupplier.getValue()
             } catch (e: Exception) {
                 0f // Safe default if initial supplier fails
             }

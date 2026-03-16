@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.audio.instance
 
+import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import mixin.SoundEngineAccessor
 import mixin.SoundManagerAccessor
 import net.minecraft.client.Minecraft
@@ -14,6 +15,7 @@ import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
 import net.minecraft.util.valueproviders.ConstantFloat
+import kotlin.math.roundToInt
 
 abstract class SuppliedSoundInstance(
     soundEvent: SoundEvent,
@@ -21,13 +23,13 @@ abstract class SuppliedSoundInstance(
     randomSoundInstance: RandomSource,
     private val streamSound: Boolean,
     val posSupplier: () -> BlockPos,
-    val volumeSupplier: () -> Float,
-    val pitchSupplier: () -> Float,
-    val radiusSupplier: () -> Float,
+    val volumeSupplier: FloatSupplier,
+    val pitchSupplier: FloatSupplier,
+    val radiusSupplier: FloatSupplier,
 ) : AbstractTickableSoundInstance(soundEvent, soundSource, randomSoundInstance) {
-    protected var currentRadius = radiusSupplier()
-    protected var currentPitch = pitchSupplier()
-    protected var currentVolume = volumeSupplier()
+    protected var currentRadius = radiusSupplier.getValue()
+    protected var currentPitch = pitchSupplier.getValue()
+    protected var currentVolume = volumeSupplier.getValue()
     protected var currentPosition = posSupplier()
     private var resolvedSound: Sound? = null
 
@@ -39,8 +41,8 @@ abstract class SuppliedSoundInstance(
         if (this.isStopped) return
 
         try {
-            currentPitch = pitchSupplier()
-            currentVolume = volumeSupplier()
+            currentPitch = pitchSupplier.getValue()
+            currentVolume = volumeSupplier.getValue()
             currentPosition = posSupplier()
         } catch (e: Exception) {
             return
@@ -54,11 +56,11 @@ abstract class SuppliedSoundInstance(
         this.pitch = currentPitch
 
         try {
-            val newRadius = radiusSupplier()
+            val newRadius = radiusSupplier.getValue()
             if (newRadius != currentRadius) {
                 currentRadius = newRadius
                 engine.instanceToChannel[this]?.execute { channel ->
-                    channel.linearAttenuation(this.currentRadius.toFloat())
+                    channel.linearAttenuation(this.currentRadius)
                 }
             }
         } catch (e: Exception) {

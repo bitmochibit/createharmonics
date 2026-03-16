@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.audio.instance
 
+import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance
 import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.core.BlockPos
@@ -16,10 +17,10 @@ class SimpleTickableSoundInstance(
     attenuation: SoundInstance.Attenuation,
     relative: Boolean,
     needStream: Boolean,
-    volumeSupplier: () -> Float = { 1.0f },
-    pitchSupplier: () -> Float = { 1.0f },
+    volumeSupplier: FloatSupplier = FloatSupplier { 1.0f },
+    pitchSupplier: FloatSupplier = FloatSupplier { 1.0f },
     posSupplier: () -> BlockPos = { BlockPos.ZERO },
-    radiusSupplier: () -> Float = { 64f },
+    radiusSupplier: FloatSupplier = FloatSupplier { 64f },
 ) : SuppliedSoundInstance(
         soundEvent,
         soundSource,

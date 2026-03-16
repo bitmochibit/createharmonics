@@ -1,9 +1,12 @@
 package me.mochibit.createharmonics.foundation.eventbus
 
+import net.minecraft.server.network.ServerPlayerConnection
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent
 import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.event.GameShuttingDownEvent
 import net.minecraftforge.event.RegisterCommandsEvent
+import net.minecraftforge.event.entity.EntityJoinLevelEvent
+import net.minecraftforge.event.entity.player.PlayerEvent
 import net.minecraftforge.event.level.LevelEvent
 import net.minecraftforge.event.server.ServerStartedEvent
 import net.minecraftforge.event.server.ServerStoppedEvent
@@ -22,6 +25,10 @@ object ForgeEventBridge : PlatformEventBridge() {
         proxy<ClientPlayerNetworkEvent.LoggingOut, ProxyEvent.ClientDisconnectedEventProxy> {
             ProxyEvent.ClientDisconnectedEventProxy(multiPlayerGameMode, player, connection)
         }
+        proxy<EntityJoinLevelEvent, ProxyEvent.EntityJoinLevelEventProxy> {
+            ProxyEvent.EntityJoinLevelEventProxy(this.entity, this.level)
+        }
+
         proxy<RegisterCommandsEvent, ProxyEvent.RegisterCommandsEventProxy> {
             ProxyEvent.RegisterCommandsEventProxy(dispatcher, commandSelection, buildContext)
         }

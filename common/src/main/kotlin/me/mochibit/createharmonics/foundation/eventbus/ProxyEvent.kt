@@ -8,6 +8,8 @@ import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.network.Connection
 import net.minecraft.server.MinecraftServer
+import net.minecraft.world.entity.Entity
+import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelAccessor
 
 /**
@@ -26,6 +28,11 @@ sealed interface ProxyEvent : ModEvent {
         val controller: MultiPlayerGameMode?,
         val localPlayer: LocalPlayer?,
         val networkManager: Connection?,
+    ) : ProxyEvent
+
+    data class EntityJoinLevelEventProxy(
+        val entity: Entity,
+        val level: Level,
     ) : ProxyEvent
 
     data class RegisterCommandsEventProxy(

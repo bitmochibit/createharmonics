@@ -68,15 +68,15 @@ class SimpleShipStreamSoundInstance(
     override fun tick() {
         // Update suppliers (but DON'T call super.tick() to avoid position override)
         try {
-            currentPitch = pitchSupplier()
-            currentVolume = volumeSupplier()
+            currentPitch = pitchSupplier.getValue()
+            currentVolume = volumeSupplier.getValue()
             currentPosition = posSupplier()
 
-            val newRadius = radiusSupplier()
+            val newRadius = radiusSupplier.getValue()
             if (newRadius != currentRadius) {
                 currentRadius = newRadius
                 engine.instanceToChannel[this]?.execute { channel ->
-                    channel.linearAttenuation(this.currentRadius.toFloat())
+                    channel.linearAttenuation(this.currentRadius)
                 }
             }
         } catch (e: Exception) {

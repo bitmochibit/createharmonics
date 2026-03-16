@@ -4,13 +4,12 @@ import com.simibubi.create.content.contraptions.AbstractContraptionEntity
 import com.simibubi.create.foundation.utility.AdventureUtil
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviourTracker
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.content.record.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.BaseRecordItem
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.foundation.behaviour.movement.handleBlockDataChange
-import me.mochibit.createharmonics.foundation.network.packet.ContraptionBlockDataChangedPacket
-import me.mochibit.createharmonics.foundation.registry.ForgeModPackets
 import me.mochibit.createharmonics.foundation.registry.ModItems
 import me.mochibit.createharmonics.foundation.registry.ModPonders
 import me.mochibit.createharmonics.foundation.registry.ModSounds
@@ -22,9 +21,7 @@ import net.minecraft.nbt.CompoundTag
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.StructureBlockInfo
 import net.minecraft.world.level.material.FluidState
-import net.minecraftforge.network.PacketDistributor
 
 class ForgeContentService : ContentService {
     override fun getViscosity(fluidState: FluidState): Int = fluidState.fluidType.viscosity
@@ -78,8 +75,8 @@ class ForgeContentService : ContentService {
     ): Boolean {
         RecordPlayerBlockEntity.handlePlaybackEnd(audioPlayerId, failure)
 
-        RecordPlayerMovementBehaviour.getContextByPlayerUUID(audioPlayerId)?.let { movementContext ->
-            RecordPlayerMovementBehaviour.stopMovingPlayer(movementContext)
+        RecordPlayerMovementBehaviourTracker.get(audioPlayerId)?.let { movementContext ->
+            RecordPlayerMovementBehaviour.Companion.Utils.handlePlaybackEnd(movementContext)
         }
         return true
     }

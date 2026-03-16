@@ -28,7 +28,6 @@ import kotlin.math.abs
 typealias SoundInstanceFactory = (streamId: String, stream: InputStream) -> SoundInstance
 
 /**
- * [WIP]
  * Audio player with the following features:
  * - Play audio from a stream or a url
  * - Idempotent commands
@@ -173,7 +172,7 @@ class AudioPlayer(
             } catch (e: Exception) {
                 "Something went wrong when creating the source $e".info()
                 handleStreamEnd()
-                return transition(PlayerState.PAUSED)
+                return transition(PlayerState.STOPPED)
             }
         if (resolvedInputStream.status == SourceStreamResolver.Result.StreamStatus.FINISHED || resolvedInputStream.inputStream == null) {
             handleStreamEnd()
@@ -283,15 +282,21 @@ class AudioPlayer(
     // Public API
 
     fun play() {
-        intents.trySend(PlayerIntent.Play)
+        if (_state.value != PlayerState.PLAYING) {
+            intents.trySend(PlayerIntent.Play)
+        }
     }
 
     fun pause() {
-        intents.trySend(PlayerIntent.Pause)
+        if (_state.value != PlayerState.PAUSED) {
+            intents.trySend(PlayerIntent.Pause)
+        }
     }
 
     fun stop() {
-        intents.trySend(PlayerIntent.Stop)
+        if (_state.value != PlayerState.STOPPED) {
+            intents.trySend(PlayerIntent.Stop)
+        }
     }
 
     fun seek(position: Double) {

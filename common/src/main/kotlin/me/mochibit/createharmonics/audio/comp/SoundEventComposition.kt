@@ -6,6 +6,7 @@ import me.mochibit.createharmonics.audio.instance.SuppliedSoundInstance
 import me.mochibit.createharmonics.foundation.async.every
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.err
+import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.core.BlockPos
@@ -28,9 +29,9 @@ class SoundEventComposition(
         val relative: Boolean? = null,
         var needStream: Boolean = false,
         var posSupplier: (() -> BlockPos)? = null,
-        var pitchSupplier: (() -> Float)? = null,
-        var volumeSupplier: (() -> Float)? = null,
-        var radiusSupplier: (() -> Float)? = null,
+        var pitchSupplier: FloatSupplier? = null,
+        var volumeSupplier: FloatSupplier? = null,
+        var radiusSupplier: FloatSupplier? = null,
         var probabilitySupplier: (() -> Float)? = null,
     )
 
@@ -166,8 +167,8 @@ class SoundEventComposition(
                     soundEvent.attenuation ?: referenceSoundInstance.attenuation,
                     soundEvent.relative ?: referenceSoundInstance.isRelative,
                     soundEvent.needStream,
-                    soundEvent.volumeSupplier ?: { referenceSoundInstance.volume },
-                    soundEvent.pitchSupplier ?: { referenceSoundInstance.pitch },
+                    soundEvent.volumeSupplier ?: FloatSupplier { referenceSoundInstance.volume },
+                    soundEvent.pitchSupplier ?: FloatSupplier { referenceSoundInstance.pitch },
                     soundEvent.posSupplier ?: {
                         BlockPos(
                             referenceSoundInstance.x.toInt(),
@@ -175,7 +176,7 @@ class SoundEventComposition(
                             referenceSoundInstance.z.toInt(),
                         )
                     },
-                    soundEvent.radiusSupplier ?: { 16f },
+                    soundEvent.radiusSupplier ?: FloatSupplier { 16f },
                 )
             }
         }

@@ -12,7 +12,7 @@ enum class PlayerState {
     fun canTransitionTo(next: PlayerState): Boolean =
         when (this) {
             STOPPED -> next == LOADING
-            LOADING -> next == PLAYING || next == STOPPED || next == FINISHING
+            LOADING -> next == PLAYING || next == STOPPED || next == FINISHING || next == PAUSED
             PLAYING -> next == PAUSED || next == STOPPED || next == FINISHING || next == HANGED
             PAUSED -> next == PLAYING || next == STOPPED
             FINISHING -> true

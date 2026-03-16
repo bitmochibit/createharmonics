@@ -12,8 +12,10 @@ import dev.engine_room.flywheel.lib.instance.InstanceTypes
 import dev.engine_room.flywheel.lib.instance.TransformedInstance
 import dev.engine_room.flywheel.lib.model.Models
 import dev.engine_room.flywheel.lib.model.baked.PartialModel
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour.Companion.Utils.isPauseModeWithRedstone
 import me.mochibit.createharmonics.content.record.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordType
+import me.mochibit.createharmonics.foundation.behaviour.movement.getContextData
 import me.mochibit.createharmonics.foundation.extension.lerpTo
 import me.mochibit.createharmonics.foundation.registry.ModPartialModels
 import net.createmod.catnip.animation.AnimationTickHolder
@@ -70,11 +72,10 @@ class RecordPlayerActorVisual(
             }
 
     private fun getRecord(): EtherealRecordItem? {
-        val be =
-            context.contraption.getBlockEntityClientSide(context.localPos) as? RecordPlayerBlockEntity ?: return null
-        val record: ItemStack = be.playerBehaviour.getRecord()
-        if (record.isEmpty || record.item !is EtherealRecordItem) return null
-        return record.item as EtherealRecordItem
+        val contextData = context.getContextData<RecordPlayerContextData>() ?: return null
+        val heldItemStack = contextData.heldItemStack
+        if (heldItemStack.isEmpty || heldItemStack.item !is EtherealRecordItem) return null
+        return heldItemStack.item as EtherealRecordItem
     }
 
     override fun tick() {
@@ -89,7 +90,7 @@ class RecordPlayerActorVisual(
             when {
                 context.disabled -> 0f
                 context.getAnimationSpeed() != 0f -> context.getAnimationSpeed()
-                RecordPlayerMovementBehaviour.isPauseModeWithRedstone(context) -> -60f
+                isPauseModeWithRedstone(context) -> -60f
                 else -> 0f
             }
 

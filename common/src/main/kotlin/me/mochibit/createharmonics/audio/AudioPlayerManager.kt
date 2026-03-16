@@ -56,5 +56,5 @@ object AudioPlayerManager {
         }
     }
 
-    fun containsStream(id: String): Boolean = players.containsKey(id)
+    fun exists(id: String): Boolean = players.containsKey(id)
 }
