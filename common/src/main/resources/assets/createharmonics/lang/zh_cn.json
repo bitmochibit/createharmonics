@@ -62,6 +62,7 @@
   "createharmonics.item_group": "机械动力：和声学",
   "block.createharmonics.andesite_jukebox": "安山唱片机",
   "block.createharmonics.record_press_base": "唱片压印台",
+  "block.createharmonics.brass_jukebox": "黄铜唱片机",
   "createharmonics.ponder.andesite_jukebox.header": "安山唱片机的使用方法",
   "createharmonics.ponder.andesite_jukebox.text_1": "安山唱片机可以播放空灵唱片中的音乐",
   "createharmonics.ponder.andesite_jukebox.text_2": "右键可放入或取出空灵唱片",
