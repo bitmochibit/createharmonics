@@ -23,7 +23,7 @@ abstract class StreamingSoundInstance(
     volumeSupplier: () -> Float = { 1.0f },
     pitchSupplier: () -> Float = { 1.0f },
     posSupplier: () -> BlockPos = { BlockPos.ZERO },
-    radiusSupplier: () -> Int = { 64 },
+    radiusSupplier: () -> Float = { 64f },
 ) : SuppliedSoundInstance(
         soundEvent,
         soundSource,

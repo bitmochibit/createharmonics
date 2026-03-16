@@ -48,39 +48,34 @@ object ForgeModPackets : ForgeRegistry {
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun <T : ModPacket> registerMessage(
-        packetClass: KClass<T>,
+    private fun registerMessage(
+        packetClass: KClass<out ModPacket>,
         direction: NetworkDirection,
     ) {
-        val serializer = serializer(packetClass.starProjectedType) as KSerializer<T>
+        val serializer = serializer(packetClass.starProjectedType) as KSerializer<ModPacket>
 
-        channel.registerMessage(
-            globalPacketId++,
-            packetClass.java,
-            { packet, buf -> serializer.serialize(FriendlyByteBufEncoder(buf), packet) },
-            { buf -> serializer.deserialize(FriendlyByteBufDecoder(buf)) },
-            { packet, ctx ->
+        channel
+            .messageBuilder(packetClass.java as Class<ModPacket>, globalPacketId++, direction)
+            .encoder { packet, buf -> serializer.serialize(FriendlyByteBufEncoder(buf), packet) }
+            .decoder { buf -> serializer.deserialize(FriendlyByteBufDecoder(buf)) }
+            .consumerMainThread { packet, ctx ->
                 val context = ModPacket.Context(ctx.get().sender)
-                ctx.get().enqueueWork {
-                    when (direction) {
-                        NetworkDirection.PLAY_TO_SERVER -> {
-                            packet.handle(context)
-                        }
+                when (direction) {
+                    NetworkDirection.PLAY_TO_SERVER -> {
+                        packet.handle(context)
+                    }
 
-                        NetworkDirection.PLAY_TO_CLIENT -> {
-                            packet.handle(context)
-                            if (packet is S2CPacket) packet.handleServer(context)
-                        }
+                    NetworkDirection.PLAY_TO_CLIENT -> {
+                        packet.handle(context)
+                        if (packet is S2CPacket) packet.handleServer(context)
+                    }
 
-                        else -> {
-                            packet.handle(context)
-                        }
+                    else -> {
+                        packet.handle(context)
                     }
                 }
-
                 ctx.get().packetHandled = true
-            },
-        )
+            }.add()
     }
 
     override fun register() {

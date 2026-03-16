@@ -30,7 +30,7 @@ class SoundEventComposition(
         var posSupplier: (() -> BlockPos)? = null,
         var pitchSupplier: (() -> Float)? = null,
         var volumeSupplier: (() -> Float)? = null,
-        var radiusSupplier: (() -> Int)? = null,
+        var radiusSupplier: (() -> Float)? = null,
         var probabilitySupplier: (() -> Float)? = null,
     )
 
@@ -175,7 +175,7 @@ class SoundEventComposition(
                             referenceSoundInstance.z.toInt(),
                         )
                     },
-                    soundEvent.radiusSupplier ?: { 16 },
+                    soundEvent.radiusSupplier ?: { 16f },
                 )
             }
         }

@@ -2,8 +2,6 @@ package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
 import me.mochibit.createharmonics.audio.AudioPlayerManager
 import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
@@ -21,7 +19,6 @@ import me.mochibit.createharmonics.content.records.RecordUtilities
 import me.mochibit.createharmonics.content.records.RecordUtilities.handleRecordUse
 import me.mochibit.createharmonics.content.records.RecordUtilities.playFromRecord
 import me.mochibit.createharmonics.foundation.async.every
-import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.extension.getManagingShip
 import me.mochibit.createharmonics.foundation.extension.onClient
 import me.mochibit.createharmonics.foundation.extension.onServer
@@ -50,17 +47,10 @@ import java.io.InputStream
 import java.util.UUID
 import kotlin.math.abs
 
-// Todo: Refactor the track logic to be cleaner and reusable with other behaviours too
+// TODO: Refactor the track logic to be cleaner and reusable with other behaviours too
 class RecordPlayerBehaviour(
     val be: RecordPlayerBlockEntity,
 ) : BlockEntityBehaviour(be) {
-    enum class PlaybackState {
-        PLAYING,
-        STOPPED,
-        PAUSED,
-        MANUALLY_PAUSED,
-    }
-
     companion object {
         @JvmStatic
         val BEHAVIOUR_TYPE = BehaviourType<RecordPlayerBehaviour>()
@@ -220,7 +210,7 @@ class RecordPlayerBehaviour(
                             streamId,
                             SoundEvents.EMPTY,
                             { be.blockPos },
-                            radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
+                            radiusSupplier = { radiusSupplierInterpolated.getValue() },
                             volumeSupplier = { volumeSupplierInterpolated.getValue() },
                         )
                     }
@@ -306,7 +296,7 @@ class RecordPlayerBehaviour(
                 SoundEvents.EMPTY,
                 posSupplier = { be.blockPos },
                 ship = ship,
-                radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
+                radiusSupplier = { radiusSupplierInterpolated.getValue() },
                 volumeSupplier = { volumeSupplierInterpolated.getValue() },
             )
         } else {
@@ -315,7 +305,7 @@ class RecordPlayerBehaviour(
                 streamId,
                 SoundEvents.EMPTY,
                 { be.blockPos },
-                radiusSupplier = { radiusSupplierInterpolated.getValue().toInt() },
+                radiusSupplier = { radiusSupplierInterpolated.getValue() },
                 volumeSupplier = { volumeSupplierInterpolated.getValue() },
             )
         }
@@ -403,7 +393,7 @@ class RecordPlayerBehaviour(
                                     }
                                 }
 
-                                PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
+                                PlaybackState.PAUSED -> {
                                     // Resume if mode changed to PLAY
                                     when {
                                         playbackModeChanged -> {
@@ -441,7 +431,7 @@ class RecordPlayerBehaviour(
                         } else {
                             // Pause mode + No redstone: Stay paused (don't auto-play on insert)
                             if (playbackState == PlaybackState.PLAYING) {
-                                updatePlaybackState(PlaybackState.MANUALLY_PAUSED, resetTime = false)
+                                updatePlaybackState(PlaybackState.PAUSED, resetTime = false)
                             }
                             // If STOPPED, stay STOPPED (don't auto-start)
                         }
@@ -557,7 +547,7 @@ class RecordPlayerBehaviour(
     }
 
     fun pausePlayer() {
-        updatePlaybackState(PlaybackState.MANUALLY_PAUSED, resetTime = false)
+        updatePlaybackState(PlaybackState.PAUSED, resetTime = false)
     }
 
     private fun updatePlaybackState(
@@ -574,14 +564,14 @@ class RecordPlayerBehaviour(
 
         // Handle pause timing
         when (newState) {
-            PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
+            PlaybackState.PAUSED -> {
                 if (oldState == PlaybackState.PLAYING) {
                     playtimeClock.pause()
                 }
             }
 
             PlaybackState.PLAYING -> {
-                if (oldState == PlaybackState.PAUSED || oldState == PlaybackState.MANUALLY_PAUSED) {
+                if (oldState == PlaybackState.PAUSED) {
                     // Resumed from pause, accumulate the paused duration
                     playtimeClock.play()
                 }
@@ -614,7 +604,7 @@ class RecordPlayerBehaviour(
         audioPlayer.playFromRecord(
             currentRecord,
             { pitchSupplierInterpolated.getValue() },
-            { radiusSupplierInterpolated.getValue().toInt() },
+            { radiusSupplierInterpolated.getValue() },
             { volumeSupplierInterpolated.getValue() },
         )
 
@@ -745,7 +735,7 @@ class RecordPlayerBehaviour(
                         }
                     }
 
-                    PlaybackState.PAUSED, PlaybackState.MANUALLY_PAUSED -> {
+                    PlaybackState.PAUSED -> {
                         if (audioPlayer.state.value == PlayerState.PLAYING) {
                             pauseClientPlayer()
                         }

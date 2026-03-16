@@ -23,7 +23,7 @@ abstract class SuppliedSoundInstance(
     val posSupplier: () -> BlockPos,
     val volumeSupplier: () -> Float,
     val pitchSupplier: () -> Float,
-    val radiusSupplier: () -> Int,
+    val radiusSupplier: () -> Float,
 ) : AbstractTickableSoundInstance(soundEvent, soundSource, randomSoundInstance) {
     protected var currentRadius = radiusSupplier()
     protected var currentPitch = pitchSupplier()
@@ -88,7 +88,7 @@ abstract class SuppliedSoundInstance(
                 Sound.Type.SOUND_EVENT,
                 true,
                 false,
-                currentRadius,
+                currentRadius.toInt(),
             )
         }
 
@@ -104,7 +104,7 @@ abstract class SuppliedSoundInstance(
             baseSound.type,
             baseSound.shouldStream(),
             baseSound.shouldPreload(),
-            currentRadius,
+            currentRadius.toInt(),
         )
     }
 }

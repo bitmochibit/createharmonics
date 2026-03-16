@@ -8,6 +8,7 @@ import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPres
 import me.mochibit.createharmonics.content.record.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.BaseRecordItem
 import me.mochibit.createharmonics.content.records.RecordType
+import me.mochibit.createharmonics.foundation.behaviour.movement.handleBlockDataChange
 import me.mochibit.createharmonics.foundation.network.packet.ContraptionBlockDataChangedPacket
 import me.mochibit.createharmonics.foundation.registry.ForgeModPackets
 import me.mochibit.createharmonics.foundation.registry.ModItems
@@ -106,28 +107,4 @@ class ForgeContentService : ContentService {
     }
 
     override fun isRecordBase(stack: ItemStack): Boolean = stack.item is BaseRecordItem
-}
-
-/**
- * Create mod lacks a way to update contraption block data without replacing the entire block state
- * This function updates the block data of a contraption block and syncs it to clients
- */
-fun AbstractContraptionEntity.handleBlockDataChange(
-    localPos: BlockPos,
-    newData: CompoundTag,
-) {
-    if (contraption == null || !contraption.blocks.containsKey(localPos)) return
-    val info: StructureBlockInfo = contraption.blocks[localPos] ?: return
-    contraption.blocks[localPos] = StructureBlockInfo(info.pos(), info.state, newData)
-}
-
-fun AbstractContraptionEntity.setBlockData(
-    localPos: BlockPos,
-    newInfo: StructureBlockInfo,
-) {
-    contraption.blocks[localPos] = newInfo
-    ForgeModPackets.channel.send(
-        PacketDistributor.TRACKING_ENTITY.with { this },
-        ContraptionBlockDataChangedPacket(id, localPos, newInfo.nbt ?: CompoundTag()),
-    )
 }

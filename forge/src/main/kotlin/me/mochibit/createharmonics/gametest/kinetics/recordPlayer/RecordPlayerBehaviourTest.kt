@@ -2,7 +2,7 @@ package me.mochibit.createharmonics.gametest.kinetics.recordPlayer
 
 import com.simibubi.create.AllBlocks
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
-import me.mochibit.createharmonics.ForgeModEntryPoint
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.PlaybackState
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.content.records.RecordCraftingHandler
@@ -101,7 +101,7 @@ class RecordPlayerBehaviourTest {
     fun testInitialState(helper: GameTestHelper) {
         val (_, behaviour) = helper.setupRecordPlayer()
         helper.assertTrue(
-            behaviour.playbackState == RecordPlayerBehaviour.PlaybackState.STOPPED,
+            behaviour.playbackState == PlaybackState.STOPPED,
             "Initial state should be STOPPED. Found: ${behaviour.playbackState}",
         )
         helper.succeed()
@@ -121,7 +121,7 @@ class RecordPlayerBehaviourTest {
 
         helper.runAfterDelay(20) {
             helper.assertTrue(
-                behaviour.playbackState == RecordPlayerBehaviour.PlaybackState.PLAYING,
+                behaviour.playbackState == PlaybackState.PLAYING,
                 "Should be in PLAYING state after starting",
             )
 
@@ -139,24 +139,8 @@ class RecordPlayerBehaviourTest {
         behaviour.stopPlayer()
 
         helper.assertTrue(
-            behaviour.playbackState == RecordPlayerBehaviour.PlaybackState.STOPPED,
+            behaviour.playbackState == PlaybackState.STOPPED,
             "Should be in STOPPED state",
-        )
-        helper.succeed()
-    }
-
-    @GameTest(template = "record_player")
-    fun testPausePlayer(helper: GameTestHelper) {
-        val (_, behaviour) = helper.setupRecordPlayer()
-        val recordStack = ModItems etherealRecord RecordType.BRASS
-
-        behaviour.insertRecord(ItemStack(recordStack))
-        behaviour.startPlayer()
-        behaviour.pausePlayer()
-
-        helper.assertTrue(
-            behaviour.playbackState == RecordPlayerBehaviour.PlaybackState.MANUALLY_PAUSED,
-            "Should be in MANUALLY_PAUSED state",
         )
         helper.succeed()
     }
@@ -283,7 +267,7 @@ class RecordPlayerBehaviourTest {
         behaviour.onPlaybackEnd(behaviour.recordPlayerUUID.toString())
 
         helper.assertTrue(
-            behaviour.playbackState == RecordPlayerBehaviour.PlaybackState.STOPPED,
+            behaviour.playbackState == PlaybackState.STOPPED,
             "Should stop after playback ends without redstone",
         )
         helper.succeed()

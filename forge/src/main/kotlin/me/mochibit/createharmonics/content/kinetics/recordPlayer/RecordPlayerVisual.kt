@@ -101,11 +101,10 @@ class RecordPlayerVisual(
         val playbackState = blockEntity.playerBehaviour.playbackState
         targetSpeed =
             when (playbackState) {
-                RecordPlayerBehaviour.PlaybackState.PLAYING -> blockEntity.speed
+                PlaybackState.PLAYING -> blockEntity.speed
 
-                RecordPlayerBehaviour.PlaybackState.PAUSED,
-                RecordPlayerBehaviour.PlaybackState.MANUALLY_PAUSED,
-                RecordPlayerBehaviour.PlaybackState.STOPPED,
+                PlaybackState.PAUSED,
+                PlaybackState.STOPPED,
                 -> 0.0f
             }
 

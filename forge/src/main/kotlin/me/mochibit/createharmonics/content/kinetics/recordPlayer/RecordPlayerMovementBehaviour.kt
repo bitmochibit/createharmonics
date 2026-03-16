@@ -20,12 +20,12 @@ import me.mochibit.createharmonics.audio.player.PlaytimeClock
 import me.mochibit.createharmonics.audio.player.putClock
 import me.mochibit.createharmonics.audio.player.updateClock
 import me.mochibit.createharmonics.config.ServerConfig
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.PlaybackState
 import me.mochibit.createharmonics.content.record.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordUtilities
 import me.mochibit.createharmonics.content.records.RecordUtilities.playFromRecord
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.async.thenLaunch
+import me.mochibit.createharmonics.foundation.behaviour.movement.setBlockData
 import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.extension.onClient
 import me.mochibit.createharmonics.foundation.extension.onServer
@@ -34,7 +34,6 @@ import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.foundation.registry.ModConfigurations
 import me.mochibit.createharmonics.foundation.registry.ModPackets
-import me.mochibit.createharmonics.foundation.services.setBlockData
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos
@@ -481,7 +480,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
         return { tempData.volumeSupplier!!.getValue() }
     }
 
-    private fun buildRadiusSupplier(context: MovementContext): () -> Int {
+    private fun buildRadiusSupplier(context: MovementContext): () -> Float {
         val tempData = getOrCreateTemporaryData(context)
         val redstonePower = context.blockEntityData.getInt("RedstonePower")
         if (tempData.radiusSupplier == null) {
@@ -492,7 +491,7 @@ class RecordPlayerMovementBehaviour : MovementBehaviour {
                     redstonePower.toFloat()
                 }, 500)
         }
-        return { tempData.radiusSupplier!!.getValue().toInt() }
+        return { tempData.radiusSupplier!!.getValue() }
     }
 
     private fun calculateControlledContraptionPitch(context: MovementContext): Float {

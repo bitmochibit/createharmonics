@@ -13,7 +13,7 @@ class SimpleStreamSoundInstance(
     posSupplier: () -> BlockPos,
     volumeSupplier: () -> Float = { 1.0f },
     pitchSupplier: () -> Float = { 1.0f },
-    radiusSupplier: () -> Int = { 64 },
+    radiusSupplier: () -> Float = { 64f },
     randomSource: RandomSource = RandomSource.create(),
     soundSource: SoundSource = SoundSource.RECORDS,
     looping: Boolean = false,

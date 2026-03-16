@@ -115,7 +115,7 @@ object RecordUtilities {
     fun AudioPlayer.playFromRecord(
         etherealRecord: ItemStack,
         compPitchSupplier: () -> Float = { 1f },
-        compRadiusSupplier: () -> Int = { 1 },
+        compRadiusSupplier: () -> Float = { 1f },
         compVolumeSupplier: () -> Float = { 1f },
     ) {
         if (!contentService.isEtherealRecord(etherealRecord)) return

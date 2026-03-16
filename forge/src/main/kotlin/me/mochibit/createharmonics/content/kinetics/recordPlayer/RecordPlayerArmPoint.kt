@@ -2,7 +2,6 @@ package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.content.kinetics.mechanicalArm.AllArmInteractionPointTypes
 import com.simibubi.create.content.kinetics.mechanicalArm.ArmInteractionPointType
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.PlaybackState
 import me.mochibit.createharmonics.content.record.EtherealRecordItem
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack
@@ -54,7 +53,7 @@ class RecordPlayerArmPoint(
         val isFullyPowered = be.playerBehaviour.redstonePower == 15
         if (isFullyPowered) return ItemStack.EMPTY
         val playbackState = be.playerBehaviour.playbackState
-        if (playbackState != PlaybackState.STOPPED && playbackState != PlaybackState.MANUALLY_PAUSED) return ItemStack.EMPTY
+        if (playbackState != PlaybackState.STOPPED && playbackState != PlaybackState.PAUSED) return ItemStack.EMPTY
 
         if (!simulate) {
             val record = be.playerBehaviour.popRecord()
