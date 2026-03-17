@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.foundation.services
 
 import me.mochibit.createharmonics.content.records.RecordType
+import me.mochibit.createharmonics.foundation.registry.ModBlocksRegistry
 import me.mochibit.createharmonics.foundation.registry.ModSoundRegistry
 import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper
@@ -37,6 +38,7 @@ interface ContentService {
     )
 
     val soundEventRegistry: ModSoundRegistry<*>
+    val modBlocksRegistry: ModBlocksRegistry<*>
 
     val baseRecordItemStack: ItemStack
 

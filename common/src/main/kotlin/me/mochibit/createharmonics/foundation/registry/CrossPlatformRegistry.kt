@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.foundation.registry
 
+import java.util.function.Supplier
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
@@ -10,15 +11,31 @@ import kotlin.reflect.KProperty
  * Beware of patched content for minecraft objects!
  */
 interface CrossPlatformRegistry<RegistryObjectType, MinecraftEntry> {
+    val referenceMap: MutableMap<MinecraftEntry, RegistryObjectType>
+        get() = mutableMapOf()
+
     data class ConvertibleEntry<RegistryObjectType, MinecraftEntry>(
+        val registry: CrossPlatformRegistry<RegistryObjectType, MinecraftEntry>,
         val registryObject: RegistryObjectType,
         val mcEntrySupplier: () -> MinecraftEntry,
     ) : ReadOnlyProperty<Any?, MinecraftEntry> {
         override fun getValue(
             thisRef: Any?,
             property: KProperty<*>,
-        ): MinecraftEntry = mcEntrySupplier()
+        ): MinecraftEntry {
+            val mcEntry = mcEntrySupplier()
+            registry.referenceMap.putIfAbsent(mcEntry, registryObject)
+            return mcEntry
+        }
     }
 
-    fun String.register(): ConvertibleEntry<RegistryObjectType, MinecraftEntry>
+    fun MinecraftEntry.registryObject(): RegistryObjectType =
+        this@CrossPlatformRegistry.referenceMap[this] ?: throw IllegalStateException("A weird issue occurred: $this was not registered")
+
+    fun String.register(): ConvertibleEntry<RegistryObjectType, MinecraftEntry> =
+        throw NotImplementedError("Fast registry was not implemented for this registry ${this@CrossPlatformRegistry}")
 }
+
+fun <T> Supplier<T>.asDelegate(): ReadOnlyProperty<Any?, T> = ReadOnlyProperty { _, _ -> this.get() }
+
+fun <T> asDelegate(supplier: () -> T): ReadOnlyProperty<Any?, T> = ReadOnlyProperty { _, _ -> supplier() }

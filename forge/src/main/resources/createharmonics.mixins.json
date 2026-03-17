@@ -5,11 +5,6 @@
   "package": "mixin",
   "compatibilityLevel": "JAVA_17",
   "refmap": "createharmonics.refmap.json",
-  "mixins": [
-    "AssemblyOperatorBlockItemMixin"
-  ],
-  "client": [
-  ],
   "injectors": {
     "defaultRequire": 1
   }

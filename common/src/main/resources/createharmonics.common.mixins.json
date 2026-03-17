@@ -6,7 +6,8 @@
     "RecipeApplierMixin",
     "RecipeGridHandlerMixin",
     "ShapedRecipeMixin",
-    "ShapelessRecipeMixin"
+    "ShapelessRecipeMixin",
+    "AssemblyOperatorBlockItemMixin"
   ],
   "client": [
     "SoundEngineAccessor",

@@ -12,8 +12,8 @@ object ModSounds : ForgeRegistry, ModSoundRegistry<RegistryObject<SoundEvent>> {
     private val SOUND_EVENTS: DeferredRegister<SoundEvent> =
         DeferredRegister.create(Registries.SOUND_EVENT, CreateHarmonicsMod.MOD_ID)
 
-    override val slidingStoneSound: SoundEvent by "sliding_stone".register()
-    override val glitterSoundEvent: SoundEvent by "glitter".register()
+    override val slidingStoneSound by "sliding_stone".register()
+    override val glitterSoundEvent by "glitter".register()
 
     override fun register() {
         SOUND_EVENTS.register(ModEventBus)
@@ -26,6 +26,6 @@ object ModSounds : ForgeRegistry, ModSoundRegistry<RegistryObject<SoundEvent>> {
                     this.asResource(),
                 )
             }
-        return CrossPlatformRegistry.ConvertibleEntry(registered) { registered.get() }
+        return CrossPlatformRegistry.ConvertibleEntry(this@ModSounds, registered) { registered.get() }
     }
 }

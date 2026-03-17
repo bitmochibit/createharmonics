@@ -10,6 +10,8 @@ import me.mochibit.createharmonics.content.record.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.BaseRecordItem
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.foundation.behaviour.movement.handleBlockDataChange
+import me.mochibit.createharmonics.foundation.registry.ModBlocks
+import me.mochibit.createharmonics.foundation.registry.ModBlocksRegistry
 import me.mochibit.createharmonics.foundation.registry.ModItems
 import me.mochibit.createharmonics.foundation.registry.ModPonders
 import me.mochibit.createharmonics.foundation.registry.ModSounds
@@ -68,6 +70,7 @@ class ForgeContentService : ContentService {
     }
 
     override val soundEventRegistry = ModSounds
+    override val modBlocksRegistry = ModBlocks
 
     override fun onStreamEnd(
         audioPlayerId: String,

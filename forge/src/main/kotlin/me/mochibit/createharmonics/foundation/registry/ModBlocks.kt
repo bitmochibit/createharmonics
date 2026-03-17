@@ -19,10 +19,11 @@ import me.mochibit.createharmonics.foundation.info
 import net.minecraft.client.renderer.RenderType
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.tags.BlockTags
+import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.SoundType
 import java.util.function.Supplier
 
-object ModBlocks : ForgeRegistry {
+object ModBlocks : ForgeRegistry, ModBlocksRegistry<BlockEntry<*>> {
     override val registrationOrder = 2
 
     val ANDESITE_JUKEBOX: BlockEntry<AndesiteJukeboxBlock> =
@@ -87,6 +88,10 @@ object ModBlocks : ForgeRegistry {
             }.item()
             .transform(customItemModel())
             .register()
+
+    override val andesiteJukebox: Block by ANDESITE_JUKEBOX.asDelegate()
+    override val brassJukebox: Block by BRASS_JUKEBOX.asDelegate()
+    override val recordPressBase: Block by RECORD_PRESS_BASE.asDelegate()
 
     override fun register() {
         "Registering blocks".info()
