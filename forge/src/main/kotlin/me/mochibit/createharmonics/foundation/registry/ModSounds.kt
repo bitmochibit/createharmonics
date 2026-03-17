@@ -8,22 +8,22 @@ import net.minecraft.sounds.SoundEvent
 import net.minecraftforge.registries.DeferredRegister
 import net.minecraftforge.registries.RegistryObject
 
-object ModSounds : ForgeRegistry, ModSoundRegistry<RegistryObject<SoundEvent>> {
+object ModSounds : ForgeRegistry, ModSoundRegistry<RegistryObject<SoundEvent>>() {
     private val SOUND_EVENTS: DeferredRegister<SoundEvent> =
         DeferredRegister.create(Registries.SOUND_EVENT, CreateHarmonicsMod.MOD_ID)
 
-    override val slidingStoneSound by "sliding_stone".register()
-    override val glitterSoundEvent by "glitter".register()
+    override val slidingStoneSound: SoundEvent by registerEntry("sliding_stone")
+    override val glitterSoundEvent: SoundEvent by registerEntry("glitter")
 
     override fun register() {
         SOUND_EVENTS.register(ModEventBus)
     }
 
-    override fun String.register(): CrossPlatformRegistry.ConvertibleEntry<RegistryObject<SoundEvent>, SoundEvent> {
+    override fun registerEntry(name: String): CrossPlatformRegistry.ConvertibleEntry<RegistryObject<SoundEvent>, SoundEvent> {
         val registered =
-            SOUND_EVENTS.register(this) {
+            SOUND_EVENTS.register(name) {
                 SoundEvent.createVariableRangeEvent(
-                    this.asResource(),
+                    name.asResource(),
                 )
             }
         return CrossPlatformRegistry.ConvertibleEntry(this@ModSounds, registered) { registered.get() }

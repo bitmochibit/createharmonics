@@ -12,7 +12,6 @@ import kotlin.reflect.KProperty
  */
 interface CrossPlatformRegistry<RegistryObjectType, MinecraftEntry> {
     val referenceMap: MutableMap<MinecraftEntry, RegistryObjectType>
-        get() = mutableMapOf()
 
     data class ConvertibleEntry<RegistryObjectType, MinecraftEntry>(
         val registry: CrossPlatformRegistry<RegistryObjectType, MinecraftEntry>,
@@ -32,8 +31,7 @@ interface CrossPlatformRegistry<RegistryObjectType, MinecraftEntry> {
     fun MinecraftEntry.registryObject(): RegistryObjectType =
         this@CrossPlatformRegistry.referenceMap[this] ?: throw IllegalStateException("A weird issue occurred: $this was not registered")
 
-    fun String.register(): ConvertibleEntry<RegistryObjectType, MinecraftEntry> =
-        throw NotImplementedError("Fast registry was not implemented for this registry ${this@CrossPlatformRegistry}")
+    fun registerEntry(name: String): ConvertibleEntry<RegistryObjectType, MinecraftEntry>
 }
 
 fun <T> Supplier<T>.asDelegate(): ReadOnlyProperty<Any?, T> = ReadOnlyProperty { _, _ -> this.get() }

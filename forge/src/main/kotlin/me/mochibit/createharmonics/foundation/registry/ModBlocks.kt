@@ -23,7 +23,7 @@ import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.SoundType
 import java.util.function.Supplier
 
-object ModBlocks : ForgeRegistry, ModBlocksRegistry<BlockEntry<*>> {
+object ModBlocks : ForgeRegistry, ModBlocksRegistry<BlockEntry<*>>() {
     override val registrationOrder = 2
 
     val ANDESITE_JUKEBOX: BlockEntry<AndesiteJukeboxBlock> =
