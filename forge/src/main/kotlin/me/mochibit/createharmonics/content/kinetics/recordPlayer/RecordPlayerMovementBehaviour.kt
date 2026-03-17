@@ -8,6 +8,8 @@ import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import dev.engine_room.flywheel.api.visualization.VisualizationContext
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.isActive
 import me.mochibit.createharmonics.audio.AudioPlayerManager
 import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
@@ -35,11 +37,13 @@ import me.mochibit.createharmonics.foundation.extension.readEnum
 import me.mochibit.createharmonics.foundation.extension.remapTo
 import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.extension.writeEnum
+import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.foundation.registry.ModConfigurations
 import me.mochibit.createharmonics.foundation.registry.ModPackets
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
+import me.mochibit.createharmonics.foundation.warn
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ParticleTypes
@@ -62,6 +66,7 @@ data class RecordPlayerContextData(
     val radiusSupplier: FloatSupplier,
     var particleJob: Job? = null,
     var canRestart: Boolean = false,
+    var movementPlayerInitialized: Boolean = false,
     var heldItemStack: ItemStack = ItemStack.EMPTY,
     val playtimeClock: PlaytimeClock = PlaytimeClock(),
     var playbackState: PlaybackState = PlaybackState.STOPPED,
@@ -242,11 +247,19 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                         val audioPlayer = AudioPlayerManager.get(playerUID) ?: return@every
                         val displacement = Random.nextInt(4) / 24f
 
+                        val position = context.position ?: return@every
+                        val entity = context.contraption?.entity ?: return@every
+
+                        if (!entity.isAlive) {
+                            cancel()
+                            return@every
+                        }
+
                         val facing = context.state.getValue(BlockStateProperties.FACING)
                         val localDirection = Vec3(facing.stepX.toDouble(), facing.stepY.toDouble(), facing.stepZ.toDouble())
                         val worldDirection = context.rotation.apply(localDirection).normalize()
 
-                        val spawnPos = context.position.add(worldDirection.scale(0.7 + displacement))
+                        val spawnPos = position.add(worldDirection.scale(0.7 + displacement))
 
                         when (audioPlayer.state.value) {
                             PlayerState.LOADING -> {
@@ -265,14 +278,12 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                             PlayerState.PLAYING -> {
                                 context.world.addParticle(
                                     ParticleTypes.NOTE,
-                                    spawnPos.x + displacement,
-                                    spawnPos.y + displacement,
-                                    spawnPos.z + displacement,
-                                    Random
-                                        .nextFloat()
-                                        .toDouble(),
-                                    0.0,
-                                    0.0,
+                                    spawnPos.x,
+                                    spawnPos.y,
+                                    spawnPos.z,
+                                    worldDirection.x * 0.5,
+                                    worldDirection.y * 0.5,
+                                    worldDirection.z * 0.5,
                                 )
                             }
 
@@ -375,6 +386,11 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             }
 
             if (newState == data.playbackState) return@onServer
+
+            if (newState == PlaybackState.PLAYING && data.playbackState == PlaybackState.STOPPED) {
+                handleRecordUse(context)
+            }
+
             data.playbackState = newState
             resyncData(context)
         }
@@ -439,12 +455,10 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                 .1.seconds.thenLaunch {
                     val contraptionEntity = context.contraption.entity
                     if (!contraptionEntity.isAlive) {
-                        RecordPlayerMovementBehaviourTracker.untrack(getPlayerUUID(context))
                         stopClientAudio(context)
                     }
                 }
             } else {
-                RecordPlayerMovementBehaviourTracker.untrack(getPlayerUUID(context))
                 stopClientAudio(context)
             }
         }
@@ -454,6 +468,13 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
         val playerId = getPlayerUUID(context)
         val data = getContextData(context)
 
+        if (!data.movementPlayerInitialized) {
+            if (AudioPlayerManager.exists(playerId)) {
+                AudioPlayerManager.release(playerId)
+            }
+            data.movementPlayerInitialized = true
+        }
+
         return AudioPlayerManager.getOrCreate(
             playerId,
             provider = { streamId, stream ->
@@ -461,7 +482,9 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                     stream,
                     streamId,
                     SoundEvents.EMPTY,
-                    posSupplier = { BlockPos.containing(context.position) },
+                    posSupplier = {
+                        BlockPos.containing(context.position)
+                    },
                     radiusSupplier = data.radiusSupplier,
                     volumeSupplier = data.volumeSupplier,
                 )

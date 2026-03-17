@@ -255,6 +255,7 @@ class AudioPlayer(
             soundEventComposition.stopComposition()
         }
         currentSoundInstance = null
+        effectChain.reset()
         clock.stop()
         _state.value = PlayerState.STOPPED
     }

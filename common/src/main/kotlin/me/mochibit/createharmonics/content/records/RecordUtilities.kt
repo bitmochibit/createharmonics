@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.content.records
 
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
+import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.audio.player.AudioRequest
 import me.mochibit.createharmonics.audio.source.StreamAudioSource
@@ -130,6 +131,10 @@ object RecordUtilities {
             event.volumeSupplier = compVolumeSupplier
             this.soundEventComposition.add(event)
         }
+
+        this.effectChain.setEffects(
+            this.effectChain.getEffects().filterIsInstance<PitchShiftEffect>(),
+        )
 
         recordProps.properties.audioEffectsProvider().forEach { effect ->
             this.effectChain.addEffect(effect)

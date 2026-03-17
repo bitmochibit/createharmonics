@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.foundation.eventbus
 
+import net.minecraft.server.level.ServerPlayer
 import net.minecraft.server.network.ServerPlayerConnection
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent
 import net.minecraftforge.common.MinecraftForge
@@ -27,6 +28,10 @@ object ForgeEventBridge : PlatformEventBridge() {
         }
         proxy<EntityJoinLevelEvent, ProxyEvent.EntityJoinLevelEventProxy> {
             ProxyEvent.EntityJoinLevelEventProxy(this.entity, this.level)
+        }
+
+        proxy<PlayerEvent.StartTracking, ProxyEvent.PlayerStartTrackingEntityProxy> {
+            ProxyEvent.PlayerStartTrackingEntityProxy(entity as ServerPlayer, target)
         }
 
         proxy<RegisterCommandsEvent, ProxyEvent.RegisterCommandsEventProxy> {

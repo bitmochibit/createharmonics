@@ -3,11 +3,15 @@ package me.mochibit.createharmonics.foundation.behaviour.movement
 import com.simibubi.create.api.behaviour.movement.MovementBehaviour
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity
 import com.simibubi.create.content.contraptions.behaviour.MovementContext
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviourTracker
 import me.mochibit.createharmonics.foundation.behaviour.movement.SmartMovementBehaviour.SyncType
+import me.mochibit.createharmonics.foundation.eventbus.EventBus
+import me.mochibit.createharmonics.foundation.eventbus.ProxyEvent
 import me.mochibit.createharmonics.foundation.network.packet.ContraptionBlockDataChangedPacket
 import me.mochibit.createharmonics.foundation.registry.ForgeModPackets
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.StructureBlockInfo
 import net.minecraftforge.network.PacketDistributor
 import kotlin.collections.set
@@ -18,6 +22,19 @@ abstract class SmartMovementBehaviour<Data> : MovementBehaviour {
     enum class SyncType {
         NET,
         DISK,
+    }
+
+    init {
+        EventBus.on<ProxyEvent.PlayerStartTrackingEntityProxy> { event ->
+            val entity = event.entity
+            if (entity !is AbstractContraptionEntity) return@on
+
+            entity.contraption.actors.forEach { (_, context) ->
+                if (context.contraption.entity.stringUUID == event.entity.stringUUID) {
+                    context.resync()
+                }
+            }
+        }
     }
 
     @Suppress("UNCHECKED_CAST")

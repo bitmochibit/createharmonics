@@ -1,19 +1,19 @@
 package me.mochibit.createharmonics.content.recordPlayer
 
 abstract class AudioPlayerContextTracker<Tracked> {
-    private val trackedPlayerContexts = mutableMapOf<String, Tracked>()
+    private val _trackedPlayerContexts = mutableMapOf<String, Tracked>()
+    val trackedPlayerContexts: Map<String, Tracked> get() = _trackedPlayerContexts
 
     fun track(
         playerId: String,
         tracked: Tracked,
     ) {
-        if (trackedPlayerContexts.containsKey(playerId)) return
-        trackedPlayerContexts[playerId] = tracked
+        _trackedPlayerContexts.putIfAbsent(playerId, tracked)
     }
 
     fun untrack(playerId: String) {
-        trackedPlayerContexts.remove(playerId)
+        _trackedPlayerContexts.remove(playerId)
     }
 
-    fun get(playerId: String): Tracked? = trackedPlayerContexts[playerId]
+    fun get(playerId: String): Tracked? = _trackedPlayerContexts[playerId]
 }

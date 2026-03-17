@@ -14,6 +14,10 @@ class PitchShiftEffect(
 ) : AudioEffect {
     private var virtualPosition = 0.0
 
+    override fun reset() {
+        virtualPosition = 0.0
+    }
+
     override fun process(
         samples: ShortArray,
         timeInSeconds: Double,
