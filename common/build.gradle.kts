@@ -69,7 +69,7 @@ tasks.named("compileKotlin") {
 }
 
 legacyForge {
-    mcpVersion = "$minecraftVersionProp"
+    mcpVersion = minecraftVersionProp
     if (file("src/main/resources/META-INF/accesstransformer.cfg").exists()) {
         accessTransformers.from(file("src/main/resources/META-INF/accesstransformer.cfg"))
     }
@@ -88,6 +88,7 @@ dependencies {
     compileOnly("org.spongepowered:mixin:0.8.5")
 
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
+    implementation(kotlin("reflect"))
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutinesVersion")
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion")
 

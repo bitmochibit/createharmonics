@@ -250,6 +250,9 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
 
                         val position = context.position ?: return@every
                         val entity = context.contraption?.entity ?: return@every
+                        if (this@apply.playbackState != PlaybackState.PLAYING) {
+                            return@every
+                        }
 
                         if (!entity.isAlive) {
                             cancel()

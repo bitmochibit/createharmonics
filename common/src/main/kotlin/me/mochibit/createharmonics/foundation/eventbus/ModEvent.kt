@@ -1,5 +1,7 @@
 package me.mochibit.createharmonics.foundation.eventbus
 
+import me.mochibit.createharmonics.foundation.registry.Registrable
+
 interface ModEvent
 
 /**
@@ -31,4 +33,20 @@ enum class EventPriority(
     LOW(3),
     LOWEST(4),
     MONITOR(5),
+}
+
+interface ModEventHandler {
+    fun setupEvents()
+}
+
+inline fun <reified AutoHandler : ModEventHandler> autoHandler() {
+    if (!AutoHandler::class.isSealed) {
+        throw IllegalArgumentException("The passed event handler marker must be a sealed interface to enable automatic discovery")
+    }
+
+    AutoHandler::class
+        .sealedSubclasses
+        .filter { AutoHandler::class.java.isAssignableFrom(it.java) }
+        .map { it.objectInstance as ModEventHandler }
+        .forEach { it.setupEvents() }
 }

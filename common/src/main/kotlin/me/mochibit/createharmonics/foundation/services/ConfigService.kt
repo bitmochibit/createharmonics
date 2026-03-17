@@ -6,6 +6,10 @@ interface ConfigService {
     fun getRecordDurability(recordType: RecordType): Int?
 
     fun getYtdlpOverrideArgs(): String
+
+    fun getNeverShowLibraryDisclaimer(): Boolean
+
+    fun setNeverShowLibraryDisclaimer(value: Boolean)
 }
 
 val configService: ConfigService by lazy {

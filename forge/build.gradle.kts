@@ -145,6 +145,10 @@ tasks.named<JavaCompile>("compileTestJava") {
     enabled = false
 }
 
+tasks.named<KotlinCompile>("compileTestKotlin") {
+    enabled = false
+}
+
 tasks.withType<JavaCompile>().configureEach {
     source(project(":common").sourceSets["main"].allSource)
 }

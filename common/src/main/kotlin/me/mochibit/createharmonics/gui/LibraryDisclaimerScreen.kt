@@ -1,6 +1,4 @@
-@file:Suppress("SimplifyBooleanWithConstants")
-
-package me.mochibit.createharmonics.client.gui
+package me.mochibit.createharmonics.gui
 
 import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
@@ -13,7 +11,7 @@ import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.foundation.extension.drawCenteredString
 import me.mochibit.createharmonics.foundation.extension.toMultilineFormattedCharSequence
 import me.mochibit.createharmonics.foundation.locale.ModLang
-import me.mochibit.createharmonics.foundation.registry.ModConfigurations
+import me.mochibit.createharmonics.foundation.services.configService
 import net.minecraft.ChatFormatting
 import net.minecraft.Util
 import net.minecraft.client.gui.GuiGraphics
@@ -149,7 +147,7 @@ class LibraryDisclaimerScreen(
                 cx,
                 bottomY,
             ) {
-                ModConfigurations.client.neverShowLibraryDisclaimer.set(true)
+                configService.setNeverShowLibraryDisclaimer(true)
                 currentState = State.SKIPPED
                 rebuildWidgets()
             }
@@ -168,7 +166,7 @@ class LibraryDisclaimerScreen(
                     ButtonData(
                         ModLang.translate("gui.library_setup.manual_installation_btn").component(),
                     ) {
-                        ModConfigurations.client.neverShowLibraryDisclaimer.set(true)
+                        configService.setNeverShowLibraryDisclaimer(true)
                         currentState = State.SKIPPED
                         rebuildWidgets()
                     },
@@ -204,7 +202,7 @@ class LibraryDisclaimerScreen(
                         ModLang.translate("gui.library_setup.open_folder_btn").component(),
                     ) {
                         BinStatusManager.ensureBinaryFolders()
-                        Util.getPlatform().openFile(BinProvider.providersFolder)
+                        Util.getPlatform().openFile(BinProvider.Companion.providersFolder)
                     } to
                         ButtonData(
                             ModLang.translate("gui.library_setup.go_back_btn").component(),
@@ -227,7 +225,7 @@ class LibraryDisclaimerScreen(
                     ModLang.translate("gui.library_setup.open_folder_btn").component(),
                 ) {
                     BinStatusManager.ensureBinaryFolders()
-                    Util.getPlatform().openFile(BinProvider.providersFolder)
+                    Util.getPlatform().openFile(BinProvider.Companion.providersFolder)
                 },
             right =
                 ButtonData(

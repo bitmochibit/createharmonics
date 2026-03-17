@@ -6,6 +6,7 @@ import net.minecraftforge.client.event.ClientPlayerNetworkEvent
 import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.event.GameShuttingDownEvent
 import net.minecraftforge.event.RegisterCommandsEvent
+import net.minecraftforge.event.TickEvent
 import net.minecraftforge.event.entity.EntityJoinLevelEvent
 import net.minecraftforge.event.entity.player.PlayerEvent
 import net.minecraftforge.event.level.LevelEvent
@@ -22,10 +23,13 @@ object ForgeEventBridge : PlatformEventBridge() {
 
     override fun setupProxyEvents() {
         proxy<ServerStartedEvent, ProxyEvent.ServerStartedEventProxy> { ProxyEvent.ServerStartedEventProxy(server) }
+
         proxy<ServerStoppedEvent, ProxyEvent.ServerStoppedEventProxy> { ProxyEvent.ServerStoppedEventProxy(server) }
+
         proxy<ClientPlayerNetworkEvent.LoggingOut, ProxyEvent.ClientDisconnectedEventProxy> {
             ProxyEvent.ClientDisconnectedEventProxy(multiPlayerGameMode, player, connection)
         }
+
         proxy<EntityJoinLevelEvent, ProxyEvent.EntityJoinLevelEventProxy> {
             ProxyEvent.EntityJoinLevelEventProxy(this.entity, this.level)
         }
@@ -37,7 +41,16 @@ object ForgeEventBridge : PlatformEventBridge() {
         proxy<RegisterCommandsEvent, ProxyEvent.RegisterCommandsEventProxy> {
             ProxyEvent.RegisterCommandsEventProxy(dispatcher, commandSelection, buildContext)
         }
+
         proxy<LevelEvent.Unload, ProxyEvent.LevelUnloadEventProxy> { ProxyEvent.LevelUnloadEventProxy(level) }
+
         proxy<GameShuttingDownEvent, ProxyEvent.GameShuttingDownEventProxy> { ProxyEvent.GameShuttingDownEventProxy() }
+
+        proxy<TickEvent.ClientTickEvent, ProxyEvent.TickEvent.ClientTickEventProxy> {
+            ProxyEvent.TickEvent.ClientTickEventProxy(
+                ProxyEvent.TickEvent.Type.valueOf(this.type.name),
+                ProxyEvent.TickEvent.Phase.valueOf(this.phase.name),
+            )
+        }
     }
 }

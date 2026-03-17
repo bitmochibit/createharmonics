@@ -1,7 +1,6 @@
 package me.mochibit.createharmonics.lifecycle
 
 import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
-import me.mochibit.createharmonics.client.event.MainMenuDisclaimerHandler
 import me.mochibit.createharmonics.foundation.info
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.common.MinecraftForge
@@ -52,6 +51,5 @@ object ClientModBusHandler {
     @JvmStatic
     fun onClientSetup(event: FMLClientSetupEvent) {
         "Create: Harmonics client is setting up!".info()
-        MinecraftForge.EVENT_BUS.register(MainMenuDisclaimerHandler)
     }
 }

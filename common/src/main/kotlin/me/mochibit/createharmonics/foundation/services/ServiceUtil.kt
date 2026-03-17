@@ -18,7 +18,7 @@ object ServiceUtil {
      */
     fun <T> load(serviceClass: Class<T>): T =
         ServiceLoader
-            .load(serviceClass)
+            .load(serviceClass, serviceClass.classLoader)
             .findFirst()
             .orElseThrow {
                 NoSuchElementException(

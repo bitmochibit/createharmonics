@@ -1,11 +1,12 @@
 package me.mochibit.createharmonics
 
-import me.mochibit.createharmonics.audio.AudioPlayerManager
 import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
 import me.mochibit.createharmonics.foundation.async.ModCoroutineScope
 import me.mochibit.createharmonics.foundation.err
+import me.mochibit.createharmonics.foundation.eventbus.autoHandler
 import me.mochibit.createharmonics.foundation.registry.CommonRegistry
 import me.mochibit.createharmonics.foundation.registry.autoRegister
+import me.mochibit.createharmonics.gui.CommonGuiEventHandler
 
 object CreateHarmonicsMod {
     const val MOD_ID = "createharmonics"
@@ -18,6 +19,7 @@ object CreateHarmonicsMod {
         initialized = true
 
         autoRegister<CommonRegistry>()
+        autoHandler<CommonGuiEventHandler>()
 
         Runtime.getRuntime().addShutdownHook(
             Thread {

@@ -7,6 +7,7 @@ import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.foundation.gui.ModGuiTexture
 import me.mochibit.createharmonics.foundation.locale.ModLang
 import me.mochibit.createharmonics.foundation.registry.ModPartialModels
+import me.mochibit.createharmonics.gui.LibraryDisclaimerScreen
 import net.createmod.catnip.config.ui.BaseConfigScreen
 import net.createmod.catnip.data.Iterate
 import net.createmod.catnip.gui.AbstractSimiScreen

@@ -51,5 +51,25 @@ sealed interface ProxyEvent : ModEvent {
         val levelAccess: LevelAccessor,
     ) : ProxyEvent
 
+    object TickEvent {
+        enum class Type {
+            LEVEL,
+            PLAYER,
+            CLIENT,
+            SERVER,
+            RENDER,
+        }
+
+        enum class Phase {
+            START,
+            END,
+        }
+
+        data class ClientTickEventProxy(
+            val type: Type,
+            val phase: Phase,
+        ) : ProxyEvent
+    }
+
     class GameShuttingDownEventProxy : ProxyEvent
 }
