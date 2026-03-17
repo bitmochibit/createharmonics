@@ -1,7 +1,9 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
+import com.simibubi.create.content.contraptions.render.ClientContraption
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
+import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import me.mochibit.createharmonics.audio.AudioPlayerManager
 import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
@@ -230,11 +232,15 @@ class RecordPlayerBehaviour(
     private val particleRandom: RandomSource = RandomSource.create()
     private val playerParticleJob =
         10.ticks().every {
+            val player = AudioPlayerManager.get(recordPlayerUUID.toString()) ?: return@every
+            if (playbackState != PlaybackState.PLAYING || this@RecordPlayerBehaviour.be.level is VirtualRenderWorld) {
+                return@every
+            }
             val level = this@RecordPlayerBehaviour.be.level ?: return@every
             val be = this@RecordPlayerBehaviour.be
             val pos = Vec3.atBottomCenterOf(be.blockPos).add(0.0, 1.2, 0.0)
             val displacement = particleRandom.nextInt(4) / 24f
-            when (audioPlayer.state.value) {
+            when (player.state.value) {
                 PlayerState.LOADING -> {
                     level.addParticle(
                         ShriekParticleOption(2),

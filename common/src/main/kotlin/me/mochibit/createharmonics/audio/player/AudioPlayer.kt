@@ -95,7 +95,7 @@ class AudioPlayer(
             }
 
             PlayerIntent.AudioHanged -> {
-                if (_state.value == PlayerState.STOPPED) return
+                if (_state.value == PlayerState.STOPPED || _state.value == PlayerState.PAUSED) return
                 if (_state.value == PlayerState.PLAYING) {
                     unstuckPlayback()
                 } else {

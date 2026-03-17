@@ -71,6 +71,7 @@ data class RecordPlayerContextData(
     val playtimeClock: PlaytimeClock = PlaytimeClock(),
     var playbackState: PlaybackState = PlaybackState.STOPPED,
     val underwaterFilter: EffectPreset.UnderwaterFilter = EffectPreset.UnderwaterFilter(),
+    var gracefulStopJob: Job? = null,
 )
 
 object RecordPlayerMovementBehaviourTracker : AudioPlayerContextTracker<MovementContext>()
@@ -258,8 +259,12 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                         val facing = context.state.getValue(BlockStateProperties.FACING)
                         val localDirection = Vec3(facing.stepX.toDouble(), facing.stepY.toDouble(), facing.stepZ.toDouble())
                         val worldDirection = context.rotation.apply(localDirection).normalize()
+                        val velocity = entity.deltaMovement
 
-                        val spawnPos = position.add(worldDirection.scale(0.7 + displacement))
+                        val spawnPos =
+                            position
+                                .add(worldDirection.scale(0.7 + displacement))
+                                .add(velocity)
 
                         when (audioPlayer.state.value) {
                             PlayerState.LOADING -> {
@@ -278,9 +283,9 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                             PlayerState.PLAYING -> {
                                 context.world.addParticle(
                                     ParticleTypes.NOTE,
-                                    spawnPos.x,
-                                    spawnPos.y,
-                                    spawnPos.z,
+                                    spawnPos.x + velocity.x,
+                                    spawnPos.y + velocity.y,
+                                    spawnPos.z + velocity.z,
                                     worldDirection.x * 0.5,
                                     worldDirection.y * 0.5,
                                     worldDirection.z * 0.5,
@@ -304,7 +309,7 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             put("HeldRecordItem", contextData.heldItemStack.serializeNBT())
             if (syncType != SyncType.DISK) {
                 // PlayState syncs only over network
-                writeEnum("PlaybackState", contextData.playbackState)
+                writeEnum("PlaybackStateMoving", contextData.playbackState)
             }
         }
     }
@@ -319,7 +324,7 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             from.updateClock(this.playtimeClock)
             heldItemStack = ItemStack.of(from.getCompound("HeldRecordItem"))
             if (syncType != SyncType.DISK) {
-                playbackState = from.readEnum("PlaybackState")
+                playbackState = from.readEnum("PlaybackStateMoving")
             }
         }
     }
@@ -350,12 +355,20 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             val data = getContextData(context)
             val currentRecord = getRecordItem(context)
             data.heldItemStack = currentRecord
+
+            val contraptionEntity = context.contraption?.entity
+            val isDisassembled = contraptionEntity == null || !contraptionEntity.isAlive
+
             val newState =
                 when {
-                    currentRecord == ItemStack.EMPTY -> PlaybackState.STOPPED
+                    isDisassembled || currentRecord == ItemStack.EMPTY -> PlaybackState.STOPPED
 
                     !context.disabled &&
-                        (abs(context.animationSpeed) >= SPEED_THRESHOLD || context.stall || isPauseModeWithRedstone(context))
+                        (
+                            abs(context.animationSpeed) >= SPEED_THRESHOLD ||
+                                context.stall ||
+                                isPauseModeWithRedstone(context)
+                        )
                     -> PlaybackState.PLAYING
 
                     else -> PlaybackState.PAUSED
@@ -399,14 +412,19 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             val data = getContextData(context)
             val player = getAudioPlayer(context)
 
-            data.underwaterFilter.update(
-                player,
-                context.position,
-                context.world,
-            )
+            data.underwaterFilter.update(player, context.position, context.world)
 
-            when (data.playbackState) {
+            if (data.playbackState == PlaybackState.PLAYING && player.state.value == PlayerState.PLAYING) {
+                player.syncWith(data.playtimeClock)
+            }
+
+            val newState = data.playbackState
+            when (newState) {
                 PlaybackState.PLAYING -> {
+                    // Cancel any pending graceful stop so audio continues uninterrupted
+                    data.gracefulStopJob?.cancel()
+                    data.gracefulStopJob = null
+
                     when (player.state.value) {
                         PlayerState.PAUSED -> {
                             player.play()
@@ -414,7 +432,6 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
 
                         PlayerState.STOPPED -> {
                             val record = getRecordItem(context)
-
                             player.playFromRecord(
                                 record,
                                 data.pitchSupplier,
@@ -424,23 +441,30 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                             player.seek(data.playtimeClock.currentPlaytime)
                         }
 
-                        PlayerState.PLAYING -> {
-                            player.syncWith(data.playtimeClock)
-                        }
-
                         else -> {}
                     }
                 }
 
                 PlaybackState.PAUSED -> {
-                    if (player.state.value == PlayerState.PLAYING) {
-                        player.pause()
+                    if (data.gracefulStopJob == null) {
+                        data.gracefulStopJob =
+                            1.seconds.thenLaunch {
+                                if (player.state.value == PlayerState.PLAYING) player.pause()
+                                data.gracefulStopJob = null
+                            }
                     }
                 }
 
                 PlaybackState.STOPPED -> {
-                    if (player.state.value != PlayerState.STOPPED) {
-                        player.stop()
+                    data.gracefulStopJob?.cancel()
+                    if (data.heldItemStack.isEmpty) {
+                        if (player.state.value != PlayerState.STOPPED) player.stop()
+                    } else if (data.gracefulStopJob == null) { // ← guard here too
+                        data.gracefulStopJob =
+                            1.seconds.thenLaunch {
+                                if (player.state.value != PlayerState.STOPPED) player.stop()
+                                data.gracefulStopJob = null
+                            }
                     }
                 }
             }
@@ -448,18 +472,12 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
     }
 
     override fun stopMoving(context: MovementContext) {
-        val level = context.world
-        level.onServer {
-            val contraptionEntity = context.contraption.entity
-            if (contraptionEntity is ControlledContraptionEntity) {
-                .1.seconds.thenLaunch {
-                    val contraptionEntity = context.contraption.entity
-                    if (!contraptionEntity.isAlive) {
-                        stopClientAudio(context)
-                    }
+        context.world.onServer {
+            .1.seconds.thenLaunch {
+                val contraptionEntity = context.contraption?.entity ?: return@thenLaunch
+                if (!contraptionEntity.isAlive) {
+                    stopClientAudio(context)
                 }
-            } else {
-                stopClientAudio(context)
             }
         }
     }
