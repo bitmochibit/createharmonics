@@ -13,6 +13,8 @@ import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.instance.SampleRatedInstance
 import me.mochibit.createharmonics.audio.stream.AudioEffectInputStream
+import me.mochibit.createharmonics.audio.utils.pause
+import me.mochibit.createharmonics.audio.utils.unpause
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.async.withMainContext
 import me.mochibit.createharmonics.foundation.extension.ticks
@@ -208,9 +210,7 @@ class AudioPlayer(
                 soundEventComposition.stopComposition()
             }
 
-        withMainContext {
-            soundManager.stop(soundInstance)
-        }
+        soundInstance.pause()
         soundEventComposition.stopComposition()
 
         clock.pause()
@@ -225,9 +225,7 @@ class AudioPlayer(
                 }
             }
 
-        withMainContext {
-            soundManager.play(soundInstance)
-        }
+        soundInstance.unpause()
         soundEventComposition.makeComposition(soundInstance)
         clock.play()
         transition(PlayerState.PLAYING)
@@ -235,7 +233,6 @@ class AudioPlayer(
 
     private suspend fun unstuckPlayback() {
         val soundInstance = currentSoundInstance ?: return transition(PlayerState.STOPPED)
-        delay(1.ticks())
         withMainContext {
             soundManager.play(soundInstance)
         }
@@ -282,21 +279,15 @@ class AudioPlayer(
     // Public API
 
     fun play() {
-        if (_state.value != PlayerState.PLAYING) {
-            intents.trySend(PlayerIntent.Play)
-        }
+        intents.trySend(PlayerIntent.Play)
     }
 
     fun pause() {
-        if (_state.value != PlayerState.PAUSED) {
-            intents.trySend(PlayerIntent.Pause)
-        }
+        intents.trySend(PlayerIntent.Pause)
     }
 
     fun stop() {
-        if (_state.value != PlayerState.STOPPED) {
-            intents.trySend(PlayerIntent.Stop)
-        }
+        intents.trySend(PlayerIntent.Stop)
     }
 
     fun seek(position: Double) {
