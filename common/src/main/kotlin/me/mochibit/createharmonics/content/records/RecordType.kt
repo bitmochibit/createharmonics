@@ -35,7 +35,7 @@ enum class RecordType(
                 ),
             audioEffectsProvider = {
                 listOf(
-                    BitCrushEffect(quality = 0.3f),
+                    BitCrushEffect(quality = 0.3f, scope = AudioEffect.Scope.INTRINSIC_EFFECT),
                 )
             },
             soundEventCompProvider = {
@@ -78,7 +78,7 @@ enum class RecordType(
                 ),
             audioEffectsProvider = {
                 listOf(
-                    BitCrushEffect(quality = 0.6f),
+                    BitCrushEffect(quality = 0.6f, scope = AudioEffect.Scope.INTRINSIC_EFFECT),
                 )
             },
             soundEventCompProvider = {
@@ -143,6 +143,7 @@ enum class RecordType(
                                 EQBand(frequency = 800f, quality = 1.5f, gain = -3f),
                                 EQBand(frequency = 4000f, quality = 1.2f, gain = 2f),
                             ),
+                        scope = AudioEffect.Scope.INTRINSIC_EFFECT,
                     ),
                 )
             },
@@ -158,7 +159,7 @@ enum class RecordType(
                 ),
             audioEffectsProvider = {
                 listOf(
-                    BitCrushEffect(quality = 0.9f),
+                    BitCrushEffect(quality = 0.9f, scope = AudioEffect.Scope.INTRINSIC_EFFECT),
                 )
             },
             defaultDurability = 250,

@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.foundation.registry
+package me.mochibit.createharmonics.foundation.registry.platform
 
 import net.minecraft.sounds.SoundEvent
 

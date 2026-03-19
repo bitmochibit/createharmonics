@@ -45,7 +45,7 @@ sealed interface EffectPreset {
         ) {
             val effectChain = audioPlayer.effectChain ?: return
             val effects = effectChain.getEffects()
-            val existingFilter = effects.firstOrNull { it is LowPassFilterEffect } as? LowPassFilterEffect
+            val existingFilter = effects.firstOrNull { it.scope == AudioEffect.Scope.EXTERNAL_EFFECT } as? LowPassFilterEffect
 
             if (existingFilter == null) {
                 // Force initialization of interpolators at base (no-effect) values before updating the target,
@@ -54,10 +54,12 @@ sealed interface EffectPreset {
                 resonanceInterpolated.getValue()
                 targetCutoffFrequency = cutoffFrequency
                 targetResonance = resonance
-                effectChain.addEffect(
+                effectChain.addAfterScope(
+                    AudioEffect.Scope.MACHINE_CONTROLLED_PITCH,
                     LowPassFilterEffect(
                         cutoffFrequencyInterpolated,
                         resonanceInterpolated,
+                        AudioEffect.Scope.EXTERNAL_EFFECT,
                     ),
                 )
             } else {
@@ -69,7 +71,7 @@ sealed interface EffectPreset {
         private fun removeLowPassFilter(audioPlayer: AudioPlayer) {
             val effectChain = audioPlayer.effectChain ?: return
             val effects = effectChain.getEffects()
-            val lowPassIndex = effects.indexOfFirst { it is LowPassFilterEffect }
+            val lowPassIndex = effects.indexOfFirst { it.scope == AudioEffect.Scope.EXTERNAL_EFFECT }
             if (lowPassIndex < 0) return
 
             // Ensure interpolators are initialized at the current active values before

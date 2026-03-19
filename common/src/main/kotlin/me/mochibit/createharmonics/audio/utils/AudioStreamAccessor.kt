@@ -15,6 +15,9 @@ fun SoundInstance.getStreamDirectly(looping: Boolean): CompletableFuture<AudioSt
     val engine = sm.soundEngine
     val engineAccessor = engine as SoundEngineAccessor
     val soundBuffers = engineAccessor.soundBuffers
+
+    this.resolve(mc.soundManager)
+
     return soundBuffers.getStream(this.sound.path, looping)
 }
 

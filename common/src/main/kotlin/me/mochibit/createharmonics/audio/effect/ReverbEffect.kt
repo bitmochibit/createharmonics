@@ -6,6 +6,7 @@ class ReverbEffect(
     private val roomSize: Float = 0.7f,
     private val damping: Float = 0.4f,
     private val wetMix: Float = 0.5f,
+    override val scope: AudioEffect.Scope,
 ) : AudioEffect {
     companion object {
         private val COMB_TUNINGS = intArrayOf(1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617)

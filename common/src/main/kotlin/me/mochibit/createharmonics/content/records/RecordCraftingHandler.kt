@@ -3,30 +3,31 @@ package me.mochibit.createharmonics.content.records
 import me.mochibit.createharmonics.event.crafting.RecipeAssembledEvent
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
 import me.mochibit.createharmonics.foundation.eventbus.ModEvent
+import me.mochibit.createharmonics.foundation.services.contentService
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.item.RecordItem
+import org.valkyrienskies.core.impl.shadow.it
 
 object RecordCraftingHandler {
     const val CRAFTED_WITH_DISC_KEY = "crafted_with_disc"
 
-    private fun itemId(stack: ItemStack): ResourceLocation = BuiltInRegistries.ITEM.getKey(stack.item)
-
     private fun isVanillaDisc(stack: ItemStack): Boolean {
-        val id = itemId(stack)
-        return id.namespace == "minecraft" && id.path.startsWith("music_disc_")
+        val item = stack.item
+        return item is RecordItem
     }
 
     private fun isBaseRecord(stack: ItemStack): Boolean {
-        val id = itemId(stack)
-        return id.path.endsWith("ethereal_record_base")
+        val item = stack.item
+        return item == contentService.modItemsRegistry.etherealRecordBase
     }
 
     private fun isEtherealRecord(stack: ItemStack): Boolean {
-        val id = itemId(stack)
-        return id.path.contains("_ethereal_record") && !id.path.endsWith("_base")
+        val item = stack.item
+        return contentService.modItemsRegistry.etherealRecords.any { it.value == item }
     }
 
     init {

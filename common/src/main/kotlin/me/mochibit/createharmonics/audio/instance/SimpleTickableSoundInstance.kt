@@ -1,12 +1,15 @@
 package me.mochibit.createharmonics.audio.instance
 
+import me.mochibit.createharmonics.audio.utils.getStreamDirectly
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance
 import net.minecraft.client.resources.sounds.SoundInstance
+import net.minecraft.client.sounds.AudioStream
 import net.minecraft.core.BlockPos
 import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
+import java.util.concurrent.CompletableFuture
 
 class SimpleTickableSoundInstance(
     soundEvent: SoundEvent,
@@ -30,11 +33,15 @@ class SimpleTickableSoundInstance(
         volumeSupplier,
         pitchSupplier,
         radiusSupplier,
-    ) {
+    ),
+    HasStreamAccess {
     init {
         this.looping = looping
         this.delay = delay
         this.attenuation = attenuation
         this.relative = relative
     }
+
+    override val audioStream: CompletableFuture<AudioStream>
+        get() = this.getStreamDirectly(this.looping)
 }

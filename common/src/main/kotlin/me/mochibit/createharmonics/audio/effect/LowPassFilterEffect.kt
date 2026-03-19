@@ -15,6 +15,7 @@ import kotlin.math.roundToInt
 class LowPassFilterEffect(
     private val cutoffFrequencySupplier: FloatSupplier,
     private val resonanceSupplier: FloatSupplier,
+    override val scope: AudioEffect.Scope = AudioEffect.Scope.PERMANENT,
 ) : AudioEffect {
     private var x1 = 0f // input delayed by 1 sample
     private var x2 = 0f // input delayed by 2 samples

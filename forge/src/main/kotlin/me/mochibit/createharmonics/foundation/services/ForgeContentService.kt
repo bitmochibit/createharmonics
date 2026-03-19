@@ -11,10 +11,11 @@ import me.mochibit.createharmonics.content.records.BaseRecordItem
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.foundation.behaviour.movement.handleBlockDataChange
 import me.mochibit.createharmonics.foundation.registry.ModBlocks
-import me.mochibit.createharmonics.foundation.registry.ModBlocksRegistry
 import me.mochibit.createharmonics.foundation.registry.ModItems
 import me.mochibit.createharmonics.foundation.registry.ModPonders
 import me.mochibit.createharmonics.foundation.registry.ModSounds
+import me.mochibit.createharmonics.foundation.registry.platform.ModBlocksRegistry
+import me.mochibit.createharmonics.foundation.registry.platform.ModItemsRegistry
 import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper
 import net.minecraft.client.Minecraft
@@ -71,6 +72,7 @@ class ForgeContentService : ContentService {
 
     override val soundEventRegistry = ModSounds
     override val modBlocksRegistry = ModBlocks
+    override val modItemsRegistry = ModItems
 
     override fun onStreamEnd(
         audioPlayerId: String,
@@ -91,8 +93,6 @@ class ForgeContentService : ContentService {
         RecordPlayerBlockEntity.handleAudioTitleChange(audioPlayerId, audioName)
         return true
     }
-
-    override val baseRecordItemStack: ItemStack by lazy { ItemStack(ModItems.BASE_RECORD.get()) }
 
     override fun isEtherealRecord(stack: ItemStack): Boolean = stack.item is EtherealRecordItem
 

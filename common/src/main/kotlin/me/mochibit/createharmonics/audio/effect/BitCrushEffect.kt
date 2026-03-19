@@ -10,6 +10,7 @@ import kotlin.math.roundToInt
  */
 class BitCrushEffect(
     private val quality: Float = 1.0f,
+    override val scope: AudioEffect.Scope = AudioEffect.Scope.PERMANENT,
 ) : AudioEffect {
     private var holdSample: Short = 0
     private var sampleCounter = 0

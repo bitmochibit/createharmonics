@@ -50,7 +50,7 @@ class AudioPlayer(
 
     val effectChain = EffectChain()
 
-    val soundEventComposition = SoundEventComposition()
+    val soundEventComposition = SoundEventComposition(soundEffectChain = effectChain)
 
     private val soundManager get() = Minecraft.getInstance().soundManager
 
@@ -192,9 +192,9 @@ class AudioPlayer(
             soundInstance.sampleRate = resolvedInputStream.finalSampleRate
         }
         withMainContext {
-            soundEventComposition.makeComposition(soundInstance)
             soundManager.play(soundInstance)
         }
+        soundEventComposition.makeComposition(soundInstance)
 
         currentSoundInstance = soundInstance
         currentAudioEffectInputStream = stream
@@ -205,15 +205,14 @@ class AudioPlayer(
     private suspend fun pausePlayback() {
         val soundInstance =
             currentSoundInstance ?: return transition(PlayerState.STOPPED).also {
-                withMainContext {
-                    soundEventComposition.stopComposition()
-                }
+                soundEventComposition.stopComposition()
             }
 
         withMainContext {
             soundManager.stop(soundInstance)
-            soundEventComposition.stopComposition()
         }
+        soundEventComposition.stopComposition()
+
         clock.pause()
         transition(PlayerState.PAUSED)
     }
@@ -228,8 +227,8 @@ class AudioPlayer(
 
         withMainContext {
             soundManager.play(soundInstance)
-            soundEventComposition.makeComposition(soundInstance)
         }
+        soundEventComposition.makeComposition(soundInstance)
         clock.play()
         transition(PlayerState.PLAYING)
     }
@@ -252,8 +251,8 @@ class AudioPlayer(
         currentAudioEffectInputStream = null
         withMainContext {
             currentSoundInstance?.let { soundManager.stop(it) }
-            soundEventComposition.stopComposition()
         }
+        soundEventComposition.stopComposition()
         currentSoundInstance = null
         effectChain.reset()
         clock.stop()

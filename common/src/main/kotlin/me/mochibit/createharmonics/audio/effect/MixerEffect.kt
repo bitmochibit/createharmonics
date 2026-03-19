@@ -1,193 +1,109 @@
 package me.mochibit.createharmonics.audio.effect
 
-import mixin.SoundEngineAccessor
-import mixin.SoundManagerAccessor
-import net.minecraft.client.Minecraft
-import net.minecraft.client.resources.sounds.SimpleSoundInstance
-import net.minecraft.client.resources.sounds.Sound
-import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.client.sounds.AudioStream
-import net.minecraft.core.BlockPos
-import net.minecraft.core.Position
-import net.minecraft.resources.ResourceLocation
-import net.minecraft.sounds.SoundEvent
-import net.minecraft.util.RandomSource
-import net.minecraft.world.phys.Vec3
 import java.nio.ByteBuffer
-import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.math.roundToInt
 
-/**
- * Mixer effect that blends audio from a secondary source with the primary audio.
- * Useful for creating layered effects or background music mixing.
- *
- * Can accept either:
- * - A function that provides secondary audio samples at a given time
- * - A Minecraft AudioStream interface (for mixing Minecraft sound effects, and adding effects on it (requires gathering the direct audio stream))
- *
- * @param secondarySource Function that provides secondary audio samples at a given time
- * @param mixLevel Mix level from 0.0 (only primary) to 1.0 (only secondary), 0.5 = equal mix
- */
-class MixerEffect private constructor(
-    private val secondarySource: ((timeInSeconds: Double, sampleCount: Int, sampleRate: Int) -> ShortArray)?,
-    private val audioStreamSource: AudioStream?,
-    private val mixLevel: Float = 0.5f,
+class MixerEffect(
+    val mixName: String = "DefaultMixName",
+    override val scope: AudioEffect.Scope = AudioEffect.Scope.PERMANENT,
 ) : AudioEffect {
     /**
-     * Create a MixerEffect with a function-based secondary source
+     * Mixed source to be played along the main source
+     * If the source is not a ONE-SHOT and must be kept playing, set [autoRemoveOnExhaust] to false
      */
-    constructor(
-        secondarySource: (timeInSeconds: Double, sampleCount: Int, sampleRate: Int) -> ShortArray,
-        mixLevel: Float = 0.5f,
-    ) : this(secondarySource, null, mixLevel)
+    data class MixedSource(
+        val id: String,
+        val stream: AudioStream,
+        val level: Float = 0.5f,
+        val autoRemoveOnExhaust: Boolean = true,
+    )
 
-    /**
-     * Create a MixerEffect with an AudioStream-based secondary source
-     */
-    constructor(
-        audioStreamSource: AudioStream,
-        mixLevel: Float = 0.5f,
-    ) : this(null, audioStreamSource, mixLevel)
+    private val sources = CopyOnWriteArrayList<MixedSource>()
 
-    private val audioStreamBuffer = ByteArray(8192)
-    private val audioStreamShortBuffer = ShortArray(4096)
+    fun addSource(
+        id: String,
+        stream: AudioStream,
+        level: Float = 0.5f,
+        autoRemoveOnExhaust: Boolean = true,
+    ) {
+        sources.removeIf { it.id == id }
+        sources.add(MixedSource(id, stream, level, autoRemoveOnExhaust))
+    }
+
+    fun removeSource(id: String) {
+        val removed = sources.filter { it.id == id }
+        sources.removeIf { it.id == id }
+        removed.forEach { runCatching { it.stream.close() } }
+    }
+
+    fun clearSources() {
+        val snapshot = sources.toList()
+        sources.clear()
+        snapshot.forEach { runCatching { it.stream.close() } }
+    }
+
+    fun hasSources(): Boolean = sources.isNotEmpty()
 
     override fun process(
         samples: ShortArray,
         timeInSeconds: Double,
         sampleRate: Int,
     ): ShortArray {
-        // Get secondary audio samples based on source type
-        val secondarySamples =
-            try {
-                when {
-                    secondarySource != null -> {
-                        secondarySource.invoke(timeInSeconds, samples.size, sampleRate)
-                    }
+        if (sources.isEmpty()) return samples
 
-                    audioStreamSource != null -> {
-                        readFromAudioStream(samples.size)
-                    }
+        val output = samples.copyOf()
+        val exhaustedIds = mutableListOf<String>()
 
-                    else -> {
-                        // No source available, return original samples
-                        return samples
-                    }
-                }
-            } catch (e: Exception) {
-                // If secondary source fails, return original samples
-                return samples
+        for (source in sources) {
+            val (secondary, exhausted) = readStream(source.stream, samples.size)
+
+            if (exhausted && source.autoRemoveOnExhaust) {
+                exhaustedIds += source.id
+                continue
             }
 
-        // Ensure both arrays have the same size
-        val minSize = minOf(samples.size, secondarySamples.size)
-        val output = ShortArray(samples.size)
+            val primaryLevel = 1f - source.level.coerceIn(0f, 1f)
+            val secondaryLevel = source.level.coerceIn(0f, 1f)
 
-        val mixLevelClamped = mixLevel.coerceIn(0.0f, 1.0f)
-        val primaryLevel = 1.0f - mixLevelClamped
-        val secondaryLevel = mixLevelClamped
-
-        for (i in 0 until minSize) {
-            val primary = samples[i].toFloat()
-            val secondary = secondarySamples[i].toFloat()
-
-            // Mix the two signals
-            val mixed = primary * primaryLevel + secondary * secondaryLevel
-            output[i] = mixed.roundToInt().coerceIn(-32768, 32767).toShort()
+            for (i in output.indices) {
+                val mixed = output[i] * primaryLevel + secondary[i] * secondaryLevel
+                output[i] = mixed.roundToInt().coerceIn(-32768, 32767).toShort()
+            }
         }
 
-        // If primary is longer than secondary, fill with remaining primary samples
-        for (i in minSize until samples.size) {
-            val primary = samples[i].toFloat()
-            val mixed = primary * primaryLevel
-            output[i] = mixed.roundToInt().coerceIn(-32768, 32767).toShort()
+        if (exhaustedIds.isNotEmpty()) {
+            val exhausted = sources.filter { it.id in exhaustedIds }
+            sources.removeIf { it.id in exhaustedIds }
+            exhausted.forEach { runCatching { it.stream.close() } }
         }
 
         return output
     }
 
-    /**
-     * Read samples from AudioStream and convert to ShortArray
-     */
-    private fun readFromAudioStream(sampleCount: Int): ShortArray {
-        if (audioStreamSource == null) return ShortArray(0)
-
-        val bytesToRead = sampleCount * 2 // 2 bytes per sample (16-bit)
-        val buffer: ByteBuffer = audioStreamSource.read(bytesToRead)
-
+    private fun readStream(
+        stream: AudioStream,
+        sampleCount: Int,
+    ): Pair<ShortArray, Boolean> {
+        val buffer: ByteBuffer = stream.read(sampleCount * 2)
         val bytesAvailable = buffer.remaining()
+
+        if (bytesAvailable == 0) return ShortArray(sampleCount) to true
+
         val samplesAvailable = bytesAvailable / 2
-
-        if (samplesAvailable == 0) {
-            return ShortArray(0)
-        }
-
-        // Read bytes from buffer
-        buffer.get(audioStreamBuffer, 0, bytesAvailable)
-
-        // Convert bytes to shorts (16-bit PCM, little-endian)
-        val resultSamples = minOf(samplesAvailable, sampleCount)
-        for (i in 0 until resultSamples) {
-            val offset = i * 2
-            audioStreamShortBuffer[i] =
-                (
-                    ((audioStreamBuffer[offset + 1].toInt() and 0xFF) shl 8) or
-                        (audioStreamBuffer[offset].toInt() and 0xFF)
-                ).toShort()
-        }
-
-        return audioStreamShortBuffer.copyOf(resultSamples)
+        val bytes = ByteArray(bytesAvailable).also { buffer.get(it) }
+        val result =
+            ShortArray(sampleCount) { i ->
+                if (i >= samplesAvailable) return@ShortArray 0
+                val lo = bytes[i * 2].toInt() and 0xFF
+                val hi = bytes[i * 2 + 1].toInt() and 0xFF
+                ((hi shl 8) or lo).toShort()
+            }
+        return result to false
     }
 
-    override fun reset() {
-        // Reset any internal state if needed
-    }
+    override fun reset() = clearSources()
 
-    override fun getName(): String {
-        val sourceType =
-            when {
-                audioStreamSource != null -> "AudioStream"
-                secondarySource != null -> "Function"
-                else -> "None"
-            }
-        return "Mixer(source=$sourceType, level=${String.format("%.2f", mixLevel)})"
-    }
-
-    companion object {
-        /**
-         * Create a simple silence source (useful for testing or as a default)
-         */
-        fun silenceSource(): (Double, Int, Int) -> ShortArray =
-            { _, count, _ ->
-                ShortArray(count) { 0 }
-            }
-
-        /**
-         * Create a simple tone generator source (useful for testing)
-         */
-        fun toneSource(
-            frequency: Float,
-            amplitude: Float = 0.3f,
-        ): (Double, Int, Int) -> ShortArray =
-            { time, count, sampleRate ->
-                ShortArray(count) { i ->
-                    val t = time + (i.toDouble() / sampleRate)
-                    val sample = (amplitude * 32767 * Math.sin(2.0 * Math.PI * frequency * t))
-                    sample.roundToInt().coerceIn(-32768, 32767).toShort()
-                }
-            }
-
-        /**
-         * Create a noise source (useful for creating static/interference effects)
-         */
-        fun noiseSource(amplitude: Float = 0.1f): (Double, Int, Int) -> ShortArray =
-            { _, count, _ ->
-                ShortArray(count) {
-                    ((Math.random() - 0.5) * 2.0 * amplitude * 32767)
-                        .roundToInt()
-                        .coerceIn(-32768, 32767)
-                        .toShort()
-                }
-            }
-    }
+    override fun getName() = mixName
 }

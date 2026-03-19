@@ -1,8 +1,15 @@
 package me.mochibit.createharmonics.audio.comp
 
 import kotlinx.coroutines.Job
+import me.mochibit.createharmonics.audio.effect.AudioEffect
+import me.mochibit.createharmonics.audio.effect.EffectChain
+import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
+import me.mochibit.createharmonics.audio.effect.MixerEffect
+import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
+import me.mochibit.createharmonics.audio.effect.ScopeAnchor
 import me.mochibit.createharmonics.audio.instance.SimpleTickableSoundInstance
 import me.mochibit.createharmonics.audio.instance.SuppliedSoundInstance
+import me.mochibit.createharmonics.audio.utils.getStreamDirectly
 import me.mochibit.createharmonics.foundation.async.every
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.err
@@ -13,12 +20,30 @@ import net.minecraft.core.BlockPos
 import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
+import java.util.UUID
+import kotlin.concurrent.atomics.AtomicReference
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
 
 class SoundEventComposition(
     soundList: List<SoundEventDef> = listOf(),
+    val soundEffectChain: EffectChain,
+    @Volatile var mixerAnchor: ScopeAnchor? = null,
 ) {
+    private val mixer = MixerEffect("SoundCompositionMixer", AudioEffect.Scope.SOUND_COMPOSITION_MIXER)
+
+    fun anchorBefore(scope: AudioEffect.Scope) {
+        mixerAnchor = ScopeAnchor.Before(scope)
+    }
+
+    fun anchorAfter(scope: AudioEffect.Scope) {
+        mixerAnchor = ScopeAnchor.After(scope)
+    }
+
+    fun clearAnchor() {
+        mixerAnchor = null
+    }
+
     data class SoundEventDef(
         val event: SoundEvent,
         val source: SoundSource? = null,
@@ -33,11 +58,12 @@ class SoundEventComposition(
         var volumeSupplier: FloatSupplier? = null,
         var radiusSupplier: FloatSupplier? = null,
         var probabilitySupplier: (() -> Float)? = null,
+        var mixLevel: Float = 0.5f,
     )
 
     private data class ActiveEntry(
         val def: SoundEventDef,
-        val instances: MutableList<SoundInstance> = mutableListOf(),
+        val instances: MutableList<String> = mutableListOf(),
         val jobs: MutableList<Job> = mutableListOf(),
     )
 
@@ -48,12 +74,17 @@ class SoundEventComposition(
     val isRunning: Boolean get() = entries.any { it.instances.isNotEmpty() || it.jobs.isNotEmpty() }
 
     fun makeComposition(referenceSoundInstance: SoundInstance) {
+        soundEffectChain.removeEffect(mixer)
+        mixer.clearSources()
+        soundEffectChain.addWithAnchor(mixer, mixerAnchor)
         this.referenceSoundInstance = referenceSoundInstance
         entries.forEach { startEntry(it, referenceSoundInstance) }
     }
 
     fun stopComposition() {
+        soundEffectChain.removeEffect(mixer)
         entries.forEach { stopEntry(it) }
+        mixer.clearSources()
         referenceSoundInstance = null
     }
 
@@ -97,87 +128,47 @@ class SoundEventComposition(
                 30.seconds.every {
                     val probability = entry.def.probabilitySupplier?.invoke() ?: 0f
                     if (Random.nextFloat() <= probability) {
-                        val instance = createSoundInstance(entry.def, ref, false)
-                        entry.instances.add(instance)
-                        Minecraft.getInstance().soundManager.play(instance)
+                        val id =
+                            UUID.randomUUID().toString() +
+                                entry.def.event.location
+                                    .toString()
+                        entry.instances.add(id)
+                        mixer.addSource(
+                            id,
+                            entry.def.event
+                                .getStreamDirectly(false)
+                                .get(),
+                            entry.def.mixLevel,
+                        )
                     }
                 }
             entry.jobs.add(job)
         } else {
-            val instance = createSoundInstance(entry.def, ref, isLooping)
-            Minecraft.getInstance().soundManager.play(instance)
-            entry.instances.add(instance)
+            val id =
+                UUID.randomUUID().toString() +
+                    entry.def.event.location
+                        .toString()
+            entry.instances.add(id)
+            mixer.addSource(
+                id,
+                entry.def.event
+                    .getStreamDirectly(isLooping)
+                    .get(),
+                entry.def.mixLevel,
+                !isLooping,
+            )
         }
     }
 
     private fun stopEntry(entry: ActiveEntry) {
-        entry.jobs.forEach { job ->
-            try {
-                job.cancel()
-            } catch (e: Exception) {
-                "Could not cancel probability job: ${e.message}".err()
-            }
-        }
+        entry.jobs.forEach { runCatching { it.cancel() } }
         entry.jobs.clear()
 
         val instancesToStop = entry.instances.toList()
         entry.instances.clear()
 
-        modLaunch {
-            instancesToStop.forEach { instance ->
-                try {
-                    Minecraft.getInstance().soundManager.stop(instance)
-                } catch (e: Exception) {
-                    "Could not stop sound instance: ${e.message}".err()
-                }
-            }
+        instancesToStop.forEach { id ->
+            runCatching { mixer.removeSource(id) }
         }
     }
-
-    private fun createSoundInstance(
-        soundEvent: SoundEventDef,
-        referenceSoundInstance: SoundInstance,
-        isLooping: Boolean,
-    ): SoundInstance =
-        when (referenceSoundInstance) {
-            is SuppliedSoundInstance -> {
-                SimpleTickableSoundInstance(
-                    soundEvent.event,
-                    soundEvent.source ?: referenceSoundInstance.source,
-                    soundEvent.randomSource ?: RandomSource.create(),
-                    isLooping,
-                    soundEvent.delay ?: referenceSoundInstance.delay,
-                    soundEvent.attenuation ?: referenceSoundInstance.attenuation,
-                    soundEvent.relative ?: referenceSoundInstance.isRelative,
-                    soundEvent.needStream,
-                    soundEvent.volumeSupplier ?: referenceSoundInstance.volumeSupplier,
-                    soundEvent.pitchSupplier ?: referenceSoundInstance.pitchSupplier,
-                    soundEvent.posSupplier ?: referenceSoundInstance.posSupplier,
-                    soundEvent.radiusSupplier ?: referenceSoundInstance.radiusSupplier,
-                )
-            }
-
-            else -> {
-                SimpleTickableSoundInstance(
-                    soundEvent.event,
-                    soundEvent.source ?: referenceSoundInstance.source,
-                    soundEvent.randomSource ?: RandomSource.create(),
-                    isLooping,
-                    soundEvent.delay ?: referenceSoundInstance.delay,
-                    soundEvent.attenuation ?: referenceSoundInstance.attenuation,
-                    soundEvent.relative ?: referenceSoundInstance.isRelative,
-                    soundEvent.needStream,
-                    soundEvent.volumeSupplier ?: FloatSupplier { referenceSoundInstance.volume },
-                    soundEvent.pitchSupplier ?: FloatSupplier { referenceSoundInstance.pitch },
-                    soundEvent.posSupplier ?: {
-                        BlockPos(
-                            referenceSoundInstance.x.toInt(),
-                            referenceSoundInstance.y.toInt(),
-                            referenceSoundInstance.z.toInt(),
-                        )
-                    },
-                    soundEvent.radiusSupplier ?: FloatSupplier { 16f },
-                )
-            }
-        }
 }

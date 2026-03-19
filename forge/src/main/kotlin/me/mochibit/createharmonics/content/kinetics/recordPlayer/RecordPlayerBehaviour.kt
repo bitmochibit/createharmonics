@@ -5,6 +5,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import me.mochibit.createharmonics.audio.AudioPlayerManager
+import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.SimpleShipStreamSoundInstance
@@ -223,7 +224,7 @@ class RecordPlayerBehaviour(
                     if (effects.none { it is PitchShiftEffect }) {
                         this.addEffectAt(
                             0,
-                            PitchShiftEffect(pitchSupplierInterpolated),
+                            PitchShiftEffect(pitchSupplierInterpolated, scope = AudioEffect.Scope.MACHINE_CONTROLLED_PITCH),
                         )
                     }
                 },

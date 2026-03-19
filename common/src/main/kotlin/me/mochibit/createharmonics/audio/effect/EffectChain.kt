@@ -1,11 +1,22 @@
 package me.mochibit.createharmonics.audio.effect
 
+sealed class ScopeAnchor {
+    data class Before(
+        val scope: AudioEffect.Scope,
+    ) : ScopeAnchor()
+
+    data class After(
+        val scope: AudioEffect.Scope,
+    ) : ScopeAnchor()
+}
+
 /**
  * Manages a chain of audio effects that are applied sequentially.
  * Effects are applied in the order they were added.
  */
 class EffectChain(
     @Volatile private var effects: List<AudioEffect> = emptyList(),
+    override val scope: AudioEffect.Scope = AudioEffect.Scope.PERMANENT,
 ) : AudioEffect {
     constructor(vararg effects: AudioEffect) : this(effects.toList())
 
@@ -155,6 +166,60 @@ class EffectChain(
         if (removeOnlyIfBased && !effect.isBaseValues()) return
         effects = effects.filterIndexed { i, _ -> i != normalizedIndex }
     }
+
+    @Synchronized
+    fun addBeforeIndex(
+        index: Int,
+        effect: AudioEffect,
+    ) {
+        effects =
+            if (index == -1) {
+                effects + effect
+            } else {
+                effects.toMutableList().apply { add(index, effect) }
+            }
+    }
+
+    @Synchronized
+    fun addAfterIndex(
+        index: Int,
+        effect: AudioEffect,
+    ) {
+        effects =
+            if (index == -1) {
+                effects + effect
+            } else {
+                effects.toMutableList().apply { add(index + 1, effect) }
+            }
+    }
+
+    @Synchronized
+    fun cleanAllExceptScopes(vararg scopes: AudioEffect.Scope) {
+        val toRemove = effects.filter { it.scope !in scopes }
+        effects = effects - toRemove.toSet()
+        toRemove.forEach { runCatching { it.reset() } }
+    }
+
+    fun addWithAnchor(
+        effect: AudioEffect,
+        anchor: ScopeAnchor?,
+    ) {
+        when (anchor) {
+            is ScopeAnchor.Before -> addBeforeScope(anchor.scope, effect)
+            is ScopeAnchor.After -> addAfterScope(anchor.scope, effect)
+            null -> addEffect(effect)
+        }
+    }
+
+    fun addBeforeScope(
+        scope: AudioEffect.Scope,
+        effect: AudioEffect,
+    ) = addBeforeIndex(getEffects().indexOfFirst { it.scope == scope }, effect)
+
+    fun addAfterScope(
+        scope: AudioEffect.Scope,
+        effect: AudioEffect,
+    ) = addAfterIndex(getEffects().indexOfLast { it.scope == scope }, effect)
 
     /**
      * Move an effect from one position to another.

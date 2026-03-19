@@ -11,6 +11,7 @@ import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
  */
 class PitchShiftEffect(
     private val pitchShiftProvider: FloatSupplier,
+    override val scope: AudioEffect.Scope = AudioEffect.Scope.PERMANENT,
 ) : AudioEffect {
     private var virtualPosition = 0.0
 

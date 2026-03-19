@@ -11,6 +11,7 @@ class HighPassFilterEffect(
     private val cutoffFrequency: Float = 1000f,
     // 0.0 to 1.0
     private val resonance: Float = 0.7f,
+    override val scope: AudioEffect.Scope = AudioEffect.Scope.PERMANENT,
 ) : AudioEffect {
     private var previousOutput = 0f
     private var previousInput = 0f

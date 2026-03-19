@@ -5,6 +5,14 @@ package me.mochibit.createharmonics.audio.effect
  * Each effect processes audio samples and can modify them in any way.
  */
 interface AudioEffect {
+    enum class Scope {
+        PERMANENT,
+        SOUND_COMPOSITION_MIXER,
+        MACHINE_CONTROLLED_PITCH,
+        INTRINSIC_EFFECT,
+        EXTERNAL_EFFECT,
+    }
+
     /**
      * Process audio samples at a given time position.
      *
@@ -32,6 +40,8 @@ interface AudioEffect {
     fun isBaseValues(): Boolean = false
 
     fun getSpeedMultiplier(): Double = 1.0
+
+    val scope: Scope
 
     /**
      * Get a human-readable name for this effect (for debugging/logging).

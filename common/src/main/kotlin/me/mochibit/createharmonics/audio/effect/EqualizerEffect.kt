@@ -33,6 +33,7 @@ class EqualizerEffect(
             EQBand(frequency = 1000f, quality = 1.0f, gain = 0f),
             EQBand(frequency = 6000f, quality = 1.0f, gain = 0f),
         ),
+    override val scope: AudioEffect.Scope = AudioEffect.Scope.PERMANENT,
 ) : AudioEffect {
     // Biquad filter for each band
     private var filters = mutableListOf<BiquadFilter>()

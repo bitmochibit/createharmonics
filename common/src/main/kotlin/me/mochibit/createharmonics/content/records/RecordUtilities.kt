@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.content.records
 
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
+import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.audio.player.AudioRequest
@@ -64,7 +65,7 @@ object RecordUtilities {
             val craftedWithDisc = RecordCraftingHandler.getCraftedWithDisc(stack)
 
             // Create a BaseRecordItem with the craftedWith data preserved
-            val baseRecordStack = contentService.baseRecordItemStack.copy()
+            val baseRecordStack = ItemStack(contentService.modItemsRegistry.etherealRecordBase)
             if (!craftedWithDisc.isEmpty) {
                 RecordCraftingHandler.setCraftedWithDisc(baseRecordStack, craftedWithDisc)
             }
@@ -123,7 +124,13 @@ object RecordUtilities {
         if (!contentService.isEtherealRecord(etherealRecord)) return
         val url = getAudioUrl(etherealRecord) ?: ""
 
+        // source -> |INTRINSIC_EFFECT| -> |EFFECT_COMP_MIXER|(untouched by intrinsics) -> |PITCH SHIFT| -> |WATER MUFFLE|
+
         val recordProps = contentService.getEtherealRecordType(etherealRecord) ?: return
+        this.soundEventComposition.removeAll { true }
+
+        this.soundEventComposition.anchorAfter(AudioEffect.Scope.INTRINSIC_EFFECT)
+
         val soundEvents = recordProps.properties.soundEventCompProvider()
         for (event in soundEvents) {
             event.pitchSupplier = compPitchSupplier
@@ -132,12 +139,10 @@ object RecordUtilities {
             this.soundEventComposition.add(event)
         }
 
-        this.effectChain.setEffects(
-            this.effectChain.getEffects().filterIsInstance<PitchShiftEffect>(),
-        )
+        this.effectChain.cleanAllExceptScopes(AudioEffect.Scope.MACHINE_CONTROLLED_PITCH)
 
         recordProps.properties.audioEffectsProvider().forEach { effect ->
-            this.effectChain.addEffect(effect)
+            this.effectChain.addBeforeScope(AudioEffect.Scope.MACHINE_CONTROLLED_PITCH, effect)
         }
 
         if (url.isNotBlank() && FFMPEGProvider.isAvailable() && YTDLProvider.isAvailable()) {
