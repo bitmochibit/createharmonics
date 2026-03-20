@@ -1,6 +1,8 @@
 package me.mochibit.createharmonics.audio.utils
 
 import com.mojang.blaze3d.audio.Channel
+import kotlinx.coroutines.future.await
+import me.mochibit.createharmonics.foundation.async.withMainContext
 import mixin.SoundEngineAccessor
 import mixin.SoundManagerAccessor
 import net.minecraft.client.Minecraft
@@ -43,21 +45,22 @@ fun SoundInstance.unpause() {
 
 fun SoundEvent.getStreamDirectly(looping: Boolean = false): CompletableFuture<AudioStream> {
     val mc = Minecraft.getInstance()
-    val sm = mc.soundManager as SoundManagerAccessor
-    val engine = sm.soundEngine as SoundEngineAccessor
-    val soundBuffers = engine.soundBuffers
+    val soundBuffers =
+        (mc.soundManager as SoundManagerAccessor)
+            .let { it.soundEngine as SoundEngineAccessor }
+            .soundBuffers
 
     val weighedSoundEvents =
-        mc.soundManager.getSoundEvent(this.location) ?: return CompletableFuture.failedFuture(
-            IllegalStateException("No sound event found for ${this.location}"),
-        )
+        mc.soundManager.getSoundEvent(this.location)
+            ?: return CompletableFuture.failedFuture(
+                IllegalStateException("No sound event found for ${this.location}"),
+            )
 
-    val sound = weighedSoundEvents.getSound(mc.level?.random ?: RandomSource.create())
+    val sound =
+        weighedSoundEvents.getSound(RandomSource.create())
+            ?: return CompletableFuture.failedFuture(
+                IllegalStateException("No sound found in event ${this.location}"),
+            )
 
-    if (sound == null) {
-        return CompletableFuture.failedFuture(
-            IllegalStateException("No sound found in event ${this.location}"),
-        )
-    }
     return soundBuffers.getStream(sound.path, looping)
 }

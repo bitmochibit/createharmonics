@@ -18,7 +18,7 @@ class FFmpegExecutor private constructor() {
         private const val CHUNK_SIZE = 8192
 
         /** Base timeout when no seeking is needed. */
-        private const val STREAM_READY_BASE_TIMEOUT_MS = 10_000L
+        private const val STREAM_READY_BASE_TIMEOUT_MS = 300_000L
 
         /**
          * Extra milliseconds added per second of seek offset.
@@ -29,7 +29,7 @@ class FFmpegExecutor private constructor() {
         private const val STREAM_READY_EXTRA_MS_PER_SEEK_SECOND = 50L
 
         /** Hard ceiling so we never wait forever. */
-        private const val STREAM_READY_MAX_TIMEOUT_MS = 60_000L
+        private const val STREAM_READY_MAX_TIMEOUT_MS = 400_000L
 
         /**
          * Use a managed FFMPEG process for creating an [InputStream] bound to a url

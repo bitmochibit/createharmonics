@@ -211,7 +211,6 @@ class AudioPlayer(
             }
 
         soundInstance.pause()
-        soundEventComposition.stopComposition()
 
         clock.pause()
         transition(PlayerState.PAUSED)
@@ -226,7 +225,6 @@ class AudioPlayer(
             }
 
         soundInstance.unpause()
-        soundEventComposition.makeComposition(soundInstance)
         clock.play()
         transition(PlayerState.PLAYING)
     }

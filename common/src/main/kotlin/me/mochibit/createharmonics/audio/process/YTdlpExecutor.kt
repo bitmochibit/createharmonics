@@ -47,11 +47,10 @@ class YTdlpExecutor {
                             // HLS/DASH segments only have per-fragment durations and cause
                             // wrap-around issues for very long videos (e.g. 11 h YouTube streams).
                             // Fall back to bestaudio only when no single-file audio is available.
-                            "bestaudio[protocol=https]/bestaudio[protocol=http]/bestaudio",
+                            "bestaudio",
                             "-j",
                             "--quiet",
                             "--no-playlist",
-                            "--no-call-home",
                             "--skip-download",
                             youtubeUrl,
                         )
