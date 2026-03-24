@@ -284,6 +284,7 @@ function setupDropdown() {
         label.textContent = name;
         localStorage.setItem("ch_last_lang", code);
         closePanel();
+        loadTranslations(selectedLangCode);
     }
 
     trigger.addEventListener("click", () => {
@@ -309,14 +310,6 @@ function setupDropdown() {
 // ── Controls ──────────────────────────────────────────────────────────────────
 
 function setupControls() {
-    document.getElementById("load-btn").addEventListener("click", () => {
-        if (!selectedLangCode) {
-            setStatus("Please select a language first.", "err");
-            return;
-        }
-        loadTranslations(selectedLangCode);
-    });
-
     document.getElementById("clear-btn").addEventListener("click", () => {
         Swal.fire({
             title: "Are you sure?",
@@ -329,8 +322,8 @@ function setupControls() {
         }).then((result) => {
             if (result.isConfirmed) {
                 Swal.fire({
-                    title: "Deleted!",
-                    text: "Your file has been deleted.",
+                    title: "Done!",
+                    text: "Your translation progress has been cleared.",
                     icon: "success"
                 });
                 if (!selectedLangCode) { setStatus("Please select a language first.", "err"); return; }
@@ -352,12 +345,16 @@ function setupControls() {
             loadTranslations(lastLang);
         }
     }
+
+    window.addEventListener("resize", () => {
+        const container = document.getElementById("translation-entry");
+        container.querySelectorAll("textarea").forEach(autoResize);
+    })
 }
 
 // ── Load ──────────────────────────────────────────────────────────────────────
 
 async function loadTranslations(langCode) {
-    const loadBtn    = document.getElementById("load-btn");
     const downloadBtn = document.getElementById("download-btn");
     const entryContainer = document.getElementById("translation-entry");
 
@@ -370,7 +367,6 @@ async function loadTranslations(langCode) {
     Object.keys(editedValues).forEach(k => delete editedValues[k]);
 
     setStatus("Fetching reference…", "info");
-    loadBtn.disabled = true;
 
     try {
         const refResponse = await fetch(REFERENCE_URL);
@@ -421,7 +417,6 @@ async function loadTranslations(langCode) {
     } catch (err) {
         setStatus(`Error: ${err.message}`, "err");
     } finally {
-        loadBtn.disabled = false;
     }
 }
 

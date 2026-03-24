@@ -63,9 +63,9 @@
 html, body { height: 100%; }
 
 body {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
+    display: grid;
+    min-height: 100dvh;
+    grid-template-rows: auto 1fr auto;
     background: var(--bg-root);
     color: var(--text);
     font-family: 'DM Sans', sans-serif;
@@ -296,20 +296,29 @@ a {
 /* ── Custom dropdown ─────────────────────────────────────────────────────── */
 .c-select {
     position: relative;
-    min-width: 300px;
+    min-width: 14rem;
 }
 
 .c-select__trigger {
+    height: 2rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
     width: 100%;
     padding: 0.55rem 0.85rem;
-    background: #18130c;
+
+    background-image: url(img/dither-brass.png);
+    background-repeat: repeat;
+    background-size: 96px 96px;
+    background-position-y: 0;
+    background-position-x: 0;
+    image-rendering: pixelated;
+
     border: 1px solid #3a2c14;
     border-right-color: #18100a;
     border-bottom-color: #18100a;
+    border-radius: .25rem .25rem 0 0;
     color: var(--text);
     font-family: 'DM Sans', sans-serif;
     font-size: 0.92rem;
@@ -332,7 +341,7 @@ a {
 .c-select__chevron {
     width: 1rem;
     flex-shrink: 0;
-    color: var(--text-dim);
+    color: var(--text);
     transition: transform 0.18s ease;
 }
 
@@ -345,9 +354,9 @@ a {
     top: calc(100% + 3px);
     left: 0;
     right: 0;
-    background: #18130c;
+    background: lch(from var(--bg-panel) calc(l - 50) c h);
     border: 1px solid var(--brass-mid);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65), 0 2px 0 var(--brass-shadow);
+    /*box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65), 0 2px 0 var(--brass-shadow);*/
     z-index: 200;
 }
 
@@ -355,7 +364,7 @@ a {
     display: block;
     width: 100%;
     padding: 0.6rem 0.85rem;
-    background: #0e0b06;
+    background: var(--bg-panel);
     border: none;
     border-bottom: 1px solid #2a2010;
     color: var(--text);
@@ -409,8 +418,6 @@ a {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    position: relative;
-    top: 0;
     padding: 0.52rem 1.1rem;
     font-family: 'DM Sans', sans-serif;
     font-size: 0.9rem;
@@ -421,7 +428,9 @@ a {
     outline: none;
     white-space: nowrap;
     text-shadow: 0 1px 2px rgba(0,0,0,0.6);
-    transition: filter 0.1s, top 0.06s, box-shadow 0.06s;
+    transition: filter 0.1s, box-shadow 0.06s;
+    border-radius: .25rem;
+    height: 2rem;
 }
 
 .mc-btn svg {
@@ -497,8 +506,7 @@ a {
     position: relative;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
+    justify-content: flex-start;
     height: 100%;
     width: 100%;
 }
@@ -507,17 +515,21 @@ a {
     position: absolute;
     width: 50%;
     height: 50%;
-    display: grid;
-    grid-template-rows: 3fr 1fr 2fr;
-    justify-items: center;
-    align-items: center;
+    display: flex;
+
+    inset: 0;
+    margin: auto;
+
     justify-content: center;
-    align-content: space-evenly;
-    grid-auto-flow: row;
+    align-items: center;
+    flex-direction: column;
+    padding: 1rem;
 
     background: var(--bg-panel);
     filter: brightness(85%);
     border-radius: 1rem;
+
+    text-align: center;
 }
 
 .table-placeholder .info-icon {
@@ -652,7 +664,7 @@ a {
     padding: 0.8rem 0.5rem 0.4rem;
     flex-wrap: wrap;
     border-top: 1px solid rgba(255,255,255,0.04);
-    margin-top: 0.35rem;
+    margin-top: auto;
 }
 
 .pagination-pages {
@@ -725,4 +737,36 @@ a {
     letter-spacing: 0.04em;
     min-width: 6rem;
     text-align: center;
+}
+
+@media (max-width: 1200px) {
+    .translation-tool {
+        width: 100%;
+        margin: 0;
+        border-radius: 0;
+    }
+}
+
+@media (max-width: 720px) {
+    .controls-bar {
+        flex-direction: column;
+    }
+
+    #clear-btn {
+        margin: 0
+    }
+
+    .controls-bar > * {
+        width: min(100%, 16rem);
+    }
+}
+
+@media (max-width: 800px) {
+    .site-links {
+        display: none;
+    }
+
+    #main-header {
+        justify-content: center;
+    }
 }
