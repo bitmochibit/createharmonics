@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CreateHarmonics – Translation Helper</title>
+    <link rel="stylesheet" href="main.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+<header id="main-header">
+    <div class="site-title-container">
+        <div class="mod-disc-container">
+            <div class="placeholder"></div>
+            <img class="mod-disc random" alt="Spinning disc" src="" style="display:none">
+        </div>
+        <div class="header-text">
+            <h1 class="site-title">Create: <span class="disc-colored-text">Harmonics</span></h1>
+            <span class="site-subtitle">Translation Maker Tool</span>
+        </div>
+    </div>
+    <div class="site-links">
+        <a href="https://github.com/bitmochibit/createharmonics/wiki">wiki</a>
+        <a href="https://discord.gg/MM5QjqyqwC">discord</a>
+        <a href="https://modrinth.com/mod/create-harmonics" >modrinth</a>
+        <a href="https://www.curseforge.com/minecraft/mc-mods/create-harmonics">curseforge</a>
+    </div>
+</header>
+
+<main id="main-content">
+    <div class="translation-tool">
+        <div class="translation-container">
+
+            <div class="controls-bar">
+
+                <!-- Custom searchable dropdown -->
+                <div class="c-select" id="c-select">
+                    <button class="c-select__trigger" id="c-select__trigger"
+                            type="button" aria-haspopup="listbox" aria-expanded="false">
+                        <span id="c-select__label">Select a language…</span>
+                        <i class="c-select__chevron" data-lucide="chevron-down"></i>
+                    </button>
+                    <div class="c-select__panel" id="c-select__panel" hidden>
+                        <input class="c-select__search" id="c-select__search"
+                               type="text" placeholder="Type to search…"
+                               autocomplete="off" spellcheck="false">
+                        <ul class="c-select__list" id="c-select__list" role="listbox"></ul>
+                    </div>
+                </div>
+
+                <button class="mc-btn mc-btn--brass" id="load-btn" type="button">
+                    <i data-lucide="refresh-ccw-dot"></i>
+                    Load
+                </button>
+
+                <button class="mc-btn mc-btn--andes" id="download-btn" type="button" disabled>
+                    <i data-lucide="monitor-down"></i>
+                    Download JSON
+                </button>
+
+                <button class="mc-btn mc-btn--rose" id="clear-btn" type="button">
+                    <i data-lucide="radiation"></i>
+                    Clear local translations
+                </button>
+            </div>
+
+            <div class="status-bar" id="translation-status" hidden></div>
+
+            <div class="table-container">
+                <div class="table-placeholder">
+                    <i data-lucide="info" class="info-icon"></i>
+                    <h1>No language is loaded</h1>
+                    <p>Please select a language from the dropdown and load the translation to start working </p>
+                </div>
+                <div class="table-header" style="display: none">
+                    <span>Translation Key</span>
+                    <span>English (Reference)</span>
+                    <span>Translation</span>
+                </div>
+                <div class="entry-list" id="translation-entry"></div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer id="main-footer">
+    <span class="footer-note">Made by mochibit 🍋‍🟩</span>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<script src="main.js"></script>
+</body>
+</html>

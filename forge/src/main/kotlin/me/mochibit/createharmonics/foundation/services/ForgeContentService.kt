@@ -14,8 +14,6 @@ import me.mochibit.createharmonics.foundation.registry.ModBlocks
 import me.mochibit.createharmonics.foundation.registry.ModItems
 import me.mochibit.createharmonics.foundation.registry.ModPonders
 import me.mochibit.createharmonics.foundation.registry.ModSounds
-import me.mochibit.createharmonics.foundation.registry.platform.ModBlocksRegistry
-import me.mochibit.createharmonics.foundation.registry.platform.ModItemsRegistry
 import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper
 import net.minecraft.client.Minecraft

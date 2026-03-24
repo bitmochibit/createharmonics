@@ -75,11 +75,6 @@ class ForgeModEntryPoint(
                 }
             }
         }
-
-        @JvmStatic
-        @SubscribeEvent
-        fun onCommonSetup(event: FMLCommonSetupEvent) {
-        }
     }
 
     private fun initialize() {

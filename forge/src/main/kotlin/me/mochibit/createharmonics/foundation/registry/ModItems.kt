@@ -6,7 +6,6 @@ import me.mochibit.createharmonics.content.record.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.BaseRecordItem
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.foundation.info
-import me.mochibit.createharmonics.foundation.registry.platform.ModItemsRegistry
 import me.mochibit.createharmonics.foundation.registry.platform.asDelegate
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.Rarity

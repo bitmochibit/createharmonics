@@ -16,7 +16,6 @@ import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.brassJukebox.BrassJukeboxBlock
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlock
 import me.mochibit.createharmonics.foundation.info
-import me.mochibit.createharmonics.foundation.registry.platform.ModBlocksRegistry
 import me.mochibit.createharmonics.foundation.registry.platform.asDelegate
 import net.minecraft.client.renderer.RenderType
 import net.minecraft.resources.ResourceLocation

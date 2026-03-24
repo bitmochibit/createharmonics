@@ -1,8 +1,6 @@
 package me.mochibit.createharmonics.foundation.services
 
 import me.mochibit.createharmonics.content.records.RecordType
-import me.mochibit.createharmonics.foundation.registry.platform.ModBlocksRegistry
-import me.mochibit.createharmonics.foundation.registry.platform.ModItemsRegistry
 import me.mochibit.createharmonics.foundation.registry.platform.ModSoundRegistry
 import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper
