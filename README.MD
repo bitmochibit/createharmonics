@@ -85,6 +85,8 @@ By using this mod, you agree to use it responsibly and respect the rights of con
 
 ### Translations
 
+You can use the [official tool](https://bitmochibit.github.io/createharmonics/) for making translations easily! 
+
 - Japanese: @Yurisan001
 - Chinese: @KazeShukufuku
 - Polish: @AdInVas

@@ -318,7 +318,7 @@ a {
     border: 1px solid #3a2c14;
     border-right-color: #18100a;
     border-bottom-color: #18100a;
-    border-radius: .25rem .25rem 0 0;
+    border-radius: .25rem;
     color: var(--text);
     font-family: 'DM Sans', sans-serif;
     font-size: 0.92rem;
