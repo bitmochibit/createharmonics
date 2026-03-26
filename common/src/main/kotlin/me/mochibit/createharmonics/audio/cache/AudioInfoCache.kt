@@ -18,6 +18,7 @@ object AudioInfoCache {
         val title: String,
         val sampleRate: Float,
         val httpHeaders: Map<String, String> = emptyMap(),
+        val isLive: Boolean,
     )
 
     private val cache = mutableMapOf<String, AudioInfo>()
@@ -51,6 +52,7 @@ object AudioInfoCache {
                     title = extractedInfo.title,
                     sampleRate = extractedInfo.sampleRate,
                     httpHeaders = extractedInfo.httpHeaders,
+                    isLive = extractedInfo.isLive,
                 )
 
             synchronized(cache) {

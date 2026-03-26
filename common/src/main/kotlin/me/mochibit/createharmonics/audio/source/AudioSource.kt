@@ -35,6 +35,8 @@ sealed interface AudioSource {
      */
     suspend fun getAudioName(): String = "Unknown"
 
+    suspend fun isLive(): Boolean
+
     /**
      * Get HTTP headers required for streaming this audio source.
      * Returns empty map by default if no special headers are needed.

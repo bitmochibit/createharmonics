@@ -53,6 +53,8 @@ class HttpAudioSource(
         }
     }
 
+    override suspend fun isLive(): Boolean = false
+
     override fun getMetadata(): Map<String, Any> =
         mapOf(
             "source" to "http",

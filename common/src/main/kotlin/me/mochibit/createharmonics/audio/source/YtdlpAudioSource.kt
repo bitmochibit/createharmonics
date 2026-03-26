@@ -46,6 +46,14 @@ class YtdlpAudioSource(
         return cachedInfo!!.title
     }
 
+    override suspend fun isLive(): Boolean {
+        if (cachedInfo == null) {
+            cachedInfo = AudioInfoCache.getAudioInfo(url)
+                ?: return false
+        }
+        return cachedInfo!!.isLive
+    }
+
     override suspend fun getHttpHeaders(): Map<String, String> {
         if (cachedInfo == null) {
             cachedInfo = AudioInfoCache.getAudioInfo(url)

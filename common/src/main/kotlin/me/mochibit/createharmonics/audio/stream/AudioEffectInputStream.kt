@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import me.mochibit.createharmonics.audio.effect.EffectChain
+import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import java.io.IOException
 import java.io.InputStream
@@ -22,10 +23,13 @@ class AudioEffectInputStream(
         private const val EFFECT_PROCESS_CHUNK_SIZE = 4096 // 8KB chunks for processing
 
         // Buffer RAW audio (unprocessed)
-        private const val RAW_BUFFER_TARGET = 65536
-        private const val RAW_BUFFER_MAX = 131072
-        private const val RAW_BUFFER_MIN = 16384
-        private const val LOW_BUFFER_THRESHOLD = 4096
+        private val RAW_BUFFER_MAX =
+            RAW_READ_SIZE *
+                ModConfigs.client.maxPitch
+                    .get()
+                    .toInt()
+        private const val RAW_BUFFER_MIN = RAW_READ_SIZE
+        private val RAW_BUFFER_TARGET = RAW_BUFFER_MAX / 2
 
         // Small buffer for PROCESSED audio (keeps latency low)
         private const val PROCESSED_BUFFER_TARGET = 4096

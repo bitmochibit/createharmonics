@@ -21,6 +21,7 @@ class YTdlpExecutor {
         val title: String,
         val sampleRate: Float,
         val httpHeaders: Map<String, String> = emptyMap(),
+        val isLive: Boolean = false,
     )
 
     suspend fun extractAudioInfo(youtubeUrl: String): AudioUrlInfo? =
@@ -43,7 +44,7 @@ class YTdlpExecutor {
                         listOf(
                             ytdlPath,
                             "-f",
-                            "bestaudio/best",
+                            "bestaudio[ext!=flv][ext=fmp4][protocol!=m3u8_native][protocol!=m3u8]/bestaudio/best",
                             "--no-check-formats",
                             "-j",
                             "--quiet",
@@ -108,6 +109,8 @@ class YTdlpExecutor {
                     val sampleRate = jsonObject["asr"]?.jsonPrimitive?.floatOrNull ?: 48_000f
                     val duration = extractFullDuration(jsonObject)
 
+                    val isLive = jsonObject["is_live"]?.jsonPrimitive?.content?.toBooleanStrictOrNull() ?: false
+
                     val httpHeaders =
                         buildMap {
                             jsonObject["http_headers"]?.jsonObject?.forEach { (key, value) ->
@@ -115,7 +118,7 @@ class YTdlpExecutor {
                             }
                         }
 
-                    AudioUrlInfo(audioUrl, duration, title, sampleRate, httpHeaders)
+                    AudioUrlInfo(audioUrl, duration, title, sampleRate, httpHeaders, isLive)
                 } finally {
                     ProcessLifecycleManager.destroyProcess(processId)
                 }

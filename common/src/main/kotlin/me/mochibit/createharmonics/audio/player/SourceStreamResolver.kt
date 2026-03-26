@@ -36,7 +36,7 @@ object SourceStreamResolver {
         val result =
             when (source) {
                 is HttpAudioSource, is YtdlpAudioSource -> {
-                    if (pos > 0 && pos > source.getDurationSeconds()) {
+                    if (pos > 0 && pos > source.getDurationSeconds() && !source.isLive()) {
                         Result(
                             status = Result.StreamStatus.FINISHED,
                             inputStream = null,
@@ -51,6 +51,7 @@ object SourceStreamResolver {
                                     source.getSampleRate(),
                                     pos,
                                     source.getHttpHeaders(),
+                                    source.isLive(),
                                 ),
                             finalSampleRate = source.getSampleRate(),
                         )

@@ -8,29 +8,22 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
+import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.audio.stream.ProcessBoundInputStream
+import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.err
+import java.io.BufferedInputStream
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.io.InputStream
+import java.io.SequenceInputStream
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 class FFmpegExecutor private constructor() {
     companion object {
-        private const val CHUNK_SIZE = 8192
-
-        /** Base timeout when no seeking is needed. */
-        private const val STREAM_READY_BASE_TIMEOUT_MS = 300_000L
-
-        /**
-         * Extra milliseconds added per second of seek offset.
-         * For large offsets (e.g. 390 s into an 11-hour file) FFmpeg needs
-         * more time to fast-seek before it can start writing PCM output.
-         * 50 ms/s means a 390-second seek gets ~29 s extra on top of the base.
-         */
-        private const val STREAM_READY_EXTRA_MS_PER_SEEK_SECOND = 50L
-
-        /** Hard ceiling so we never wait forever. */
-        private const val STREAM_READY_MAX_TIMEOUT_MS = 400_000L
-
         /**
          * Use a managed FFMPEG process for creating an [InputStream] bound to a url
          */
@@ -39,9 +32,10 @@ class FFmpegExecutor private constructor() {
             sampleRate: Int = 44100,
             seekSeconds: Double = 0.0,
             headers: Map<String, String> = emptyMap(),
+            isLive: Boolean = false,
         ): InputStream? {
             val executor = FFmpegExecutor()
-            val ready = executor.createStream(url, sampleRate, seekSeconds, headers)
+            val ready = executor.createStream(url, sampleRate, seekSeconds, headers, isLive)
             if (!ready) {
                 executor.destroy()
                 return null
@@ -97,6 +91,7 @@ class FFmpegExecutor private constructor() {
         sampleRate: Int = 44100,
         seekSeconds: Double = 0.0,
         headers: Map<String, String> = emptyMap(),
+        isLive: Boolean = false,
     ): Boolean {
         if (!FFMPEGProvider.isAvailable()) {
             "FFmpeg is not available".err()
@@ -108,34 +103,56 @@ class FFmpegExecutor private constructor() {
                 add(FFMPEGProvider.getExecutablePath())
 
                 // Add seek offset before input for faster seeking
-                if (seekSeconds > 0.0) {
+                if (seekSeconds > 0.0 && !isLive) {
                     add("-ss")
                     add(getSeekString(seekSeconds))
                 }
-
-                // Protocol whitelist for HLS/HTTPS streams (must be before -i)
-                add("-protocol_whitelist")
-                add("file,http,https,tcp,tls,crypto,hls,applehttp")
-
-                // Add user agent for better compatibility
-                add("-user_agent")
-                add("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 
                 if (headers.isNotEmpty()) {
                     val headerString =
                         headers.entries
                             .joinToString("\r\n") { (key, value) -> "$key: $value" }
-                            .plus("\r\n")
+                            .plus(
+                                "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",
+                            ).plus("\r\n")
                     add("-headers")
                     add(headerString)
                 }
 
-                add("-reconnect")
-                add("1")
-                add("-reconnect_delay_max")
-                add("5")
-                add("-timeout")
-                add("30000000")
+                if (isLive) {
+                    add("-reconnect")
+                    add("1")
+                    add("-reconnect_streamed")
+                    add("1")
+                    add("-reconnect_on_network_error")
+                    add("1")
+                    add("-reconnect_delay_max")
+                    add("5")
+
+                    add("-thread_queue_size")
+                    add((512 * ModConfigs.client.maxPitch.get()).toString())
+
+                    add("-probesize")
+                    add("50M")
+
+                    add("-analyzeduration")
+                    add("50M")
+
+                    add("-rw_timeout")
+                    add("15000000")
+
+                    add("-protocol_whitelist")
+                    add("file,http,https,tcp,tls,crypto,hls")
+
+//                    add("-allowed_extensions")
+//                    add("ALL")
+                } else {
+                    add("-reconnect")
+                    add("1")
+                    add("-reconnect_delay_max")
+                    add("5")
+                }
+
                 add("-i")
                 add(url)
                 add("-f")
@@ -145,7 +162,13 @@ class FFmpegExecutor private constructor() {
                 add("-ac")
                 add("1")
                 add("-loglevel")
-                add("fatal")
+                add("verbose")
+
+                if (isLive) {
+                    add("-max_muxing_queue_size")
+                    add((512 * ModConfigs.client.maxPitch.get()).toString())
+                }
+
                 add("pipe:1")
             }
 
@@ -180,21 +203,8 @@ class FFmpegExecutor private constructor() {
             }
         }
 
-        // Monitor process lifecycle — clear refs under the mutex to avoid racing with destroy()
-        modLaunch(Dispatchers.IO) {
-            try {
-                newProcess.waitFor()
-            } catch (_: Exception) {
-            }
-        }
-
-        // Dynamic timeout: base + extra per seek-second, capped at the hard ceiling
-        val streamReadyTimeoutMs =
-            minOf(
-                STREAM_READY_BASE_TIMEOUT_MS + (seekSeconds * STREAM_READY_EXTRA_MS_PER_SEEK_SECOND).toLong(),
-                STREAM_READY_MAX_TIMEOUT_MS,
-            )
-        val pollIntervalMs = 100L
+        val streamReadyTimeoutMs = 3.minutes.inWholeMilliseconds
+        val pollIntervalMs = 1.seconds.inWholeMilliseconds
         val maxAttempts = (streamReadyTimeoutMs / pollIntervalMs).toInt()
 
         // Monitor stream readiness

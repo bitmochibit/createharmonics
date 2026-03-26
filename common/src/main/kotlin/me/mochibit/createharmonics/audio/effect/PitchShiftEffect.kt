@@ -12,11 +12,17 @@ import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 class PitchShiftEffect(
     private val pitchShiftProvider: FloatSupplier,
     override val scope: AudioEffect.Scope = AudioEffect.Scope.PERMANENT,
+    private var preserveTiming: Boolean = false,
 ) : AudioEffect {
     private var virtualPosition = 0.0
 
+    private val history = mutableListOf<Short>()
+    private var livePos = 0.0
+
     override fun reset() {
         virtualPosition = 0.0
+        history.clear()
+        livePos = 0.0
     }
 
     override fun process(
@@ -25,34 +31,48 @@ class PitchShiftEffect(
         sampleRate: Int,
     ): ShortArray {
         val pitchShift = pitchShiftProvider.getValue().coerceIn(0.25f, 4.0f)
+        return if (preserveTiming) {
+            processTapeSpeed(samples, pitchShift.coerceAtMost(1.0f))
+        } else {
+            processTapeSpeed(samples, pitchShift)
+        }
+    }
 
-        // Calculate output size based on pitch shift
+    private fun processTapeSpeed(
+        samples: ShortArray,
+        pitchShift: Float,
+    ): ShortArray {
         val outputSize = (samples.size / pitchShift).toInt()
         val output = ShortArray(outputSize)
-
         virtualPosition = 0.0
-
         for (i in output.indices) {
-            val sourceIndex = virtualPosition
-            val index1 = sourceIndex.toInt()
+            val index1 = virtualPosition.toInt()
             val index2 = (index1 + 1).coerceAtMost(samples.size - 1)
-            val frac = sourceIndex - index1
-
-            // Linear interpolation between samples
-            output[i] =
-                if (index1 < samples.size) {
-                    val sample1 = samples[index1].toFloat()
-                    val sample2 = samples[index2].toFloat()
-                    (sample1 * (1 - frac) + sample2 * frac).toInt().toShort()
-                } else {
-                    0
-                }
-
+            output[i] = lerp(samples[index1], samples[index2], virtualPosition - index1)
             virtualPosition += pitchShift.toDouble()
         }
-
         return output
     }
 
-    override fun getSpeedMultiplier(): Double = pitchShiftProvider.getValue().coerceIn(0.25f, 4.0f).toDouble()
+    private fun lerp(
+        a: Short,
+        b: Short,
+        t: Double,
+    ): Short = (a * (1.0 - t) + b * t).toInt().toShort()
+
+    fun preserveTiming() {
+        this.preserveTiming = true
+    }
+
+    fun stretchTime() {
+        this.preserveTiming = false
+    }
+
+    // When preserveTiming, output size == input size, so consumer speed is always 1.0
+    override fun getSpeedMultiplier(): Double =
+        if (preserveTiming) {
+            1.0
+        } else {
+            pitchShiftProvider.getValue().coerceIn(0.25f, 4.0f).toDouble()
+        }
 }

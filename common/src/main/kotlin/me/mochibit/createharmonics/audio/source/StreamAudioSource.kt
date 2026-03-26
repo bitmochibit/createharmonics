@@ -21,4 +21,6 @@ class StreamAudioSource(
     override suspend fun getSampleRate(): Int = information.bitrate
 
     override suspend fun getAudioName(): String = information.name
+
+    override suspend fun isLive(): Boolean = false
 }

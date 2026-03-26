@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
+import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.SampleRatedInstance
 import me.mochibit.createharmonics.audio.stream.AudioEffectInputStream
 import me.mochibit.createharmonics.audio.utils.pause
@@ -61,6 +62,10 @@ class AudioPlayer(
     val state: StateFlow<PlayerState> = _state.asStateFlow()
 
     val clock = PlaytimeClock()
+
+    val reproducingALive =
+        java.util.concurrent.atomic
+            .AtomicBoolean(false)
 
     init {
         startStateMachine()
@@ -154,6 +159,7 @@ class AudioPlayer(
             }
 
             is PlayerIntent.Seek -> {
+                if (this.reproducingALive.get()) return
                 if (_state.value == PlayerState.PLAYING || _state.value == PlayerState.PAUSED) {
                     stopPlayback()
                     startPlayback(intent.position)
@@ -167,10 +173,10 @@ class AudioPlayer(
     private suspend fun startPlayback(pos: Double = 0.0) {
         val request = currentAudioRequest ?: return
         transition(PlayerState.LOADING)
-        val resolvedInputStream =
+        val (resolvedInputStream, currentSource) =
             try {
                 val source = AudioSourceResolver.resolve(request)
-                SourceStreamResolver.resolveInputStream(source, pos)
+                SourceStreamResolver.resolveInputStream(source, pos) to source
             } catch (e: Exception) {
                 "Something went wrong when creating the source $e".info()
                 handleStreamEnd()
@@ -180,6 +186,14 @@ class AudioPlayer(
             handleStreamEnd()
             return transition(PlayerState.STOPPED)
         }
+
+        if (currentSource.isLive()) {
+            effectChain.getEffects().filterIsInstance<PitchShiftEffect>().forEach {
+                it.preserveTiming()
+            }
+            reproducingALive.set(true)
+        }
+
         val stream =
             AudioEffectInputStream(
                 resolvedInputStream.inputStream,
@@ -251,6 +265,7 @@ class AudioPlayer(
         currentSoundInstance = null
         effectChain.reset()
         clock.stop()
+        reproducingALive.set(false)
         _state.value = PlayerState.STOPPED
     }
 

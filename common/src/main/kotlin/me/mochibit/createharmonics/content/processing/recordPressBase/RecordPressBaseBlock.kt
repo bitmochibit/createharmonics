@@ -11,6 +11,7 @@ import com.simibubi.create.foundation.block.IBE
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock.WATERLOGGED
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
+import me.mochibit.createharmonics.foundation.extension.onClient
 import me.mochibit.createharmonics.foundation.registry.ModBlockEntities
 import net.createmod.catnip.gui.ScreenOpener
 import net.minecraft.client.player.LocalPlayer
@@ -81,9 +82,11 @@ class RecordPressBaseBlock(
         if (AllItems.WRENCH.isIn(pPlayer.getItemInHand(pHand))) return InteractionResult.PASS
 
         // If clicked on any face except the top face, open the GUI
-        if (pHit.direction != Direction.UP && pLevel.isClientSide) {
-            withBlockEntityDo(pLevel, pPos) { be: RecordPressBaseBlockEntity ->
-                ClientHandler.openRecordPressScreen(be)
+        if (pHit.direction != Direction.UP) {
+            pLevel.onClient { level, virtual ->
+                withBlockEntityDo(pLevel, pPos) { be: RecordPressBaseBlockEntity ->
+                    ClientHandler.openRecordPressScreen(be)
+                }
             }
             return InteractionResult.SUCCESS
         }
