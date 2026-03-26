@@ -9,6 +9,7 @@ import me.mochibit.createharmonics.audio.player.AudioRequest
 import me.mochibit.createharmonics.audio.source.StreamAudioSource
 import me.mochibit.createharmonics.audio.stream.Ogg2PcmInputStream
 import me.mochibit.createharmonics.audio.utils.getStreamDirectly
+import me.mochibit.createharmonics.foundation.registry.ModItems
 import me.mochibit.createharmonics.foundation.services.contentService
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import net.minecraft.client.Minecraft
@@ -65,7 +66,7 @@ object RecordUtilities {
             val craftedWithDisc = RecordCraftingHandler.getCraftedWithDisc(stack)
 
             // Create a BaseRecordItem with the craftedWith data preserved
-            val baseRecordStack = ItemStack(contentService.modItemsRegistry.etherealRecordBase)
+            val baseRecordStack = ItemStack(ModItems.BASE_RECORD.get())
             if (!craftedWithDisc.isEmpty) {
                 RecordCraftingHandler.setCraftedWithDisc(baseRecordStack, craftedWithDisc)
             }

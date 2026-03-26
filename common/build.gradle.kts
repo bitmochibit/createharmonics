@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     id("com.gradleup.shadow")
     id("org.jetbrains.kotlin.jvm") version "2.1.21"
@@ -84,6 +86,13 @@ dependencies {
     shadow("org.tukaani:xz:1.11")
     compileOnly("org.tukaani:xz:1.11")
 
+    // !!!!!! WARNING  !!!!!!!
+    // This is ONLY used for compiling registrate, but DON'T for no reason in the world build forge specific code in the common module
+    // Each submodule will include the correct registrate dependency based on the loader
+    // In newer minecraft versions this is useless since neoforge is the only forged loader
+    modCompileOnly("net.minecraftforge:forge:1.20.1-47.1.0")
+    compileOnly("net.minecraftforge:fmlcore:1.20.1-47.1.0")
+
     // Mixin (for annotation processing in common module)
     compileOnly("org.spongepowered:mixin:0.8.5")
 
@@ -134,4 +143,8 @@ tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJ
 
 tasks.named("jar") {
     finalizedBy("shadowJar")
+}
+val compileKotlin: KotlinCompile by tasks
+compileKotlin.compilerOptions {
+    freeCompilerArgs.set(listOf("-XXLanguage:+WhenGuards"))
 }

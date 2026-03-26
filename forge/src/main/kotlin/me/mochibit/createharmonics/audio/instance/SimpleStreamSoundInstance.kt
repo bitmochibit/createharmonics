@@ -1,11 +1,16 @@
 package me.mochibit.createharmonics.audio.instance
 
+import me.mochibit.createharmonics.audio.stream.PcmAudioStream
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
+import net.minecraft.client.resources.sounds.Sound
 import net.minecraft.client.resources.sounds.SoundInstance
+import net.minecraft.client.sounds.AudioStream
+import net.minecraft.client.sounds.SoundBufferLibrary
 import net.minecraft.core.BlockPos
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
 import java.io.InputStream
+import java.util.concurrent.CompletableFuture
 
 class SimpleStreamSoundInstance(
     inStream: InputStream,
@@ -40,4 +45,13 @@ class SimpleStreamSoundInstance(
         this.attenuation = attenuation
         this.relative = relative
     }
+
+    override fun getStream(
+        soundBuffers: SoundBufferLibrary,
+        sound: Sound,
+        looping: Boolean,
+    ): CompletableFuture<AudioStream?> =
+        CompletableFuture.completedFuture(
+            PcmAudioStream(this.sourceStream, this.sampleRate),
+        )
 }

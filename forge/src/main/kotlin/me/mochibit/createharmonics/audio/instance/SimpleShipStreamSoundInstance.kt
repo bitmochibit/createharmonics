@@ -1,6 +1,11 @@
 package me.mochibit.createharmonics.audio.instance
 
+import me.mochibit.createharmonics.audio.stream.PcmAudioStream
+import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
+import net.minecraft.client.resources.sounds.Sound
 import net.minecraft.client.resources.sounds.SoundInstance
+import net.minecraft.client.sounds.AudioStream
+import net.minecraft.client.sounds.SoundBufferLibrary
 import net.minecraft.core.BlockPos
 import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundSource
@@ -10,6 +15,7 @@ import org.joml.Vector3dc
 import org.valkyrienskies.core.api.ships.Ship
 import org.valkyrienskies.mod.client.audio.VelocityTickableSoundInstance
 import java.io.InputStream
+import java.util.concurrent.CompletableFuture
 
 // VS2 compatible streaming sound instance that moves with a ship and has velocity
 class SimpleShipStreamSoundInstance(
@@ -18,9 +24,9 @@ class SimpleShipStreamSoundInstance(
     soundEvent: SoundEvent,
     posSupplier: () -> BlockPos,
     private val ship: Ship,
-    volumeSupplier: () -> Float = { 1.0f },
-    pitchSupplier: () -> Float = { 1.0f },
-    radiusSupplier: () -> Float = { 64f },
+    volumeSupplier: FloatSupplier = FloatSupplier { 1.0f },
+    pitchSupplier: FloatSupplier = FloatSupplier { 1.0f },
+    radiusSupplier: FloatSupplier = FloatSupplier { 64f },
     randomSource: RandomSource = RandomSource.create(),
     soundSource: SoundSource = SoundSource.RECORDS,
     looping: Boolean = false,
@@ -108,4 +114,13 @@ class SimpleShipStreamSoundInstance(
         this.volume = currentVolume
         this.pitch = currentPitch
     }
+
+    override fun getStream(
+        soundBuffers: SoundBufferLibrary,
+        sound: Sound,
+        looping: Boolean,
+    ): CompletableFuture<AudioStream?> =
+        CompletableFuture.completedFuture(
+            PcmAudioStream(this.sourceStream, this.sampleRate),
+        )
 }

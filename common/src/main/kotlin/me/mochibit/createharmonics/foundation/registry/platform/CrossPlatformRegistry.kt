@@ -12,11 +12,11 @@ import kotlin.reflect.KProperty
  *
  * Beware of patched content for minecraft objects!
  */
-interface CrossPlatformRegistry<RegistryObjectType, MinecraftEntry> {
-    val referenceMap: MutableMap<MinecraftEntry, RegistryObjectType>
+abstract class AbstractCrossPlatformRegistry<RegistryObjectType, MinecraftEntry> {
+    val referenceMap: MutableMap<MinecraftEntry, RegistryObjectType> = mutableMapOf()
 
     data class ConvertibleEntry<RegistryObjectType, MinecraftEntry>(
-        val registry: CrossPlatformRegistry<RegistryObjectType, MinecraftEntry>,
+        val registry: AbstractCrossPlatformRegistry<RegistryObjectType, MinecraftEntry>,
         val registryObject: RegistryObjectType,
         val mcEntrySupplier: () -> MinecraftEntry,
     ) : ReadOnlyProperty<Any?, MinecraftEntry> {
@@ -31,9 +31,10 @@ interface CrossPlatformRegistry<RegistryObjectType, MinecraftEntry> {
     }
 
     fun MinecraftEntry.registryObject(): RegistryObjectType =
-        this@CrossPlatformRegistry.referenceMap[this] ?: throw IllegalStateException("A weird issue occurred: $this was not registered")
+        this@AbstractCrossPlatformRegistry.referenceMap[this]
+            ?: throw IllegalStateException("A weird issue occurred: $this was not registered")
 
-    fun registerEntry(name: String): ConvertibleEntry<RegistryObjectType, MinecraftEntry>
+    abstract fun registerEntry(name: String): ConvertibleEntry<RegistryObjectType, MinecraftEntry>
 }
 
 fun <T> Supplier<T>.asDelegate(): ReadOnlyProperty<Any?, T> = ReadOnlyProperty { _, _ -> this.get() }

@@ -2,8 +2,9 @@ package me.mochibit.createharmonics.client.gui
 
 import me.mochibit.createharmonics.client.gui.OpenLibMenuButton.MenuRows.leftTextKeys
 import me.mochibit.createharmonics.client.gui.OpenLibMenuButton.MenuRows.rightTextKeys
+import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.content.records.RecordType
-import me.mochibit.createharmonics.foundation.registry.ModConfigurations
+import me.mochibit.createharmonics.foundation.registry.ForgeConfigRegistrar
 import me.mochibit.createharmonics.foundation.registry.ModItems
 import net.createmod.catnip.gui.ScreenOpener
 import net.minecraft.client.Minecraft
@@ -98,14 +99,14 @@ class OpenLibMenuButton(
             when (screen) {
                 is TitleScreen -> {
                     menu = MenuRows.MAIN_MENU
-                    rowIdx = ModConfigurations.client.mainMenuLibButtonRow.get()
-                    offsetX = ModConfigurations.client.mainMenuLibButtonOffsetX.get()
+                    rowIdx = ModConfigs.client.mainMenuLibButtonRow.get()
+                    offsetX = ModConfigs.client.mainMenuLibButtonOffsetX.get()
                 }
 
                 is PauseScreen -> {
                     menu = MenuRows.INGAME_MENU
-                    rowIdx = ModConfigurations.client.ingameMenuLibButtonRow.get()
-                    offsetX = ModConfigurations.client.ingameMenuLibButtonOffsetX.get()
+                    rowIdx = ModConfigs.client.ingameMenuLibButtonRow.get()
+                    offsetX = ModConfigs.client.ingameMenuLibButtonOffsetX.get()
                 }
 
                 else -> {

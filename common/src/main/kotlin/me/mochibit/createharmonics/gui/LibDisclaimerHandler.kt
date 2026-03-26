@@ -2,9 +2,9 @@ package me.mochibit.createharmonics.gui
 
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
+import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
 import me.mochibit.createharmonics.foundation.eventbus.ProxyEvent
-import me.mochibit.createharmonics.foundation.services.configService
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.TitleScreen
 
@@ -29,7 +29,7 @@ object LibDisclaimerHandler : CommonGuiEventHandler {
                 }
 
                 // Check if user has disabled the disclaimer
-                if (configService.getNeverShowLibraryDisclaimer()) {
+                if (ModConfigs.client.neverShowLibraryDisclaimer.get()) {
                     hasShownDisclaimer = true
                     return@on
                 }

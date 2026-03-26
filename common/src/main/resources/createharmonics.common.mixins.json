@@ -3,11 +3,12 @@
   "package": "mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "AbstractWidgetAccessor",
+    "AssemblyOperatorBlockItemMixin",
     "RecipeApplierMixin",
     "RecipeGridHandlerMixin",
     "ShapedRecipeMixin",
-    "ShapelessRecipeMixin",
-    "AssemblyOperatorBlockItemMixin"
+    "ShapelessRecipeMixin"
   ],
   "client": [
     "SoundEngineAccessor",

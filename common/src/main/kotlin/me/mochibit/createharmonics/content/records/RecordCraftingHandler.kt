@@ -3,6 +3,7 @@ package me.mochibit.createharmonics.content.records
 import me.mochibit.createharmonics.event.crafting.RecipeAssembledEvent
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
 import me.mochibit.createharmonics.foundation.eventbus.ModEvent
+import me.mochibit.createharmonics.foundation.registry.ModItems
 import me.mochibit.createharmonics.foundation.services.contentService
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.nbt.CompoundTag
@@ -22,12 +23,12 @@ object RecordCraftingHandler {
 
     private fun isBaseRecord(stack: ItemStack): Boolean {
         val item = stack.item
-        return item == contentService.modItemsRegistry.etherealRecordBase
+        return item == ModItems.BASE_RECORD.get()
     }
 
     private fun isEtherealRecord(stack: ItemStack): Boolean {
         val item = stack.item
-        return contentService.modItemsRegistry.etherealRecords.any { it.value == item }
+        return ModItems.ETHEREAL_RECORDS.any { it.value.get() == item }
     }
 
     init {

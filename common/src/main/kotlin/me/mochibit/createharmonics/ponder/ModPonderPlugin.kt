@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.ponder
 
 import com.simibubi.create.foundation.ponder.PonderWorldBlockEntityFix
 import me.mochibit.createharmonics.CreateHarmonicsMod
+import me.mochibit.createharmonics.foundation.registry.ModPonders
 import me.mochibit.createharmonics.foundation.services.contentService
 import net.createmod.ponder.api.level.PonderLevel
 import net.createmod.ponder.api.registration.PonderPlugin
@@ -13,11 +14,11 @@ class ModPonderPlugin : PonderPlugin {
     override fun getModId(): String = CreateHarmonicsMod.MOD_ID
 
     override fun registerScenes(helper: PonderSceneRegistrationHelper<ResourceLocation>) {
-        contentService.addScenes(helper)
+        ModPonders.addScenes(helper)
     }
 
     override fun registerTags(helper: PonderTagRegistrationHelper<ResourceLocation>) {
-        contentService.addTags(helper)
+        ModPonders.addTags(helper)
     }
 
     override fun onPonderLevelRestore(ponderLevel: PonderLevel) {

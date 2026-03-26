@@ -2,7 +2,7 @@ package me.mochibit.createharmonics.data
 
 import com.tterrag.registrate.providers.ProviderType
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
-import me.mochibit.createharmonics.cRegistrate
+import me.mochibit.createharmonics.ModRegistrate
 import me.mochibit.createharmonics.data.recipe.ModRecipeProvider
 import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.utility.JsonResourceLoader
@@ -38,7 +38,7 @@ object DataGenerators {
     }
 
     fun provideLang() {
-        cRegistrate().addDataGenerator(ProviderType.LANG) { provider ->
+        ModRegistrate.addDataGenerator(ProviderType.LANG) { provider ->
             val langConsumer: (String, String) -> Unit = { key, value ->
                 provider.add(key, value)
             }

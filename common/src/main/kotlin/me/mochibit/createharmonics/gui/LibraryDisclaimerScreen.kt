@@ -8,10 +8,10 @@ import me.mochibit.createharmonics.audio.bin.BinProvider
 import me.mochibit.createharmonics.audio.bin.BinStatusManager
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
+import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.extension.drawCenteredString
 import me.mochibit.createharmonics.foundation.extension.toMultilineFormattedCharSequence
 import me.mochibit.createharmonics.foundation.locale.ModLang
-import me.mochibit.createharmonics.foundation.services.configService
 import net.minecraft.ChatFormatting
 import net.minecraft.Util
 import net.minecraft.client.gui.GuiGraphics
@@ -147,7 +147,7 @@ class LibraryDisclaimerScreen(
                 cx,
                 bottomY,
             ) {
-                configService.setNeverShowLibraryDisclaimer(true)
+                ModConfigs.client.neverShowLibraryDisclaimer.set(true)
                 currentState = State.SKIPPED
                 rebuildWidgets()
             }
@@ -166,7 +166,7 @@ class LibraryDisclaimerScreen(
                     ButtonData(
                         ModLang.translate("gui.library_setup.manual_installation_btn").component(),
                     ) {
-                        configService.setNeverShowLibraryDisclaimer(true)
+                        ModConfigs.client.neverShowLibraryDisclaimer.set(true)
                         currentState = State.SKIPPED
                         rebuildWidgets()
                     },

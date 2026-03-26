@@ -1,6 +1,7 @@
 {
 	"format_version": "1.9.0",
 	"credit": "Made with Blockbench",
+	"render_type": "minecraft:cutout_mipped",
 	"textures": {
 		"particle": "create:block/andesite_casing",
 		"1_0": "createharmonics:block/andesite_jukebox/jukebox_casing"

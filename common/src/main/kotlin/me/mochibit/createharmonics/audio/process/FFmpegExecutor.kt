@@ -41,7 +41,11 @@ class FFmpegExecutor private constructor() {
             headers: Map<String, String> = emptyMap(),
         ): InputStream? {
             val executor = FFmpegExecutor()
-            executor.createStream(url, sampleRate, seekSeconds, headers)
+            val ready = executor.createStream(url, sampleRate, seekSeconds, headers)
+            if (!ready) {
+                executor.destroy()
+                return null
+            }
             val currentPid =
                 executor.processId ?: return null.also {
                     "Null PID process detected, aborting..".err()
@@ -128,14 +132,10 @@ class FFmpegExecutor private constructor() {
 
                 add("-reconnect")
                 add("1")
-                add("-reconnect_streamed")
-                add("1")
                 add("-reconnect_delay_max")
                 add("5")
-                add("-multiple_requests")
-                add("1")
                 add("-timeout")
-                add("10000000")
+                add("30000000")
                 add("-i")
                 add(url)
                 add("-f")
@@ -185,12 +185,6 @@ class FFmpegExecutor private constructor() {
             try {
                 newProcess.waitFor()
             } catch (_: Exception) {
-            }
-            lifecycleMutex.withLock {
-                if (process == newProcess) {
-                    process = null
-                    processId = null
-                }
             }
         }
 

@@ -3,7 +3,6 @@ package me.mochibit.createharmonics.foundation.registry
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.ModEventBus
 import me.mochibit.createharmonics.foundation.extension.asResource
-import me.mochibit.createharmonics.foundation.registry.platform.CrossPlatformRegistry
 import me.mochibit.createharmonics.foundation.registry.platform.ModSoundRegistry
 import net.minecraft.core.registries.Registries
 import net.minecraft.sounds.SoundEvent
@@ -21,13 +20,13 @@ object ModSounds : ForgeRegistry, ModSoundRegistry<RegistryObject<SoundEvent>>()
         SOUND_EVENTS.register(ModEventBus)
     }
 
-    override fun registerEntry(name: String): CrossPlatformRegistry.ConvertibleEntry<RegistryObject<SoundEvent>, SoundEvent> {
+    override fun registerEntry(name: String): ConvertibleEntry<RegistryObject<SoundEvent>, SoundEvent> {
         val registered =
             SOUND_EVENTS.register(name) {
                 SoundEvent.createVariableRangeEvent(
                     name.asResource(),
                 )
             }
-        return CrossPlatformRegistry.ConvertibleEntry(this@ModSounds, registered) { registered.get() }
+        return ConvertibleEntry(this@ModSounds, registered) { registered.get() }
     }
 }

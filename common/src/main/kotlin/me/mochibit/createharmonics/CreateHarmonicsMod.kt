@@ -1,5 +1,9 @@
 package me.mochibit.createharmonics
 
+import com.simibubi.create.foundation.data.CreateRegistrate
+import com.simibubi.create.foundation.item.ItemDescription
+import com.simibubi.create.foundation.item.KineticStats
+import com.simibubi.create.foundation.item.TooltipModifier
 import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
 import me.mochibit.createharmonics.foundation.async.ModCoroutineScope
 import me.mochibit.createharmonics.foundation.err
@@ -7,16 +11,41 @@ import me.mochibit.createharmonics.foundation.eventbus.autoHandler
 import me.mochibit.createharmonics.foundation.registry.CommonRegistry
 import me.mochibit.createharmonics.foundation.registry.autoRegister
 import me.mochibit.createharmonics.gui.CommonGuiEventHandler
+import net.createmod.catnip.lang.FontHelper
+
+interface RegistrateSetupHandler {
+    /**
+     * Configure the registrate to the platform specific requirements
+     *
+     * Generally this method should be used for registering event listeners
+     */
+    fun setupRegistrate(registrate: CreateRegistrate)
+}
 
 object CreateHarmonicsMod {
     const val MOD_ID = "createharmonics"
     private var initialized = false
 
-    fun commonSetup() {
+    private val _registrate: CreateRegistrate =
+        CreateRegistrate.create(MOD_ID).setTooltipModifierFactory { item ->
+            ItemDescription
+                .Modifier(item, FontHelper.Palette.STANDARD_CREATE)
+                .andThen(TooltipModifier.mapNull(KineticStats.create(item)))
+        }
+
+    val registrate: CreateRegistrate get() {
+        if (!initialized) {
+            throw IllegalStateException("Create registrate was not initialized!")
+        }
+        return _registrate
+    }
+
+    fun commonSetup(registrateSetupHandler: RegistrateSetupHandler) {
         if (initialized) {
             return "Common was already initialized".err()
         }
         initialized = true
+        registrateSetupHandler.setupRegistrate(_registrate)
 
         autoRegister<CommonRegistry>()
         autoHandler<CommonGuiEventHandler>()
@@ -33,3 +62,5 @@ object CreateHarmonicsMod {
         )
     }
 }
+
+val ModRegistrate: CreateRegistrate = CreateHarmonicsMod.registrate

@@ -1,6 +1,7 @@
 package mixin;
 
 import com.simibubi.create.content.processing.AssemblyOperatorBlockItem;
+import me.mochibit.createharmonics.foundation.registry.ModBlocks;
 import me.mochibit.createharmonics.foundation.services.ContentServiceKt;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.LevelReader;
@@ -18,8 +19,8 @@ public abstract class AssemblyOperatorBlockItemMixin {
             remap = false,
             cancellable = true)
     private void onRecipeApply(LevelReader world, BlockPos pos, BlockState placedOnState, CallbackInfoReturnable<Boolean> cir) {
-        var registry = ContentServiceKt.getContentService().getModBlocksRegistry();
-        if (registry.getRecordPressBase().equals(placedOnState.getBlock())) {
+        var registry = ModBlocks.INSTANCE;
+        if (registry.getRECORD_PRESS_BASE().has(placedOnState)) {
             cir.setReturnValue(true);
         }
     }

@@ -11,8 +11,8 @@ import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
+import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.err
-import me.mochibit.createharmonics.foundation.services.configService
 
 class YTdlpExecutor {
     data class AudioUrlInfo(
@@ -29,7 +29,7 @@ class YTdlpExecutor {
                 if (!YTDLProvider.isAvailable()) return@withContext null
 
                 val ytdlPath = YTDLProvider.getExecutablePath() ?: return@withContext null
-                val configOverrides = configService.getYtdlpOverrideArgs()
+                val configOverrides = ModConfigs.client.ytdlpOverrideArgs.get()
 
                 val command =
                     if (configOverrides.isNotBlank()) {
@@ -43,11 +43,8 @@ class YTdlpExecutor {
                         listOf(
                             ytdlPath,
                             "-f",
-                            // Prefer formats that serve the full file in a single request.
-                            // HLS/DASH segments only have per-fragment durations and cause
-                            // wrap-around issues for very long videos (e.g. 11 h YouTube streams).
-                            // Fall back to bestaudio only when no single-file audio is available.
-                            "bestaudio",
+                            "bestaudio/best",
+                            "--no-check-formats",
                             "-j",
                             "--quiet",
                             "--no-playlist",
@@ -96,8 +93,18 @@ class YTdlpExecutor {
 
                     val title = jsonObject["title"]?.jsonPrimitive?.content ?: "Unknown"
                     val audioUrl =
-                        jsonObject["url"]?.jsonPrimitive?.content
-                            ?: throw IllegalStateException("No URL found in yt-dlp output")
+                        when (jsonObject["protocol"]?.jsonPrimitive?.content) {
+                            "m3u8_native", "m3u8" -> {
+                                jsonObject["manifest_url"]?.jsonPrimitive?.content
+                                    ?: jsonObject["url"]?.jsonPrimitive?.content
+                                    ?: throw IllegalStateException("No URL found in yt-dlp output")
+                            }
+
+                            else -> {
+                                jsonObject["url"]?.jsonPrimitive?.content
+                                    ?: throw IllegalStateException("No URL found in yt-dlp output")
+                            }
+                        }
                     val sampleRate = jsonObject["asr"]?.jsonPrimitive?.floatOrNull ?: 48_000f
                     val duration = extractFullDuration(jsonObject)
 

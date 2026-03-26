@@ -6,12 +6,13 @@ import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.BitCrushEffect
 import me.mochibit.createharmonics.audio.effect.EQBand
 import me.mochibit.createharmonics.audio.effect.EqualizerEffect
+import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.extension.Tags
 import me.mochibit.createharmonics.foundation.extension.asResource
 import me.mochibit.createharmonics.foundation.extension.butOnForge
 import me.mochibit.createharmonics.foundation.extension.resPath
 import me.mochibit.createharmonics.foundation.extension.withPath
-import me.mochibit.createharmonics.foundation.services.configService
+import me.mochibit.createharmonics.foundation.registry.platform.ModSoundRegistry
 import me.mochibit.createharmonics.foundation.services.contentService
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.core.registries.Registries
@@ -41,7 +42,7 @@ enum class RecordType(
             soundEventCompProvider = {
                 listOf(
                     SoundEventComposition.SoundEventDef(
-                        contentService.soundEventRegistry.slidingStoneSound,
+                        ModSoundRegistry.instance.slidingStoneSound,
                         looping = true,
                         relative = false,
                         volumeSupplier = { 0.25f },
@@ -110,7 +111,7 @@ enum class RecordType(
             soundEventCompProvider = {
                 listOf(
                     SoundEventComposition.SoundEventDef(
-                        contentService.soundEventRegistry.glitterSoundEvent,
+                        ModSoundRegistry.instance.glitterSoundEvent,
                         looping = false,
                         relative = false,
                         volumeSupplier = { 0.7f },
@@ -177,7 +178,7 @@ enum class RecordType(
     // Get uses from config, with fallback defaults matching config defaults
     val uses: Int
         get() =
-            configService.getRecordDurability(this) ?: this.properties.defaultDurability
+            ModConfigs.server.getRecordDurability(this) ?: this.properties.defaultDurability
 
     data class Properties(
         val recipe: Recipe? = null,

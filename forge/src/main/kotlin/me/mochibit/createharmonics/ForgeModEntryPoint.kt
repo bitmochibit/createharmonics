@@ -1,48 +1,49 @@
 package me.mochibit.createharmonics
 
 import com.simibubi.create.foundation.data.CreateRegistrate
-import com.simibubi.create.foundation.item.ItemDescription
-import com.simibubi.create.foundation.item.KineticStats
-import com.simibubi.create.foundation.item.TooltipModifier
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
+import me.mochibit.createharmonics.config.ModConfigs
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
+import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
+import me.mochibit.createharmonics.foundation.extension.asResource
+import me.mochibit.createharmonics.foundation.registry.ForgeConfigRegistrar
 import me.mochibit.createharmonics.foundation.registry.ForgeRegistry
-import me.mochibit.createharmonics.foundation.registry.ModConfigurations
 import me.mochibit.createharmonics.foundation.registry.autoRegister
 import me.mochibit.createharmonics.ponder.ModPonderPlugin
 import net.createmod.catnip.config.ui.BaseConfigScreen
-import net.createmod.catnip.lang.FontHelper
 import net.createmod.ponder.foundation.PonderIndex
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
+import net.minecraft.core.Direction
+import net.minecraft.resources.ResourceLocation
+import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory
 import net.minecraftforge.common.MinecraftForge
-import net.minecraftforge.event.RegisterCommandsEvent
+import net.minecraftforge.common.capabilities.Capability
+import net.minecraftforge.common.capabilities.ForgeCapabilities
+import net.minecraftforge.common.capabilities.ICapabilityProvider
+import net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent
+import net.minecraftforge.common.util.LazyOptional
+import net.minecraftforge.event.AttachCapabilitiesEvent
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.eventbus.api.SubscribeEvent
 import net.minecraftforge.fml.DistExecutor
 import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent
 import net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
+import net.minecraftforge.items.IItemHandler
 
 @Mod(MOD_ID)
 class ForgeModEntryPoint(
     val context: FMLJavaModLoadingContext,
-) {
+) : RegistrateSetupHandler {
     companion object {
         @JvmStatic
         lateinit var instance: ForgeModEntryPoint
             private set
     }
-
-    private val registrate: CreateRegistrate =
-        CreateRegistrate.create(MOD_ID).setTooltipModifierFactory { item ->
-            ItemDescription
-                .Modifier(item, FontHelper.Palette.STANDARD_CREATE)
-                .andThen(TooltipModifier.mapNull(KineticStats.create(item)))
-        }
 
     init {
         instance = this
@@ -56,9 +57,9 @@ class ForgeModEntryPoint(
         fun onClientSetup(event: FMLClientSetupEvent) {
             BaseConfigScreen.setDefaultActionFor(MOD_ID) { base ->
                 base.withSpecs(
-                    ModConfigurations.client.specification,
-                    ModConfigurations.common.specification,
-                    ModConfigurations.server.specification,
+                    ModConfigs.client.specification,
+                    ModConfigs.common.specification,
+                    ModConfigs.server.specification,
                 )
             }
         }
@@ -77,9 +78,40 @@ class ForgeModEntryPoint(
         }
     }
 
+    @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+    object ForgeEvents {
+        @SubscribeEvent
+        fun onAttachCapabilities(event: AttachCapabilitiesEvent<BlockEntity>) {
+            when (val be = event.`object`) {
+                is RecordPlayerBlockEntity -> {
+                    event.addCapability(
+                        "item_handler".asResource(),
+                        object : ICapabilityProvider {
+                            override fun <T> getCapability(
+                                cap: Capability<T>,
+                                side: Direction?,
+                            ): LazyOptional<T> = ForgeCapabilities.ITEM_HANDLER.orEmpty(cap, be.lazyItemHandler.cast())
+                        },
+                    )
+                }
+
+                is RecordPressBaseBlockEntity -> {
+                    event.addCapability(
+                        "item_handler".asResource(),
+                        object : ICapabilityProvider {
+                            override fun <T> getCapability(
+                                cap: Capability<T>,
+                                side: Direction?,
+                            ): LazyOptional<T> = ForgeCapabilities.ITEM_HANDLER.orEmpty(cap, be.behaviour.lazyItemHandler.cast())
+                        },
+                    )
+                }
+            }
+        }
+    }
+
     private fun initialize() {
         MinecraftForge.EVENT_BUS.register(this)
-        registrate.registerEventListeners(context.modEventBus)
 
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT) {
             Runnable {
@@ -87,15 +119,15 @@ class ForgeModEntryPoint(
             }
         }
 
-        CreateHarmonicsMod.commonSetup()
+        CreateHarmonicsMod.commonSetup(this)
 
         autoRegister<ForgeRegistry>()
     }
 
-    fun getRegistrate(): CreateRegistrate = registrate
+    override fun setupRegistrate(registrate: CreateRegistrate) {
+        registrate.registerEventListeners(context.modEventBus)
+    }
 }
 
 internal val ModEventBus: IEventBus? = ForgeModEntryPoint.instance.context.modEventBus
 internal val ModLoadingContext = ForgeModEntryPoint.instance.context
-
-internal fun cRegistrate() = ForgeModEntryPoint.instance.getRegistrate()
