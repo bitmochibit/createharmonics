@@ -7,7 +7,6 @@ import me.mochibit.createharmonics.audio.instance.SimpleStreamSoundInstance
 import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviourTracker
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.content.records.BaseRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
@@ -126,18 +125,6 @@ class ForgeContentService : ContentService {
             blockEntity.sendData()
             blockEntity.setChanged()
         }
-    }
-
-    override fun onStreamEnd(
-        audioPlayerId: String,
-        failure: Boolean,
-    ): Boolean {
-        RecordPlayerBlockEntity.handlePlaybackEnd(audioPlayerId, failure)
-
-        RecordPlayerMovementBehaviourTracker.get(audioPlayerId)?.let { movementContext ->
-            RecordPlayerMovementBehaviour.Companion.Utils.handlePlaybackEnd(movementContext)
-        }
-        return true
     }
 
     override fun onTitleChange(

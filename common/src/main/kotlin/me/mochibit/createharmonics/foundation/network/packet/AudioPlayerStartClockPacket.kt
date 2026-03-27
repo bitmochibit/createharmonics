@@ -3,17 +3,16 @@ package me.mochibit.createharmonics.foundation.network.packet
 import kotlinx.serialization.Serializable
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.GlobalRecordPlayerMovementBehaviourTracker
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour
 
 @Serializable
-class AudioPlayerStreamEndPacket(
+class AudioPlayerStartClockPacket(
     val audioPlayerId: String,
-    val failure: Boolean = false,
 ) : ModPacket,
     C2SPacket {
     override fun handle(context: ModPacket.Context): Boolean {
-        RecordPlayerBlockEntity.handlePlaybackEnd(audioPlayerId, failure)
-        GlobalRecordPlayerMovementBehaviourTracker.canRestart += audioPlayerId
+        RecordPlayerBlockEntity.handlePlaytimeClockStart(audioPlayerId)
+
+        GlobalRecordPlayerMovementBehaviourTracker.clockStarts += audioPlayerId
         return true
     }
 }

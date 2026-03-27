@@ -67,11 +67,6 @@ interface ContentService {
         newIndex: Int = 0,
     )
 
-    fun onStreamEnd(
-        audioPlayerId: String,
-        failure: Boolean,
-    ): Boolean
-
     fun onTitleChange(
         audioPlayerId: String,
         audioName: String,

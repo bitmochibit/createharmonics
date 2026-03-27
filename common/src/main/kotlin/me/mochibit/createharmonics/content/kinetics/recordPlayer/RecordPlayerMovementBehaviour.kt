@@ -9,7 +9,6 @@ import dev.engine_room.flywheel.api.visualization.VisualizationContext
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.isActive
 import me.mochibit.createharmonics.audio.AudioPlayerManager
 import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.EffectPreset
@@ -21,7 +20,6 @@ import me.mochibit.createharmonics.audio.player.putClock
 import me.mochibit.createharmonics.audio.player.updateClock
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.config.ServerConfig
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.AudioPlayerContextTracker
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour.Companion.Suppliers.pitchSupplierFactory
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour.Companion.Suppliers.radiusSupplierFactory
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour.Companion.Suppliers.volumeSupplierFactory
@@ -42,9 +40,9 @@ import me.mochibit.createharmonics.foundation.extension.writeEnum
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
 import me.mochibit.createharmonics.foundation.services.contentService
+import me.mochibit.createharmonics.foundation.signals.SignalBox
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
-import me.mochibit.createharmonics.foundation.warn
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ParticleTypes
@@ -66,7 +64,6 @@ data class RecordPlayerContextData(
     val volumeSupplier: FloatSupplier,
     val radiusSupplier: FloatSupplier,
     var particleJob: Job? = null,
-    var canRestart: Boolean = false,
     var movementPlayerInitialized: Boolean = false,
     var heldItemStack: ItemStack = ItemStack.EMPTY,
     val playtimeClock: PlaytimeClock = PlaytimeClock(),
@@ -75,7 +72,10 @@ data class RecordPlayerContextData(
     var gracefulStopJob: Job? = null,
 )
 
-object RecordPlayerMovementBehaviourTracker : AudioPlayerContextTracker<MovementContext>()
+object GlobalRecordPlayerMovementBehaviourTracker {
+    val clockStarts = SignalBox<String>()
+    val canRestart = SignalBox<String>()
+}
 
 class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContextData>() {
     companion object {
@@ -219,11 +219,6 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
         }
 
         object Utils {
-            fun handlePlaybackEnd(context: MovementContext) {
-                val data = context.getContextData<RecordPlayerContextData>() ?: return
-                data.canRestart = true
-            }
-
             fun isPauseModeWithRedstone(context: MovementContext): Boolean {
                 val playbackMode =
                     RecordPlayerBlockEntity.PlaybackMode.entries[context.blockEntityData.getInt("ScrollValue")]
@@ -311,6 +306,9 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
         syncType: SyncType,
     ) {
         target.apply {
+            if (syncType == SyncType.DISK) {
+                contextData.playtimeClock.pause()
+            }
             putClock(contextData.playtimeClock)
             put("HeldRecordItem", contextData.heldItemStack.toNBT())
             if (syncType != SyncType.DISK) {
@@ -357,10 +355,16 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
 
     override fun tick(context: MovementContext) {
         context.world.onServer {
-            RecordPlayerMovementBehaviourTracker.track(getPlayerUUID(context), context)
             val data = getContextData(context)
             val currentRecord = getRecordItem(context)
             data.heldItemStack = currentRecord
+
+            data.playtimeClock.tick()
+
+            if (GlobalRecordPlayerMovementBehaviourTracker.clockStarts.consume(getPlayerUUID(context)) && !data.playtimeClock.isPlaying) {
+                data.playtimeClock.play()
+                return resyncData(context)
+            }
 
             val contraptionEntity = context.contraption?.entity
             val isDisassembled = contraptionEntity == null || !contraptionEntity.isAlive
@@ -381,12 +385,6 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                 }
 
             when (newState) {
-                PlaybackState.PLAYING -> {
-                    if (!data.playtimeClock.isPlaying) {
-                        data.playtimeClock.play()
-                    }
-                }
-
                 PlaybackState.PAUSED -> {
                     data.playtimeClock.pause()
                 }
@@ -394,10 +392,13 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                 PlaybackState.STOPPED -> {
                     data.playtimeClock.stop()
                 }
+
+                else -> {}
             }
 
-            if (data.canRestart && newState == PlaybackState.PLAYING) {
-                data.canRestart = false
+            if (GlobalRecordPlayerMovementBehaviourTracker.canRestart.consume(getPlayerUUID(context)) &&
+                newState == PlaybackState.PLAYING
+            ) {
                 data.playtimeClock.stop()
                 data.playbackState = PlaybackState.STOPPED
                 resyncData(context)
@@ -417,6 +418,8 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
         context.world.onClient { _, _ ->
             val data = getContextData(context)
             val player = getAudioPlayer(context)
+
+            data.playtimeClock.tick()
 
             data.underwaterFilter.update(player, context.position, context.world)
 
@@ -443,8 +446,8 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                                 data.pitchSupplier,
                                 data.radiusSupplier,
                                 data.volumeSupplier,
+                                data.playtimeClock.currentPlaytime,
                             )
-                            player.seek(data.playtimeClock.currentPlaytime)
                         }
 
                         else -> {}
@@ -584,6 +587,6 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
     private fun stopClientAudio(context: MovementContext) {
         val playerUUID = getPlayerUUID(context) ?: return
         ModPackets.broadcast(AudioPlayerContextStopPacket(playerUUID))
-        RecordPlayerMovementBehaviourTracker.untrack(playerUUID)
+        GlobalRecordPlayerMovementBehaviourTracker.clockStarts -= playerUUID
     }
 }

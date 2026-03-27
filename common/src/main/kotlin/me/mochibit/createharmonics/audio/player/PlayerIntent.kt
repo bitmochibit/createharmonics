@@ -1,7 +1,9 @@
 package me.mochibit.createharmonics.audio.player
 
 sealed interface PlayerIntent {
-    data object Play : PlayerIntent
+    data class Play(
+        val initialPosition: Double,
+    ) : PlayerIntent
 
     data object Pause : PlayerIntent
 

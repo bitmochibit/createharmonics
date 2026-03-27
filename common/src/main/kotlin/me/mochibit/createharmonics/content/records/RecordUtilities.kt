@@ -110,17 +110,12 @@ object RecordUtilities {
                 }
     }
 
-    /**
-     * Play the audio directly from a record item stack
-     * @param etherealRecord The record used for gathering information about the audio to play
-     * @param offsetSeconds Playback offset, used mainly for synchronization
-     * @param compPitchSupplier Pitch shift function supplier for composition effects
-     */
     fun AudioPlayer.playFromRecord(
         etherealRecord: ItemStack,
         compPitchSupplier: FloatSupplier = FloatSupplier { 1f },
         compRadiusSupplier: FloatSupplier = FloatSupplier { 1f },
         compVolumeSupplier: FloatSupplier = FloatSupplier { 1f },
+        initialPos: Double = 0.0,
     ) {
         if (!contentService.isEtherealRecord(etherealRecord)) return
         val url = getAudioUrl(etherealRecord) ?: ""
@@ -150,7 +145,7 @@ object RecordUtilities {
             this.request(
                 AudioRequest.Url(url),
             )
-            return this.play()
+            return this.play(initialPos)
         }
 
         // Try to play audio from the crafted-from record
@@ -172,6 +167,6 @@ object RecordUtilities {
                 ),
             ),
         )
-        this.play()
+        this.play(initialPos)
     }
 }

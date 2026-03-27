@@ -162,7 +162,7 @@ class FFmpegExecutor private constructor() {
                 add("-ac")
                 add("1")
                 add("-loglevel")
-                add("verbose")
+                add("fatal")
 
                 if (isLive) {
                     add("-max_muxing_queue_size")

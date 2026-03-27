@@ -20,6 +20,7 @@ import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.async.withMainContext
 import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.info
+import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerStartClockPacket
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerStreamEndPacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
 import net.minecraft.client.Minecraft
@@ -119,7 +120,7 @@ class AudioPlayer(
                 }
             }
 
-            PlayerIntent.Play -> {
+            is PlayerIntent.Play -> {
                 when (_state.value) {
                     PlayerState.PLAYING, PlayerState.LOADING -> {
                         return
@@ -130,7 +131,7 @@ class AudioPlayer(
                     }
 
                     PlayerState.STOPPED -> {
-                        startPlayback()
+                        startPlayback(intent.initialPosition)
                     }
 
                     PlayerState.HANGED -> {
@@ -176,7 +177,7 @@ class AudioPlayer(
         val (resolvedInputStream, currentSource) =
             try {
                 val source = AudioSourceResolver.resolve(request)
-                SourceStreamResolver.resolveInputStream(source, pos) to source
+                SourceStreamResolver.resolveInputStream(source, if (source.isLive()) 0.0 else pos) to source
             } catch (e: Exception) {
                 "Something went wrong when creating the source $e".info()
                 handleStreamEnd()
@@ -214,7 +215,8 @@ class AudioPlayer(
 
         currentSoundInstance = soundInstance
         currentAudioEffectInputStream = stream
-        clock.play(pos)
+        clock.play(if (currentSource.isLive()) 0.0 else pos)
+        notifyClockStart()
         transition(PlayerState.PLAYING)
     }
 
@@ -240,6 +242,7 @@ class AudioPlayer(
 
         soundInstance.unpause()
         clock.play()
+        notifyClockStart()
         transition(PlayerState.PLAYING)
     }
 
@@ -285,14 +288,16 @@ class AudioPlayer(
         intents.trySend(PlayerIntent.AudioHanged)
     }
 
+    private fun notifyClockStart() = ModPackets.sendToServer(AudioPlayerStartClockPacket(playerId))
+
     private fun notifyStreamEnd() = ModPackets.sendToServer(AudioPlayerStreamEndPacket(playerId))
 
     private fun notifyStreamFailure() = ModPackets.sendToServer(AudioPlayerStreamEndPacket(playerId, true))
 
     // Public API
 
-    fun play() {
-        intents.trySend(PlayerIntent.Play)
+    fun play(initialPosition: Double = 0.0) {
+        intents.trySend(PlayerIntent.Play(initialPosition))
     }
 
     fun pause() {
@@ -316,6 +321,10 @@ class AudioPlayer(
         if (abs(other.currentPlaytime - clock.currentPlaytime) > 5) {
             seek(other.currentPlaytime)
         }
+    }
+
+    fun tick() {
+        this.clock.tick()
     }
 
     override fun close() {

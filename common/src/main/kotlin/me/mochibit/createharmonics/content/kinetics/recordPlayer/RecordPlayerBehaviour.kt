@@ -93,11 +93,11 @@ class RecordPlayerBehaviour(
         }
     }
 
-    private val maxPitch =
+    private val maxPitch get() =
         ModConfigs.client.maxPitch
             .get()
             .toFloat()
-    private val minPitch =
+    private val minPitch get() =
         ModConfigs.client.minPitch
             .get()
             .toFloat()
@@ -198,6 +198,8 @@ class RecordPlayerBehaviour(
 
     private val underwaterEffect = EffectPreset.UnderwaterFilter()
 
+    private var ticksSinceLastClockSave = 0
+
     private val audioPlayer: AudioPlayer
         get() =
             AudioPlayerManager.getOrCreate(
@@ -292,6 +294,16 @@ class RecordPlayerBehaviour(
         val level = be.level ?: return
 
         level.onServer {
+            playtimeClock.tick()
+            if (playtimeClock.isPlaying) {
+                ticksSinceLastClockSave++
+                if (ticksSinceLastClockSave >= 100) {
+                    ticksSinceLastClockSave = 0
+                    be.setChanged()
+                }
+            } else {
+                ticksSinceLastClockSave = 0
+            }
             ensureTracking()
 
             val currentSpeed = abs(be.speed)
@@ -409,6 +421,7 @@ class RecordPlayerBehaviour(
         }
 
         level.onClient { level, virtual ->
+            audioPlayer.tick()
             underwaterEffect.update(audioPlayer, be.blockPos, level)
         }
     }
@@ -541,7 +554,7 @@ class RecordPlayerBehaviour(
             PlaybackState.PLAYING -> {
                 if (oldState == PlaybackState.PAUSED) {
                     // Resumed from pause, accumulate the paused duration
-                    playtimeClock.play()
+//                    playtimeClock.play()
                 }
             }
 
@@ -551,7 +564,7 @@ class RecordPlayerBehaviour(
         when (newState) {
             PlaybackState.PLAYING if oldState != PlaybackState.PLAYING -> {
                 registerPlayer(recordPlayerUUID.toString(), be)
-                playtimeClock.play()
+//                playtimeClock.play()
             }
 
             PlaybackState.STOPPED if oldState != PlaybackState.STOPPED -> {
@@ -565,7 +578,10 @@ class RecordPlayerBehaviour(
         be.notifyUpdate()
     }
 
-    private fun startClientPlayer(currentRecord: ItemStack) {
+    private fun startClientPlayer(
+        currentRecord: ItemStack,
+        initialPos: Double = 0.0,
+    ) {
         val level = be.level ?: return
 
         audioPlayer.playFromRecord(
@@ -573,6 +589,7 @@ class RecordPlayerBehaviour(
             { pitchSupplierInterpolated.getValue() },
             { radiusSupplierInterpolated.getValue() },
             { volumeSupplierInterpolated.getValue() },
+            initialPos,
         )
 
         underwaterEffect.update(audioPlayer, be.blockPos, level)
@@ -707,8 +724,7 @@ class RecordPlayerBehaviour(
 
                                 else -> {
                                     // STOPPED or LOADING
-                                    startClientPlayer(currentRecord)
-                                    audioPlayer.seek(playtimeClock.currentPlaytime)
+                                    startClientPlayer(currentRecord, playtimeClock.currentPlaytime)
                                 }
                             }
                         }
@@ -738,6 +754,15 @@ class RecordPlayerBehaviour(
         if (clientPacket && be.level?.isClientSide == true) {
             underwaterEffect.update(audioPlayer, be.blockPos, be.level!!)
         }
+    }
+
+    /**
+     * This function starts the current clock, accurately tracking the time between players
+     * Only the first start is considered
+     */
+    fun onStartClockReceived() {
+        if (playtimeClock.isPlaying) return
+        playtimeClock.play()
     }
 
     fun onPlaybackEnd(
