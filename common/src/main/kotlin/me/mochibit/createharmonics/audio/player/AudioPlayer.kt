@@ -4,7 +4,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,7 +17,6 @@ import me.mochibit.createharmonics.audio.utils.pause
 import me.mochibit.createharmonics.audio.utils.unpause
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.async.withMainContext
-import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerStartClockPacket
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerStreamEndPacket
@@ -28,6 +26,7 @@ import net.minecraft.client.resources.sounds.SoundInstance
 import java.io.Closeable
 import java.io.InputStream
 import kotlin.math.abs
+import kotlin.time.Duration.Companion.seconds
 
 typealias SoundInstanceFactory = (streamId: String, stream: InputStream) -> SoundInstance
 
@@ -59,6 +58,9 @@ class AudioPlayer(
     private val soundManager get() = Minecraft.getInstance().soundManager
 
     private var currentSoundInstance: SoundInstance? = null
+
+    private var lastResyncAt: Long = -1L
+    private val resyncCooldown = 10.seconds
 
     val state: StateFlow<PlayerState> = _state.asStateFlow()
 
@@ -269,6 +271,7 @@ class AudioPlayer(
         effectChain.reset()
         clock.stop()
         reproducingALive.set(false)
+        lastResyncAt = -1L
         _state.value = PlayerState.STOPPED
     }
 
@@ -318,7 +321,10 @@ class AudioPlayer(
 
     fun syncWith(other: PlaytimeClock) {
         if (!clock.isPlaying) return
-        if (abs(other.currentPlaytime - clock.currentPlaytime) > 5) {
+        val now = System.currentTimeMillis()
+        if (lastResyncAt != -1L && now - lastResyncAt < resyncCooldown.inWholeMilliseconds) return
+        if (abs(other.currentPlaytime - clock.currentPlaytime) > 5.0) {
+            lastResyncAt = now
             seek(other.currentPlaytime)
         }
     }
