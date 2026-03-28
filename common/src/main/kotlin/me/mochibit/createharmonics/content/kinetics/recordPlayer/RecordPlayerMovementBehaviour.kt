@@ -70,6 +70,7 @@ data class RecordPlayerContextData(
     var playbackState: PlaybackState = PlaybackState.STOPPED,
     val underwaterFilter: EffectPreset.UnderwaterFilter = EffectPreset.UnderwaterFilter(),
     var gracefulStopJob: Job? = null,
+    var ticksSinceLastClockSave: Int = 0,
 )
 
 object GlobalRecordPlayerMovementBehaviourTracker {
@@ -212,8 +213,7 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                 val redstonePower = context.blockEntityData.getInt("RedstonePower")
                 return FloatSupplierInterpolated({
                     if (redstonePower <= 0) return@FloatSupplierInterpolated 16f
-                    redstonePower.remapTo(0, 15, 4, ServerConfig.maxJukeboxSoundRange.get())
-                    redstonePower.toFloat()
+                    redstonePower.remapTo(0, 15, 4, ServerConfig.maxJukeboxSoundRange.get()).toFloat()
                 }, 500)
             }
         }
@@ -361,6 +361,16 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
 
             data.playtimeClock.tick()
 
+            if (data.playtimeClock.isPlaying) {
+                data.ticksSinceLastClockSave++
+                if (data.ticksSinceLastClockSave >= 40) {
+                    data.ticksSinceLastClockSave = 0
+                    return resyncData(context)
+                }
+            } else {
+                data.ticksSinceLastClockSave = 0
+            }
+
             if (GlobalRecordPlayerMovementBehaviourTracker.clockStarts.consume(getPlayerUUID(context)) && !data.playtimeClock.isPlaying) {
                 data.playtimeClock.play()
                 return resyncData(context)
@@ -419,7 +429,7 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             val data = getContextData(context)
             val player = getAudioPlayer(context)
 
-            data.playtimeClock.tick()
+            player.tick()
 
             data.underwaterFilter.update(player, context.position, context.world)
 

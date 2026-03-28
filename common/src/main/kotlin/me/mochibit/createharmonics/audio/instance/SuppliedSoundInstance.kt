@@ -57,11 +57,10 @@ abstract class SuppliedSoundInstance(
 
         try {
             val newRadius = radiusSupplier.getValue()
-            if (newRadius != currentRadius) {
-                currentRadius = newRadius
-                engine.instanceToChannel[this]?.execute { channel ->
-                    channel.linearAttenuation(this.currentRadius)
-                }
+
+            currentRadius = newRadius
+            engine.instanceToChannel[this]?.execute { channel ->
+                channel.linearAttenuation(this.currentRadius)
             }
         } catch (e: Exception) {
             // If supplier throws, don't crash the audio system
