@@ -37,11 +37,6 @@ abstract class RecordPlayerBlockEntity(
             blockEntity?.playerBehaviour?.onPlaybackEnd(playerId, failure)
         }
 
-        fun handlePlaytimeClockStart(playerId: String) {
-            val blockEntity = RecordPlayerBehaviour.getBlockEntityByPlayerUUID(playerId)
-            blockEntity?.playerBehaviour?.onStartClockReceived()
-        }
-
         fun handleAudioTitleChange(
             playerId: String,
             newTitle: String,

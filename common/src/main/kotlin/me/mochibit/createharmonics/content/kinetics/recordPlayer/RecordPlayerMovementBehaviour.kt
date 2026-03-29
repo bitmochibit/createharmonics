@@ -74,7 +74,6 @@ data class RecordPlayerContextData(
 )
 
 object GlobalRecordPlayerMovementBehaviourTracker {
-    val clockStarts = SignalBox<String>()
     val canRestart = SignalBox<String>()
 }
 
@@ -306,9 +305,6 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
         syncType: SyncType,
     ) {
         target.apply {
-            if (syncType == SyncType.DISK) {
-                contextData.playtimeClock.pause()
-            }
             putClock(contextData.playtimeClock)
             put("HeldRecordItem", contextData.heldItemStack.toNBT())
             if (syncType != SyncType.DISK) {
@@ -371,11 +367,6 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                 data.ticksSinceLastClockSave = 0
             }
 
-            if (GlobalRecordPlayerMovementBehaviourTracker.clockStarts.consume(getPlayerUUID(context)) && !data.playtimeClock.isPlaying) {
-                data.playtimeClock.play()
-                return resyncData(context)
-            }
-
             val contraptionEntity = context.contraption?.entity
             val isDisassembled = contraptionEntity == null || !contraptionEntity.isAlive
 
@@ -419,6 +410,7 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
 
             if (newState == PlaybackState.PLAYING && data.playbackState == PlaybackState.STOPPED) {
                 handleRecordUse(context)
+                data.playtimeClock.play()
             }
 
             data.playbackState = newState
@@ -478,7 +470,7 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                     data.gracefulStopJob?.cancel()
                     if (data.heldItemStack.isEmpty) {
                         if (player.state.value != PlayerState.STOPPED) player.stop()
-                    } else if (data.gracefulStopJob == null) { // ← guard here too
+                    } else if (data.gracefulStopJob == null) {
                         data.gracefulStopJob =
                             1.seconds.thenLaunch {
                                 if (player.state.value != PlayerState.STOPPED) player.stop()
@@ -597,6 +589,5 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
     private fun stopClientAudio(context: MovementContext) {
         val playerUUID = getPlayerUUID(context) ?: return
         ModPackets.broadcast(AudioPlayerContextStopPacket(playerUUID))
-        GlobalRecordPlayerMovementBehaviourTracker.clockStarts -= playerUUID
     }
 }

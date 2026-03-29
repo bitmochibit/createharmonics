@@ -554,7 +554,7 @@ class RecordPlayerBehaviour(
             PlaybackState.PLAYING -> {
                 if (oldState == PlaybackState.PAUSED) {
                     // Resumed from pause, accumulate the paused duration
-//                    playtimeClock.play()
+                    playtimeClock.play()
                 }
             }
 
@@ -564,7 +564,7 @@ class RecordPlayerBehaviour(
         when (newState) {
             PlaybackState.PLAYING if oldState != PlaybackState.PLAYING -> {
                 registerPlayer(recordPlayerUUID.toString(), be)
-//                playtimeClock.play()
+                playtimeClock.play()
             }
 
             PlaybackState.STOPPED if oldState != PlaybackState.STOPPED -> {
@@ -754,15 +754,6 @@ class RecordPlayerBehaviour(
         if (clientPacket && be.level?.isClientSide == true) {
             underwaterEffect.update(audioPlayer, be.blockPos, be.level!!)
         }
-    }
-
-    /**
-     * This function starts the current clock, accurately tracking the time between players
-     * Only the first start is considered
-     */
-    fun onStartClockReceived() {
-        if (playtimeClock.isPlaying) return
-        playtimeClock.play()
     }
 
     fun onPlaybackEnd(

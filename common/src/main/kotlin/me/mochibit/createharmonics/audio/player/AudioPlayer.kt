@@ -18,7 +18,6 @@ import me.mochibit.createharmonics.audio.utils.unpause
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.async.withMainContext
 import me.mochibit.createharmonics.foundation.info
-import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerStartClockPacket
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerStreamEndPacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
 import net.minecraft.client.Minecraft
@@ -176,6 +175,7 @@ class AudioPlayer(
     private suspend fun startPlayback(pos: Double = 0.0) {
         val request = currentAudioRequest ?: return
         transition(PlayerState.LOADING)
+        val resolutionStart = System.currentTimeMillis()
         val (resolvedInputStream, currentSource) =
             try {
                 val source = AudioSourceResolver.resolve(request)
@@ -185,6 +185,10 @@ class AudioPlayer(
                 handleStreamEnd()
                 return transition(PlayerState.STOPPED)
             }
+
+        val resolutionElapsed = (System.currentTimeMillis() - resolutionStart) / 1000.0
+        val adjustedPos = if (currentSource.isLive()) 0.0 else pos + resolutionElapsed
+
         if (resolvedInputStream.status == SourceStreamResolver.Result.StreamStatus.FINISHED || resolvedInputStream.inputStream == null) {
             handleStreamEnd()
             return transition(PlayerState.STOPPED)
@@ -217,8 +221,7 @@ class AudioPlayer(
 
         currentSoundInstance = soundInstance
         currentAudioEffectInputStream = stream
-        clock.play(if (currentSource.isLive()) 0.0 else pos)
-        notifyClockStart()
+        clock.play(adjustedPos)
         transition(PlayerState.PLAYING)
     }
 
@@ -244,7 +247,6 @@ class AudioPlayer(
 
         soundInstance.unpause()
         clock.play()
-        notifyClockStart()
         transition(PlayerState.PLAYING)
     }
 
@@ -290,8 +292,6 @@ class AudioPlayer(
     private fun handleStreamHang() {
         intents.trySend(PlayerIntent.AudioHanged)
     }
-
-    private fun notifyClockStart() = ModPackets.sendToServer(AudioPlayerStartClockPacket(playerId))
 
     private fun notifyStreamEnd() = ModPackets.sendToServer(AudioPlayerStreamEndPacket(playerId))
 
