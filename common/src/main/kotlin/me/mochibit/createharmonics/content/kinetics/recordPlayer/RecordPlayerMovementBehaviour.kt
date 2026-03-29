@@ -587,7 +587,7 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
     }
 
     private fun stopClientAudio(context: MovementContext) {
-        val playerUUID = getPlayerUUID(context) ?: return
+        val playerUUID = getPlayerUUID(context)
         ModPackets.broadcast(AudioPlayerContextStopPacket(playerUUID))
     }
 }
