@@ -5,13 +5,16 @@ import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
 import me.mochibit.createharmonics.foundation.async.ClientCoroutineScope
 import me.mochibit.createharmonics.foundation.async.ModCoroutineScope
 import me.mochibit.createharmonics.foundation.async.ServerCoroutineScope
+import me.mochibit.createharmonics.foundation.eventbus.ClientEvents
+import me.mochibit.createharmonics.foundation.eventbus.CommonEvents
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
 import me.mochibit.createharmonics.foundation.eventbus.ProxyEvent
+import me.mochibit.createharmonics.foundation.eventbus.ServerEvents
 
 object ModLifecycleHandlers : CommonRegistry {
     override fun register() {
         // Client disconnects from a server (including leaving singleplayer/LAN)
-        EventBus.on<ProxyEvent.ClientDisconnectedEventProxy> { _ ->
+        EventBus.on<ClientEvents.ClientDisconnectedEvent> { _ ->
             // Close all audio players first (while MC thread is still alive) so they
             // stop cleanly, then cancel the scope so no orphan coroutines remain.
             AudioPlayerManager.closeAll()
@@ -20,12 +23,12 @@ object ModLifecycleHandlers : CommonRegistry {
         }
 
         // Dedicated/integrated server stops
-        EventBus.on<ProxyEvent.ServerStoppedEventProxy> { _ ->
+        EventBus.on<ServerEvents.ServerStoppedEvent> { _ ->
             ServerCoroutineScope.cancelAll()
         }
 
         // Game is fully closing
-        EventBus.on<ProxyEvent.GameShuttingDownEventProxy> { _ ->
+        EventBus.on<CommonEvents.GameShuttingDownEvent> { _ ->
             AudioPlayerManager.closeAll()
             ProcessLifecycleManager.shutdownAll()
             ClientCoroutineScope.shutdown()

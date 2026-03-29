@@ -7,7 +7,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.withContext
 import me.mochibit.createharmonics.foundation.async.ModCoroutineScope
+import me.mochibit.createharmonics.foundation.async.currentMainDispatcher
 import kotlin.reflect.KClass
 
 object EventBus {
@@ -56,6 +58,18 @@ object EventBus {
         ignoreCancelled: Boolean = true,
         noinline handler: suspend (T) -> Unit,
     ): Job = on(T::class, priority, listenSubclasses, ignoreCancelled, handler)
+
+    inline fun <reified T : ModEvent> onMcMain(
+        priority: EventPriority = EventPriority.NORMAL,
+        listenSubclasses: Boolean = false,
+        ignoreCancelled: Boolean = true,
+        noinline handler: suspend (T) -> Unit,
+    ): Job =
+        on<T>(priority, listenSubclasses, ignoreCancelled) { event ->
+            withContext(currentMainDispatcher) {
+                handler(event)
+            }
+        }
 
     @PublishedApi
     internal fun <T : ModEvent> on(

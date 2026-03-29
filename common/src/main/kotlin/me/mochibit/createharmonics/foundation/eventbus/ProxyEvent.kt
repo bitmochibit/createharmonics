@@ -1,14 +1,9 @@
 package me.mochibit.createharmonics.foundation.eventbus
 
 import com.mojang.brigadier.CommandDispatcher
-import net.minecraft.client.multiplayer.MultiPlayerGameMode
-import net.minecraft.client.player.LocalPlayer
 import net.minecraft.commands.CommandBuildContext
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
-import net.minecraft.network.Connection
-import net.minecraft.server.MinecraftServer
-import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelAccessor
@@ -16,60 +11,52 @@ import net.minecraft.world.level.LevelAccessor
 /**
  * This event type is used to register platform specific event handlers that are required even for the common layer
  */
-sealed interface ProxyEvent : ModEvent {
-    data class ServerStartedEventProxy(
-        val server: MinecraftServer,
-    ) : ProxyEvent
+sealed interface ProxyEvent : ModEvent
 
-    data class ServerStoppedEventProxy(
-        val server: MinecraftServer,
-    ) : ProxyEvent
+sealed interface ClientProxyEvent : ProxyEvent
 
-    data class ClientDisconnectedEventProxy(
-        val controller: MultiPlayerGameMode?,
-        val localPlayer: LocalPlayer?,
-        val networkManager: Connection?,
-    ) : ProxyEvent
+sealed interface ServerProxyEvent : ProxyEvent
 
-    data class EntityJoinLevelEventProxy(
+object CommonEvents {
+    data class EntityJoinLevelEvent(
         val entity: Entity,
         val level: Level,
-    ) : ProxyEvent
+    ) : ClientProxyEvent,
+        ServerProxyEvent
 
-    data class PlayerStartTrackingEntityProxy(
-        val player: ServerPlayer,
-        val entity: Entity,
-    ) : ProxyEvent
-
-    data class RegisterCommandsEventProxy(
+    data class RegisterCommandsEvent(
         val dispatcher: CommandDispatcher<CommandSourceStack>,
         val env: Commands.CommandSelection,
         val context: CommandBuildContext,
-    ) : ProxyEvent
+    ) : ClientProxyEvent,
+        ServerProxyEvent
 
-    data class LevelUnloadEventProxy(
+    data class LevelUnloadEvent(
         val levelAccess: LevelAccessor,
-    ) : ProxyEvent
+    ) : ClientProxyEvent,
+        ServerProxyEvent
 
-    object TickEvent {
-        enum class Type {
-            LEVEL,
-            PLAYER,
-            CLIENT,
-            SERVER,
-            RENDER,
-        }
+    class GameShuttingDownEvent :
+        ClientProxyEvent,
+        ServerProxyEvent
+}
 
-        enum class Phase {
-            START,
-            END,
-        }
-
-        data class ClientTickEventProxy(
-            val type: Type,
-            val phase: Phase,
-        ) : ProxyEvent
+object TickEvents {
+    enum class Type {
+        LEVEL,
+        PLAYER,
+        CLIENT,
+        SERVER,
+        RENDER,
     }
 
-    class GameShuttingDownEventProxy : ProxyEvent
+    enum class Phase {
+        START,
+        END,
+    }
+
+    data class ClientTickEvent(
+        val type: Type,
+        val phase: Phase,
+    ) : ClientProxyEvent
 }

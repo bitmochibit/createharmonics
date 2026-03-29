@@ -13,15 +13,6 @@ import me.mochibit.createharmonics.foundation.registry.autoRegister
 import me.mochibit.createharmonics.gui.CommonGuiEventHandler
 import net.createmod.catnip.lang.FontHelper
 
-interface RegistrateSetupHandler {
-    /**
-     * Configure the registrate to the platform specific requirements
-     *
-     * Generally this method should be used for registering event listeners
-     */
-    fun setupRegistrate(registrate: CreateRegistrate)
-}
-
 object CreateHarmonicsMod {
     const val MOD_ID = "createharmonics"
     private var initialized = false
@@ -40,12 +31,12 @@ object CreateHarmonicsMod {
         return _registrate
     }
 
-    fun commonSetup(registrateSetupHandler: RegistrateSetupHandler) {
+    fun commonSetup(registrateConfiguration: CreateRegistrate.() -> Unit) {
         if (initialized) {
             return "Common was already initialized".err()
         }
         initialized = true
-        registrateSetupHandler.setupRegistrate(_registrate)
+        _registrate.registrateConfiguration()
 
         autoRegister<CommonRegistry>()
         autoHandler<CommonGuiEventHandler>()

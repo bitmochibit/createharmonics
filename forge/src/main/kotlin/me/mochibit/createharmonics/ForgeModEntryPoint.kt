@@ -38,7 +38,7 @@ import net.minecraftforge.items.IItemHandler
 @Mod(MOD_ID)
 class ForgeModEntryPoint(
     val context: FMLJavaModLoadingContext,
-) : RegistrateSetupHandler {
+) {
     companion object {
         @JvmStatic
         lateinit var instance: ForgeModEntryPoint
@@ -119,13 +119,11 @@ class ForgeModEntryPoint(
             }
         }
 
-        CreateHarmonicsMod.commonSetup(this)
+        CreateHarmonicsMod.commonSetup {
+            registerEventListeners(context.modEventBus)
+        }
 
         autoRegister<ForgeRegistry>()
-    }
-
-    override fun setupRegistrate(registrate: CreateRegistrate) {
-        registrate.registerEventListeners(context.modEventBus)
     }
 }
 

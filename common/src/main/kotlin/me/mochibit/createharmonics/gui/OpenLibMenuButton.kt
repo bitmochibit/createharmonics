@@ -1,11 +1,13 @@
-package me.mochibit.createharmonics.client.gui
+package me.mochibit.createharmonics.gui
 
-import me.mochibit.createharmonics.client.gui.OpenLibMenuButton.MenuRows.leftTextKeys
-import me.mochibit.createharmonics.client.gui.OpenLibMenuButton.MenuRows.rightTextKeys
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.content.records.RecordType
-import me.mochibit.createharmonics.foundation.registry.ForgeConfigRegistrar
+import me.mochibit.createharmonics.foundation.eventbus.ClientEvents
+import me.mochibit.createharmonics.foundation.eventbus.EventBus
 import me.mochibit.createharmonics.foundation.registry.ModItems
+import me.mochibit.createharmonics.gui.OpenLibMenuButton.MenuRows
+import me.mochibit.createharmonics.gui.OpenLibMenuButton.MenuRows.leftTextKeys
+import me.mochibit.createharmonics.gui.OpenLibMenuButton.MenuRows.rightTextKeys
 import net.createmod.catnip.gui.ScreenOpener
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.Font
@@ -17,10 +19,6 @@ import net.minecraft.client.gui.screens.PauseScreen
 import net.minecraft.client.gui.screens.TitleScreen
 import net.minecraft.client.resources.language.I18n
 import net.minecraft.network.chat.CommonComponents
-import net.minecraftforge.api.distmarker.Dist
-import net.minecraftforge.client.event.ScreenEvent
-import net.minecraftforge.eventbus.api.SubscribeEvent
-import net.minecraftforge.fml.common.Mod.EventBusSubscriber
 import org.apache.commons.lang3.mutable.MutableObject
 import java.util.function.Consumer
 
@@ -86,11 +84,17 @@ class OpenLibMenuButton(
             }
     }
 
-    @EventBusSubscriber(value = [Dist.CLIENT])
-    object OpenLibButtonHandler {
-        @JvmStatic
-        @SubscribeEvent
-        fun onGuiInit(event: ScreenEvent.Init) {
+    companion object {
+        @Suppress("UNUSED_PARAMETER")
+        fun click(b: Button?) {
+            ScreenOpener.open(HarmonicsMenuScreen(Minecraft.getInstance().screen))
+        }
+    }
+}
+
+object MainMenuHandler : CommonGuiEventHandler {
+    override fun setupEvents() {
+        EventBus.onMcMain<ClientEvents.ScreenEvent.Init> { event ->
             val screen = event.screen
 
             val menu: List<MenuRows.SingleMenuRow>
@@ -110,12 +114,12 @@ class OpenLibMenuButton(
                 }
 
                 else -> {
-                    return
+                    return@onMcMain
                 }
             }
 
             if (rowIdx == 0) {
-                return
+                return@onMcMain
             }
 
             val onLeft = offsetX < 0
@@ -123,7 +127,7 @@ class OpenLibMenuButton(
 
             val toAdd = MutableObject<GuiEventListener>(null)
             event
-                .listenersList
+                .listenerList
                 .stream()
                 .filter { w: GuiEventListener -> w is AbstractWidget }
                 .map { w: GuiEventListener -> w as AbstractWidget }
@@ -142,13 +146,6 @@ class OpenLibMenuButton(
                     },
                 )
             if (toAdd.getValue() != null) event.addListener(toAdd.getValue())
-        }
-    }
-
-    companion object {
-        @Suppress("UNUSED_PARAMETER")
-        fun click(b: Button?) {
-            ScreenOpener.open(HarmonicsMenuScreen(Minecraft.getInstance().screen))
         }
     }
 }

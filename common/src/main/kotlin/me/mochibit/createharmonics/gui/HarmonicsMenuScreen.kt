@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.client.gui
+package me.mochibit.createharmonics.gui
 
 import com.mojang.blaze3d.systems.RenderSystem
 import dev.engine_room.flywheel.lib.model.baked.PartialModel
@@ -6,8 +6,6 @@ import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.foundation.locale.ModLang
 import me.mochibit.createharmonics.foundation.registry.ModPartialModels
-import me.mochibit.createharmonics.gui.LibraryDisclaimerScreen
-import me.mochibit.createharmonics.gui.ModGuiTexture
 import net.createmod.catnip.config.ui.BaseConfigScreen
 import net.createmod.catnip.data.Iterate
 import net.createmod.catnip.gui.AbstractSimiScreen
@@ -34,7 +32,7 @@ class HarmonicsMenuScreen(
     private val buttonHeight = 20
 
     private val panoramaOverlay =
-        ResourceLocation.withDefaultNamespace("textures/gui/title/background/panorama_overlay.png")
+        ResourceLocation("minecraft:textures/gui/title/background/panorama_overlay.png")
     private var vanillaPanorama: PanoramaRenderer = PanoramaRenderer(TitleScreen.CUBE_MAP)
     private var firstRenderTime: Long = 0L
     private var returnOnClose = true

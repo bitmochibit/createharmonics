@@ -5,6 +5,7 @@ import com.simibubi.create.content.contraptions.AbstractContraptionEntity
 import com.simibubi.create.content.contraptions.behaviour.MovementContext
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
 import me.mochibit.createharmonics.foundation.eventbus.ProxyEvent
+import me.mochibit.createharmonics.foundation.eventbus.ServerEvents
 import me.mochibit.createharmonics.foundation.network.packet.ContraptionBlockDataChangedPacket
 import me.mochibit.createharmonics.foundation.network.packet.ModPacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
@@ -23,7 +24,7 @@ abstract class SmartMovementBehaviour<Data> : MovementBehaviour {
     }
 
     init {
-        EventBus.on<ProxyEvent.PlayerStartTrackingEntityProxy> { event ->
+        EventBus.on<ServerEvents.PlayerStartTrackingEntity> { event ->
             val entity = event.entity
             if (entity !is AbstractContraptionEntity) return@on
 

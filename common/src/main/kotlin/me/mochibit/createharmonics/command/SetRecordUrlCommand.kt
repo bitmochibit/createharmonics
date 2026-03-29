@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
 import me.mochibit.createharmonics.command.SetRecordUrlCommand.registerCommand
+import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordUtilities.setAudioUrl
 import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.services.contentService
@@ -73,7 +74,7 @@ object SetRecordUrlCommand : CommandEntry {
         }
 
         val mainHandItem = player.mainHandItem
-        if (!contentService.isEtherealRecord(mainHandItem)) {
+        if (mainHandItem.item !is EtherealRecordItem) {
             source.sendFailure(Component.literal("You must be holding an Ethereal Record (main hand) to use this command."))
             return 0
         }

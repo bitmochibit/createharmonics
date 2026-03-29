@@ -25,7 +25,7 @@ object RecordUtilities {
     const val AUDIO_URL_TAG_KEY = "audio_url"
 
     fun getAudioUrl(stack: ItemStack): String? {
-        if (!contentService.isEtherealRecord(stack)) return null
+        if (stack.item !is EtherealRecordItem) return null
         return stack.tag?.getString(AUDIO_URL_TAG_KEY)
     }
 
@@ -33,7 +33,7 @@ object RecordUtilities {
         stack: ItemStack,
         url: String,
     ) {
-        if (!contentService.isEtherealRecord(stack)) return
+        if (stack.item !is EtherealRecordItem) return
 
         if (stack.tag == null) {
             stack.tag = CompoundTag()
@@ -51,9 +51,9 @@ object RecordUtilities {
         stack: ItemStack,
         random: RandomSource,
     ): RecordUseResult {
-        if (!contentService.isEtherealRecord(stack)) return RecordUseResult.Invalid
+        if (stack.item !is EtherealRecordItem) return RecordUseResult.Invalid
 
-        if (!contentService.isEtherealRecordDamageable(stack)) {
+        if (stack.item.canBeDepleted()) {
             return RecordUseResult.NotDamageable(stack)
         }
 
@@ -117,12 +117,13 @@ object RecordUtilities {
         compVolumeSupplier: FloatSupplier = FloatSupplier { 1f },
         initialPos: Double = 0.0,
     ) {
-        if (!contentService.isEtherealRecord(etherealRecord)) return
+        val etherealRecordItem = etherealRecord.item
+        if (etherealRecordItem !is EtherealRecordItem) return
         val url = getAudioUrl(etherealRecord) ?: ""
 
         // source -> |INTRINSIC_EFFECT| -> |EFFECT_COMP_MIXER|(untouched by intrinsics) -> |PITCH SHIFT| -> |WATER MUFFLE|
 
-        val recordProps = contentService.getEtherealRecordType(etherealRecord) ?: return
+        val recordProps = etherealRecordItem.recordType
         this.soundEventComposition.removeAll { true }
 
         this.soundEventComposition.anchorAfter(AudioEffect.Scope.INTRINSIC_EFFECT)

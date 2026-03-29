@@ -1,16 +1,20 @@
 package me.mochibit.createharmonics.data
 
+import com.google.gson.Gson
+import com.google.gson.JsonElement
 import com.tterrag.registrate.providers.ProviderType
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
 import me.mochibit.createharmonics.ModRegistrate
 import me.mochibit.createharmonics.data.recipe.ModRecipeProvider
+import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.info
-import me.mochibit.createharmonics.foundation.utility.JsonResourceLoader
 import me.mochibit.createharmonics.ponder.ModPonderPlugin
 import net.createmod.ponder.foundation.PonderIndex
 import net.minecraftforge.data.event.GatherDataEvent
 import net.minecraftforge.eventbus.api.SubscribeEvent
 import net.minecraftforge.fml.common.Mod
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
 @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
 object DataGenerators {
@@ -67,5 +71,27 @@ object DataGenerators {
         PonderIndex.addPlugin(ModPonderPlugin())
 
         PonderIndex.getLangAccess().provideLang(MOD_ID, consumer)
+    }
+}
+
+object JsonResourceLoader {
+    private val gson = Gson()
+
+    fun loadJsonResource(path: String): JsonElement? {
+        return try {
+            val inputStream = JsonResourceLoader::class.java.classLoader.getResourceAsStream(path)
+            if (inputStream == null) {
+                "Could not find resource: $path".err()
+                return null
+            }
+
+            val reader = BufferedReader(InputStreamReader(inputStream))
+            val json = gson.fromJson(reader, JsonElement::class.java)
+            reader.close()
+            json
+        } catch (e: Exception) {
+            "Error loading JSON resource $path: ${e.message}".err()
+            null
+        }
     }
 }

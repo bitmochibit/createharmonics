@@ -5,6 +5,7 @@ import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
 import me.mochibit.createharmonics.foundation.eventbus.ProxyEvent
+import me.mochibit.createharmonics.foundation.eventbus.TickEvents
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.TitleScreen
 
@@ -13,8 +14,8 @@ object LibDisclaimerHandler : CommonGuiEventHandler {
     private var hasChecked = false
 
     override fun setupEvents() {
-        EventBus.on<ProxyEvent.TickEvent.ClientTickEventProxy> { event ->
-            if (event.phase != ProxyEvent.TickEvent.Phase.END) return@on
+        EventBus.on<TickEvents.ClientTickEvent> { event ->
+            if (event.phase != TickEvents.Phase.END) return@on
             if (hasChecked) return@on
 
             val minecraft = Minecraft.getInstance()

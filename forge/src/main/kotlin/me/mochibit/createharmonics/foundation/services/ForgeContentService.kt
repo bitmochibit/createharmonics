@@ -126,26 +126,4 @@ class ForgeContentService : ContentService {
             blockEntity.setChanged()
         }
     }
-
-    override fun onTitleChange(
-        audioPlayerId: String,
-        audioName: String,
-    ): Boolean {
-        RecordPlayerBlockEntity.handleAudioTitleChange(audioPlayerId, audioName)
-        return true
-    }
-
-    override fun isEtherealRecord(stack: ItemStack): Boolean = stack.item is EtherealRecordItem
-
-    override fun getEtherealRecordType(stack: ItemStack): RecordType? {
-        val etherealRecord = stack.item as? EtherealRecordItem ?: return null
-        return etherealRecord.recordType
-    }
-
-    override fun isEtherealRecordDamageable(stack: ItemStack): Boolean {
-        val etherealRecord = stack.item as? EtherealRecordItem ?: return false
-        return etherealRecord.isDamageable(stack)
-    }
-
-    override fun isRecordBase(stack: ItemStack): Boolean = stack.item is BaseRecordItem
 }

@@ -12,7 +12,7 @@ import kotlin.coroutines.CoroutineContext
 private val isClient: Boolean
     get() = platformService isEnvironment PlatformService.Environment.CLIENT
 
-val currentContext: CoroutineContext
+val currentMainDispatcher: CoroutineContext
     get() = if (isClient) ModDispatchers.Client() else ModDispatchers.Server()
 
 private fun currentScope(): CoroutineScope =
@@ -23,12 +23,12 @@ private fun currentScope(): CoroutineScope =
     }
 
 fun modLaunch(
-    context: CoroutineContext = currentContext,
+    context: CoroutineContext = currentMainDispatcher,
     block: suspend CoroutineScope.() -> Unit,
 ) = currentScope().launch(context, block = block)
 
 fun delayedLaunch(
-    context: CoroutineContext = currentContext,
+    context: CoroutineContext = currentMainDispatcher,
     delay: kotlin.time.Duration,
     block: suspend CoroutineScope.() -> Unit,
 ) = currentScope().launch(context) {
@@ -39,7 +39,7 @@ fun delayedLaunch(
 infix fun kotlin.time.Duration.thenLaunch(block: suspend CoroutineScope.() -> Unit) = delayedLaunch(delay = this, block = block)
 
 fun repeatingLaunch(
-    context: CoroutineContext = currentContext,
+    context: CoroutineContext = currentMainDispatcher,
     initialDelay: kotlin.time.Duration = kotlin.time.Duration.ZERO,
     delay: kotlin.time.Duration,
     block: suspend CoroutineScope.() -> Unit,
@@ -59,6 +59,6 @@ infix fun kotlin.time.Duration.every(block: suspend CoroutineScope.() -> Unit) =
 
 suspend fun <T> withMainContext(block: suspend CoroutineScope.() -> T): T =
     withContext(
-        currentContext,
+        currentMainDispatcher,
         block,
     )

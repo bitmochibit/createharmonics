@@ -66,19 +66,6 @@ interface ContentService {
         randomMode: Boolean = false,
         newIndex: Int = 0,
     )
-
-    fun onTitleChange(
-        audioPlayerId: String,
-        audioName: String,
-    ): Boolean
-
-    fun isEtherealRecord(stack: ItemStack): Boolean
-
-    fun getEtherealRecordType(stack: ItemStack): RecordType?
-
-    fun isEtherealRecordDamageable(stack: ItemStack): Boolean
-
-    fun isRecordBase(stack: ItemStack): Boolean
 }
 
 val contentService: ContentService by lazy {
