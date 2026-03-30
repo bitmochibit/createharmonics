@@ -26,7 +26,7 @@ class RecordPlayerItemHandler(
             val be = behaviour.blockEntity
             be.level?.setBlockAndUpdate(
                 be.blockPos,
-                be.blockState.setValue(JukeboxBlock.HAS_RECORD, hasDisc),
+                be.blockState.setValue(RecordPlayerTrait.HAS_ETHEREAL_RECORD, hasDisc),
             )
             be.notifyUpdate()
         }

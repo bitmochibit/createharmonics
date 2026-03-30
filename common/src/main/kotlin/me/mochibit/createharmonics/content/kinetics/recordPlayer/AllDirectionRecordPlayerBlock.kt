@@ -26,7 +26,6 @@ abstract class AllDirectionRecordPlayerBlock(
     properties: Properties,
 ) : DirectionalKineticBlock(properties),
     IBE<RecordPlayerBlockEntity>,
-    ProperWaterloggedBlock,
     RecordPlayerTrait {
     companion object {
         private val RANDOM = RandomSource.create()
@@ -36,8 +35,7 @@ abstract class AllDirectionRecordPlayerBlock(
     init {
         registerDefaultState(
             defaultBlockState()
-                .setValue(JukeboxBlock.HAS_RECORD, false)
-                .setValue(ProperWaterloggedBlock.WATERLOGGED, false)
+                .setValue(RecordPlayerTrait.HAS_ETHEREAL_RECORD, false)
                 .setValue(POWERED, false),
         )
     }
@@ -64,12 +62,10 @@ abstract class AllDirectionRecordPlayerBlock(
     override fun getStateForPlacement(context: BlockPlaceContext): BlockState? {
         val pos = context.clickedPos
         val placed = super.getStateForPlacement(context) ?: return null
-        return withWater(
-            placed.setValue(
-                PackagerLinkBlock.POWERED,
-                context.level.getBestNeighborSignal(pos) > 0,
-            ),
-            context,
+
+        return placed.setValue(
+            PackagerLinkBlock.POWERED,
+            context.level.getBestNeighborSignal(pos) > 0,
         )
     }
 
@@ -105,15 +101,12 @@ abstract class AllDirectionRecordPlayerBlock(
         pLevel: LevelAccessor,
         pPos: BlockPos,
         pNeighborPos: BlockPos,
-    ): BlockState {
-        updateWater(pLevel, pState, pPos)
-        return pState
-    }
+    ): BlockState = pState
 
     override fun getRotationAxis(state: BlockState): Direction.Axis = state.getValue(FACING).axis
 
     override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block?, BlockState?>) {
         super.createBlockStateDefinition(builder)
-        builder.add(JukeboxBlock.HAS_RECORD, POWERED, ProperWaterloggedBlock.WATERLOGGED)
+        builder.add(RecordPlayerTrait.HAS_ETHEREAL_RECORD, POWERED)
     }
 }

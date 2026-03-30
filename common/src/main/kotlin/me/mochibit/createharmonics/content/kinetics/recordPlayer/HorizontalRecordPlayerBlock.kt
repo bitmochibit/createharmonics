@@ -20,13 +20,14 @@ import net.minecraft.world.level.block.JukeboxBlock
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.StateDefinition
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
+import net.minecraft.world.level.block.state.properties.BooleanProperty
 import net.minecraft.world.phys.BlockHitResult
 
 abstract class HorizontalRecordPlayerBlock(
     properties: Properties,
 ) : HorizontalKineticBlock(properties),
     IBE<RecordPlayerBlockEntity>,
-    ProperWaterloggedBlock, RecordPlayerTrait{
+    RecordPlayerTrait {
     companion object {
         private val RANDOM = RandomSource.create()
         val POWERED = BlockStateProperties.POWERED
@@ -35,8 +36,7 @@ abstract class HorizontalRecordPlayerBlock(
     init {
         registerDefaultState(
             defaultBlockState()
-                .setValue(JukeboxBlock.HAS_RECORD, false)
-                .setValue(ProperWaterloggedBlock.WATERLOGGED, false)
+                .setValue(RecordPlayerTrait.HAS_ETHEREAL_RECORD, false)
                 .setValue(POWERED, false),
         )
     }
@@ -51,9 +51,7 @@ abstract class HorizontalRecordPlayerBlock(
         pPlayer: Player,
         pHand: InteractionHand,
         pHit: BlockHitResult,
-    ): InteractionResult {
-        return handleRecordUse(pState, pLevel, pPos, pPlayer, pHand, pHit, pState.getValue(HORIZONTAL_FACING))
-    }
+    ): InteractionResult = handleRecordUse(pState, pLevel, pPos, pPlayer, pHand, pHit, pState.getValue(HORIZONTAL_FACING))
 
     override fun hasShaftTowards(
         world: LevelReader?,
@@ -65,12 +63,9 @@ abstract class HorizontalRecordPlayerBlock(
     override fun getStateForPlacement(context: BlockPlaceContext): BlockState? {
         val pos = context.clickedPos
         val placed = super.getStateForPlacement(context) ?: return null
-        return withWater(
-            placed.setValue(
-                PackagerLinkBlock.POWERED,
-                context.level.getBestNeighborSignal(pos) > 0,
-            ),
-            context,
+        return placed.setValue(
+            PackagerLinkBlock.POWERED,
+            context.level.getBestNeighborSignal(pos) > 0,
         )
     }
 
@@ -106,15 +101,12 @@ abstract class HorizontalRecordPlayerBlock(
         pLevel: LevelAccessor,
         pPos: BlockPos,
         pNeighborPos: BlockPos,
-    ): BlockState {
-        updateWater(pLevel, pState, pPos)
-        return pState
-    }
+    ): BlockState = pState
 
     override fun getRotationAxis(state: BlockState): Direction.Axis = state.getValue(HORIZONTAL_FACING).axis
 
     override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block?, BlockState?>) {
         super.createBlockStateDefinition(builder)
-        builder.add(JukeboxBlock.HAS_RECORD, POWERED, ProperWaterloggedBlock.WATERLOGGED)
+        builder.add(RecordPlayerTrait.HAS_ETHEREAL_RECORD, POWERED)
     }
 }

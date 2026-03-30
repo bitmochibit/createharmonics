@@ -20,7 +20,7 @@ class RecordPlayerArmPoint(
         simulate: Boolean,
     ): ItemStack? {
         if (stack?.item !is EtherealRecordItem) return stack
-        if (cachedState.getOptionalValue(JukeboxBlock.HAS_RECORD).orElse(true)) return stack
+        if (cachedState.getOptionalValue(RecordPlayerTrait.HAS_ETHEREAL_RECORD).orElse(true)) return stack
         val be =
             level.getBlockEntity(pos) as? RecordPlayerBlockEntity
                 ?: return stack
@@ -45,7 +45,7 @@ class RecordPlayerArmPoint(
         amount: Int,
         simulate: Boolean,
     ): ItemStack {
-        if (!cachedState.getOptionalValue(JukeboxBlock.HAS_RECORD).orElse(false)) return ItemStack.EMPTY
+        if (!cachedState.getOptionalValue(RecordPlayerTrait.HAS_ETHEREAL_RECORD).orElse(false)) return ItemStack.EMPTY
         val be =
             level.getBlockEntity(pos) as? RecordPlayerBlockEntity
                 ?: return ItemStack.EMPTY
