@@ -1,13 +1,16 @@
 package me.mochibit.createharmonics.audio.instance
 
+import me.mochibit.createharmonics.audio.stream.PcmAudioStream
 import me.mochibit.createharmonics.foundation.extension.asResource
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
+import net.minecraft.client.sounds.AudioStream
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
 import java.io.InputStream
+import java.util.concurrent.CompletableFuture
 
 abstract class StreamingSoundInstance(
     val sourceStream: InputStream,
@@ -32,4 +35,10 @@ abstract class StreamingSoundInstance(
     ),
     SampleRatedInstance {
     override fun getLocation(): ResourceLocation = "streaming_sound_instance".asResource()
+
+    val currentAudioStreamDelegate =
+        lazy {
+            PcmAudioStream(this.sourceStream, this.sampleRate)
+        }
+    val currentAudioStream: AudioStream by currentAudioStreamDelegate
 }

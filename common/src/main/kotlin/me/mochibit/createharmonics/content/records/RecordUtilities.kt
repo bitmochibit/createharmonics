@@ -53,7 +53,7 @@ object RecordUtilities {
     ): RecordUseResult {
         if (stack.item !is EtherealRecordItem) return RecordUseResult.Invalid
 
-        if (stack.item.canBeDepleted()) {
+        if (!stack.item.canBeDepleted()) {
             return RecordUseResult.NotDamageable(stack)
         }
 

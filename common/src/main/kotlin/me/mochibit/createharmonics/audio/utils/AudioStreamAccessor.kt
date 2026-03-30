@@ -2,6 +2,8 @@ package me.mochibit.createharmonics.audio.utils
 
 import com.mojang.blaze3d.audio.Channel
 import kotlinx.coroutines.future.await
+import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
+import me.mochibit.createharmonics.audio.stream.PausableAudioStream
 import me.mochibit.createharmonics.foundation.async.withMainContext
 import mixin.SoundEngineAccessor
 import mixin.SoundManagerAccessor
@@ -34,11 +36,25 @@ fun SoundInstance.getStreamDirectly(looping: Boolean): CompletableFuture<AudioSt
 }
 
 fun SoundInstance.pause() {
+    if (this is StreamingSoundInstance) {
+        if (!currentAudioStreamDelegate.isInitialized()) return
+        val currentAudioStream = this.currentAudioStream
+        if (currentAudioStream is PausableAudioStream) {
+            currentAudioStream.pause()
+        }
+    }
     val channelHandle = soundEngineAccessor.instanceToChannel[this]
     channelHandle?.execute(Channel::pause)
 }
 
 fun SoundInstance.unpause() {
+    if (this is StreamingSoundInstance) {
+        if (!currentAudioStreamDelegate.isInitialized()) return
+        val currentAudioStream = this.currentAudioStream
+        if (currentAudioStream is PausableAudioStream) {
+            currentAudioStream.resume()
+        }
+    }
     val channelHandle = soundEngineAccessor.instanceToChannel[this]
     channelHandle?.execute(Channel::unpause)
 }

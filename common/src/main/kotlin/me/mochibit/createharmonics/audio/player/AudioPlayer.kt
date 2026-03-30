@@ -320,7 +320,7 @@ class AudioPlayer(
     }
 
     fun syncWith(other: PlaytimeClock) {
-        if (!clock.isPlaying) return
+        if (!clock.isPlaying || !other.isPlaying) return
         val now = System.currentTimeMillis()
         if (lastResyncAt != -1L && now - lastResyncAt < resyncCooldown.inWholeMilliseconds) return
         if (abs(other.currentPlaytime - clock.currentPlaytime) > 5.0) {

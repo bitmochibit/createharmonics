@@ -29,7 +29,7 @@ import me.mochibit.createharmonics.content.records.RecordUtilities.playFromRecor
 import me.mochibit.createharmonics.foundation.async.every
 import me.mochibit.createharmonics.foundation.async.thenLaunch
 import me.mochibit.createharmonics.foundation.behaviour.movement.SmartMovementBehaviour
-import me.mochibit.createharmonics.foundation.behaviour.movement.getContextData
+import me.mochibit.createharmonics.foundation.behaviour.movement.Stainable
 import me.mochibit.createharmonics.foundation.extension.onClient
 import me.mochibit.createharmonics.foundation.extension.onServer
 import me.mochibit.createharmonics.foundation.extension.readEnum
@@ -71,7 +71,8 @@ data class RecordPlayerContextData(
     val underwaterFilter: EffectPreset.UnderwaterFilter = EffectPreset.UnderwaterFilter(),
     var gracefulStopJob: Job? = null,
     var ticksSinceLastClockSave: Int = 0,
-)
+    override var isDirty: Boolean = false,
+) : Stainable
 
 object GlobalRecordPlayerMovementBehaviourTracker {
     val canRestart = SignalBox<String>()
@@ -354,47 +355,41 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             val data = getContextData(context)
             val currentRecord = getRecordItem(context)
             data.heldItemStack = currentRecord
-
             data.playtimeClock.tick()
-
-            if (data.playtimeClock.isPlaying) {
-                data.ticksSinceLastClockSave++
-                if (data.ticksSinceLastClockSave >= 40) {
-                    data.ticksSinceLastClockSave = 0
-                    return resyncData(context)
-                }
-            } else {
-                data.ticksSinceLastClockSave = 0
-            }
 
             val contraptionEntity = context.contraption?.entity
             val isDisassembled = contraptionEntity == null || !contraptionEntity.isAlive
 
             val newState =
-                when {
-                    isDisassembled || currentRecord == ItemStack.EMPTY -> PlaybackState.STOPPED
-
-                    !context.disabled &&
-                        (
-                            abs(context.animationSpeed) >= SPEED_THRESHOLD ||
-                                context.stall ||
-                                isPauseModeWithRedstone(context)
-                        )
-                    -> PlaybackState.PLAYING
-
-                    else -> PlaybackState.PAUSED
+                if (isDisassembled || currentRecord == ItemStack.EMPTY) {
+                    if (data.playtimeClock.isPlaying) {
+                        data.playtimeClock.stop()
+                        data.markDirty()
+                    }
+                    PlaybackState.STOPPED
+                } else if (!context.disabled &&
+                    (
+                        abs(context.animationSpeed) >= SPEED_THRESHOLD ||
+                            context.stall ||
+                            isPauseModeWithRedstone(context)
+                    )
+                ) {
+                    if (!data.playtimeClock.isPlaying) {
+                        data.playtimeClock.play()
+                        data.markDirty()
+                    }
+                    PlaybackState.PLAYING
+                } else {
+                    if (data.playtimeClock.isPlaying) {
+                        data.playtimeClock.pause()
+                        data.markDirty()
+                    }
+                    PlaybackState.PAUSED
                 }
 
-            when (newState) {
-                PlaybackState.PAUSED -> {
-                    data.playtimeClock.pause()
-                }
-
-                PlaybackState.STOPPED -> {
-                    data.playtimeClock.stop()
-                }
-
-                else -> {}
+            if (data.playbackState != newState) {
+                data.playbackState = newState
+                data.markDirty()
             }
 
             if (GlobalRecordPlayerMovementBehaviourTracker.canRestart.consume(getPlayerUUID(context)) &&
@@ -402,19 +397,21 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             ) {
                 data.playtimeClock.stop()
                 data.playbackState = PlaybackState.STOPPED
-                resyncData(context)
+                resyncData(context, true)
                 return@onServer
             }
 
-            if (newState == data.playbackState) return@onServer
+            data.ticksSinceLastClockSave++
+            if (data.ticksSinceLastClockSave >= 100) {
+                data.ticksSinceLastClockSave = 0
+                data.markDirty()
+            }
 
             if (newState == PlaybackState.PLAYING && data.playbackState == PlaybackState.STOPPED) {
                 handleRecordUse(context)
-                data.playtimeClock.play()
             }
 
-            data.playbackState = newState
-            resyncData(context)
+            resyncData(context, true)
         }
 
         context.world.onClient { _, _ ->
@@ -425,14 +422,17 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
 
             data.underwaterFilter.update(player, context.position, context.world)
 
-            if (data.playbackState == PlaybackState.PLAYING && player.state.value == PlayerState.PLAYING) {
-                player.syncWith(data.playtimeClock)
-            }
+            if (!data.isDirty) return
+            data.clean()
+
+            player.syncWith(data.playtimeClock)
 
             val newState = data.playbackState
             when (newState) {
                 PlaybackState.PLAYING -> {
-                    // Cancel any pending graceful stop so audio continues uninterrupted
+                    if (player.state.value == PlayerState.PLAYING) {
+                        return
+                    }
                     data.gracefulStopJob?.cancel()
                     data.gracefulStopJob = null
 
@@ -457,6 +457,10 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                 }
 
                 PlaybackState.PAUSED -> {
+                    if (player.state.value == PlayerState.PAUSED) {
+                        return
+                    }
+
                     if (data.gracefulStopJob == null) {
                         data.gracefulStopJob =
                             1.seconds.thenLaunch {
@@ -467,6 +471,10 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                 }
 
                 PlaybackState.STOPPED -> {
+                    if (player.state.value == PlayerState.STOPPED) {
+                        return
+                    }
+
                     data.gracefulStopJob?.cancel()
                     if (data.heldItemStack.isEmpty) {
                         if (player.state.value != PlayerState.STOPPED) player.stop()

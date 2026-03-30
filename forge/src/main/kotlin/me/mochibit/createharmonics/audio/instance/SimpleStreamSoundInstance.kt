@@ -50,8 +50,5 @@ class SimpleStreamSoundInstance(
         soundBuffers: SoundBufferLibrary,
         sound: Sound,
         looping: Boolean,
-    ): CompletableFuture<AudioStream?> =
-        CompletableFuture.completedFuture(
-            PcmAudioStream(this.sourceStream, this.sampleRate),
-        )
+    ): CompletableFuture<AudioStream> = CompletableFuture.completedFuture(this.currentAudioStream)
 }

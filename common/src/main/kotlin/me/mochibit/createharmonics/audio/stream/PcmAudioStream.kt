@@ -8,12 +8,22 @@ import java.nio.ByteOrder
 import javax.sound.sampled.AudioFormat
 import kotlin.math.min
 
+interface PausableAudioStream {
+    fun isPaused(): Boolean
+
+    fun pause()
+
+    fun resume()
+}
+
 class PcmAudioStream(
     private val inputStream: InputStream,
     val sampleRate: Int = 44100,
-) : AudioStream {
-    val readBufferSize = 8192
+) : AudioStream,
+    PausableAudioStream {
+    val readBufferSize = 4096
     private val audioFormat = AudioFormat(sampleRate.toFloat(), 16, 1, true, false)
+    private var paused: Boolean = false
 
     override fun getFormat(): AudioFormat = audioFormat
 
@@ -82,5 +92,15 @@ class PcmAudioStream(
 
     fun normallyClose() {
         inputStream.close()
+    }
+
+    override fun isPaused(): Boolean = paused
+
+    override fun pause() {
+        paused = true
+    }
+
+    override fun resume() {
+        paused = false
     }
 }

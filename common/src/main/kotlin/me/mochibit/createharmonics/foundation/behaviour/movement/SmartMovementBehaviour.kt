@@ -15,7 +15,19 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemp
 import net.minecraftforge.network.PacketDistributor
 import kotlin.collections.set
 
-abstract class SmartMovementBehaviour<Data> : MovementBehaviour {
+interface Stainable {
+    var isDirty: Boolean
+
+    fun markDirty() {
+        isDirty = true
+    }
+
+    fun clean() {
+        isDirty = false
+    }
+}
+
+abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
     abstract fun contextDataFactory(context: MovementContext): Data
 
     enum class SyncType {
@@ -76,17 +88,27 @@ abstract class SmartMovementBehaviour<Data> : MovementBehaviour {
 
     fun syncFromBlock(context: MovementContext) {
         val nbt = context.contraption.blocks[context.localPos]?.nbt ?: return
-        read(context, nbt, getContextData(context), SyncType.NET)
+        val data = getContextData(context)
+        data.markDirty()
+        read(context, nbt, data, SyncType.NET)
     }
 
     /**
      * Equivalent to [com.simibubi.create.foundation.blockEntity.SmartBlockEntity.setChanged] but for contraptions
      */
-    fun resyncData(context: MovementContext) {
+    fun resyncData(
+        context: MovementContext,
+        checkForDirty: Boolean = false,
+    ) {
+        val data = getContextData(context)
+        if (checkForDirty && !data.isDirty) {
+            return
+        }
         val block = context.contraption.blocks[context.localPos] ?: return
         val nbt = block.nbt ?: return
-        write(nbt, getContextData(context), context, SyncType.NET)
+        write(nbt, data, context, SyncType.NET)
         context.contraption.entity.setBlockData(context.localPos, block)
+        data.clean()
     }
 }
 
