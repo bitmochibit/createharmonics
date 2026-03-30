@@ -354,18 +354,17 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
         context.world.onServer {
             val data = getContextData(context)
             val currentRecord = getRecordItem(context)
-            data.heldItemStack = currentRecord
+            if (currentRecord != data.heldItemStack) {
+                data.heldItemStack = currentRecord
+                data.markDirty()
+            }
             data.playtimeClock.tick()
 
             val contraptionEntity = context.contraption?.entity
             val isDisassembled = contraptionEntity == null || !contraptionEntity.isAlive
 
-            val newState =
+            val newState: PlaybackState =
                 if (isDisassembled || currentRecord == ItemStack.EMPTY) {
-                    if (data.playtimeClock.isPlaying) {
-                        data.playtimeClock.stop()
-                        data.markDirty()
-                    }
                     PlaybackState.STOPPED
                 } else if (!context.disabled &&
                     (
@@ -374,23 +373,10 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                             isPauseModeWithRedstone(context)
                     )
                 ) {
-                    if (!data.playtimeClock.isPlaying) {
-                        data.playtimeClock.play()
-                        data.markDirty()
-                    }
                     PlaybackState.PLAYING
                 } else {
-                    if (data.playtimeClock.isPlaying) {
-                        data.playtimeClock.pause()
-                        data.markDirty()
-                    }
                     PlaybackState.PAUSED
                 }
-
-            if (data.playbackState != newState) {
-                data.playbackState = newState
-                data.markDirty()
-            }
 
             if (GlobalRecordPlayerMovementBehaviourTracker.canRestart.consume(getPlayerUUID(context)) &&
                 newState == PlaybackState.PLAYING
@@ -401,14 +387,62 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                 return@onServer
             }
 
+            if (data.playbackState != newState) {
+                if (newState == PlaybackState.PLAYING && data.playbackState == PlaybackState.STOPPED) {
+                    handleRecordUse(context)
+                }
+                if (newState == PlaybackState.PLAYING) {
+                    data.playbackState = newState
+                }
+            }
+
+            when (newState) {
+                PlaybackState.PLAYING -> {
+                    data.gracefulStopJob?.cancel()
+                    data.gracefulStopJob = null
+                    if (!data.playtimeClock.isPlaying) {
+                        data.playtimeClock.play()
+                        data.markDirty()
+                    }
+                }
+
+                PlaybackState.PAUSED -> {
+                    // Only schedule if not already pending and not already paused
+                    if (data.gracefulStopJob == null && data.playbackState != PlaybackState.PAUSED) {
+                        data.gracefulStopJob =
+                            1.seconds.thenLaunch {
+                                data.playtimeClock.pause()
+                                data.playbackState = PlaybackState.PAUSED
+                                resyncData(context, false)
+                                data.gracefulStopJob = null
+                            }
+                    }
+                }
+
+                PlaybackState.STOPPED -> {
+                    if (data.gracefulStopJob == null && data.playbackState != PlaybackState.STOPPED) {
+                        if (data.heldItemStack.isEmpty) {
+                            // No record — stop immediately, no grace period needed
+                            data.playtimeClock.stop()
+                            data.playbackState = PlaybackState.STOPPED
+                            data.markDirty()
+                        } else {
+                            data.gracefulStopJob =
+                                1.seconds.thenLaunch {
+                                    data.playtimeClock.stop()
+                                    data.playbackState = PlaybackState.STOPPED
+                                    resyncData(context, false)
+                                    data.gracefulStopJob = null
+                                }
+                        }
+                    }
+                }
+            }
+
             data.ticksSinceLastClockSave++
             if (data.ticksSinceLastClockSave >= 100) {
                 data.ticksSinceLastClockSave = 0
                 data.markDirty()
-            }
-
-            if (newState == PlaybackState.PLAYING && data.playbackState == PlaybackState.STOPPED) {
-                handleRecordUse(context)
             }
 
             resyncData(context, true)
@@ -433,8 +467,6 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                     if (player.state.value == PlayerState.PLAYING) {
                         return
                     }
-                    data.gracefulStopJob?.cancel()
-                    data.gracefulStopJob = null
 
                     when (player.state.value) {
                         PlayerState.PAUSED -> {
@@ -461,30 +493,14 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                         return
                     }
 
-                    if (data.gracefulStopJob == null) {
-                        data.gracefulStopJob =
-                            1.seconds.thenLaunch {
-                                if (player.state.value == PlayerState.PLAYING) player.pause()
-                                data.gracefulStopJob = null
-                            }
-                    }
+                    if (player.state.value == PlayerState.PLAYING) player.pause()
                 }
 
                 PlaybackState.STOPPED -> {
                     if (player.state.value == PlayerState.STOPPED) {
                         return
                     }
-
-                    data.gracefulStopJob?.cancel()
-                    if (data.heldItemStack.isEmpty) {
-                        if (player.state.value != PlayerState.STOPPED) player.stop()
-                    } else if (data.gracefulStopJob == null) {
-                        data.gracefulStopJob =
-                            1.seconds.thenLaunch {
-                                if (player.state.value != PlayerState.STOPPED) player.stop()
-                                data.gracefulStopJob = null
-                            }
-                    }
+                    if (player.state.value != PlayerState.STOPPED) player.stop()
                 }
             }
         }
