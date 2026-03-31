@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.audio.effect
 
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
+import kotlin.math.floor
 
 /**
  * Simple pitch shift effect matching OpenAL/Minecraft behavior.
@@ -14,15 +15,13 @@ class PitchShiftEffect(
     override val scope: AudioEffect.Scope = AudioEffect.Scope.PERMANENT,
     private var preserveTiming: Boolean = false,
 ) : AudioEffect {
-    private var virtualPosition = 0.0
+    private var subSampleOffset = 0.0
 
-    private val history = mutableListOf<Short>()
-    private var livePos = 0.0
+    private var lastSample: Short = 0
 
     override fun reset() {
-        virtualPosition = 0.0
-        history.clear()
-        livePos = 0.0
+        subSampleOffset = 0.0
+        lastSample = 0
     }
 
     override fun process(
@@ -42,15 +41,44 @@ class PitchShiftEffect(
         samples: ShortArray,
         pitchShift: Float,
     ): ShortArray {
-        val outputSize = (samples.size / pitchShift).toInt()
+        if (samples.isEmpty()) return ShortArray(0)
+        val pitch = pitchShift.toDouble()
+
+        var pos = subSampleOffset
+
+        // How many output samples fit from [pos, samples.size)?
+        val outputSize = ((samples.size - pos) / pitch).toInt().coerceAtLeast(0)
         val output = ShortArray(outputSize)
-        virtualPosition = 0.0
+
         for (i in output.indices) {
-            val index1 = virtualPosition.toInt()
-            val index2 = (index1 + 1).coerceAtMost(samples.size - 1)
-            output[i] = lerp(samples[index1], samples[index2], virtualPosition - index1)
-            virtualPosition += pitchShift.toDouble()
+            val i1 = floor(pos).toInt()
+            val frac = pos - i1
+
+            // s1: if i1 < 0 we're interpolating across the chunk boundary
+            val s1: Short =
+                when {
+                    i1 < 0 -> lastSample
+                    i1 >= samples.size -> samples.last()
+                    else -> samples[i1]
+                }
+            // s2: i1+1 can equal samples.size on the last output sample — clamp to last
+            val s2: Short =
+                when {
+                    i1 + 1 >= samples.size -> samples.last()
+                    i1 + 1 < 0 -> samples[0]
+                    else -> samples[i1 + 1]
+                }
+
+            output[i] = lerp(s1, s2, frac)
+            pos += pitch
         }
+
+        // Persist state for next chunk
+        lastSample = samples.last()
+        // pos is now in [samples.size - pitch, samples.size + pitch).
+        // Subtract samples.size to get the offset into the NEXT chunk's coordinate space.
+        subSampleOffset = pos - samples.size
+
         return output
     }
 

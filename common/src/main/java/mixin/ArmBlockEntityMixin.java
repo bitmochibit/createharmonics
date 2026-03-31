@@ -30,6 +30,9 @@ public class ArmBlockEntityMixin {
                 && state.getValue(RecordPlayerTrait.Companion.getHAS_ETHEREAL_RECORD())) {
 
             if (phase == ArmBlockEntity.Phase.DANCING) {
+                if (Math.random() < 0.05) {
+                    return Optional.of(false);
+                }
                 return Optional.of(true);
             }
 
