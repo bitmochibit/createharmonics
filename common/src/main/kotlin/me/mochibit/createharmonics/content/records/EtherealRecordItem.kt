@@ -1,9 +1,15 @@
 package me.mochibit.createharmonics.content.records
 
+import me.mochibit.createharmonics.foundation.locale.ModLang
+import net.minecraft.ChatFormatting
 import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.network.chat.Component
+import net.minecraft.network.chat.Style
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.RecordItem
+import net.minecraft.world.item.TooltipFlag
+import net.minecraft.world.level.Level
 
 class EtherealRecordItem(
     val recordType: RecordType,
@@ -31,5 +37,36 @@ class EtherealRecordItem(
         val default = super.getDefaultInstance()
         RecordCraftingHandler.setCraftedWithDisc(default, ItemStack(discs.random()))
         return default
+    }
+
+    override fun appendHoverText(
+        stack: ItemStack,
+        level: Level?,
+        tooltipComponents: MutableList<Component>,
+        isAdvanced: TooltipFlag,
+    ) {
+        val url = RecordUtilities.getAudioUrl(stack)
+        if (!url.isNullOrBlank()) {
+            tooltipComponents.add(
+                ModLang.translate("tooltips.item.ethereal_record.url_bound").component().withStyle(ChatFormatting.GRAY),
+            )
+        }
+
+        val effectAttributes = this.recordType.properties.effectAttributes
+        if (effectAttributes.isNotEmpty()) {
+            tooltipComponents.add(Component.empty())
+            val attributeComponent =
+                effectAttributes
+                    .map { it.translatedComponent() }
+                    .reduceOrNull { acc, c ->
+                        acc
+                            .append(
+                                Component.literal(", ").setStyle(Style.EMPTY.withColor(ChatFormatting.WHITE)),
+                            ).append(c)
+                    }
+                    ?: Component.empty()
+            tooltipComponents.add(attributeComponent)
+        }
+        super.appendHoverText(stack, level, tooltipComponents, isAdvanced)
     }
 }

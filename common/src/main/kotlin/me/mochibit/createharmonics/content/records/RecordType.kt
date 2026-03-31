@@ -12,10 +12,16 @@ import me.mochibit.createharmonics.foundation.extension.asResource
 import me.mochibit.createharmonics.foundation.extension.butOnForge
 import me.mochibit.createharmonics.foundation.extension.resPath
 import me.mochibit.createharmonics.foundation.extension.withPath
+import me.mochibit.createharmonics.foundation.locale.ModLang
 import me.mochibit.createharmonics.foundation.registry.platform.ModSoundRegistry
 import me.mochibit.createharmonics.foundation.services.contentService
+import net.minecraft.ChatFormatting
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.core.registries.Registries
+import net.minecraft.network.chat.Component
+import net.minecraft.network.chat.MutableComponent
+import net.minecraft.network.chat.Style
+import net.minecraft.network.chat.TextColor
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.tags.TagKey
 import net.minecraft.util.RandomSource
@@ -50,6 +56,11 @@ enum class RecordType(
                 )
             },
             defaultDurability = 20,
+            effectAttributes =
+                listOf(
+                    Properties.EffectAttribute.CRISPY,
+                    Properties.EffectAttribute.RUSTIC,
+                ),
         ),
     ),
 
@@ -64,6 +75,10 @@ enum class RecordType(
                     },
                 ),
             defaultDurability = 1,
+            effectAttributes =
+                listOf(
+                    Properties.EffectAttribute.FIDEL,
+                ),
         ),
     ),
 
@@ -95,6 +110,11 @@ enum class RecordType(
                 )
             },
             defaultDurability = 800,
+            effectAttributes =
+                listOf(
+                    Properties.EffectAttribute.CRISPY,
+                    Properties.EffectAttribute.NOISY,
+                ),
         ),
     ),
 
@@ -120,6 +140,11 @@ enum class RecordType(
                 )
             },
             defaultDurability = 1500,
+            effectAttributes =
+                listOf(
+                    Properties.EffectAttribute.FIDEL,
+                    Properties.EffectAttribute.SHINY,
+                ),
         ),
     ),
 
@@ -149,6 +174,11 @@ enum class RecordType(
                 )
             },
             defaultDurability = 2000,
+            effectAttributes =
+                listOf(
+                    Properties.EffectAttribute.FIDEL,
+                    Properties.EffectAttribute.BASSY,
+                ),
         ),
     ),
 
@@ -164,6 +194,10 @@ enum class RecordType(
                 )
             },
             defaultDurability = 250,
+            effectAttributes =
+                listOf(
+                    Properties.EffectAttribute.CRISPY,
+                ),
         ),
     ),
 
@@ -171,6 +205,10 @@ enum class RecordType(
         Properties(
             recipe = null,
             defaultDurability = 0,
+            effectAttributes =
+                listOf(
+                    Properties.EffectAttribute.FIDEL,
+                ),
         ),
     ),
     ;
@@ -185,6 +223,7 @@ enum class RecordType(
         val audioEffectsProvider: () -> List<AudioEffect> = { listOf() },
         val soundEventCompProvider: () -> List<SoundEventComposition.SoundEventDef> = { listOf() },
         val defaultDurability: Int = 250,
+        val effectAttributes: List<EffectAttribute> = listOf(),
     ) {
         data class Recipe(
             val primaryIngredientProvider: () -> Ingredient = {
@@ -194,5 +233,24 @@ enum class RecordType(
             },
             val secondaryIngredientProvider: () -> Ingredient = { Ingredient.EMPTY },
         )
+
+        enum class EffectAttribute(
+            val style: Style,
+        ) {
+            CRISPY(Style.EMPTY.withColor(ChatFormatting.RED)),
+            BASSY(Style.EMPTY.withColor(ChatFormatting.BLUE).withBold(true)),
+            SHINY(Style.EMPTY.withColor(ChatFormatting.AQUA)),
+            RUSTIC(Style.EMPTY.withColor(ChatFormatting.YELLOW).withItalic(true)),
+            FIDEL(Style.EMPTY.withColor(ChatFormatting.GOLD)),
+            NOISY(Style.EMPTY.withColor(ChatFormatting.GREEN)),
+            ;
+
+            fun translatedComponent(): MutableComponent =
+                ModLang
+                    .translate(
+                        "tooltips.item.ethereal_record.effect_attribute.${this.name.lowercase()}",
+                    ).component()
+                    .withStyle(style)
+        }
     }
 }
