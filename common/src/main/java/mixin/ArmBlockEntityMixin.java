@@ -21,7 +21,8 @@ public class ArmBlockEntityMixin {
             at = @At(
                     value = "INVOKE",
                     target = "Lnet/minecraft/world/level/block/state/BlockState;getOptionalValue(Lnet/minecraft/world/level/block/state/properties/Property;)Ljava/util/Optional;"
-            )
+            ),
+            remap = false
     )
     private Optional<?> redirectHasRecord(BlockState state, Property<?> property) {
         Optional<?> original = state.getOptionalValue(property);
@@ -30,13 +31,13 @@ public class ArmBlockEntityMixin {
                 && state.getValue(RecordPlayerTrait.Companion.getHAS_ETHEREAL_RECORD())) {
 
             if (phase == ArmBlockEntity.Phase.DANCING) {
-                if (Math.random() < 0.05) {
+                if (Math.random() < 0.1) {
                     return Optional.of(false);
                 }
                 return Optional.of(true);
             }
 
-            return Optional.of(Math.random() < 0.01);
+            return Optional.of(Math.random() < 0.005);
         }
 
         return original;
