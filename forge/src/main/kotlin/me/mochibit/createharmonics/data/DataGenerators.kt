@@ -5,6 +5,7 @@ import com.google.gson.JsonElement
 import com.tterrag.registrate.providers.ProviderType
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
 import me.mochibit.createharmonics.ModRegistrate
+import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.data.recipe.ModRecipeProvider
 import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.info
@@ -46,6 +47,8 @@ object DataGenerators {
             val langConsumer: (String, String) -> Unit = { key, value ->
                 provider.add(key, value)
             }
+
+            RecordType.Properties.EffectAttribute.provideLang(langConsumer)
 
             provideDefaultLang(langConsumer)
 

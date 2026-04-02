@@ -122,16 +122,6 @@ abstract class RecordPlayerBlockEntity(
         }
     }
 
-//    override fun <T> getCapability(
-//        cap: Capability<T?>,
-//        side: Direction?,
-//    ): LazyOptional<T?> {
-//        if (cap == ForgeCapabilities.ITEM_HANDLER) {
-//            return playerBehaviour.lazyItemHandler.cast()
-//        }
-//        return super.getCapability(cap, side)
-//    }
-
     fun applyInventoryToBlock(wrapped: ItemStackHandler) {
         for (i in 0 until itemHandler.slots) {
             itemHandler.setStackInSlot(i, if (i < wrapped.slots) wrapped.getStackInSlot(i) else ItemStack.EMPTY)

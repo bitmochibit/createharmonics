@@ -19,6 +19,7 @@ import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.async.withMainContext
 import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerStreamEndPacket
+import me.mochibit.createharmonics.foundation.network.packet.UpdateAudioNamePacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
@@ -222,6 +223,7 @@ class AudioPlayer(
         currentSoundInstance = soundInstance
         currentAudioEffectInputStream = stream
         clock.play(adjustedPos)
+        notifyAudioTitle(currentSource.getAudioName())
         transition(PlayerState.PLAYING)
     }
 
@@ -292,6 +294,8 @@ class AudioPlayer(
     private fun handleStreamHang() {
         intents.trySend(PlayerIntent.AudioHanged)
     }
+
+    private fun notifyAudioTitle(name: String) = ModPackets.sendToServer(UpdateAudioNamePacket(playerId, name))
 
     private fun notifyStreamEnd() = ModPackets.sendToServer(AudioPlayerStreamEndPacket(playerId))
 

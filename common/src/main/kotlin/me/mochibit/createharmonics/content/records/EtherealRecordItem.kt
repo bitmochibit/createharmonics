@@ -55,10 +55,16 @@ class EtherealRecordItem(
         val effectAttributes = this.recordType.properties.effectAttributes
         if (effectAttributes.isNotEmpty()) {
             tooltipComponents.add(Component.empty())
+            tooltipComponents.add(ModLang.translate("tooltips.item.ethereal_record.qualities").component().withStyle(ChatFormatting.GRAY))
             val attributeComponent =
                 effectAttributes
-                    .map { it.translatedComponent() }
-                    .reduceOrNull { acc, c ->
+                    .sortedByDescending { it.qualityIndicator }
+                    .map {
+                        Component
+                            .empty()
+                            .withStyle(Style.EMPTY)
+                            .append(it.translatedComponent())
+                    }.reduceOrNull { acc, c ->
                         acc
                             .append(
                                 Component.literal(", ").setStyle(Style.EMPTY.withColor(ChatFormatting.WHITE)),

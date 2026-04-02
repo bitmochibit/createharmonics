@@ -12,6 +12,7 @@ import me.mochibit.createharmonics.foundation.extension.asResource
 import me.mochibit.createharmonics.foundation.extension.butOnForge
 import me.mochibit.createharmonics.foundation.extension.resPath
 import me.mochibit.createharmonics.foundation.extension.withPath
+import me.mochibit.createharmonics.foundation.locale.LangProvider
 import me.mochibit.createharmonics.foundation.locale.ModLang
 import me.mochibit.createharmonics.foundation.registry.platform.ModSoundRegistry
 import me.mochibit.createharmonics.foundation.services.contentService
@@ -26,6 +27,8 @@ import net.minecraft.sounds.SoundEvents
 import net.minecraft.tags.TagKey
 import net.minecraft.util.RandomSource
 import net.minecraft.world.item.crafting.Ingredient
+import java.util.Locale
+import java.util.Locale.getDefault
 
 enum class RecordType(
     val properties: Properties,
@@ -58,7 +61,7 @@ enum class RecordType(
             defaultDurability = 20,
             effectAttributes =
                 listOf(
-                    Properties.EffectAttribute.CRISPY,
+                    Properties.EffectAttribute.MUDDY,
                     Properties.EffectAttribute.RUSTIC,
                 ),
         ),
@@ -77,7 +80,7 @@ enum class RecordType(
             defaultDurability = 1,
             effectAttributes =
                 listOf(
-                    Properties.EffectAttribute.FIDEL,
+                    Properties.EffectAttribute.CLEAN,
                 ),
         ),
     ),
@@ -112,7 +115,7 @@ enum class RecordType(
             defaultDurability = 800,
             effectAttributes =
                 listOf(
-                    Properties.EffectAttribute.CRISPY,
+                    Properties.EffectAttribute.MUDDY,
                     Properties.EffectAttribute.NOISY,
                 ),
         ),
@@ -142,7 +145,7 @@ enum class RecordType(
             defaultDurability = 1500,
             effectAttributes =
                 listOf(
-                    Properties.EffectAttribute.FIDEL,
+                    Properties.EffectAttribute.CLEAN,
                     Properties.EffectAttribute.SHINY,
                 ),
         ),
@@ -176,7 +179,7 @@ enum class RecordType(
             defaultDurability = 2000,
             effectAttributes =
                 listOf(
-                    Properties.EffectAttribute.FIDEL,
+                    Properties.EffectAttribute.CLEAN,
                     Properties.EffectAttribute.BASSY,
                 ),
         ),
@@ -196,7 +199,7 @@ enum class RecordType(
             defaultDurability = 250,
             effectAttributes =
                 listOf(
-                    Properties.EffectAttribute.CRISPY,
+                    Properties.EffectAttribute.MID,
                 ),
         ),
     ),
@@ -207,7 +210,7 @@ enum class RecordType(
             defaultDurability = 0,
             effectAttributes =
                 listOf(
-                    Properties.EffectAttribute.FIDEL,
+                    Properties.EffectAttribute.CLEAN,
                 ),
         ),
     ),
@@ -236,13 +239,16 @@ enum class RecordType(
 
         enum class EffectAttribute(
             val style: Style,
+            val qualityIndicator: Boolean = false,
         ) {
-            CRISPY(Style.EMPTY.withColor(ChatFormatting.RED)),
-            BASSY(Style.EMPTY.withColor(ChatFormatting.BLUE).withBold(true)),
-            SHINY(Style.EMPTY.withColor(ChatFormatting.AQUA)),
-            RUSTIC(Style.EMPTY.withColor(ChatFormatting.YELLOW).withItalic(true)),
-            FIDEL(Style.EMPTY.withColor(ChatFormatting.GOLD)),
-            NOISY(Style.EMPTY.withColor(ChatFormatting.GREEN)),
+            BASSY(Style.EMPTY.withColor(TextColor.parseColor("#A53561"))),
+            SHINY(Style.EMPTY.withColor(TextColor.parseColor("#55E1D9"))),
+            RUSTIC(Style.EMPTY.withColor(TextColor.parseColor("#58693C"))),
+            NOISY(Style.EMPTY.withColor(TextColor.parseColor("#17D960"))),
+
+            CLEAN(Style.EMPTY.withColor(TextColor.parseColor("#F3F3F3")).withBold(true), true),
+            MID(Style.EMPTY.withColor(TextColor.parseColor("#F3F3F3")).withItalic(true), true),
+            MUDDY(Style.EMPTY.withColor(TextColor.parseColor("#F3F3F3")), true),
             ;
 
             fun translatedComponent(): MutableComponent =
@@ -251,6 +257,18 @@ enum class RecordType(
                         "tooltips.item.ethereal_record.effect_attribute.${this.name.lowercase()}",
                     ).component()
                     .withStyle(style)
+
+            companion object : LangProvider {
+                override fun provideLang(keyValueConsumer: (String, String) -> Unit) {
+                    for (attribute in entries) {
+                        val attrName = attribute.name.lowercase()
+                        keyValueConsumer(
+                            "tooltips.item.ethereal_record.effect_attribute.$attrName".withModNamespace(),
+                            attrName.replaceFirstChar { if (it.isLowerCase()) it.titlecase(getDefault()) else it.toString() },
+                        )
+                    }
+                }
+            }
         }
     }
 }

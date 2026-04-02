@@ -39,6 +39,7 @@ object ModBlocks : CommonRegistry {
             ).tag(AllTags.AllBlockTags.SIMPLE_MOUNTED_STORAGE.tag)
             .transform(mountedItemStorage(ModMountedStorages.SIMPLE_RECORD_PLAYER_STORAGE))
             .transform(displaySource(ModDisplaySources.AUDIO_NAME))
+            .transform(displaySource(ModDisplaySources.PLAYER_STATUS))
             .transform(ModStressConfig.setImpact(1.0))
             .blockstate(BlockStateGen.directionalBlockProvider(true))
             .item()
