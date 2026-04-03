@@ -3,6 +3,7 @@ package me.mochibit.createharmonics.content.records
 import me.mochibit.createharmonics.foundation.locale.ModLang
 import net.minecraft.ChatFormatting
 import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.network.chat.CommonComponents
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.Style
 import net.minecraft.world.item.Item
@@ -71,7 +72,7 @@ class EtherealRecordItem(
                             ).append(c)
                     }
                     ?: Component.empty()
-            tooltipComponents.add(attributeComponent)
+            tooltipComponents.add(CommonComponents.space().plainCopy().append(attributeComponent))
         }
         super.appendHoverText(stack, level, tooltipComponents, isAdvanced)
     }

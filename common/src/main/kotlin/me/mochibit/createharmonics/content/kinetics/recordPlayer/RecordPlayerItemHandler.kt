@@ -24,6 +24,9 @@ class RecordPlayerItemHandler(
         behaviour.be.onServer {
             val hasDisc = !getStackInSlot(MAIN_RECORD_SLOT).isEmpty
             val be = behaviour.blockEntity
+            if (!hasDisc) {
+                behaviour.onAudioTitleUpdate("")
+            }
             be.level?.setBlockAndUpdate(
                 be.blockPos,
                 be.blockState.setValue(RecordPlayerTrait.HAS_ETHEREAL_RECORD, hasDisc),

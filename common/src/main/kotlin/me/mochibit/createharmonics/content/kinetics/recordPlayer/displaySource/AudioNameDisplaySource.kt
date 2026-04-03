@@ -47,9 +47,15 @@ class AudioNameDisplaySource : SingleLineDisplaySource() {
             return ModLang.translate("display_source.no_record").component()
         }
 
+        val currentBeTitle =
+            audioPlayerBehaviour.audioPlayingTitle ?: return ModLang
+                .translate("display_source.unknown_audio_name")
+                .component()
+
         val title =
-            audioPlayerBehaviour.audioPlayingTitle
-                ?: return ModLang.translate("display_source.unknown_audio_name").component()
+            currentBeTitle.ifEmpty {
+                ModLang.translate("display_source.loading_title").string()
+            }
 
         val label = context.sourceConfig().getString("Label")
         val labelSize = if (label.isEmpty()) 0 else label.length + 1

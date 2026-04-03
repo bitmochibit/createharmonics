@@ -7,6 +7,7 @@
   "createharmonics.display_source.audio_name.full": "Full",
   "createharmonics.display_source.audio_name.scroll": "Scroll",
   "createharmonics.display_source.audio_name.wrap": "Wrap",
+  "createharmonics.display_source.loading_title": "Loading...",
   "createharmonics.display_source.no_record": "No Record",
   "createharmonics.display_source.read_music_name": "Playback song title",
   "createharmonics.display_source.read_record_player_state": "Record Player state",
