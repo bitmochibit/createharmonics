@@ -41,16 +41,16 @@ class AudioNameDisplaySource : SingleLineDisplaySource() {
         stats: DisplayTargetStats,
     ): MutableComponent {
         val smartBe = context.sourceBlockEntity as? SmartBlockEntity ?: return EMPTY_LINE
-        val audioPlayerBehaviour = smartBe.getBehaviour(RecordPlayerBehaviour.BEHAVIOUR_TYPE) ?: return EMPTY_LINE
+        val audioPlayerBehaviour =
+            smartBe.getBehaviour(RecordPlayerBehaviour.BEHAVIOUR_TYPE) ?: return EMPTY_LINE
 
         if (!audioPlayerBehaviour.hasRecord()) {
             return ModLang.translate("display_source.no_record").component()
         }
 
         val currentBeTitle =
-            audioPlayerBehaviour.audioPlayingTitle ?: return ModLang
-                .translate("display_source.unknown_audio_name")
-                .component()
+            audioPlayerBehaviour.audioPlayingTitle
+                ?: return ModLang.translate("display_source.unknown_audio_name").component()
 
         val title =
             currentBeTitle.ifEmpty {
@@ -58,15 +58,18 @@ class AudioNameDisplaySource : SingleLineDisplaySource() {
             }
 
         val label = context.sourceConfig().getString("Label")
-        val labelSize = if (label.isEmpty()) 0 else label.length + 1
+
+        val labelSize = if (label.isEmpty()) 0 else label.codePointLength() + 1
         val maxCols = (stats.maxColumns() - labelSize).coerceAtLeast(1)
 
         if (title.codePointLength() <= maxCols) return Component.literal(title)
 
+        val gameTime = smartBe.level?.gameTime ?: return Component.literal(title.safeTake(maxCols))
+
         return when (getDisplayMode(context)) {
-            1 -> provideScrolled(title, maxCols, context)
-            2 -> provideWrapped(title, maxCols, context)
-            else -> Component.literal(title.safeTake(maxCols))
+            1 -> provideScrolled(title, maxCols, context, gameTime)
+            2 -> provideWrapped(title, maxCols, context, gameTime)
+            else -> Component.literal(title.safeTake((maxCols - 1).coerceAtLeast(1)))
         }
     }
 
@@ -74,17 +77,22 @@ class AudioNameDisplaySource : SingleLineDisplaySource() {
         title: String,
         maxCols: Int,
         context: DisplayLinkContext,
+        gameTime: Long,
     ): MutableComponent {
         val cfg = context.sourceConfig()
 
         if (cfg.getString("LastTitle") != title) {
             cfg.putString("LastTitle", title)
             cfg.putInt("Tick", 0)
+            cfg.putLong("LastGameTick", -1L)
         }
 
-        val tick = cfg.getInt("Tick") + 1
-        cfg.putInt("Tick", tick)
+        if (cfg.getLong("LastGameTick") != gameTime) {
+            cfg.putLong("LastGameTick", gameTime)
+            cfg.putInt("Tick", cfg.getInt("Tick") + 1)
+        }
 
+        val tick = cfg.getInt("Tick")
         val padded = title + SCROLL_SEPARATOR
         val cps = padded.codePointArray()
         val offset = (tick / SCROLL_SPEED) % cps.size
@@ -103,18 +111,24 @@ class AudioNameDisplaySource : SingleLineDisplaySource() {
         title: String,
         maxCols: Int,
         context: DisplayLinkContext,
+        gameTime: Long,
     ): MutableComponent {
         val cfg = context.sourceConfig()
 
         if (cfg.getString("LastTitle") != title) {
             cfg.putString("LastTitle", title)
             cfg.putInt("Tick", 0)
+            cfg.putLong("LastGameTick", -1L)
         }
 
-        val tick = cfg.getInt("Tick") + 1
-        cfg.putInt("Tick", tick)
+        if (cfg.getLong("LastGameTick") != gameTime) {
+            cfg.putLong("LastGameTick", gameTime)
+            cfg.putInt("Tick", cfg.getInt("Tick") + 1)
+        }
 
-        val pages = title.safeChunked(maxCols)
+        val tick = cfg.getInt("Tick")
+        val chunkSize = (maxCols - 1).coerceAtLeast(1)
+        val pages = title.safeChunked(chunkSize)
         val pageIndex = (tick / WRAP_HOLD) % pages.size
 
         return Component.literal(pages[pageIndex])
@@ -139,7 +153,12 @@ class AudioNameDisplaySource : SingleLineDisplaySource() {
             { si, _ ->
                 si
                     .forOptions(
-                        ModLang.translatedOptions("display_source.audio_name", "full", "scroll", "wrap"),
+                        ModLang.translatedOptions(
+                            "display_source.audio_name",
+                            "full",
+                            "scroll",
+                            "wrap",
+                        ),
                     ).titled(ModLang.translate("display_source.audio_name.display").component())
             },
             "DisplayMode",
