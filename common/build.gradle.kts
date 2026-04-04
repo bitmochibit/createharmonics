@@ -4,12 +4,12 @@ plugins {
     id("com.gradleup.shadow")
     id("org.jetbrains.kotlin.jvm") version "2.1.21"
     id("org.jetbrains.kotlin.plugin.serialization") version "2.1.21"
-    id("net.neoforged.moddev.legacyforge") version "2.0.140"
+    id("net.neoforged.moddev") version "2.0.141"
 }
 
 kotlin {
     jvmToolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(21)
         vendor = JvmVendorSpec.ADOPTIUM
     }
 }
@@ -30,6 +30,10 @@ val registrateVersion = rootProject.property("registrate_version").toString()
 
 val vs2Version = rootProject.property("vs2_version").toString()
 val vsCoreVersion = rootProject.property("vs_core_version").toString()
+
+val neoForgeVersion = rootProject.property("neo_version").toString()
+
+// ── BuildConfig generation ────────────────────────────────────────────────────
 
 val generateBuildConfigTask =
     tasks.register("generateBuildConfig") {
@@ -70,11 +74,18 @@ tasks.named("compileKotlin") {
     dependsOn(generateBuildConfigTask)
 }
 
-legacyForge {
-    mcpVersion = minecraftVersionProp
+// ── NeoForge setup ────────────────────────────────────────────────────────────
+// Using NeoForge as the compile base for common gives us deobfuscated Minecraft
+// + NeoForge APIs without any extra shims. Nothing loader-specific should be
+// written here — just use it for compilation of shared code.
+
+neoForge {
+    version = neoForgeVersion
+
     if (file("src/main/resources/META-INF/accesstransformer.cfg").exists()) {
         accessTransformers.from(file("src/main/resources/META-INF/accesstransformer.cfg"))
     }
+
     parchment {
         enabled = true
         minecraftVersion = parchmentMinecraftProp
@@ -82,18 +93,13 @@ legacyForge {
     }
 }
 
+// ── Dependencies ──────────────────────────────────────────────────────────────
+
 dependencies {
     shadow("org.tukaani:xz:1.11")
     compileOnly("org.tukaani:xz:1.11")
 
-    // !!!!!! WARNING  !!!!!!!
-    // This is ONLY used for compiling registrate, but DON'T for no reason in the world build forge specific code in the common module
-    // Each submodule will include the correct registrate dependency based on the loader
-    // In newer minecraft versions this is useless since neoforge is the only forged loader
-    modCompileOnly("net.minecraftforge:forge:1.20.1-47.1.0")
-    compileOnly("net.minecraftforge:fmlcore:1.20.1-47.1.0")
-
-    // Mixin (for annotation processing in common module)
+    // Mixin annotation processor
     compileOnly("org.spongepowered:mixin:0.8.5")
 
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
@@ -101,24 +107,26 @@ dependencies {
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutinesVersion")
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion")
 
-    // Create
-    modCompileOnly("com.simibubi.create:create-$minecraftVersionProp:$createVersion:slim") { isTransitive = false }
-    modCompileOnly("net.createmod.ponder:Ponder-Forge-$minecraftVersionProp:$ponderVersion") { isTransitive = false }
-    modCompileOnly("dev.engine-room.flywheel:flywheel-forge-api-$minecraftVersionProp:$flywheelVersion")
-    modCompileOnly("com.tterrag.registrate:Registrate:$registrateVersion") { isTransitive = false }
+    // Create — NeoForge 1.21.1 coordinates
+    compileOnly("com.simibubi.create:create-$minecraftVersionProp:$createVersion:slim") { isTransitive = false }
+    compileOnly("net.createmod.ponder:ponder-neoforge:$ponderVersion+mc$minecraftVersionProp") { isTransitive = false }
+    compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-$minecraftVersionProp:$flywheelVersion")
+    compileOnly("com.tterrag.registrate:Registrate:$registrateVersion") { isTransitive = false }
 
-    // VS2
-    modCompileOnly("org.valkyrienskies:valkyrienskies-120-forge:$vs2Version") { isTransitive = false }
-    modCompileOnly("org.valkyrienskies.core:api:$vsCoreVersion") {
-        exclude(group = "org.joml")
-    }
-    modCompileOnly("org.valkyrienskies.core:internal:$vsCoreVersion") {
-        exclude(group = "org.joml")
-    }
-    modCompileOnly("org.valkyrienskies.core:util:$vsCoreVersion") {
-        exclude(group = "org.joml")
-    }
+    // VS2 — Unavailable for 1.21
+//    modCompileOnly("org.valkyrienskies:valkyrienskies-121-neoforge:$vs2Version") { isTransitive = false }
+//    modCompileOnly("org.valkyrienskies.core:api:$vsCoreVersion") {
+//        exclude(group = "org.joml")
+//    }
+//    modCompileOnly("org.valkyrienskies.core:internal:$vsCoreVersion") {
+//        exclude(group = "org.joml")
+//    }
+//    modCompileOnly("org.valkyrienskies.core:util:$vsCoreVersion") {
+//        exclude(group = "org.joml")
+//    }
 }
+
+// ── Artifact publication for submodules ───────────────────────────────────────
 
 project.configurations.create("commonJava").apply {
     isCanBeResolved = false
@@ -135,6 +143,8 @@ artifacts {
     add("commonResources", sourceSets["main"].resources.sourceDirectories.singleFile)
 }
 
+// ── Shadow jar ────────────────────────────────────────────────────────────────
+
 tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
     configurations = listOf(project.configurations["shadow"])
     archiveClassifier.set("")
@@ -144,6 +154,7 @@ tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJ
 tasks.named("jar") {
     finalizedBy("shadowJar")
 }
+
 val compileKotlin: KotlinCompile by tasks
 compileKotlin.compilerOptions {
     freeCompilerArgs.set(listOf("-XXLanguage:+WhenGuards"))

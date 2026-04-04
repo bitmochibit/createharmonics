@@ -1,6 +1,10 @@
 import java.text.SimpleDateFormat
 import java.util.Date
 
+plugins {
+    id("org.jetbrains.gradle.plugin.idea-ext") version "1.4.1"
+}
+
 subprojects {
     group = rootProject.property("mod_group_id").toString()
     version = "${rootProject.property("version_major")}.${rootProject.property("version_minor")}.${
@@ -9,16 +13,16 @@ subprojects {
 
     pluginManager.withPlugin("java") {
         extensions.configure<JavaPluginExtension> {
-            sourceCompatibility = JavaVersion.VERSION_17
-            targetCompatibility = JavaVersion.VERSION_17
+            sourceCompatibility = JavaVersion.VERSION_21
+            targetCompatibility = JavaVersion.VERSION_21
         }
     }
 
     repositories {
         mavenCentral()
         maven { url = uri("https://repo.spongepowered.org/repository/maven-public/") }
-        maven { url = uri("https://maven.createmod.net") }
-        maven { url = uri("https://maven.ithundxr.dev/mirror") }
+        maven("https://maven.createmod.net") // Create, Ponder, Flywheel
+        maven("https://maven.ithundxr.dev/snapshots") // Registrate
         maven { url = uri("https://raw.githubusercontent.com/Fuzss/modresources/main/maven/") }
 
         maven {
@@ -32,10 +36,6 @@ subprojects {
         maven {
             name = "ModMaven (JEI mirror)"
             url = uri("https://modmaven.dev")
-        }
-        maven {
-            name = "Valkyrien Skies"
-            url = uri("https://maven.valkyrienskies.org")
         }
         maven {
             name = "NeoForged"
@@ -72,6 +72,6 @@ subprojects {
 
     tasks.withType<JavaCompile>().configureEach {
         options.encoding = "UTF-8"
-        options.release.set(17)
+        options.release.set(21)
     }
 }

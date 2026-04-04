@@ -3,11 +3,6 @@ pluginManagement {
         gradlePluginPortal()
         mavenCentral()
         mavenLocal()
-        // ForgeGradle
-        maven {
-            name = "MinecraftForge"
-            url = uri("https://maven.minecraftforge.net/")
-        }
         // NeoForge
         maven { url = uri("https://maven.neoforged.net/releases") }
         // SpongePowered — MixinGradle plugin
@@ -28,5 +23,5 @@ plugins {
 rootProject.name = "createharmonics"
 
 include("common")
-include("forge")
-// include("neoforge")
+// include("forge")
+include("neoforge")
