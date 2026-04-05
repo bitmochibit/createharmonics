@@ -51,7 +51,6 @@ class ForgeContentService : ContentService {
         vsLevelCheck: Level?,
         vsBeCheck: BlockEntity?,
     ): StreamingSoundInstance {
-        ItemStack(Items.GOLD_ORE).serializeNBT()
         if (checkForVsShip && vsLevelCheck != null && vsBeCheck != null) {
             val ship = vsBeCheck.blockPos.getManagingShip(vsLevelCheck)
             if (ship != null) {
