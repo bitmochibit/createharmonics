@@ -153,12 +153,12 @@ const RAW_BASE = "https://raw.githubusercontent.com/";
 
 const REFERENCE_URL =
     RAW_BASE +
-    "bitmochibit/createharmonics/refs/heads/master/forge/src/generated/resources/assets/createharmonics/lang/en_us.json";
+    "bitmochibit/createharmonics/refs/heads/1.20.1/master/forge/src/generated/resources/assets/createharmonics/lang/en_us.json";
 
 function getLangUrl(langCode) {
     return (
         RAW_BASE +
-        `bitmochibit/createharmonics/refs/heads/master/common/src/main/resources/assets/createharmonics/lang/${langCode}.json`
+        `bitmochibit/createharmonics/refs/heads/1.20.1/master/common/src/main/resources/assets/createharmonics/lang/${langCode}.json`
     );
 }
 
