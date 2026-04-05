@@ -13,11 +13,16 @@ import me.mochibit.createharmonics.foundation.registry.ModItems
 import me.mochibit.createharmonics.foundation.services.contentService
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import net.minecraft.client.Minecraft
+import net.minecraft.client.resources.sounds.SoundInstance
+import net.minecraft.core.component.DataComponents
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.resources.ResourceLocation
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.util.RandomSource
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.item.RecordItem
+import net.minecraft.world.item.JukeboxSong
+import net.minecraft.world.item.component.CustomData
+import net.minecraft.world.level.Level
 import javax.sound.sampled.AudioSystem
 
 // TODO This will be refactored to be more robust
@@ -26,7 +31,7 @@ object RecordUtilities {
 
     fun getAudioUrl(stack: ItemStack): String? {
         if (stack.item !is EtherealRecordItem) return null
-        return stack.tag?.getString(AUDIO_URL_TAG_KEY)
+        return stack.get(DataComponents.CUSTOM_DATA)?.copyTag()?.getString(AUDIO_URL_TAG_KEY)
     }
 
     fun setAudioUrl(
@@ -35,10 +40,9 @@ object RecordUtilities {
     ) {
         if (stack.item !is EtherealRecordItem) return
 
-        if (stack.tag == null) {
-            stack.tag = CompoundTag()
+        stack.update(DataComponents.CUSTOM_DATA, CustomData.EMPTY) { data ->
+            data.update { tag -> tag?.putString(AUDIO_URL_TAG_KEY, url) }
         }
-        stack.tag?.putString(AUDIO_URL_TAG_KEY, url)
     }
 
     /**
@@ -49,17 +53,20 @@ object RecordUtilities {
      */
     fun handleRecordUse(
         stack: ItemStack,
-        random: RandomSource,
+        level: ServerLevel,
     ): RecordUseResult {
         if (stack.item !is EtherealRecordItem) return RecordUseResult.Invalid
 
-        if (!stack.item.canBeDepleted()) {
+        if (!stack.item.isDamageable(stack)) {
             return RecordUseResult.NotDamageable(stack)
         }
 
         // Apply damage
         val damaged = stack.copy()
-        val broken = damaged.hurt(1, random, null)
+        var broken = false
+        damaged.hurtAndBreak(1, level, null) {
+            broken = true
+        }
 
         return if (broken) {
             // Get the crafted-from record
@@ -116,6 +123,7 @@ object RecordUtilities {
         compRadiusSupplier: FloatSupplier = FloatSupplier { 1f },
         compVolumeSupplier: FloatSupplier = FloatSupplier { 1f },
         initialPos: Double = 0.0,
+        level: Level,
     ) {
         val etherealRecordItem = etherealRecord.item
         if (etherealRecordItem !is EtherealRecordItem) return
@@ -150,19 +158,29 @@ object RecordUtilities {
         }
 
         // Try to play audio from the crafted-from record
-        val craftedWith = RecordCraftingHandler.getCraftedWithDisc(etherealRecord).item as? RecordItem ?: return
+        val craftedWithItem = RecordCraftingHandler.getCraftedWithDisc(etherealRecord)
+        val song = JukeboxSong.fromStack(level.registryAccess(), craftedWithItem)
+        if (!song.isPresent) return
+
+        val soundEvent =
+            song
+                .get()
+                .value()
+                .soundEvent
+                .value()
+
         val sampleRate =
-            craftedWith.sound.getStreamDirectly(false).get().use { audio ->
+            soundEvent.getStreamDirectly(false).get().use { audio ->
                 audio.format.sampleRate
             }
 
         this.request(
             AudioRequest.Stream(
                 {
-                    Ogg2PcmInputStream(craftedWith.sound.getStreamDirectly(false).get())
+                    Ogg2PcmInputStream(soundEvent.getStreamDirectly(false).get())
                 },
                 StreamAudioSource.Information(
-                    name = craftedWith.displayName.getString(48),
+                    name = craftedWithItem.displayName.getString(48),
                     bitrate = sampleRate.toInt(),
                     duration = 1000,
                 ),

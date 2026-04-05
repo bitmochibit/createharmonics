@@ -1,11 +1,12 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.mojang.serialization.Codec
+import com.mojang.serialization.MapCodec
 import com.simibubi.create.api.contraption.storage.SyncedMountedStorage
 import com.simibubi.create.api.contraption.storage.item.MountedItemStorageType
 import com.simibubi.create.api.contraption.storage.item.WrapperMountedItemStorage
 import com.simibubi.create.content.contraptions.Contraption
-import com.simibubi.create.foundation.utility.CreateCodecs
+import com.simibubi.create.foundation.codec.CreateCodecs
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMountedStorage.Handler
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
@@ -22,7 +23,7 @@ import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate
 import net.minecraft.world.phys.Vec3
-import net.minecraftforge.items.ItemStackHandler
+import net.neoforged.neoforge.items.ItemStackHandler
 
 class RecordPlayerMountedStorage(
     mountedStorageType: MountedItemStorageType<*>,
@@ -36,8 +37,9 @@ class RecordPlayerMountedStorage(
         private val RANDOM = RandomSource.create()
 
         @JvmStatic
-        val CODEC: Codec<RecordPlayerMountedStorage> =
+        val CODEC: MapCodec<RecordPlayerMountedStorage> =
             CreateCodecs.ITEM_STACK_HANDLER
+                .fieldOf("inventory")
                 .xmap(
                     { handler ->
                         RecordPlayerMountedStorage(Handler(handler, handler.slots))
@@ -45,7 +47,7 @@ class RecordPlayerMountedStorage(
                 ) { storage -> storage.wrapped }
 
         fun fromRecordPlayer(be: RecordPlayerBlockEntity): RecordPlayerMountedStorage {
-            val handler = be.lazyItemHandler.resolve().get()
+            val handler = be.itemHandler
             return RecordPlayerMountedStorage(Handler(handler, handler.slots))
         }
     }

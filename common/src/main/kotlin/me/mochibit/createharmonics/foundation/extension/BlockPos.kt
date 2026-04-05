@@ -4,7 +4,6 @@ import me.mochibit.createharmonics.foundation.services.contentService
 import me.mochibit.createharmonics.foundation.services.platformService
 import net.minecraft.CrashReport
 import net.minecraft.CrashReportCategory
-import net.minecraft.CrashReportDetail
 import net.minecraft.ReportedException
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -17,14 +16,11 @@ import net.minecraft.world.level.chunk.LevelChunkSection
 import net.minecraft.world.level.material.FluidState
 import net.minecraft.world.level.material.Fluids
 import org.joml.Vector3d
-import org.valkyrienskies.core.api.ships.Ship
-import org.valkyrienskies.mod.common.getShipManagingPos
 
 fun Level.countLiquidCoveredFaces(
     x: Double,
     y: Double,
     z: Double,
-    ship: Ship? = null,
 ): Pair<Int, Boolean> {
     var liquidCount = 0
     var viscousCount = 0
@@ -42,20 +38,20 @@ fun Level.countLiquidCoveredFaces(
     // treat all 6 faces as covered immediately without checking any neighbours.
 
     // Check ship-local center first (cheapest — no transform needed)
-    if (ship != null) {
-        val shipCenterFluid = getFluidState(x.toInt(), y.toInt(), z.toInt())
-        if (!shipCenterFluid.isEmpty) {
-            return Direction.entries.size to (contentService.getViscosity(shipCenterFluid) > 1000)
-        }
-    }
+//    if (ship != null) {
+//        val shipCenterFluid = getFluidState(x.toInt(), y.toInt(), z.toInt())
+//        if (!shipCenterFluid.isEmpty) {
+//            return Direction.entries.size to (contentService.getViscosity(shipCenterFluid) > 1000)
+//        }
+//    }
 
     // Check world-space center
-    val centerWorldPos: Vector3d =
-        if (ship != null) {
-            ship.shipToWorld.transformPosition(x, y, z, Vector3d())
-        } else {
-            Vector3d(x, y, z)
-        }
+    val centerWorldPos: Vector3d = Vector3d(x, y, z)
+//        if (ship != null) {
+//            ship.shipToWorld.transformPosition(x, y, z, Vector3d())
+//        } else {
+//
+//        }
 
     val centerFluid = getFluidState(centerWorldPos.x.toInt(), centerWorldPos.y.toInt(), centerWorldPos.z.toInt())
     if (!centerFluid.isEmpty) {
@@ -68,12 +64,12 @@ fun Level.countLiquidCoveredFaces(
         val nz = z + direction.stepZ
 
         // 1. World-space check — always takes priority
-        val worldNeighbor: Vector3d =
-            if (ship != null) {
-                ship.shipToWorld.transformPosition(nx, ny, nz, Vector3d())
-            } else {
-                Vector3d(nx, ny, nz)
-            }
+        val worldNeighbor: Vector3d = Vector3d(nx, ny, nz)
+//            if (ship != null) {
+//                ship.shipToWorld.transformPosition(nx, ny, nz, Vector3d())
+//            } else {
+//
+//            }
 
         val worldFluid = getFluidState(worldNeighbor.x.toInt(), worldNeighbor.y.toInt(), worldNeighbor.z.toInt())
         if (!worldFluid.isEmpty) {
@@ -86,26 +82,26 @@ fun Level.countLiquidCoveredFaces(
         if (!worldBlock.isAir) continue
 
         // 3. Fallback: check ship-local space (handles fluid blocks that are part of the ship itself)
-        if (ship != null) {
-            val shipFluid = getFluidState(nx.toInt(), ny.toInt(), nz.toInt())
-            if (!shipFluid.isEmpty) {
-                accumulateFluid(shipFluid)
-            }
-        }
+//        if (ship != null) {
+//            val shipFluid = getFluidState(nx.toInt(), ny.toInt(), nz.toInt())
+//            if (!shipFluid.isEmpty) {
+//                accumulateFluid(shipFluid)
+//            }
+//        }
     }
 
     val isThick = viscousCount >= waterCount && viscousCount > 0
     return liquidCount to isThick
 }
 
-fun BlockPos.getManagingShip(level: Level): Ship? {
-    if (!platformService.isModLoaded("valkyrienskies")) return null
-    return level.getShipManagingPos(
-        this.x.toDouble(),
-        this.y.toDouble(),
-        this.z.toDouble(),
-    )
-}
+// fun BlockPos.getManagingShip(level: Level): Ship? {
+//    if (!platformService.isModLoaded("valkyrienskies")) return null
+//    return level.getShipManagingPos(
+//        this.x.toDouble(),
+//        this.y.toDouble(),
+//        this.z.toDouble(),
+//    )
+// }
 
 fun Level.getFluidState(
     x: Int,

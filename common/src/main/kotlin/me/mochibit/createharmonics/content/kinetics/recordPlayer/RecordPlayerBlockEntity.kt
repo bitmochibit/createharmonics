@@ -17,10 +17,7 @@ import net.minecraft.world.Clearable
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
-import net.minecraftforge.common.capabilities.Capability
-import net.minecraftforge.common.capabilities.ForgeCapabilities
-import net.minecraftforge.common.util.LazyOptional
-import net.minecraftforge.items.ItemStackHandler
+import net.neoforged.neoforge.items.ItemStackHandler
 
 abstract class RecordPlayerBlockEntity(
     type: BlockEntityType<*>,
@@ -127,9 +124,6 @@ abstract class RecordPlayerBlockEntity(
             itemHandler.setStackInSlot(i, if (i < wrapped.slots) wrapped.getStackInSlot(i) else ItemStack.EMPTY)
         }
     }
-
-    val lazyItemHandler: LazyOptional<RecordPlayerItemHandler>
-        get() = playerBehaviour.lazyItemHandler
 
     val itemHandler: RecordPlayerItemHandler
         get() = playerBehaviour.itemHandler

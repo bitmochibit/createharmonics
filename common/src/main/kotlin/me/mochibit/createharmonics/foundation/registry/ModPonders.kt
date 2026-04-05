@@ -13,7 +13,7 @@ object ModPonders : CommonRegistry {
     override val registrationOrder = 5
 
     fun addTags(rawHelper: PonderTagRegistrationHelper<ResourceLocation>) {
-        val helper = rawHelper.withKeyFunction(RegistryEntry<*>::getId)
+        val helper = rawHelper.withKeyFunction(RegistryEntry<*, *>::getId)
 
         helper
             .addToTag(
@@ -28,8 +28,8 @@ object ModPonders : CommonRegistry {
     }
 
     fun addScenes(rawHelper: PonderSceneRegistrationHelper<ResourceLocation>) {
-        val helper: PonderSceneRegistrationHelper<ItemProviderEntry<*>?> =
-            rawHelper.withKeyFunction(RegistryEntry<*>::getId)
+        val helper: PonderSceneRegistrationHelper<ItemProviderEntry<*, *>?> =
+            rawHelper.withKeyFunction(RegistryEntry<*, *>::getId)
 
         helper.addStoryBoard(
             ModBlocks.ANDESITE_JUKEBOX,

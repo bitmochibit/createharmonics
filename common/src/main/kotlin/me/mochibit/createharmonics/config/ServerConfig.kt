@@ -2,7 +2,7 @@ package me.mochibit.createharmonics.config
 
 import me.mochibit.createharmonics.content.records.RecordType
 import net.createmod.catnip.config.ConfigBase
-import net.minecraftforge.common.ForgeConfigSpec
+import net.neoforged.neoforge.common.ModConfigSpec
 
 /**
  * Server-side configuration for CreateHarmonics.
@@ -77,7 +77,7 @@ object ServerConfig : ConfigBase() {
         }
     }
 
-    override fun registerAll(builder: ForgeConfigSpec.Builder) {
+    override fun registerAll(builder: ModConfigSpec.Builder) {
         recordGroup()
         jukeboxesGroup()
         super.registerAll(builder)

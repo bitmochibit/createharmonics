@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics.config
 
 import net.createmod.catnip.config.ConfigBase
-import net.minecraftforge.common.ForgeConfigSpec
+import net.neoforged.neoforge.common.ModConfigSpec
 
 object ClientConfig : ConfigBase() {
     lateinit var minPitch: ConfigFloat
@@ -13,7 +13,7 @@ object ClientConfig : ConfigBase() {
     lateinit var playbackBufferSeconds: ConfigFloat
         private set
 
-    lateinit var ytdlpOverrideArgs: CValue<String, ForgeConfigSpec.ConfigValue<String>>
+    lateinit var ytdlpOverrideArgs: CValue<String, ModConfigSpec.ConfigValue<String>>
         private set
 
     lateinit var mainMenuLibButtonRow: ConfigInt
@@ -31,14 +31,14 @@ object ClientConfig : ConfigBase() {
     lateinit var neverShowLibraryDisclaimer: ConfigBool
         private set
 
-    override fun registerAll(builder: ForgeConfigSpec.Builder) {
+    override fun registerAll(builder: ModConfigSpec.Builder) {
         menuButtonsGroup(builder)
         audioSourceGroup(builder)
         libraryGroup(builder)
         super.registerAll(builder)
     }
 
-    private fun menuButtonsGroup(builder: ForgeConfigSpec.Builder) {
+    private fun menuButtonsGroup(builder: ModConfigSpec.Builder) {
         group(1, "menu_buttons", "Configuration for menu buttons")
 
         mainMenuLibButtonRow =
@@ -86,7 +86,7 @@ object ClientConfig : ConfigBase() {
             )
     }
 
-    private fun audioSourceGroup(builder: ForgeConfigSpec.Builder) {
+    private fun audioSourceGroup(builder: ModConfigSpec.Builder) {
         group(1, "audio_sources", "Configuration for audio sources and playback")
 
         minPitch = f(0.5f, 0.1f, 1.0f, "minPitch", "Minimum pitch for audio playback")
@@ -94,7 +94,7 @@ object ClientConfig : ConfigBase() {
         playbackBufferSeconds =
             f(0.05f, 0.01f, 30.0f, "playbackBufferSeconds", "Buffer time in seconds for audio playback")
         ytdlpOverrideArgs =
-            CValue<String, ForgeConfigSpec.ConfigValue<String>>(
+            CValue<String, ModConfigSpec.ConfigValue<String>>(
                 "ytdlpOverrideArgs",
                 { builder ->
                     builder.define("ytdlpOverrideArgs", "")
@@ -103,7 +103,7 @@ object ClientConfig : ConfigBase() {
             )
     }
 
-    private fun libraryGroup(builder: ForgeConfigSpec.Builder) {
+    private fun libraryGroup(builder: ModConfigSpec.Builder) {
         group(1, "library", "Configuration for external library management")
 
         neverShowLibraryDisclaimer =

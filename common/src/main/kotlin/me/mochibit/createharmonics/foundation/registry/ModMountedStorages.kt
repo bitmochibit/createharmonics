@@ -14,7 +14,7 @@ import net.minecraft.world.level.block.state.BlockState
 object ModMountedStorages : CommonRegistry {
     override val registrationOrder = 1
 
-    val SIMPLE_RECORD_PLAYER_STORAGE: RegistryEntry<RecordPlayerMountedStorageType> =
+    val SIMPLE_RECORD_PLAYER_STORAGE: RegistryEntry<MountedItemStorageType<*>, RecordPlayerMountedStorageType> =
         ModRegistrate
             .mountedItemStorage("simple_record_player_storage", ::RecordPlayerMountedStorageType)
             .register()
@@ -31,7 +31,7 @@ object ModMountedStorages : CommonRegistry {
             be: BlockEntity?,
         ): RecordPlayerMountedStorage? {
             if (be is RecordPlayerBlockEntity) {
-                return RecordPlayerMountedStorage.Companion.fromRecordPlayer(be)
+                return RecordPlayerMountedStorage.fromRecordPlayer(be)
             }
             return null
         }

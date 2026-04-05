@@ -21,7 +21,6 @@ import me.mochibit.createharmonics.content.records.RecordUtilities
 import me.mochibit.createharmonics.content.records.RecordUtilities.handleRecordUse
 import me.mochibit.createharmonics.content.records.RecordUtilities.playFromRecord
 import me.mochibit.createharmonics.foundation.async.every
-import me.mochibit.createharmonics.foundation.extension.getManagingShip
 import me.mochibit.createharmonics.foundation.extension.onClient
 import me.mochibit.createharmonics.foundation.extension.onServer
 import me.mochibit.createharmonics.foundation.extension.remapTo
@@ -32,6 +31,7 @@ import me.mochibit.createharmonics.foundation.services.contentService
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.client.resources.sounds.SoundInstance
+import net.minecraft.core.HolderLookup
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.core.particles.ShriekParticleOption
 import net.minecraft.nbt.CompoundTag
@@ -44,7 +44,6 @@ import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
-import net.minecraftforge.common.util.LazyOptional
 import java.io.InputStream
 import java.util.UUID
 import kotlin.math.abs
@@ -190,7 +189,6 @@ class RecordPlayerBehaviour(
     private var shouldRestartOnNextTick = false
 
     val itemHandler = RecordPlayerItemHandler(this, 1)
-    val lazyItemHandler: LazyOptional<RecordPlayerItemHandler> = LazyOptional.of { itemHandler }
 
     val pitchSupplierInterpolated = FloatSupplierInterpolated({ currentPitch }, 500)
     val volumeSupplierInterpolated = FloatSupplierInterpolated({ currentVolume }, 500)
@@ -429,7 +427,7 @@ class RecordPlayerBehaviour(
     fun handleRecordUse() {
         be.level?.onServer { level ->
             val record = getRecord()
-            val result = handleRecordUse(record, RandomSource.create())
+            val result = handleRecordUse(record, level)
 
             when {
                 result.shouldReplace -> {
@@ -590,6 +588,7 @@ class RecordPlayerBehaviour(
             { radiusSupplierInterpolated.getValue() },
             { volumeSupplierInterpolated.getValue() },
             initialPos,
+            level,
         )
 
         underwaterEffect.update(audioPlayer, be.blockPos, level)
@@ -633,7 +632,7 @@ class RecordPlayerBehaviour(
             AudioPlayerManager.release(uuidStr)
         }
 
-        lazyItemHandler.invalidate()
+        be.level?.invalidateCapabilities(pos)
         super.unload()
     }
 
@@ -658,9 +657,10 @@ class RecordPlayerBehaviour(
 
     override fun write(
         compound: CompoundTag,
+        registries: HolderLookup.Provider,
         clientPacket: Boolean,
     ) {
-        compound.put("Inventory", itemHandler.serializeNBT())
+        compound.put("Inventory", itemHandler.serializeNBT(registries))
         NBTHelper.writeEnum(compound, "PlaybackState", playbackState)
         _recordPlayerUUID?.let {
             compound.putUUID("RecordPlayerUUID", it)
@@ -678,10 +678,11 @@ class RecordPlayerBehaviour(
 
     override fun read(
         compound: CompoundTag,
+        registries: HolderLookup.Provider,
         clientPacket: Boolean,
     ) {
         if (compound.contains("Inventory")) {
-            itemHandler.deserializeNBT(compound.getCompound("Inventory"))
+            itemHandler.deserializeNBT(registries, compound.getCompound("Inventory"))
         }
 
         if (compound.contains("RedstonePower")) {

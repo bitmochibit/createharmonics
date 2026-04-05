@@ -8,7 +8,6 @@ import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInter
 import net.minecraft.core.Vec3i
 import net.minecraft.world.level.Level
 import net.minecraft.world.phys.Vec3
-import org.valkyrienskies.mod.common.getShipManagingPos
 
 sealed interface EffectPreset {
     fun update(
@@ -93,8 +92,7 @@ sealed interface EffectPreset {
             if (level is VirtualRenderWorld) return
             if (!level.isClientSide) return
 
-            val managingShip = level.getShipManagingPos(x, y, z)
-            val (liquidCoveredFaces, isThick) = level.countLiquidCoveredFaces(x, y, z, managingShip)
+            val (liquidCoveredFaces, isThick) = level.countLiquidCoveredFaces(x, y, z)
 
             if (liquidCoveredFaces > 0) {
                 val maxEffectiveFaces = 4f

@@ -10,6 +10,7 @@ import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
+import net.minecraft.world.ItemInteractionResult
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.state.BlockState
@@ -30,21 +31,22 @@ interface RecordPlayerTrait {
         hand: InteractionHand,
         hit: BlockHitResult,
         facing: Direction,
-    ): InteractionResult {
-        val blockEntity = level.getBlockEntity(pos) as? RecordPlayerBlockEntity ?: return InteractionResult.PASS
+    ): ItemInteractionResult {
+        val blockEntity =
+            level.getBlockEntity(pos) as? RecordPlayerBlockEntity ?: return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
         val clickItem = player.getItemInHand(hand)
 
         if (AllItems.WRENCH.isIn(clickItem)) {
-            return InteractionResult.PASS
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
         }
 
         // Only allow interactions on the FACING direction (the head/slot side)
         if (hit.direction != facing) {
-            return InteractionResult.PASS
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
         }
 
         if (!clickItem.isEmpty && clickItem.item !is EtherealRecordItem) {
-            return InteractionResult.PASS
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
         }
 
         level.onServer {
@@ -63,7 +65,7 @@ interface RecordPlayerTrait {
                     1f + RandomSource.create().nextFloat(),
                 )
 
-                return InteractionResult.SUCCESS
+                return ItemInteractionResult.SUCCESS
             }
 
             if (clickItem.isEmpty && blockEntity.playerBehaviour.hasRecord()) {
@@ -83,11 +85,11 @@ interface RecordPlayerTrait {
                     1f + RandomSource.create().nextFloat(),
                 )
 
-                return InteractionResult.SUCCESS
+                return ItemInteractionResult.SUCCESS
             }
         }
 
-        return InteractionResult.SUCCESS
+        return ItemInteractionResult.SUCCESS
     }
 
     companion object {

@@ -18,7 +18,6 @@ import net.minecraft.Util
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.screens.Screen
-import net.minecraft.client.gui.screens.TitleScreen
 import net.minecraft.client.renderer.PanoramaRenderer
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.TextColor
@@ -32,8 +31,8 @@ class HarmonicsMenuScreen(
     private val buttonHeight = 20
 
     private val panoramaOverlay =
-        ResourceLocation("minecraft:textures/gui/title/background/panorama_overlay.png")
-    private var vanillaPanorama: PanoramaRenderer = PanoramaRenderer(TitleScreen.CUBE_MAP)
+        ResourceLocation.fromNamespaceAndPath("minecraft", "textures/gui/title/background/panorama_overlay.png")
+    private var vanillaPanorama: PanoramaRenderer = PanoramaRenderer(CUBE_MAP)
     private var firstRenderTime: Long = 0L
     private var returnOnClose = true
 
@@ -109,10 +108,9 @@ class HarmonicsMenuScreen(
     ) {
         val f = (Util.getMillis() - firstRenderTime) / 1000.0f
         val alpha = Mth.clamp(f, 0.0f, 1.0f)
-        val elapsedPartials = minecraft?.deltaFrameTime ?: partialTicks
 
         // Render vanilla panorama
-        vanillaPanorama.render(elapsedPartials, alpha)
+        vanillaPanorama.render(graphics, this.width, this.height, alpha, partialTicks)
 
         // Render panorama overlay
         RenderSystem.enableBlend()

@@ -4,15 +4,13 @@ import com.simibubi.create.api.behaviour.movement.MovementBehaviour
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity
 import com.simibubi.create.content.contraptions.behaviour.MovementContext
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
-import me.mochibit.createharmonics.foundation.eventbus.ProxyEvent
 import me.mochibit.createharmonics.foundation.eventbus.ServerEvents
 import me.mochibit.createharmonics.foundation.network.packet.ContraptionBlockDataChangedPacket
-import me.mochibit.createharmonics.foundation.network.packet.ModPacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
 import net.minecraft.core.BlockPos
+import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.StructureBlockInfo
-import net.minecraftforge.network.PacketDistributor
 import kotlin.collections.set
 
 interface Stainable {
@@ -53,7 +51,7 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
         if (context.temporaryData == null) {
             context.temporaryData =
                 contextDataFactory(context).apply {
-                    read(context, context.data, this, SyncType.DISK)
+                    read(context, context.data, this, SyncType.DISK, context.world.registryAccess())
                 }
             if (!context.world.isClientSide) {
                 resyncData(context)
@@ -70,6 +68,7 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
         contextData: Data,
         context: MovementContext,
         syncType: SyncType,
+        provider: HolderLookup.Provider,
     )
 
     /**
@@ -80,17 +79,18 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
         from: CompoundTag,
         target: Data,
         syncType: SyncType,
+        provider: HolderLookup.Provider,
     )
 
     override fun writeExtraData(context: MovementContext) {
-        write(context.data, getContextData(context), context, SyncType.DISK)
+        write(context.data, getContextData(context), context, SyncType.DISK, context.world.registryAccess())
     }
 
     fun syncFromBlock(context: MovementContext) {
         val nbt = context.contraption.blocks[context.localPos]?.nbt ?: return
         val data = getContextData(context)
         data.markDirty()
-        read(context, nbt, data, SyncType.NET)
+        read(context, nbt, data, SyncType.NET, context.world.registryAccess())
     }
 
     /**
@@ -106,7 +106,7 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
         }
         val block = context.contraption.blocks[context.localPos] ?: return
         val nbt = block.nbt ?: return
-        write(nbt, data, context, SyncType.NET)
+        write(nbt, data, context, SyncType.NET, context.world.registryAccess())
         context.contraption.entity.setBlockData(context.localPos, block)
         data.clean()
     }

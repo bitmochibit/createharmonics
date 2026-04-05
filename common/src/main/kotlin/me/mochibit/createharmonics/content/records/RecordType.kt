@@ -9,25 +9,17 @@ import me.mochibit.createharmonics.audio.effect.EqualizerEffect
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.extension.Tags
 import me.mochibit.createharmonics.foundation.extension.asResource
-import me.mochibit.createharmonics.foundation.extension.butOnForge
-import me.mochibit.createharmonics.foundation.extension.resPath
 import me.mochibit.createharmonics.foundation.extension.withPath
 import me.mochibit.createharmonics.foundation.locale.LangProvider
 import me.mochibit.createharmonics.foundation.locale.ModLang
 import me.mochibit.createharmonics.foundation.registry.platform.ModSoundRegistry
-import me.mochibit.createharmonics.foundation.services.contentService
-import net.minecraft.ChatFormatting
 import net.minecraft.core.registries.BuiltInRegistries
-import net.minecraft.core.registries.Registries
-import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.MutableComponent
 import net.minecraft.network.chat.Style
 import net.minecraft.network.chat.TextColor
 import net.minecraft.sounds.SoundEvents
-import net.minecraft.tags.TagKey
 import net.minecraft.util.RandomSource
 import net.minecraft.world.item.crafting.Ingredient
-import java.util.Locale
 import java.util.Locale.getDefault
 
 enum class RecordType(
@@ -241,14 +233,14 @@ enum class RecordType(
             val style: Style,
             val qualityIndicator: Boolean = false,
         ) {
-            BASSY(Style.EMPTY.withColor(TextColor.parseColor("#A53561"))),
-            SHINY(Style.EMPTY.withColor(TextColor.parseColor("#55E1D9"))),
-            RUSTIC(Style.EMPTY.withColor(TextColor.parseColor("#58693C"))),
-            NOISY(Style.EMPTY.withColor(TextColor.parseColor("#17D960"))),
+            BASSY(Style.EMPTY.withColor(TextColor.parseColor("#A53561").orThrow)),
+            SHINY(Style.EMPTY.withColor(TextColor.parseColor("#55E1D9").orThrow)),
+            RUSTIC(Style.EMPTY.withColor(TextColor.parseColor("#58693C").orThrow)),
+            NOISY(Style.EMPTY.withColor(TextColor.parseColor("#17D960").orThrow)),
 
-            CLEAN(Style.EMPTY.withColor(TextColor.parseColor("#F3F3F3")).withBold(true), true),
-            MID(Style.EMPTY.withColor(TextColor.parseColor("#F3F3F3")).withItalic(true), true),
-            MUDDY(Style.EMPTY.withColor(TextColor.parseColor("#F3F3F3")), true),
+            CLEAN(Style.EMPTY.withColor(TextColor.parseColor("#F3F3F3").orThrow).withBold(true), true),
+            MID(Style.EMPTY.withColor(TextColor.parseColor("#F3F3F3").orThrow).withItalic(true), true),
+            MUDDY(Style.EMPTY.withColor(TextColor.parseColor("#F3F3F3").orThrow), true),
             ;
 
             fun translatedComponent(): MutableComponent =

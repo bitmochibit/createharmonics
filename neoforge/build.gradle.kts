@@ -105,7 +105,7 @@ dependencies {
 
     // Create for NeoForge
     implementation("com.simibubi.create:create-$minecraftVersionProp:$createVersion:slim")
-    implementation("net.createmod.ponder:Ponder-NeoForge-$minecraftVersionProp:$ponderVersion")
+    implementation("net.createmod.ponder:ponder-neoforge:$ponderVersion+mc$minecraftVersionProp")
     compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-$minecraftVersionProp:$flywheelVersion")
     runtimeOnly("dev.engine-room.flywheel:flywheel-neoforge-$minecraftVersionProp:$flywheelVersion")
     implementation("com.tterrag.registrate:Registrate:$registrateVersion")

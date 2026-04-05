@@ -341,7 +341,7 @@ class LibraryDisclaimerScreen(
         mouseY: Int,
         partialTick: Float,
     ) {
-        renderBackground(guiGraphics)
+        renderBackground(guiGraphics, mouseX, mouseY, partialTick)
         guiGraphics.fillGradient(0, 0, width, height, 0xE0000000.toInt(), 0xD0000000.toInt())
 
         renderTitle(guiGraphics)

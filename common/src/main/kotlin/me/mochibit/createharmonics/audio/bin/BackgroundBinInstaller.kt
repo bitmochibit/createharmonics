@@ -9,6 +9,7 @@ import me.mochibit.createharmonics.foundation.locale.ModLang
 import me.mochibit.createharmonics.foundation.warn
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.components.toasts.SystemToast
+import net.minecraft.client.gui.components.toasts.TutorialToast
 import net.minecraft.network.chat.Component
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -126,24 +127,26 @@ object BackgroundBinInstaller {
 
             if (success) {
                 toastManager.addToast(
-                    SystemToast.multiline(
-                        minecraft,
-                        SystemToast.SystemToastIds.TUTORIAL_HINT,
-                        Component.literal(library.displayName).append(
-                            ModLang.translate("gui.library_installer.toast.success_title").component(),
-                        ),
+                    TutorialToast(
+                        TutorialToast.Icons.RECIPE_BOOK,
+                        Component
+                            .literal(library.displayName)
+                            .append(
+                                ModLang.translate("gui.library_installer.toast.success_title").component(),
+                            ),
                         ModLang.translate("gui.library_installer.toast.success_desc").component(),
+                        false,
                     ),
                 )
             } else {
                 toastManager.addToast(
-                    SystemToast.multiline(
-                        minecraft,
-                        SystemToast.SystemToastIds.TUTORIAL_HINT,
+                    TutorialToast(
+                        TutorialToast.Icons.RECIPE_BOOK,
                         Component.literal(library.displayName).append(
                             ModLang.translate("gui.library_installer.toast.failure_title").component(),
                         ),
                         ModLang.translate("gui.library_installer.toast.failure_desc").component(),
+                        false,
                     ),
                 )
             }

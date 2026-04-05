@@ -45,6 +45,7 @@ import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos
+import net.minecraft.core.HolderLookup
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.core.particles.ShriekParticleOption
 import net.minecraft.nbt.CompoundTag
@@ -304,10 +305,11 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
         contextData: RecordPlayerContextData,
         context: MovementContext,
         syncType: SyncType,
+        provider: HolderLookup.Provider,
     ) {
         target.apply {
             putClock(contextData.playtimeClock)
-            put("HeldRecordItem", contextData.heldItemStack.toNBT())
+            put("HeldRecordItem", contextData.heldItemStack.toNBT(provider))
             if (syncType != SyncType.DISK) {
                 // PlayState syncs only over network
                 writeEnum("PlaybackStateMoving", contextData.playbackState)
@@ -320,10 +322,11 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
         from: CompoundTag,
         target: RecordPlayerContextData,
         syncType: SyncType,
+        provider: HolderLookup.Provider,
     ) {
         target.apply {
             from.updateClock(this.playtimeClock)
-            heldItemStack = ItemStack.of(from.getCompound("HeldRecordItem"))
+            heldItemStack = ItemStack.parseOptional(provider, from.getCompound("HeldRecordItem"))
             if (syncType != SyncType.DISK) {
                 playbackState = from.readEnum("PlaybackStateMoving")
             }
@@ -481,6 +484,7 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                                 data.radiusSupplier,
                                 data.volumeSupplier,
                                 data.playtimeClock.currentPlaytime,
+                                context.world,
                             )
                         }
 
@@ -566,7 +570,7 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             val storage =
                 context.contraption.storage.allItemStorages[context.localPos] as? RecordPlayerMountedStorage ?: return
             val record = getRecordItem(context)
-            val result = RecordUtilities.handleRecordUse(record, RandomSource.create())
+            val result = RecordUtilities.handleRecordUse(record, level)
 
             when {
                 result.shouldReplace -> {

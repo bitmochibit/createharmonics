@@ -22,6 +22,7 @@ import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
+import net.minecraft.world.ItemInteractionResult
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
@@ -70,20 +71,61 @@ class RecordPressBaseBlock(
         pContext: CollisionContext,
     ): VoxelShape = AllShapes.CASING_13PX.get(Direction.UP)
 
-    @Deprecated("Deprecated in Java")
-    override fun use(
+    override fun useItemOn(
+        pStack: ItemStack,
         pState: BlockState,
         pLevel: Level,
         pPos: BlockPos,
         pPlayer: Player,
         pHand: InteractionHand,
         pHit: BlockHitResult,
-    ): InteractionResult {
-        if (AllItems.WRENCH.isIn(pPlayer.getItemInHand(pHand))) return InteractionResult.PASS
+    ): ItemInteractionResult {
+        if (AllItems.WRENCH.isIn(pStack)) {
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
+        }
 
-        // If clicked on any face except the top face, open the GUI
         if (pHit.direction != Direction.UP) {
-            pLevel.onClient { level, virtual ->
+            pLevel.onClient { _, _ ->
+                withBlockEntityDo(pLevel, pPos) { be: RecordPressBaseBlockEntity ->
+                    ClientHandler.openRecordPressScreen(be)
+                }
+            }
+            return ItemInteractionResult.SUCCESS
+        }
+
+        if (pLevel.isClientSide) return ItemInteractionResult.SUCCESS
+
+        val behaviour =
+            BlockEntityBehaviour.get(pLevel, pPos, RecordPressBaseBehaviour.BEHAVIOUR_TYPE)
+                ?: return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
+        if (!behaviour.canAcceptItems()) return ItemInteractionResult.SUCCESS
+
+        pickupBehaviourItems(behaviour, pLevel, pPos, pPlayer)
+
+        val cantPlaceItem = AllBlocks.MECHANICAL_ARM.isIn(pStack)
+        if (!cantPlaceItem) {
+            val transported = TransportedItemStack(pStack)
+            transported.insertedFrom = pPlayer.direction
+            transported.prevBeltPosition = .25f
+            transported.beltPosition = .25f
+            behaviour.heldItem = transported
+            pPlayer.setItemInHand(pHand, ItemStack.EMPTY)
+            AllSoundEvents.DEPOT_SLIDE.playOnServer(pLevel, pPos)
+        }
+
+        behaviour.blockEntity.notifyUpdate()
+        return ItemInteractionResult.SUCCESS
+    }
+
+    override fun useWithoutItem(
+        pState: BlockState,
+        pLevel: Level,
+        pPos: BlockPos,
+        pPlayer: Player,
+        pHit: BlockHitResult,
+    ): InteractionResult {
+        if (pHit.direction != Direction.UP) {
+            pLevel.onClient { _, _ ->
                 withBlockEntityDo(pLevel, pPos) { be: RecordPressBaseBlockEntity ->
                     ClientHandler.openRecordPressScreen(be)
                 }
@@ -98,56 +140,36 @@ class RecordPressBaseBlock(
                 ?: return InteractionResult.PASS
         if (!behaviour.canAcceptItems()) return InteractionResult.SUCCESS
 
-        val heldItem: ItemStack = pPlayer.getItemInHand(pHand)
-        val wasEmptyHanded = heldItem.isEmpty
-        val cantPlaceItem = AllBlocks.MECHANICAL_ARM.isIn(heldItem)
+        pickupBehaviourItems(behaviour, pLevel, pPos, pPlayer)
 
-        val mainItemStack = behaviour.heldItemStack
+        behaviour.blockEntity.notifyUpdate()
+        return InteractionResult.SUCCESS
+    }
+
+    private fun pickupBehaviourItems(
+        behaviour: RecordPressBaseBehaviour,
+        pLevel: Level,
+        pPos: BlockPos,
+        pPlayer: Player,
+    ) {
         var playedSoundOnce = false
+        val mainItemStack = behaviour.heldItemStack
 
         if (!mainItemStack.isEmpty) {
-            pPlayer.inventory
-                .placeItemBackInInventory(mainItemStack)
+            pPlayer.inventory.placeItemBackInInventory(mainItemStack)
             behaviour.removeHeldItem()
-            pLevel.playSound(
-                null,
-                pPos,
-                SoundEvents.ITEM_PICKUP,
-                SoundSource.PLAYERS,
-                .2f,
-                1f + RANDOM.nextFloat(),
-            )
+            pLevel.playSound(null, pPos, SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, .2f, 1f + RANDOM.nextFloat())
             playedSoundOnce = true
         }
+
         val outputs = behaviour.processingOutputBuffer
         for (i in 0..<outputs.slots) {
             val extracted = outputs.extractItem(i, 64, false)
             if (!extracted.isEmpty && !playedSoundOnce) {
-                pLevel.playSound(
-                    null,
-                    pPos,
-                    SoundEvents.ITEM_PICKUP,
-                    SoundSource.PLAYERS,
-                    .2f,
-                    1f + RANDOM.nextFloat(),
-                )
+                pLevel.playSound(null, pPos, SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, .2f, 1f + RANDOM.nextFloat())
             }
-            pPlayer.inventory
-                .placeItemBackInInventory(extracted)
+            pPlayer.inventory.placeItemBackInInventory(extracted)
         }
-
-        if (!wasEmptyHanded && !cantPlaceItem) {
-            val transported = TransportedItemStack(heldItem)
-            transported.insertedFrom = pPlayer.direction
-            transported.prevBeltPosition = .25f
-            transported.beltPosition = .25f
-            behaviour.heldItem = transported
-            pPlayer.setItemInHand(pHand, ItemStack.EMPTY)
-            AllSoundEvents.DEPOT_SLIDE.playOnServer(pLevel, pPos)
-        }
-
-        behaviour.blockEntity.notifyUpdate()
-        return InteractionResult.SUCCESS
     }
 
     override fun getStateForPlacement(context: BlockPlaceContext): BlockState = withWater(super.getStateForPlacement(context), context)

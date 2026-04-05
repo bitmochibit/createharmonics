@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.content.kinetics.mechanicalArm.AllArmInteractionPointTypes
+import com.simibubi.create.content.kinetics.mechanicalArm.ArmBlockEntity
 import com.simibubi.create.content.kinetics.mechanicalArm.ArmInteractionPointType
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import net.minecraft.core.BlockPos
@@ -16,10 +17,11 @@ class RecordPlayerArmPoint(
     state: BlockState,
 ) : AllArmInteractionPointTypes.JukeboxPoint(type, level, pos, state) {
     override fun insert(
-        stack: ItemStack?,
+        armBlockEntity: ArmBlockEntity,
+        stack: ItemStack,
         simulate: Boolean,
-    ): ItemStack? {
-        if (stack?.item !is EtherealRecordItem) return stack
+    ): ItemStack {
+        if (stack.item !is EtherealRecordItem) return stack
         if (cachedState.getOptionalValue(RecordPlayerTrait.HAS_ETHEREAL_RECORD).orElse(true)) return stack
         val be =
             level.getBlockEntity(pos) as? RecordPlayerBlockEntity
@@ -41,6 +43,7 @@ class RecordPlayerArmPoint(
     }
 
     override fun extract(
+        armBlockEntity: ArmBlockEntity,
         slot: Int,
         amount: Int,
         simulate: Boolean,

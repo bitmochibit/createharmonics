@@ -3,8 +3,7 @@ package me.mochibit.createharmonics.content.kinetics.recordPlayer
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.foundation.extension.onServer
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.level.block.JukeboxBlock
-import net.minecraftforge.items.ItemStackHandler
+import net.neoforged.neoforge.items.ItemStackHandler
 
 class RecordPlayerItemHandler(
     val behaviour: RecordPlayerBehaviour,

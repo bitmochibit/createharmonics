@@ -82,7 +82,7 @@ abstract class SuppliedSoundInstance(
         // For streaming sounds, create custom Sound object
         if (streamSound) {
             return Sound(
-                this.location.toString(),
+                this.location,
                 ConstantFloat.of(1.0f),
                 ConstantFloat.of(1.0f),
                 1,
@@ -98,7 +98,7 @@ abstract class SuppliedSoundInstance(
         val baseSound = resolvedSound ?: this.sound
 
         return Sound(
-            baseSound.location.toString(),
+            baseSound.location,
             baseSound.volume,
             baseSound.pitch,
             baseSound.weight,

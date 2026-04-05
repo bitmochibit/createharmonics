@@ -43,5 +43,5 @@ data class ModGuiTexture(
 
     override fun getHeight(): Int = height
 
-    override fun getLocation(): ResourceLocation = ResourceLocation(namespace, "textures/gui/$textureName.png")
+    override fun getLocation(): ResourceLocation = ResourceLocation.fromNamespaceAndPath(namespace, "textures/gui/$textureName.png")
 }

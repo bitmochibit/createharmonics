@@ -1,8 +1,8 @@
 package me.mochibit.createharmonics.config
 
 import net.createmod.catnip.config.ConfigBase
-import net.minecraftforge.common.ForgeConfigSpec
-import net.minecraftforge.fml.config.ModConfig
+import net.neoforged.fml.config.ModConfig
+import net.neoforged.neoforge.common.ModConfigSpec
 import java.util.EnumMap
 
 /**
@@ -22,7 +22,7 @@ object ModConfigs {
         type: ModConfig.Type,
     ): ConfigBase {
         val specPair =
-            ForgeConfigSpec.Builder().configure { builder ->
+            ModConfigSpec.Builder().configure { builder ->
                 val config = factory()
                 config.registerAll(builder)
                 return@configure config

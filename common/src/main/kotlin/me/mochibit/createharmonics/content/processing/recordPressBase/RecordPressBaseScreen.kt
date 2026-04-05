@@ -861,8 +861,8 @@ class RecordPressBaseScreen(
 
     override fun tick() {
         scroll.tickChaser()
-        urlInputFields.forEach { it.tick() }
-        weightInputFields.forEach { it.tick() }
+//        urlInputFields.forEach { it.tick() }
+//        weightInputFields.forEach { it.tick() }
 
         // Sync currentUrlIndex from block entity to GUI (for real-time updates during processing)
         if (be.currentUrlIndex != configuration.currentUrlIndex && !changedIndexOnce) {
@@ -876,6 +876,7 @@ class RecordPressBaseScreen(
         mouseX: Double,
         mouseY: Double,
         delta: Double,
+        scrollY: Double,
     ): Boolean {
         // Calculate maximum scroll based on content height vs visible area
         val maxScroll = max(0, totalContentHeight - SCROLL_AREA_HEIGHT)
@@ -889,7 +890,7 @@ class RecordPressBaseScreen(
             scroll.chase(0.0, 0.7, Chaser.EXP)
         }
 
-        return super.mouseScrolled(mouseX, mouseY, delta)
+        return super.mouseScrolled(mouseX, mouseY, delta, scrollY)
     }
 
     override fun mouseClicked(

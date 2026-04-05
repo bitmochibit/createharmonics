@@ -15,13 +15,13 @@ import net.minecraft.world.level.block.state.BlockState
 object ModArmInteractionPoints : CommonRegistry {
     override val registrationOrder = 3
 
-    val RECORD_PLAYER_TYPE: RegistryEntry<RecordPlayerType> =
+    val RECORD_PLAYER_TYPE: RegistryEntry<ArmInteractionPointType, RecordPlayerType> =
         ModRegistrate
             .generic("record_player", CreateRegistries.ARM_INTERACTION_POINT_TYPE) {
                 RecordPlayerType()
             }.register()
 
-    val RECORD_PRESS_BASE_TYPE: RegistryEntry<RecordPressBaseType> =
+    val RECORD_PRESS_BASE_TYPE: RegistryEntry<ArmInteractionPointType, RecordPressBaseType> =
         ModRegistrate
             .generic("record_press_base", CreateRegistries.ARM_INTERACTION_POINT_TYPE) {
                 RecordPressBaseType()

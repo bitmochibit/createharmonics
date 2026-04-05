@@ -16,17 +16,16 @@ import me.mochibit.createharmonics.foundation.extension.onServer
 import net.createmod.catnip.math.VecHelper
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.core.Direction
+import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.Tag
 import net.minecraft.world.Containers
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.phys.Vec3
-import net.minecraftforge.common.capabilities.Capability
-import net.minecraftforge.common.util.LazyOptional
-import net.minecraftforge.items.IItemHandler
-import net.minecraftforge.items.ItemHandlerHelper
-import net.minecraftforge.items.ItemStackHandler
+import net.neoforged.neoforge.items.IItemHandler
+import net.neoforged.neoforge.items.ItemHandlerHelper
+import net.neoforged.neoforge.items.ItemStackHandler
 import kotlin.math.min
 
 abstract class DepotLikeBehaviour(
@@ -97,7 +96,6 @@ abstract class DepotLikeBehaviour(
     var outgoing: MutableList<TransportedItemStack> = mutableListOf()
     var processingOutputBuffer: ItemStackHandler
     var itemHandler: DepotLikeItemHandler
-    var lazyItemHandler: LazyOptional<DepotLikeItemHandler>
     var transportedHandler: TransportedItemStackHandlerBehaviour? = null
     var maxStackSize: () -> Int = { heldItem?.stack?.maxStackSize ?: 64 }
     var canAcceptItems: () -> Boolean = { true }
@@ -110,7 +108,6 @@ abstract class DepotLikeBehaviour(
         acceptedItems = { true }
         onHeldInserted = { }
         itemHandler = DepotLikeItemHandler(this)
-        lazyItemHandler = LazyOptional.of { itemHandler }
         processingOutputBuffer =
             object : ItemStackHandler(8) {
                 override fun onContentsChanged(slot: Int) {
@@ -367,47 +364,49 @@ abstract class DepotLikeBehaviour(
     }
 
     override fun unload() {
-        lazyItemHandler.invalidate()
+        this.blockEntity.level?.invalidateCapabilities(blockEntity.blockPos)
     }
 
     override fun write(
         compound: CompoundTag,
+        registries: HolderLookup.Provider,
         clientPacket: Boolean,
     ) {
-        heldItem?.let { compound.put("HeldItem", it.serializeNBT()) }
-        compound.put("OutputBuffer", processingOutputBuffer.serializeNBT())
+        heldItem?.let { compound.put("HeldItem", it.serializeNBT(registries)) }
+        compound.put("OutputBuffer", processingOutputBuffer.serializeNBT(registries))
         if (canMergeItems() && incoming.isNotEmpty()) {
             compound.put(
                 "Incoming",
-                NBTHelper.writeCompoundList(incoming) { obj -> obj.serializeNBT() },
+                NBTHelper.writeCompoundList(incoming) { obj -> obj.serializeNBT(registries) },
             )
         }
         if (outgoing.isNotEmpty()) {
             compound.put(
                 "Outgoing",
-                NBTHelper.writeCompoundList(outgoing) { obj -> obj.serializeNBT() },
+                NBTHelper.writeCompoundList(outgoing) { obj -> obj.serializeNBT(registries) },
             )
         }
     }
 
     override fun read(
         compound: CompoundTag,
+        registries: HolderLookup.Provider,
         clientPacket: Boolean,
     ) {
         heldItem =
             if (compound.contains("HeldItem")) {
-                TransportedItemStack.read(compound.getCompound("HeldItem"))
+                TransportedItemStack.read(compound.getCompound("HeldItem"), registries)
             } else {
                 null
             }
-        processingOutputBuffer.deserializeNBT(compound.getCompound("OutputBuffer"))
+        processingOutputBuffer.deserializeNBT(registries, compound.getCompound("OutputBuffer"))
         if (canMergeItems()) {
             val list = compound.getList("Incoming", Tag.TAG_COMPOUND.toInt())
-            incoming = NBTHelper.readCompoundList(list) { nbt -> TransportedItemStack.read(nbt) }.toMutableList()
+            incoming = NBTHelper.readCompoundList(list) { nbt -> TransportedItemStack.read(nbt, registries) }.toMutableList()
         }
         if (compound.contains("Outgoing")) {
             val list = compound.getList("Outgoing", Tag.TAG_COMPOUND.toInt())
-            outgoing = NBTHelper.readCompoundList(list) { nbt -> TransportedItemStack.read(nbt) }.toMutableList()
+            outgoing = NBTHelper.readCompoundList(list) { nbt -> TransportedItemStack.read(nbt, registries) }.toMutableList()
         }
     }
 
@@ -468,7 +467,7 @@ abstract class DepotLikeBehaviour(
 
             var returned = ItemStack.EMPTY
             if (remainingSpace < inserted.count) {
-                returned = ItemHandlerHelper.copyStackWithSize(heldItem.stack, inserted.count - remainingSpace)
+                returned = heldItem.stack.copyWithCount(inserted.count - remainingSpace)
                 if (!simulate) {
                     val copy = heldItem.copy()
                     copy.stack.count = remainingSpace
@@ -494,7 +493,7 @@ abstract class DepotLikeBehaviour(
         val maxCount = heldItem.stack.maxStackSize
         val stackTooLarge = maxCount < heldItem.stack.count
         if (stackTooLarge) {
-            returned = ItemHandlerHelper.copyStackWithSize(heldItem.stack, heldItem.stack.count - maxCount)
+            returned = heldItem.stack.copyWithCount(heldItem.stack.count - maxCount)
         }
 
         if (simulate) return returned
@@ -528,11 +527,6 @@ abstract class DepotLikeBehaviour(
             it.prevBeltPosition = 0.5f
         }
     }
-
-    fun <T> getItemCapability(
-        cap: Capability<T?>?,
-        side: Direction?,
-    ): LazyOptional<T?> = lazyItemHandler.cast()
 
     fun isOccupied(side: Direction?): Boolean {
         if (!heldItemStack.isEmpty && !canMergeItems()) return true

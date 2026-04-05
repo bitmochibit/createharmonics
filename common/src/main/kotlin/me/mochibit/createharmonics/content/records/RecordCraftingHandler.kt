@@ -5,20 +5,20 @@ import me.mochibit.createharmonics.foundation.eventbus.EventBus
 import me.mochibit.createharmonics.foundation.eventbus.ModEvent
 import me.mochibit.createharmonics.foundation.registry.ModItems
 import me.mochibit.createharmonics.foundation.services.contentService
+import net.minecraft.core.component.DataComponents
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
-import net.minecraft.world.item.RecordItem
-import org.valkyrienskies.core.impl.shadow.it
+import net.minecraft.world.item.component.CustomData
 
 object RecordCraftingHandler {
     const val CRAFTED_WITH_DISC_KEY = "crafted_with_disc"
 
     private fun isVanillaDisc(stack: ItemStack): Boolean {
         val item = stack.item
-        return item is RecordItem
+        return item.defaultInstance.has(DataComponents.JUKEBOX_PLAYABLE)
     }
 
     private fun isBaseRecord(stack: ItemStack): Boolean {
@@ -56,7 +56,8 @@ object RecordCraftingHandler {
     }
 
     fun getCraftedWithDisc(stack: ItemStack): ItemStack {
-        val tag = stack.tag ?: return ItemStack.EMPTY
+        val customData = stack.get(DataComponents.CUSTOM_DATA) ?: return ItemStack.EMPTY
+        val tag = customData.copyTag()
         val resLocStr = tag.getString(CRAFTED_WITH_DISC_KEY)
         if (resLocStr.isEmpty()) return ItemStack.EMPTY
 
@@ -74,8 +75,9 @@ object RecordCraftingHandler {
 
         val resLoc = BuiltInRegistries.ITEM.getKey(withDisc.item)
 
-        if (stack.tag == null) stack.tag = CompoundTag()
-        stack.tag?.putString(CRAFTED_WITH_DISC_KEY, resLoc.toString())
+        stack.update(DataComponents.CUSTOM_DATA, CustomData.EMPTY) { data ->
+            data.update { tag -> tag.putString(CRAFTED_WITH_DISC_KEY, resLoc.toString()) }
+        }
     }
 
     private fun transferCraftedWithDisc(
@@ -83,11 +85,14 @@ object RecordCraftingHandler {
         baseStack: ItemStack,
     ) {
         val resLocStr =
-            baseStack.tag
+            baseStack
+                .get(DataComponents.CUSTOM_DATA)
+                ?.copyTag()
                 ?.getString(CRAFTED_WITH_DISC_KEY)
                 ?.takeIf { it.isNotEmpty() } ?: return
 
-        if (etherealStack.tag == null) etherealStack.tag = CompoundTag()
-        etherealStack.tag?.putString(CRAFTED_WITH_DISC_KEY, resLocStr)
+        etherealStack.update(DataComponents.CUSTOM_DATA, CustomData.EMPTY) { data ->
+            data.update { tag -> tag.putString(CRAFTED_WITH_DISC_KEY, resLocStr) }
+        }
     }
 }

@@ -83,11 +83,10 @@ object ModIcons : CommonRegistry {
             light: Int,
         ) {
             builder
-                .vertex(matrix, vec.x.toFloat(), vec.y.toFloat(), vec.z.toFloat())
-                .color(rgb.red, rgb.green, rgb.blue, 255)
-                .uv(u, v)
-                .uv2(light)
-                .endVertex()
+                .addVertex(matrix, vec.x.toFloat(), vec.y.toFloat(), vec.z.toFloat())
+                .setColor(rgb.red, rgb.green, rgb.blue, 255)
+                .setUv(u, v)
+                .setLight(light)
         }
 
         override fun bind() {

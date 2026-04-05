@@ -2,13 +2,13 @@ package me.mochibit.createharmonics.content.records
 
 import me.mochibit.createharmonics.foundation.locale.ModLang
 import net.minecraft.ChatFormatting
+import net.minecraft.core.component.DataComponents
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.network.chat.CommonComponents
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.Style
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.item.RecordItem
 import net.minecraft.world.item.TooltipFlag
 import net.minecraft.world.level.Level
 
@@ -23,16 +23,16 @@ class EtherealRecordItem(
                 } else {
                     0
                 }
-            this.defaultDurability(maxDamage)
+            this.durability(maxDamage)
         },
     ) {
-    override fun canBeDepleted(): Boolean = recordType.uses > 0
+    override fun isDamageable(stack: ItemStack): Boolean = recordType.uses > 0
 
     override fun getDefaultInstance(): ItemStack {
         val discs =
             BuiltInRegistries.ITEM
                 .stream()
-                .filter { item -> item is RecordItem }
+                .filter { item -> item.defaultInstance.has(DataComponents.JUKEBOX_PLAYABLE) }
                 .toList()
 
         val default = super.getDefaultInstance()
@@ -42,7 +42,7 @@ class EtherealRecordItem(
 
     override fun appendHoverText(
         stack: ItemStack,
-        level: Level?,
+        context: TooltipContext,
         tooltipComponents: MutableList<Component>,
         isAdvanced: TooltipFlag,
     ) {
@@ -74,6 +74,6 @@ class EtherealRecordItem(
                     ?: Component.empty()
             tooltipComponents.add(CommonComponents.space().plainCopy().append(attributeComponent))
         }
-        super.appendHoverText(stack, level, tooltipComponents, isAdvanced)
+        super.appendHoverText(stack, context, tooltipComponents, isAdvanced)
     }
 }

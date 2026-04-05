@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.foundation.extension
 
 import net.createmod.catnip.nbt.NBTHelper
+import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.item.ItemStack
 
@@ -11,8 +12,8 @@ inline fun <reified T : Enum<*>> CompoundTag.writeEnum(
 
 inline fun <reified T : Enum<*>> CompoundTag.readEnum(key: String): T = NBTHelper.readEnum(this, key, T::class.java)
 
-fun ItemStack.toNBT(): CompoundTag {
+fun ItemStack.toNBT(registries: HolderLookup.Provider): CompoundTag {
     val serialized = CompoundTag()
-    this.save(serialized)
+    this.save(registries, serialized)
     return serialized
 }

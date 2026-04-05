@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.content.processing.recordPressBase
 
+import com.simibubi.create.content.kinetics.mechanicalArm.ArmBlockEntity
 import com.simibubi.create.content.kinetics.mechanicalArm.ArmInteractionPoint
 import me.mochibit.createharmonics.foundation.registry.ModArmInteractionPoints
 import net.minecraft.core.BlockPos
@@ -15,15 +16,17 @@ class RecordPressBaseArmInteractionPoint(
     state: BlockState,
 ) : ArmInteractionPoint(type, level, pos, state) {
     override fun extract(
+        armBlockEntity: ArmBlockEntity,
         slot: Int,
+        amount: Int,
         simulate: Boolean,
-    ): ItemStack? {
+    ): ItemStack {
         // Extract only from the outgoing slot (0 is held item, 1-8 are outgoing)
         if (slot == 0) {
             return ItemStack.EMPTY
         }
 
-        return super.extract(slot, simulate)
+        return super.extract(armBlockEntity, slot, simulate)
     }
 
     override fun getInteractionPositionVector(): Vec3 =

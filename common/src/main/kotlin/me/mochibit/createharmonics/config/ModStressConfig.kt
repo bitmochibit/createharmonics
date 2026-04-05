@@ -10,7 +10,7 @@ import net.createmod.catnip.config.ConfigBase
 import net.createmod.catnip.platform.CatnipServices
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.level.block.Block
-import net.minecraftforge.common.ForgeConfigSpec
+import net.neoforged.neoforge.common.ModConfigSpec
 import java.util.function.DoubleSupplier
 
 /**
@@ -31,10 +31,10 @@ object ModStressConfig : ConfigBase() {
     private val defaultImpacts: Object2DoubleMap<ResourceLocation> = Object2DoubleOpenHashMap()
     private val defaultCapacities: Object2DoubleMap<ResourceLocation> = Object2DoubleOpenHashMap()
 
-    private val capacities = mutableMapOf<ResourceLocation, ForgeConfigSpec.ConfigValue<Double>>()
-    private val impacts = mutableMapOf<ResourceLocation, ForgeConfigSpec.ConfigValue<Double>>()
+    private val capacities = mutableMapOf<ResourceLocation, ModConfigSpec.ConfigValue<Double>>()
+    private val impacts = mutableMapOf<ResourceLocation, ModConfigSpec.ConfigValue<Double>>()
 
-    override fun registerAll(builder: ForgeConfigSpec.Builder) {
+    override fun registerAll(builder: ModConfigSpec.Builder) {
         group(1, "stress_values", "Configure stress impacts and capacities for mechanical blocks.")
 
         // Register stress impacts
@@ -79,26 +79,6 @@ object ModStressConfig : ConfigBase() {
     }
 
     override fun getName(): String = "stressValues.v$VERSION"
-
-    /**
-     * Gets the configured stress impact for a block.
-     * @param block The block to query
-     * @return A DoubleSupplier providing the stress impact value, or null if not configured
-     */
-    fun getImpact(block: Block): DoubleSupplier? {
-        val id = CatnipServices.REGISTRIES.getKeyOrThrow(block)
-        return impacts[id]?.let { value -> DoubleSupplier { value.get() } }
-    }
-
-    /**
-     * Gets the configured stress capacity for a block.
-     * @param block The block to query
-     * @return A DoubleSupplier providing the stress capacity value, or null if not configured
-     */
-    fun getCapacity(block: Block): DoubleSupplier? {
-        val id = CatnipServices.REGISTRIES.getKeyOrThrow(block)
-        return capacities[id]?.let { value -> DoubleSupplier { value.get() } }
-    }
 
     /**
      * Sets a block to have no stress impact (0 SU).
