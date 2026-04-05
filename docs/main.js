@@ -212,7 +212,7 @@ function setupDisc() {
     gsap.set(randomDisc, { autoAlpha: 0, display: "block" });
 
     randomDisc.src =
-        `https://github.com/bitmochibit/createharmonics/blob/master/common/src/main/resources/assets/createharmonics/textures/block/ethereal_record_visual/${recordTextureNames[randomIndex]}.png?raw=true`;
+        `https://github.com/bitmochibit/createharmonics/blob/1.20.1/master/common/src/main/resources/assets/createharmonics/textures/block/ethereal_record_visual/${recordTextureNames[randomIndex]}.png?raw=true`;
 
     randomDisc.onload = () => {
         gsap.timeline()
