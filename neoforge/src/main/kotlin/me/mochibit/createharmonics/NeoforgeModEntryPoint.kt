@@ -15,6 +15,7 @@ import net.minecraft.client.gui.screens.Screen
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.bus.api.SubscribeEvent
+import net.neoforged.fml.ModContainer
 import net.neoforged.fml.ModLoadingContext
 import net.neoforged.fml.common.EventBusSubscriber
 import net.neoforged.fml.common.Mod
@@ -25,11 +26,11 @@ import net.neoforged.fml.loading.FMLEnvironment
 import net.neoforged.neoforge.capabilities.Capabilities
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent
 import net.neoforged.neoforge.client.ConfigScreenHandler.ConfigScreenFactory
+import net.neoforged.neoforge.client.gui.IConfigScreenFactory
 import net.neoforged.neoforge.common.NeoForge
 
 @Mod(MOD_ID)
 class NeoforgeModEntryPoint(
-    // NeoForge inietta l'IEventBus del mod direttamente nel costruttore
     private val modEventBus: IEventBus,
 ) {
     companion object {
@@ -43,7 +44,7 @@ class NeoforgeModEntryPoint(
         initialize()
     }
 
-    @EventBusSubscriber(modid = MOD_ID, bus = EventBusSubscriber.Bus.MOD)
+    @EventBusSubscriber(modid = MOD_ID)
     object ModSetup {
         @JvmStatic
         @SubscribeEvent
@@ -60,9 +61,8 @@ class NeoforgeModEntryPoint(
         @JvmStatic
         @SubscribeEvent
         fun onLoadComplete(event: FMLLoadCompleteEvent) {
-            // ModLoadingContext qui è net.neoforged.fml.ModLoadingContext
-            ModLoadingContext.get().registerExtensionPoint(ConfigScreenFactory::class.java) {
-                ConfigScreenFactory { _: Minecraft, previousScreen: Screen ->
+            ModLoadingContext.get().registerExtensionPoint(IConfigScreenFactory::class.java) {
+                IConfigScreenFactory { _: ModContainer, previousScreen: Screen ->
                     BaseConfigScreen(previousScreen, MOD_ID)
                 }
             }
@@ -73,7 +73,7 @@ class NeoforgeModEntryPoint(
         fun registerCapabilities(event: RegisterCapabilitiesEvent) {
             event.registerBlockEntity(
                 Capabilities.ItemHandler.BLOCK,
-                ModBlockEntities.RECORD_PLAYER.get(),
+                ModBlockEntities.ANDESITE_JUKEBOX.get(),
             ) { be: RecordPlayerBlockEntity, _ -> be.itemHandler }
 
             event.registerBlockEntity(
@@ -86,7 +86,6 @@ class NeoforgeModEntryPoint(
     private fun initialize() {
         NeoForge.EVENT_BUS.register(this)
 
-        // DistExecutor è rimosso in NeoForge; si usa FMLEnvironment.dist direttamente
         if (FMLEnvironment.dist.isClient) {
             PonderIndex.addPlugin(ModPonderPlugin())
         }
