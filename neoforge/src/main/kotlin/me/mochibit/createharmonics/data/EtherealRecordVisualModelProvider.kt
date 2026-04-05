@@ -3,8 +3,8 @@ package me.mochibit.createharmonics.data
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
 import me.mochibit.createharmonics.content.records.RecordType
 import net.minecraft.data.PackOutput
-import net.minecraftforge.client.model.generators.BlockModelProvider
-import net.minecraftforge.common.data.ExistingFileHelper
+import net.neoforged.neoforge.client.model.generators.BlockModelProvider
+import net.neoforged.neoforge.common.data.ExistingFileHelper
 
 /**
  * Data generator for ethereal record visual block models.

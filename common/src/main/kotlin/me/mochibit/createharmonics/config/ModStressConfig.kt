@@ -8,6 +8,7 @@ import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.foundation.extension.asResource
 import net.createmod.catnip.config.ConfigBase
 import net.createmod.catnip.platform.CatnipServices
+import net.createmod.catnip.registry.RegisteredObjectsHelper
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.level.block.Block
 import net.neoforged.neoforge.common.ModConfigSpec
@@ -119,6 +120,26 @@ object ModStressConfig : ConfigBase() {
             defaultCapacities.put(id, value)
             builder
         }
+    }
+
+    /**
+     * Gets the configured stress impact for a block.
+     * @param block The block to query
+     * @return A DoubleSupplier providing the stress impact value, or null if not configured
+     */
+    fun getImpact(block: Block): DoubleSupplier? {
+        val id = RegisteredObjectsHelper.getKeyOrThrow(block)
+        return impacts[id]?.let { value -> DoubleSupplier { value.get() } }
+    }
+
+    /**
+     * Gets the configured stress capacity for a block.
+     * @param block The block to query
+     * @return A DoubleSupplier providing the stress capacity value, or null if not configured
+     */
+    fun getCapacity(block: Block): DoubleSupplier? {
+        val id = RegisteredObjectsHelper.getKeyOrThrow(block)
+        return capacities[id]?.let { value -> DoubleSupplier { value.get() } }
     }
 
     private fun assertFromHarmonics(builder: BlockBuilder<*, *>) {

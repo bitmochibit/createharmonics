@@ -38,9 +38,6 @@ interface ContentService {
         pitchSupplier: FloatSupplier = FloatSupplier { 1.0f },
         posSupplier: () -> BlockPos = { BlockPos.ZERO },
         radiusSupplier: FloatSupplier = FloatSupplier { 64f },
-        checkForVsShip: Boolean = false,
-        vsLevelCheck: Level? = null,
-        vsBeCheck: BlockEntity? = null,
     ): StreamingSoundInstance
 
     // Helpers for platform-specific features

@@ -5,14 +5,14 @@ import net.minecraft.data.CachedOutput
 import net.minecraft.data.DataGenerator
 import net.minecraft.data.DataProvider
 import net.minecraft.data.PackOutput
-import net.minecraft.data.recipes.FinishedRecipe
+import net.minecraft.data.recipes.RecipeOutput
 import net.minecraft.data.recipes.RecipeProvider
 import java.util.concurrent.CompletableFuture
-import java.util.function.Consumer
 
 class ModRecipeProvider(
     packOutput: PackOutput,
-) : RecipeProvider(packOutput) {
+    registries: CompletableFuture<HolderLookup.Provider>,
+) : RecipeProvider(packOutput, registries) {
     companion object {
         fun registerAllProcessRecipes(
             gen: DataGenerator,
@@ -21,9 +21,9 @@ class ModRecipeProvider(
         ) {
             val generators =
                 listOf(
-                    ModDeployingRecipeGen(output),
-                    ModPressingRecipeGen(output),
-                    ModMechanicalCraftingRecipeGen(output),
+                    ModDeployingRecipeGen(output, registries),
+                    ModPressingRecipeGen(output, registries),
+                    ModMechanicalCraftingRecipeGen(output, registries),
                 )
 
             gen.addProvider(
@@ -43,6 +43,9 @@ class ModRecipeProvider(
         }
     }
 
-    override fun buildRecipes(pWriter: Consumer<FinishedRecipe?>) {
+    override fun buildRecipes(
+        p_recipeOutput: RecipeOutput,
+        holderLookup: HolderLookup.Provider,
+    ) {
     }
 }

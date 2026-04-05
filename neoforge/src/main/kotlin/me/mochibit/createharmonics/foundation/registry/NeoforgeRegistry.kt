@@ -1,3 +1,3 @@
 package me.mochibit.createharmonics.foundation.registry
 
-sealed interface ForgeRegistry : Registrable
+sealed interface NeoforgeRegistry : Registrable

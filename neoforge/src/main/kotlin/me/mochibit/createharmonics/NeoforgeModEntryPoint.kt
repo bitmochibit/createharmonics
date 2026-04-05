@@ -5,7 +5,8 @@ import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.foundation.registry.ModBlockEntities
-import me.mochibit.createharmonics.foundation.registry.NeoForgeRegistry
+import me.mochibit.createharmonics.foundation.registry.NeoforgeModPackets
+import me.mochibit.createharmonics.foundation.registry.NeoforgeRegistry
 import me.mochibit.createharmonics.foundation.registry.autoRegister
 import me.mochibit.createharmonics.ponder.ModPonderPlugin
 import net.createmod.catnip.config.ui.BaseConfigScreen
@@ -19,19 +20,17 @@ import net.neoforged.fml.ModContainer
 import net.neoforged.fml.ModLoadingContext
 import net.neoforged.fml.common.EventBusSubscriber
 import net.neoforged.fml.common.Mod
-import net.neoforged.fml.common.Mod.EventBusSubscriber
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent
 import net.neoforged.fml.event.lifecycle.FMLLoadCompleteEvent
 import net.neoforged.fml.loading.FMLEnvironment
 import net.neoforged.neoforge.capabilities.Capabilities
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent
-import net.neoforged.neoforge.client.ConfigScreenHandler.ConfigScreenFactory
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory
 import net.neoforged.neoforge.common.NeoForge
 
 @Mod(MOD_ID)
 class NeoforgeModEntryPoint(
-    private val modEventBus: IEventBus,
+    val modEventBus: IEventBus,
 ) {
     companion object {
         @JvmStatic
@@ -91,12 +90,13 @@ class NeoforgeModEntryPoint(
         }
 
         CreateHarmonicsMod.commonSetup {
-            registerEventListeners(modEventBus)
+            registerEventListeners(this@NeoforgeModEntryPoint.modEventBus)
         }
 
-        autoRegister<NeoForgeRegistry>()
+        autoRegister<NeoforgeRegistry>()
+
+        ModEventBus.addListener(NeoforgeModPackets::registerPayloads)
     }
 }
 
 internal val ModEventBus: IEventBus = NeoforgeModEntryPoint.instance.modEventBus
-internal val NeoModLoadingContext get() = ModLoadingContext.get()

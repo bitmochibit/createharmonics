@@ -1,21 +1,21 @@
 package me.mochibit.createharmonics.foundation.eventbus
 
 import net.minecraft.server.level.ServerPlayer
-import net.minecraftforge.api.distmarker.Dist
-import net.minecraftforge.client.event.ClientPlayerNetworkEvent
-import net.minecraftforge.client.event.ScreenEvent
-import net.minecraftforge.common.MinecraftForge
-import net.minecraftforge.event.GameShuttingDownEvent
-import net.minecraftforge.event.RegisterCommandsEvent
-import net.minecraftforge.event.TickEvent
-import net.minecraftforge.event.entity.EntityJoinLevelEvent
-import net.minecraftforge.event.entity.player.PlayerEvent
-import net.minecraftforge.event.level.LevelEvent
-import net.minecraftforge.event.server.ServerStartedEvent
-import net.minecraftforge.event.server.ServerStoppedEvent
-import net.minecraftforge.eventbus.api.Event
-import net.minecraftforge.eventbus.api.EventPriority
-import net.minecraftforge.fml.DistExecutor
+import net.neoforged.api.distmarker.Dist
+import net.neoforged.bus.api.Event
+import net.neoforged.bus.api.EventPriority
+import net.neoforged.fml.loading.FMLEnvironment
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent
+import net.neoforged.neoforge.client.event.ClientTickEvent
+import net.neoforged.neoforge.client.event.ScreenEvent
+import net.neoforged.neoforge.common.NeoForge
+import net.neoforged.neoforge.event.GameShuttingDownEvent
+import net.neoforged.neoforge.event.RegisterCommandsEvent
+import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent
+import net.neoforged.neoforge.event.entity.player.PlayerEvent
+import net.neoforged.neoforge.event.level.LevelEvent
+import net.neoforged.neoforge.event.server.ServerStartedEvent
+import net.neoforged.neoforge.event.server.ServerStoppedEvent
 import kotlin.reflect.KClass
 
 object ForgeEventBridge : PlatformEventBridge<Event>() {
@@ -23,7 +23,7 @@ object ForgeEventBridge : PlatformEventBridge<Event>() {
         klass: KClass<FE>,
         mapper: FE.() -> ServerProxyEvent,
     ) {
-        MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, klass.java) { event: FE ->
+        NeoForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, klass.java) { event: FE ->
             EventBus.post(event.mapper())
         }
     }
@@ -32,11 +32,9 @@ object ForgeEventBridge : PlatformEventBridge<Event>() {
         klass: KClass<FE>,
         mapper: FE.() -> ClientProxyEvent,
     ) {
-        DistExecutor.unsafeRunWhenOn(Dist.CLIENT) {
-            Runnable {
-                MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, klass.java) { event: FE ->
-                    EventBus.post(event.mapper())
-                }
+        if (FMLEnvironment.dist == Dist.CLIENT) {
+            NeoForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, klass.java) { event: FE ->
+                EventBus.post(event.mapper())
             }
         }
     }
@@ -59,13 +57,15 @@ object ForgeEventBridge : PlatformEventBridge<Event>() {
 
         on<ClientPlayerNetworkEvent.LoggingOut>()
             .registerClient { ClientEvents.ClientDisconnectedEvent(multiPlayerGameMode, player, connection) }
-        on<TickEvent.ClientTickEvent>()
+        on<ClientTickEvent.Pre>()
             .registerClient {
-                TickEvents.ClientTickEvent(
-                    TickEvents.Type.valueOf(type.name),
-                    TickEvents.Phase.valueOf(phase.name),
-                )
+                TickEvents.ClientTickEvent(type = TickEvents.Type.CLIENT, phase = TickEvents.Phase.START)
             }
+        on<ClientTickEvent.Post>()
+            .registerClient {
+                TickEvents.ClientTickEvent(type = TickEvents.Type.CLIENT, phase = TickEvents.Phase.END)
+            }
+
         on<ScreenEvent.Init>().registerClient {
             ClientEvents.ScreenEvent.Init(
                 this.screen,

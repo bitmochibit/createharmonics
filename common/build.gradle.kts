@@ -2,8 +2,8 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     id("com.gradleup.shadow")
-    id("org.jetbrains.kotlin.jvm") version "2.1.21"
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.1.21"
+    id("org.jetbrains.kotlin.jvm") version "2.2.20"
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.2.20"
     id("net.neoforged.moddev") version "2.0.141"
 }
 
@@ -102,8 +102,8 @@ dependencies {
     // Mixin annotation processor
     compileOnly("org.spongepowered:mixin:0.8.5")
 
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
-    implementation(kotlin("reflect"))
+    compileOnly("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
+    compileOnly(kotlin("reflect"))
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutinesVersion")
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion")
 
@@ -114,16 +114,6 @@ dependencies {
     compileOnly("com.tterrag.registrate:Registrate:$registrateVersion") { isTransitive = false }
 
     // VS2 — Unavailable for 1.21
-//    modCompileOnly("org.valkyrienskies:valkyrienskies-121-neoforge:$vs2Version") { isTransitive = false }
-//    modCompileOnly("org.valkyrienskies.core:api:$vsCoreVersion") {
-//        exclude(group = "org.joml")
-//    }
-//    modCompileOnly("org.valkyrienskies.core:internal:$vsCoreVersion") {
-//        exclude(group = "org.joml")
-//    }
-//    modCompileOnly("org.valkyrienskies.core:util:$vsCoreVersion") {
-//        exclude(group = "org.joml")
-//    }
 }
 
 // ── Artifact publication for submodules ───────────────────────────────────────

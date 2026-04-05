@@ -4,13 +4,16 @@ import com.simibubi.create.AllItems
 import com.simibubi.create.api.data.recipe.MechanicalCraftingRecipeGen
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
 import me.mochibit.createharmonics.foundation.registry.ModBlocks
+import net.minecraft.core.HolderLookup
 import net.minecraft.data.PackOutput
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.crafting.Ingredient
+import java.util.concurrent.CompletableFuture
 
 class ModMechanicalCraftingRecipeGen(
     output: PackOutput,
-) : MechanicalCraftingRecipeGen(output, MOD_ID) {
+    registries: CompletableFuture<HolderLookup.Provider>,
+) : MechanicalCraftingRecipeGen(output, registries, MOD_ID) {
     val recordPressBaseRecipe =
         create { ModBlocks.RECORD_PRESS_BASE }.returns(1).recipe { b ->
             b.apply {
