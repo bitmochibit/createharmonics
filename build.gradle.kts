@@ -3,9 +3,14 @@ import java.util.Date
 
 plugins {
     id("org.jetbrains.gradle.plugin.idea-ext") version "1.4.1"
+    id("org.jetbrains.kotlin.jvm") version "2.2.20" apply false
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.2.20" apply false
 }
 
 subprojects {
+    pluginManager.apply("org.jetbrains.kotlin.jvm")
+    pluginManager.apply("org.jetbrains.kotlin.plugin.serialization")
+
     group = rootProject.property("mod_group_id").toString()
     version = "${rootProject.property("version_major")}.${rootProject.property("version_minor")}.${
         rootProject.property("version_patch")

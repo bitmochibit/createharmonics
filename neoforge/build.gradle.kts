@@ -1,8 +1,6 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "2.2.20"
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.2.20"
     id("net.neoforged.moddev") version "2.0.78"
 }
 
@@ -29,6 +27,10 @@ val registrateVersion = rootProject.property("registrate_version").toString()
 
 val modId = rootProject.property("mod_id").toString()
 val neoForgeVersion = rootProject.property("neo_version").toString() // e.g. "21.1.86"
+
+val kotlinVersion = rootProject.property("kotlin_version").toString()
+val kotlinCoroutinesVersion = rootProject.property("kotlin_coroutines_version").toString()
+val kotlinSerializationVersion = rootProject.property("kotlin_serialization_version").toString()
 
 val neoProject = project
 val commonProject = project(":common")
@@ -95,6 +97,11 @@ dependencies {
     // Kotlin for NeoForge
     implementation("thedarkcolour:kotlinforforge-neoforge:${rootProject.property("kotlin_for_neoforge_version")}")
 
+    compileOnly("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
+    compileOnly(kotlin("reflect"))
+    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutinesVersion")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion")
+
     // Create for NeoForge
     implementation("com.simibubi.create:create-$minecraftVersionProp:$createVersion:slim") { isTransitive = false }
     implementation("net.createmod.ponder:ponder-neoforge:$ponderVersion+mc$minecraftVersionProp")
@@ -106,7 +113,6 @@ dependencies {
 
     compileOnly(project(":common"))
     compileOnly("org.tukaani:xz:1.11")
-//    annotationProcessor("org.spongepowered:mixin:0.8.5-SNAPSHOT:processor")
 }
 
 tasks.named<ProcessResources>("processResources") {

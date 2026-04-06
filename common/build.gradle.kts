@@ -2,8 +2,6 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     id("com.gradleup.shadow")
-    id("org.jetbrains.kotlin.jvm") version "2.2.20"
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.2.20"
     id("net.neoforged.moddev") version "2.0.141"
 }
 
@@ -139,6 +137,10 @@ tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJ
     configurations = listOf(project.configurations["shadow"])
     archiveClassifier.set("")
     mergeServiceFiles()
+
+    exclude("kotlin/**")
+    exclude("kotlinx/**")
+    exclude("META-INF/kotlin*")
 }
 
 tasks.named("jar") {

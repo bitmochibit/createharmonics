@@ -14,6 +14,8 @@ inline fun <reified T : Enum<*>> CompoundTag.readEnum(key: String): T = NBTHelpe
 
 fun ItemStack.toNBT(registries: HolderLookup.Provider): CompoundTag {
     val serialized = CompoundTag()
-    this.save(registries, serialized)
+    if (!this.isEmpty) {
+        this.save(registries, serialized)
+    }
     return serialized
 }

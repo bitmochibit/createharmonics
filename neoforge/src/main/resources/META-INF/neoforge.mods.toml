@@ -38,6 +38,9 @@ description = '''${mod_description}'''
 [[mixins]]
 config = "${mod_id}.mixins.json"
 
+[[mixins]]
+config = "createharmonics.common.mixins.json"
+
 # The coremods config file path is not configurable and is always loaded from META-INF/coremods.json
 
 [[dependencies."${mod_id}"]]
@@ -57,7 +60,7 @@ side = "BOTH"
 [[dependencies."${mod_id}"]]
 modId="kotlinforforge"
 mandatory=true
-versionRange = "[5.11,)"
+versionRange = "[5.10,)"
 ordering = "AFTER"
 side="BOTH"
 
