@@ -4,6 +4,7 @@ import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
+import me.mochibit.createharmonics.data.DataGenerators.provideLang
 import me.mochibit.createharmonics.foundation.registry.ModBlockEntities
 import me.mochibit.createharmonics.foundation.registry.NeoforgeModPackets
 import me.mochibit.createharmonics.foundation.registry.NeoforgeRegistry
@@ -83,8 +84,6 @@ class NeoforgeModEntryPoint(
     }
 
     private fun initialize() {
-        NeoForge.EVENT_BUS.register(this)
-
         if (FMLEnvironment.dist.isClient) {
             PonderIndex.addPlugin(ModPonderPlugin())
         }
@@ -92,6 +91,8 @@ class NeoforgeModEntryPoint(
         CreateHarmonicsMod.commonSetup {
             registerEventListeners(this@NeoforgeModEntryPoint.modEventBus)
         }
+
+        provideLang()
 
         autoRegister<NeoforgeRegistry>()
 

@@ -26,17 +26,30 @@ class EtherealRecordItem(
             this.durability(maxDamage)
         },
     ) {
+    companion object {
+        val JUKEBOX_DISCS: List<Item> by lazy {
+            BuiltInRegistries.ITEM
+                .stream()
+                .filter { item ->
+                    val stack = ItemStack(item)
+                    stack.has(DataComponents.JUKEBOX_PLAYABLE)
+                }.toList()
+        }
+    }
+
     override fun isDamageable(stack: ItemStack): Boolean = recordType.uses > 0
 
     override fun getDefaultInstance(): ItemStack {
-        val discs =
-            BuiltInRegistries.ITEM
-                .stream()
-                .filter { item -> item.defaultInstance.has(DataComponents.JUKEBOX_PLAYABLE) }
-                .toList()
-
         val default = super.getDefaultInstance()
-        RecordCraftingHandler.setCraftedWithDisc(default, ItemStack(discs.random()))
+
+        if (JUKEBOX_DISCS.isNotEmpty()) {
+            val randomDisc = JUKEBOX_DISCS.random()
+            RecordCraftingHandler.setCraftedWithDisc(
+                default,
+                ItemStack(randomDisc),
+            )
+        }
+
         return default
     }
 

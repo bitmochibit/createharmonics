@@ -4,31 +4,28 @@ import me.mochibit.createharmonics.foundation.network.packet.ModPacket
 import me.mochibit.createharmonics.foundation.registry.NeoforgeModPackets
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Entity
-import net.minecraftforge.network.PacketDistributor
+import net.neoforged.neoforge.network.PacketDistributor
 
-class ForgeNetworkService : NetworkService {
+class NeoforgeNetworkService : NetworkService {
     override fun sendToServer(packet: ModPacket) {
-        NeoforgeModPackets.channel.sendToServer(packet)
+        PacketDistributor.sendToServer(NeoforgeModPackets.payloadFor(packet))
     }
 
     override fun sendToPlayer(
         player: ServerPlayer,
         packet: ModPacket,
     ) {
-        NeoforgeModPackets.channel.send(PacketDistributor.PLAYER.with { player }, packet)
+        PacketDistributor.sendToPlayer(player, NeoforgeModPackets.payloadFor(packet))
     }
 
     override fun sendToTrackingEntity(
         packet: ModPacket,
         entity: Entity,
     ) {
-        NeoforgeModPackets.channel.send(
-            PacketDistributor.TRACKING_ENTITY.with { entity },
-            packet,
-        )
+        PacketDistributor.sendToPlayersTrackingEntity(entity, NeoforgeModPackets.payloadFor(packet))
     }
 
     override fun broadcast(packet: ModPacket) {
-        NeoforgeModPackets.channel.send(PacketDistributor.ALL.noArg(), packet)
+        PacketDistributor.sendToAllPlayers(NeoforgeModPackets.payloadFor(packet))
     }
 }

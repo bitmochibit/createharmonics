@@ -18,7 +18,7 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent
 import net.neoforged.neoforge.event.server.ServerStoppedEvent
 import kotlin.reflect.KClass
 
-object ForgeEventBridge : PlatformEventBridge<Event>() {
+object NeoforgeEventBridge : PlatformEventBridge<Event>() {
     override fun <FE : Event> registerListener(
         klass: KClass<FE>,
         mapper: FE.() -> ServerProxyEvent,
@@ -66,7 +66,7 @@ object ForgeEventBridge : PlatformEventBridge<Event>() {
                 TickEvents.ClientTickEvent(type = TickEvents.Type.CLIENT, phase = TickEvents.Phase.END)
             }
 
-        on<ScreenEvent.Init>().registerClient {
+        on<ScreenEvent.Init.Post>().registerClient {
             ClientEvents.ScreenEvent.Init(
                 this.screen,
                 this.listenersList,

@@ -109,9 +109,9 @@ dependencies {
 
     // Create — NeoForge 1.21.1 coordinates
     compileOnly("com.simibubi.create:create-$minecraftVersionProp:$createVersion:slim") { isTransitive = false }
-    compileOnly("net.createmod.ponder:ponder-neoforge:$ponderVersion+mc$minecraftVersionProp") { isTransitive = false }
+    compileOnly("net.createmod.ponder:ponder-neoforge:$ponderVersion+mc$minecraftVersionProp")
     compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-$minecraftVersionProp:$flywheelVersion")
-    compileOnly("com.tterrag.registrate:Registrate:$registrateVersion") { isTransitive = false }
+    compileOnly("com.tterrag.registrate:Registrate:$registrateVersion")
 
     // VS2 — Unavailable for 1.21
 }

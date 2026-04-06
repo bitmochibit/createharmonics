@@ -2,7 +2,7 @@
 	"format_version": "1.9.0",
 	"credit": "Made with Blockbench",
 	"parent": "block/block",
-	"loader": "forge:composite",
+	"loader": "neoforge:composite",
 	"textures": {
 		"particle": "createharmonics:block/brass_jukebox/brass_jukebox"
 	},

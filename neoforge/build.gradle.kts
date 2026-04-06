@@ -49,13 +49,6 @@ neoForge {
         mappingsVersion = parchmentVersionProp
     }
 
-    // In the non-legacy plugin, mixin config lives inside neoForge { }
-//    mixin {
-//        add(sourceSets["main"], "$modId.refmap.json")
-//        config("$modId.mixins.json")
-//        config("createharmonics.common.mixins.json")
-//    }
-
     runs {
         register("client") {
             client()
@@ -93,7 +86,7 @@ neoForge {
 }
 
 sourceSets.main {
-    resources.srcDir("src/generated/resources")
+    resources.srcDirs("src/generated/resources", "templates")
     java.srcDir("src/generated/java")
     kotlin.srcDir("src/generated/kotlin")
 }
@@ -103,7 +96,7 @@ dependencies {
     implementation("thedarkcolour:kotlinforforge-neoforge:${rootProject.property("kotlin_for_neoforge_version")}")
 
     // Create for NeoForge
-    implementation("com.simibubi.create:create-$minecraftVersionProp:$createVersion:slim")
+    implementation("com.simibubi.create:create-$minecraftVersionProp:$createVersion:slim") { isTransitive = false }
     implementation("net.createmod.ponder:ponder-neoforge:$ponderVersion+mc$minecraftVersionProp")
     compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-$minecraftVersionProp:$flywheelVersion")
     runtimeOnly("dev.engine-room.flywheel:flywheel-neoforge-$minecraftVersionProp:$flywheelVersion")
@@ -113,12 +106,14 @@ dependencies {
 
     compileOnly(project(":common"))
     compileOnly("org.tukaani:xz:1.11")
-    annotationProcessor("org.spongepowered:mixin:0.8.5-SNAPSHOT:processor")
+//    annotationProcessor("org.spongepowered:mixin:0.8.5-SNAPSHOT:processor")
 }
 
 tasks.named<ProcessResources>("processResources") {
     from(commonProject.sourceSets["main"].resources)
     val buildProps = project.properties.toMap()
+
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
 
     // NeoForge uses neoforge.mods.toml instead of META-INF/mods.toml
     filesMatching("META-INF/neoforge.mods.toml") {

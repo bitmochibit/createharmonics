@@ -28,8 +28,6 @@ object DataGenerators {
         val lookUpProvider = event.lookupProvider
         val existingFileHelper = event.existingFileHelper
 
-        provideLang()
-
         if (event.includeClient()) {
             generator.addProvider(
                 true,

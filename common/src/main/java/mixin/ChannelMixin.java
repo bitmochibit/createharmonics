@@ -24,6 +24,7 @@ public abstract class ChannelMixin {
     @Inject(
             method = "unpause",
             at = @At("HEAD"),
+            remap = false,
             cancellable = true)
     private void unpause(CallbackInfo ci) {
         if (this.stream instanceof PausableAudioStream pausableStream) {

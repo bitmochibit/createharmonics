@@ -28,7 +28,15 @@ object ModCreativeTabs : NeoforgeRegistry {
                     .title(ModLang.translate("item_group").component())
                     .icon { ItemStack(ModItems etherealRecord RecordType.BRASS) }
                     .displayItems { _, output ->
-                        output.acceptAll(ModRegistrate.getAll(Registries.ITEM).map { it.get().defaultInstance })
+                        ModRegistrate
+                            .getAll(Registries.ITEM)
+                            .forEach { entry ->
+                                val stack = entry.get().defaultInstance
+                                if (MAIN_TAB.get().displayItems.contains(stack)) {
+                                    return@forEach
+                                }
+                                output.accept(stack)
+                            }
                     }.build()
             },
         )
