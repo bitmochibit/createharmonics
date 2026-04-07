@@ -103,7 +103,7 @@ class RecordPressBaseBlock(
         pickupBehaviourItems(behaviour, pLevel, pPos, pPlayer)
 
         val cantPlaceItem = AllBlocks.MECHANICAL_ARM.isIn(pStack)
-        if (!cantPlaceItem) {
+        if (!pStack.isEmpty && !cantPlaceItem) {
             val transported = TransportedItemStack(pStack)
             transported.insertedFrom = pPlayer.direction
             transported.prevBeltPosition = .25f

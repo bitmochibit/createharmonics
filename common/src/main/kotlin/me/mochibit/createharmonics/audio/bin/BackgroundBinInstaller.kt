@@ -123,33 +123,28 @@ object BackgroundBinInstaller {
     ) {
         Minecraft.getInstance().execute {
             val minecraft = Minecraft.getInstance()
-            val toastManager = minecraft.toasts
 
-            if (success) {
-                toastManager.addToast(
-                    TutorialToast(
-                        TutorialToast.Icons.RECIPE_BOOK,
-                        Component
-                            .literal(library.displayName)
-                            .append(
-                                ModLang.translate("gui.library_installer.toast.success_title").component(),
-                            ),
-                        ModLang.translate("gui.library_installer.toast.success_desc").component(),
-                        false,
-                    ),
+            val title =
+                Component.literal(library.displayName).append(
+                    if (success) {
+                        ModLang.translate("gui.library_installer.toast.success_title").component()
+                    } else {
+                        ModLang.translate("gui.library_installer.toast.failure_title").component()
+                    },
                 )
-            } else {
-                toastManager.addToast(
-                    TutorialToast(
-                        TutorialToast.Icons.RECIPE_BOOK,
-                        Component.literal(library.displayName).append(
-                            ModLang.translate("gui.library_installer.toast.failure_title").component(),
-                        ),
-                        ModLang.translate("gui.library_installer.toast.failure_desc").component(),
-                        false,
-                    ),
-                )
-            }
+            val desc =
+                if (success) {
+                    ModLang.translate("gui.library_installer.toast.success_desc").component()
+                } else {
+                    ModLang.translate("gui.library_installer.toast.failure_desc").component()
+                }
+
+            SystemToast.addOrUpdate(
+                minecraft.toasts,
+                SystemToast.SystemToastId.PACK_LOAD_FAILURE,
+                title,
+                desc,
+            )
         }
     }
 }

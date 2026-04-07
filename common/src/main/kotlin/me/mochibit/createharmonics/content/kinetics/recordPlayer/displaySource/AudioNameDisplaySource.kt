@@ -165,6 +165,8 @@ class AudioNameDisplaySource : SingleLineDisplaySource() {
         )
     }
 
+    override fun getFlapDisplayLayoutName(context: DisplayLinkContext): String = "Instant"
+
     override fun createSectionForValue(
         context: DisplayLinkContext,
         size: Int,

@@ -352,7 +352,7 @@ class LibraryDisclaimerScreen(
             State.SKIPPED -> renderSkipped(guiGraphics)
         }
 
-        super.render(guiGraphics, mouseX, mouseY, partialTick)
+        renderables.forEach { it.render(guiGraphics, mouseX, mouseY, partialTick) }
     }
 
     private fun renderTitle(gfx: GuiGraphics) {
