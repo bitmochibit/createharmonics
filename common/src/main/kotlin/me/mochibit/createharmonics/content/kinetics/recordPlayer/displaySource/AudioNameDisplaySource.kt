@@ -44,17 +44,22 @@ class AudioNameDisplaySource : SingleLineDisplaySource() {
         val audioPlayerBehaviour =
             smartBe.getBehaviour(RecordPlayerBehaviour.BEHAVIOUR_TYPE) ?: return EMPTY_LINE
 
-        if (!audioPlayerBehaviour.hasRecord()) {
-            return ModLang.translate("display_source.no_record").component()
-        }
-
         val currentBeTitle =
-            audioPlayerBehaviour.audioPlayingTitle
-                ?: return ModLang.translate("display_source.unknown_audio_name").component()
+            audioPlayerBehaviour.audioPlayingTitle ?: ModLang.translate("display_source.unknown_audio_name").component().string
 
         val title =
-            currentBeTitle.ifEmpty {
-                ModLang.translate("display_source.loading_title").string()
+            when {
+                !audioPlayerBehaviour.hasRecord() -> {
+                    ModLang.translate("display_source.no_record").string()
+                }
+
+                currentBeTitle.isEmpty() -> {
+                    ModLang.translate("display_source.loading_title").string()
+                }
+
+                else -> {
+                    currentBeTitle
+                }
             }
 
         val label = context.sourceConfig().getString("Label")
