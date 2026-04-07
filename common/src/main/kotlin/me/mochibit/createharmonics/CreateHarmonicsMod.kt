@@ -12,17 +12,23 @@ import me.mochibit.createharmonics.foundation.registry.CommonRegistry
 import me.mochibit.createharmonics.foundation.registry.autoRegister
 import me.mochibit.createharmonics.gui.CommonGuiEventHandler
 import net.createmod.catnip.lang.FontHelper
+import net.minecraft.resources.ResourceKey
+import net.minecraft.world.item.CreativeModeTab
 
 object CreateHarmonicsMod {
     const val MOD_ID = "createharmonics"
     private var initialized = false
 
+    @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
     private val _registrate: CreateRegistrate =
-        CreateRegistrate.create(MOD_ID).setTooltipModifierFactory { item ->
-            ItemDescription
-                .Modifier(item, FontHelper.Palette.STANDARD_CREATE)
-                .andThen(TooltipModifier.mapNull(KineticStats.create(item)))
-        }
+        CreateRegistrate
+            .create(MOD_ID)
+            .defaultCreativeTab(null as ResourceKey<CreativeModeTab>?)
+            .setTooltipModifierFactory { item ->
+                ItemDescription
+                    .Modifier(item, FontHelper.Palette.STANDARD_CREATE)
+                    .andThen(TooltipModifier.mapNull(KineticStats.create(item)))
+            }
 
     val registrate: CreateRegistrate get() {
         if (!initialized) {

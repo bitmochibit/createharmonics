@@ -14,9 +14,9 @@ object LibDisclaimerHandler : CommonGuiEventHandler {
     private var hasChecked = false
 
     override fun setupEvents() {
-        EventBus.on<TickEvents.ClientTickEvent> { event ->
-            if (event.phase != TickEvents.Phase.END) return@on
-            if (hasChecked) return@on
+        EventBus.onMcMain<TickEvents.ClientTickEvent> { event ->
+            if (event.phase != TickEvents.Phase.END) return@onMcMain
+            if (hasChecked) return@onMcMain
 
             val minecraft = Minecraft.getInstance()
             val currentScreen = minecraft.screen
@@ -26,13 +26,13 @@ object LibDisclaimerHandler : CommonGuiEventHandler {
 
                 // Only show once per game session
                 if (hasShownDisclaimer) {
-                    return@on
+                    return@onMcMain
                 }
 
                 // Check if user has disabled the disclaimer
                 if (ModConfigs.client.neverShowLibraryDisclaimer.get()) {
                     hasShownDisclaimer = true
-                    return@on
+                    return@onMcMain
                 }
 
                 // Check if libraries are already installed
@@ -41,7 +41,7 @@ object LibDisclaimerHandler : CommonGuiEventHandler {
 
                 if (ytdlInstalled && ffmpegInstalled) {
                     hasShownDisclaimer = true
-                    return@on
+                    return@onMcMain
                 }
 
                 hasShownDisclaimer = true

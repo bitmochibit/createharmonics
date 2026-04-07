@@ -20,7 +20,7 @@ object FFMPEGProvider : BinProvider(
         when {
             // Windows static builds from BtbN's FFmpeg-Builds (official source mentioned on ffmpeg.org)
             isWindows -> {
-                "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.0-latest-win64-lgpl-8.0.zip"
+                "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-win64-lgpl-8.1.zip"
             }
 
             isMac -> {
@@ -31,9 +31,9 @@ object FFMPEGProvider : BinProvider(
             isLinux -> {
                 // Linux static builds from BtbN's FFmpeg-Builds (official source mentioned on ffmpeg.org)
                 if (isArm) {
-                    "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.0-latest-linuxarm64-lgpl-8.0.tar.xz"
+                    "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linuxarm64-lgpl-8.1.tar.xz"
                 } else {
-                    "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.0-latest-linux64-lgpl-8.0.tar.xz"
+                    "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linux64-lgpl-8.1.tar.xz"
                 }
             }
 
