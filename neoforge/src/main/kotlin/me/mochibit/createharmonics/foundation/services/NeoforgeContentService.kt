@@ -48,45 +48,4 @@ class NeoforgeContentService : ContentService {
         )
 
     override fun getViscosity(fluidState: FluidState): Int = fluidState.fluidType.viscosity
-
-    override fun addTags(rawHelper: PonderTagRegistrationHelper<ResourceLocation>) {
-        ModPonders.addTags(rawHelper)
-    }
-
-    override fun addScenes(rawHelper: PonderSceneRegistrationHelper<ResourceLocation>) {
-        ModPonders.addScenes(rawHelper)
-    }
-
-    override fun contraptionEntityDataChanged(
-        entityID: Int,
-        localPos: BlockPos,
-        newData: CompoundTag,
-    ) {
-        val entity =
-            Minecraft.getInstance().level?.getEntity(entityID) as? AbstractContraptionEntity ?: return
-        entity.handleBlockDataChange(localPos, newData)
-    }
-
-    override fun configureRecordPressBase(
-        sender: ServerPlayer,
-        blockPos: BlockPos,
-        audioUrls: MutableList<String>,
-        urlWeights: MutableList<Float>,
-        randomMode: Boolean,
-        newIndex: Int,
-    ) {
-        if (sender.isSpectator || AdventureUtil.isAdventure(sender)) return
-        val world = sender.level()
-        if (world == null || !world.isLoaded(blockPos)) return
-        if (!blockPos.closerThan(sender.blockPosition(), 20.0)) return
-        val blockEntity = world.getBlockEntity(blockPos)
-        if (blockEntity is RecordPressBaseBlockEntity) {
-            blockEntity.audioUrls = audioUrls
-            blockEntity.urlWeights = urlWeights
-            blockEntity.randomMode = randomMode
-            blockEntity.currentUrlIndex = newIndex
-            blockEntity.sendData()
-            blockEntity.setChanged()
-        }
-    }
 }
