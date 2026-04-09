@@ -45,27 +45,6 @@ interface ContentService {
 
     // Helpers for platform-specific features
     fun getViscosity(fluidState: FluidState): Int
-
-    // Ponder stuff
-    fun addTags(rawHelper: PonderTagRegistrationHelper<ResourceLocation>)
-
-    fun addScenes(rawHelper: PonderSceneRegistrationHelper<ResourceLocation>)
-
-    // Mod content stuff
-    fun contraptionEntityDataChanged(
-        entityID: Int,
-        localPos: BlockPos,
-        newData: CompoundTag,
-    )
-
-    fun configureRecordPressBase(
-        sender: ServerPlayer,
-        blockPos: BlockPos,
-        audioUrls: MutableList<String>,
-        urlWeights: MutableList<Float>,
-        randomMode: Boolean = false,
-        newIndex: Int = 0,
-    )
 }
 
 val contentService: ContentService by lazy {

@@ -1,9 +1,12 @@
 package me.mochibit.createharmonics.foundation.network.packet
 
+import com.simibubi.create.content.contraptions.AbstractContraptionEntity
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import me.mochibit.createharmonics.foundation.async.modLaunch
+import me.mochibit.createharmonics.foundation.behaviour.movement.handleBlockDataChange
 import me.mochibit.createharmonics.foundation.services.contentService
+import net.minecraft.client.Minecraft
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 
@@ -16,7 +19,9 @@ class ContraptionBlockDataChangedPacket(
     S2CPacket {
     override fun handle(context: ModPacket.Context): Boolean {
         modLaunch {
-            contentService.contraptionEntityDataChanged(entityID, localPos, newData)
+            val entity =
+                Minecraft.getInstance().level?.getEntity(entityID) as? AbstractContraptionEntity ?: return@modLaunch
+            entity.handleBlockDataChange(localPos, newData)
         }
         return true
     }
