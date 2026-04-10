@@ -6,6 +6,7 @@ import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.BitCrushEffect
 import me.mochibit.createharmonics.audio.effect.EQBand
 import me.mochibit.createharmonics.audio.effect.EqualizerEffect
+import me.mochibit.createharmonics.audio.effect.ReverbEffect
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.extension.Tags
 import me.mochibit.createharmonics.foundation.extension.asResource
@@ -31,7 +32,7 @@ enum class RecordType(
                 Properties.Recipe(
                     secondaryIngredientProvider = {
                         Ingredient.of(
-                            Tags.Items withPath "stone",
+                            Tags.Items withPath "stones",
                         )
                     },
                 ),

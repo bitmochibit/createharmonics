@@ -18,7 +18,7 @@ import java.util.Collections;
 
 @Mixin(ShapelessRecipe.class)
 public abstract class ShapelessRecipeMixin {
-    @Inject(method = "assemble(Lnet/minecraft/world/item/crafting/CraftingInput;Lnet/minecraft/core/HolderLookup$Provider;)Lnet/minecraft/world/item/ItemStack;", remap = false, at = @At("RETURN"))
+    @Inject(method = "assemble(Lnet/minecraft/world/item/crafting/CraftingInput;Lnet/minecraft/core/HolderLookup$Provider;)Lnet/minecraft/world/item/ItemStack;", at = @At("RETURN"))
     private void onRecipeAssembled(CraftingInput input, HolderLookup.Provider registries, CallbackInfoReturnable<ItemStack> cir) {
         ItemStack result = cir.getReturnValue();
         if (result == null) return;

@@ -4,6 +4,7 @@ import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
+import me.mochibit.createharmonics.audio.info.AudioInfo
 import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.audio.player.AudioRequest
 import me.mochibit.createharmonics.audio.source.StreamAudioSource
@@ -179,10 +180,12 @@ object RecordUtilities {
                 {
                     Ogg2PcmInputStream(soundEvent.getStreamDirectly(false).get())
                 },
-                StreamAudioSource.Information(
-                    name = craftedWithItem.displayName.getString(48),
-                    bitrate = sampleRate.toInt(),
-                    duration = 1000,
+                AudioInfo(
+                    audioUrl = "stream",
+                    durationSeconds = 1000,
+                    title = craftedWithItem.displayName.getString(48),
+                    sampleRate = sampleRate,
+                    isLive = false,
                 ),
             ),
         )

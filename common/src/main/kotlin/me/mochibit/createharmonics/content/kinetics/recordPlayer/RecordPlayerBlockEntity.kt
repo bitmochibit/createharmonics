@@ -31,7 +31,7 @@ abstract class RecordPlayerBlockEntity(
             failure: Boolean = false,
         ) {
             val blockEntity = RecordPlayerBehaviour.getBlockEntityByPlayerUUID(playerId)
-            blockEntity?.playerBehaviour?.onPlaybackEnd(playerId, failure)
+            blockEntity?.playerBehaviour?.onPlaybackEnd(failure)
         }
 
         fun handleAudioTitleChange(

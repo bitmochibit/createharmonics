@@ -47,6 +47,8 @@ class EffectChain(
         return 1.0
     }
 
+    override fun tailLengthSeconds(sampleRate: Int): Double = effects.maxOfOrNull { it.tailLengthSeconds(sampleRate) } ?: 0.0
+
     override fun reset() {
         effects.forEach { it.reset() }
     }

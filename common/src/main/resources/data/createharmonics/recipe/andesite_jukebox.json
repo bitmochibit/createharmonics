@@ -20,6 +20,7 @@
     }
   },
   "result": {
-    "item": "createharmonics:andesite_jukebox"
+    "id": "createharmonics:andesite_jukebox",
+    "count": 1
   }
 }

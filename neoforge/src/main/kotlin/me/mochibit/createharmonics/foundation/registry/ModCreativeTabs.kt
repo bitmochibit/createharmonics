@@ -133,6 +133,12 @@ object ModCreativeTabs : NeoforgeRegistry {
         //     ItemStack(item).also { it.set(...) }
         // }
 
+        ModItems.ETHEREAL_RECORDS.forEach { (_, entry) ->
+            factories[entry.get()] = { item ->
+                item.defaultInstance
+            }
+        }
+
         return { item -> factories[item]?.invoke(item) ?: ItemStack(item) }
     }
 

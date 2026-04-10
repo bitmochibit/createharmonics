@@ -11,25 +11,17 @@ import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
+import me.mochibit.createharmonics.audio.info.AudioInfo
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.err
 
 class YTdlpExecutor {
-    data class AudioUrlInfo(
-        val audioUrl: String,
-        val durationSeconds: Int,
-        val title: String,
-        val sampleRate: Float,
-        val httpHeaders: Map<String, String> = emptyMap(),
-        val isLive: Boolean = false,
-    )
-
-    suspend fun extractAudioInfo(youtubeUrl: String): AudioUrlInfo? =
+    suspend fun extractAudioInfo(youtubeUrl: String): AudioInfo =
         withContext(Dispatchers.IO) {
             try {
-                if (!YTDLProvider.isAvailable()) return@withContext null
+                if (!YTDLProvider.isAvailable()) throw IllegalStateException("YTDLProvider not available")
 
-                val ytdlPath = YTDLProvider.getExecutablePath() ?: return@withContext null
+                val ytdlPath = YTDLProvider.getExecutablePath() ?: throw IllegalStateException("YTDLP not found")
                 val configOverrides = ModConfigs.client.ytdlpOverrideArgs.get()
 
                 val command =
@@ -79,14 +71,14 @@ class YTdlpExecutor {
                         if (errorOutput.isNotBlank()) {
                             "yt-dlp error: ${errorOutput.take(500)}".err()
                         }
-                        return@withContext null
+                        throw IllegalStateException("Ytdlp failed with exit code $exitCode")
                     }
 
                     val firstJsonLine =
                         output.lineSequence().firstOrNull { it.trimStart().startsWith("{") }
                             ?: run {
                                 "yt-dlp output contained no JSON object".err()
-                                return@withContext null
+                                throw IllegalStateException("Ytdlp produced no json object")
                             }
 
                     val json = Json { ignoreUnknownKeys = true }
@@ -118,14 +110,19 @@ class YTdlpExecutor {
                             }
                         }
 
-                    AudioUrlInfo(audioUrl, duration, title, sampleRate, httpHeaders, isLive)
+                    AudioInfo(
+                        audioUrl,
+                        durationSeconds = duration,
+                        title = title,
+                        sampleRate,
+                        isLive = isLive,
+                        httpHeaders = httpHeaders,
+                    )
                 } finally {
                     ProcessLifecycleManager.destroyProcess(processId)
                 }
             } catch (e: Exception) {
-                "Error extracting audio info: ${e.message}".err()
-                e.printStackTrace()
-                null
+                throw IllegalStateException("Error extracting audio info: ${e.message}")
             }
         }
 

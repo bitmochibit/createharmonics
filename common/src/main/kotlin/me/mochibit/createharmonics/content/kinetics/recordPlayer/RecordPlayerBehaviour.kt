@@ -757,11 +757,11 @@ class RecordPlayerBehaviour(
         }
     }
 
-    fun onPlaybackEnd(
-        endedPlayerId: String,
-        failure: Boolean = false,
-    ) {
-        if (failure) return
+    fun onPlaybackEnd(failure: Boolean = false) {
+        if (failure) {
+            shouldRestartOnNextTick = true
+            return
+        }
         val isFullyPowered = this.redstonePower == 15
 
         if (isFullyPowered) {

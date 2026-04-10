@@ -41,6 +41,8 @@ interface AudioEffect {
 
     fun getSpeedMultiplier(): Double = 1.0
 
+    fun tailLengthSeconds(sampleRate: Int): Double = 0.0
+
     val scope: Scope
 
     /**

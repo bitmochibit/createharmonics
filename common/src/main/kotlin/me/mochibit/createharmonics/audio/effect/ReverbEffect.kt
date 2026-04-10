@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.audio.effect
 
+import kotlin.math.log10
 import kotlin.math.roundToInt
 
 class ReverbEffect(
@@ -15,7 +16,6 @@ class ReverbEffect(
         private const val SCALE_ROOM = 0.28f
         private const val OFFSET_ROOM = 0.7f
         private const val SCALE_DAMPING = 0.4f
-        private const val FIXED_GAIN = 0.015f
         private const val ALLPASS_FEEDBACK = 0.5f
     }
 
@@ -67,7 +67,6 @@ class ReverbEffect(
                     continue
                 }
 
-                // Read delayed sample
                 val delayedSample = combBuffers[c][bufferIndex]
 
                 if (!delayedSample.isFinite()) {
@@ -86,9 +85,10 @@ class ReverbEffect(
                 combBuffers[c][bufferIndex] = (input + feedback).coerceIn(-2f, 2f)
 
                 combOutput += delayedSample
-
                 combIndices[c] = (bufferIndex + 1) % bufferSize
             }
+
+            combOutput /= 8f
 
             var apOutput = combOutput
             for (a in 0..3) {
@@ -108,13 +108,9 @@ class ReverbEffect(
                     continue
                 }
 
-                // All-pass filter formula
                 val apInput = apOutput
                 apOutput = -apInput + delayed
-
-                // Store: input + (delayed * feedback)
                 allpassBuffers[a][bufferIndex] = (apInput + delayed * ALLPASS_FEEDBACK).coerceIn(-2f, 2f)
-
                 allpassIndices[a] = (bufferIndex + 1) % bufferSize
             }
 
@@ -122,10 +118,8 @@ class ReverbEffect(
                 apOutput = 0f
             }
 
-            // Mix
-            val finalSample = input * dryMix + apOutput * safeWetMix * FIXED_GAIN
-            val safeFinal = finalSample.coerceIn(-1.0f, 1.0f)
-            output[i] = (safeFinal * 32767.0f).roundToInt().coerceIn(-32768, 32767).toShort()
+            val finalSample = (input * dryMix + apOutput * safeWetMix).coerceIn(-1.0f, 1.0f)
+            output[i] = (finalSample * 32767.0f).roundToInt().coerceIn(-32768, 32767).toShort()
         }
 
         return output
@@ -138,6 +132,14 @@ class ReverbEffect(
         allpassBuffers.forEach { it.fill(0f) }
         allpassIndices.fill(0)
         updateParameters()
+    }
+
+    override fun tailLengthSeconds(sampleRate: Int): Double {
+        val longestComb = COMB_TUNINGS.max().toDouble()
+        return (
+            (longestComb / sampleRate) *
+                (-60.0 / (20.0 * log10(roomScale.toDouble().coerceIn(0.001, 0.999))))
+        ).coerceIn(0.0, 10.0)
     }
 
     override fun getName(): String = "Reverb(room=$roomSize, damp=$damping, wet=$wetMix)"

@@ -10,6 +10,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.audio.stream.ProcessBoundInputStream
+import me.mochibit.createharmonics.audio.stream.ReconnectingInputStream
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.err
@@ -33,6 +34,7 @@ class FFmpegExecutor private constructor() {
             seekSeconds: Double = 0.0,
             headers: Map<String, String> = emptyMap(),
             isLive: Boolean = false,
+            retryIndefinitely: Boolean = true,
         ): InputStream? {
             val executor = FFmpegExecutor()
             val ready = executor.createStream(url, sampleRate, seekSeconds, headers, isLive)
@@ -40,6 +42,7 @@ class FFmpegExecutor private constructor() {
                 executor.destroy()
                 return null
             }
+
             val currentPid =
                 executor.processId ?: return null.also {
                     "Null PID process detected, aborting..".err()
@@ -52,7 +55,23 @@ class FFmpegExecutor private constructor() {
                     executor.destroy()
                 }
 
-            return ProcessBoundInputStream(currentPid, currentStream)
+            val base = ProcessBoundInputStream(currentPid, currentStream)
+
+            if (!retryIndefinitely) return base
+
+            return ReconnectingInputStream(
+                initialStream = base,
+                reconnect = {
+                    makeStream(url, sampleRate, seekSeconds, headers, isLive, retryIndefinitely = false)
+                },
+                shouldReconnect = {
+                    when (ProcessLifecycleManager.getExitCode(currentPid)) {
+                        null -> false
+                        0 -> false
+                        else -> true
+                    }
+                },
+            )
         }
     }
 
@@ -60,8 +79,6 @@ class FFmpegExecutor private constructor() {
 
     @Volatile private var processId: Long? = null
     private val lifecycleMutex = Mutex()
-
-    val currentProcessId get() = processId
 
     private val streamReady = CompletableDeferred<Result<Unit>>()
 
@@ -119,38 +136,22 @@ class FFmpegExecutor private constructor() {
                     add(headerString)
                 }
 
+                add("-reconnect_on_network_error")
+                add("1")
+                add("-reconnect_on_http_error")
+                add("5xx,4xx")
+
                 if (isLive) {
-                    add("-reconnect")
-                    add("1")
                     add("-reconnect_streamed")
                     add("1")
-                    add("-reconnect_on_network_error")
-                    add("1")
-                    add("-reconnect_delay_max")
-                    add("5")
-
-                    add("-thread_queue_size")
-                    add((512 * ModConfigs.client.maxPitch.get()).toString())
-
-                    add("-probesize")
-                    add("50M")
-
-                    add("-analyzeduration")
-                    add("50M")
-
-                    add("-rw_timeout")
-                    add("15000000")
 
                     add("-protocol_whitelist")
                     add("file,http,https,tcp,tls,crypto,hls")
-
-//                    add("-allowed_extensions")
-//                    add("ALL")
                 } else {
                     add("-reconnect")
                     add("1")
                     add("-reconnect_delay_max")
-                    add("5")
+                    add("30")
                 }
 
                 add("-i")

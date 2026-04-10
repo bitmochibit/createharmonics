@@ -19,8 +19,7 @@ public abstract class RecipeGridHandlerMixin {
     @Inject(
             method = "tryToApplyRecipe",
             at = @At("RETURN"),
-            locals = LocalCapture.CAPTURE_FAILSOFT,
-            remap = false
+            locals = LocalCapture.CAPTURE_FAILSOFT
     )
     private static void onRecipeAssembled(Level world, RecipeGridHandler.GroupedItems items, CallbackInfoReturnable<ItemStack> cir, CraftingContainer inv) {
         ItemStack result = cir.getReturnValue();
