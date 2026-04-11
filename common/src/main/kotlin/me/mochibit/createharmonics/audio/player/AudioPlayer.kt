@@ -109,12 +109,13 @@ class AudioPlayer(
             }
 
             PlayerIntent.AudioHanged -> {
-                if (_state.value == PlayerState.STOPPED || _state.value == PlayerState.PAUSED) return
+                if (_state.value == PlayerState.STOPPED) return
+                if (_state.value == PlayerState.PAUSED) {
+                    resumePlayback(true)
+                    pausePlayback()
+                }
                 if (_state.value == PlayerState.PLAYING) {
                     unstuckPlayback()
-                } else {
-                    notifyStreamFailure()
-                    stopPlayback()
                 }
             }
 
@@ -178,10 +179,9 @@ class AudioPlayer(
     }
 
     private suspend fun startPlayback(pos: Double = 0.0) {
+        cancelTailWaiting()
         val request = currentAudioRequest ?: return
         transition(PlayerState.LOADING)
-        ambientTailJob?.cancel()
-        ambientTailJob = null
         val resolutionStart = System.currentTimeMillis()
         val resolvedInputStream =
             try {
@@ -233,53 +233,52 @@ class AudioPlayer(
         transition(PlayerState.PLAYING)
     }
 
-    private fun pausePlayback() {
+    private suspend fun pausePlayback() {
         val soundInstance =
-            currentSoundInstance ?: return transition(PlayerState.STOPPED).also {
-                soundEventComposition.stopComposition()
-            }
+            currentSoundInstance ?: return doStopPlayback()
 
         clock.pause()
         transition(PlayerState.PAUSED)
-
-        val sampleRate = currentAudioEffectInputStream?.sampleRate ?: 44100
-        val tailSeconds = effectChain.tailLengthSeconds(sampleRate)
-        val hasAmbientEffect =
-            effectChain
-                .getEffects()
-                .any { it.scope == AudioEffect.Scope.EXTERNAL_EFFECT }
-
-        if (hasAmbientEffect && tailSeconds > 0.0) {
+        val hasTail = currentAudioEffectInputStream?.hasTail ?: false
+        if (hasTail) {
             currentAudioEffectInputStream?.isFrozen = true
             ambientTailJob =
                 modLaunch(Dispatchers.IO) {
-                    delay((tailSeconds * 1000).toLong())
-                    withMainContext { soundInstance.pause() }
+                    currentAudioEffectInputStream?.tailFinished?.await() ?: return@modLaunch
+                    withMainContext {
+                        if (!soundInstance.pause()) {
+                            soundManager.stop(soundInstance)
+                        }
+                    }
                 }
         } else {
-            soundInstance.pause()
+            withMainContext {
+                if (!soundInstance.pause()) {
+                    soundManager.stop(soundInstance)
+                }
+            }
         }
     }
 
-    private suspend fun resumePlayback() {
+    private suspend fun resumePlayback(freezeOnly: Boolean = false) {
+        cancelTailWaiting()
         val soundInstance =
-            currentSoundInstance ?: return transition(PlayerState.STOPPED).also {
-                withMainContext {
-                    soundEventComposition.stopComposition()
-                }
+            currentSoundInstance ?: return doStopPlayback()
+        if (freezeOnly) {
+            currentAudioEffectInputStream?.isFrozen = true
+        }
+        withMainContext {
+            if (!soundInstance.unpause()) {
+                soundManager.play(soundInstance)
             }
-        ambientTailJob?.cancel()
-        ambientTailJob = null
-        currentAudioEffectInputStream?.isFrozen = false
-        soundInstance.unpause()
+        }
         clock.play()
         transition(PlayerState.PLAYING)
     }
 
     private suspend fun unstuckPlayback() {
-        val soundInstance = currentSoundInstance ?: return transition(PlayerState.STOPPED)
-        ambientTailJob?.cancel()
-        ambientTailJob = null
+        cancelTailWaiting()
+        val soundInstance = currentSoundInstance ?: return doStopPlayback()
         withMainContext {
             soundManager.play(soundInstance)
         }
@@ -291,33 +290,27 @@ class AudioPlayer(
     }
 
     private suspend fun doStopPlayback() {
-        val sampleRate = currentAudioEffectInputStream?.sampleRate ?: 44100
-        val tailSeconds = effectChain.tailLengthSeconds(sampleRate)
-        val hasAmbientEffect =
-            effectChain
-                .getEffects()
-                .any { it.scope == AudioEffect.Scope.EXTERNAL_EFFECT }
+        cancelTailWaiting()
+        val hasTail = currentAudioEffectInputStream?.hasTail ?: false
 
-        val streamToClose = currentAudioEffectInputStream
-        val instanceToStop = currentSoundInstance
-        currentAudioEffectInputStream = null
-        currentSoundInstance = null
-
-        if (hasAmbientEffect && tailSeconds > 0.0) {
-            ambientTailJob?.cancel()
-            streamToClose?.isFrozen = true
+        if (hasTail) {
+            currentAudioEffectInputStream?.isFrozen = true
             ambientTailJob =
                 modLaunch(Dispatchers.IO) {
-                    delay((tailSeconds * 1000).toLong())
-                    streamToClose?.close()
+                    currentAudioEffectInputStream?.tailFinished?.await()
+                    currentAudioEffectInputStream?.close()
                     effectChain.reset()
-                    withMainContext { instanceToStop?.let { soundManager.stop(it) } }
+                    withMainContext { currentSoundInstance?.let { soundManager.stop(it) } }
+                    currentAudioEffectInputStream = null
+                    currentSoundInstance = null
                 }
         } else {
             ambientTailJob?.cancel()
-            streamToClose?.close()
+            currentAudioEffectInputStream?.close()
             effectChain.reset()
-            withMainContext { instanceToStop?.let { soundManager.stop(it) } }
+            withMainContext { currentSoundInstance?.let { soundManager.stop(it) } }
+            currentAudioEffectInputStream = null
+            currentSoundInstance = null
         }
 
         soundEventComposition.stopComposition()
@@ -341,6 +334,22 @@ class AudioPlayer(
 
     private fun handleStreamHang() {
         intents.trySend(PlayerIntent.AudioHanged)
+    }
+
+    private suspend fun cancelTailWaiting() {
+        val wasManagingTail = ambientTailJob != null
+        ambientTailJob?.cancel()
+        ambientTailJob = null
+        currentAudioEffectInputStream?.isFrozen = false
+        currentAudioEffectInputStream?.resetTailSignal()
+
+        if (wasManagingTail && _state.value == PlayerState.STOPPED) {
+            currentAudioEffectInputStream?.close()
+            effectChain.reset()
+            withMainContext { currentSoundInstance?.let { soundManager.stop(it) } }
+            currentAudioEffectInputStream = null
+            currentSoundInstance = null
+        }
     }
 
     private fun notifyAudioTitle(name: String) = ModPackets.sendToServer(UpdateAudioNamePacket(playerId, name))

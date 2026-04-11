@@ -7,6 +7,7 @@ import com.simibubi.create.content.kinetics.press.PressingBehaviour
 import com.simibubi.create.content.redstone.analogLever.AnalogLeverBlock
 import com.simibubi.create.content.redstone.analogLever.AnalogLeverBlockEntity
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder
+import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.content.records.RecordType
@@ -15,7 +16,9 @@ import net.createmod.catnip.math.Pointing
 import net.createmod.ponder.api.PonderPalette
 import net.createmod.ponder.api.scene.SceneBuilder
 import net.createmod.ponder.api.scene.SceneBuildingUtil
+import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.core.Vec3i
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.item.ItemStack
@@ -23,6 +26,7 @@ import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.LeverBlock
 import net.minecraft.world.phys.AABB
 import kotlin.jvm.java
+import kotlin.math.max
 
 object PonderScenes {
     fun recordPressBase(
@@ -347,6 +351,101 @@ object PonderScenes {
             .colored(PonderPalette.BLUE)
             .text("In pause mode, audio will always loop, with volume scaled by power level, pausing only when fully unpowered")
             .pointAt(topOfPlayer)
+        scene.idle(80)
+        // External effects modulation
+        scene.addKeyframe()
+        scene
+            .overlay()
+            .showText(30)
+            .text("Environment also affects audio")
+            .pointAt(topOfPlayer)
+            .placeNearTarget()
+        scene.idle(35)
+
+        val reverberatorBlockTypes =
+            listOf(
+                EffectPreset.Reverberator.ROOM_INCREASERS_BLOCKS,
+                EffectPreset.Reverberator.DAMPING_INCREASERS_BLOCKS,
+                EffectPreset.Reverberator.WET_INCREASERS_BLOCKS,
+            )
+
+        val typeMaxRow =
+            reverberatorBlockTypes
+                .maxOfOrNull { it.size }
+                ?.coerceAtMost(6) ?: 0
+
+        val reverberatorWallStartX = 13
+        val reverberatorWallStartY = 1
+        val reverberatorWallStartZ = 15
+
+        val fullSelection =
+            util.select().fromTo(
+                reverberatorWallStartX,
+                reverberatorWallStartY,
+                reverberatorWallStartZ,
+                reverberatorWallStartX,
+                reverberatorWallStartY + reverberatorBlockTypes.size,
+                reverberatorWallStartZ + 6,
+            )
+
+        scene.world().showSection(
+            fullSelection,
+            Direction.DOWN,
+        )
+
+        reverberatorBlockTypes.forEachIndexed { index, typeList ->
+            for (row in 0 until typeMaxRow) {
+                val block = typeList.getOrNull(row)
+                if (block != null) {
+                    val placePos = BlockPos(reverberatorWallStartX, reverberatorWallStartY + index, reverberatorWallStartZ + row)
+                    scene.world().setBlock(placePos, block.defaultBlockState(), true)
+                    scene.idle(3)
+                }
+            }
+        }
+
+        scene
+            .overlay()
+            .showText(50)
+            .text("With specific blocks placed around the jukebox, a reverberator will form.")
+            .placeNearTarget()
+        scene.idle(60)
+
+        scene
+            .overlay()
+            .showText(70)
+            .text("The blocks in this row control the room size; more blocks mean a bigger room.")
+            .pointAt(util.vector().topOf(reverberatorWallStartX, 0, reverberatorWallStartZ))
+            .placeNearTarget()
+        scene.idle(80)
+
+        scene
+            .overlay()
+            .showText(70)
+            .text("These blocks control damping, which determines how long the reverb lasts; more blocks mean shorter reverb.")
+            .pointAt(util.vector().topOf(reverberatorWallStartX, reverberatorWallStartY, reverberatorWallStartZ))
+            .placeNearTarget()
+        scene.idle(80)
+
+        scene
+            .overlay()
+            .showText(70)
+            .text("These blocks control wetness; more blocks mean more intense reverb.")
+            .pointAt(util.vector().topOf(reverberatorWallStartX, reverberatorWallStartY + 1, reverberatorWallStartZ))
+            .placeNearTarget()
+        scene.idle(80)
+
+        scene.world().hideSection(
+            fullSelection,
+            Direction.UP,
+        )
+
+        scene
+            .overlay()
+            .showText(70)
+            .colored(PonderPalette.BLUE)
+            .text("Liquids affect audio based on their viscosity, muffling the sound.")
+            .placeNearTarget()
         scene.idle(80)
 
         // Mechanical Arm Feature

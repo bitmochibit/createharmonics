@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.audio.stream
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -48,7 +49,19 @@ class AudioEffectInputStream(
 
     // Tail silence for extended effects
     @Volatile private var isFlushing = false
-    private var flushSamplesRemaining = 0
+
+    @Volatile private var flushSamplesRemaining = 0
+
+    @Volatile private var flushUpdateCounter = 0
+
+    @Volatile
+    var tailFinished = CompletableDeferred<Unit>()
+        private set
+
+    val hasTail: Boolean get() {
+        updateTailLength()
+        return flushSamplesRemaining > 0
+    }
 
     @Volatile var isFrozen = false
 
@@ -70,13 +83,20 @@ class AudioEffectInputStream(
             }
     }
 
+    fun resetTailSignal() {
+        if (tailFinished.isCompleted) {
+            tailFinished = CompletableDeferred()
+        }
+    }
+
+    fun updateTailLength() {
+        val tailSeconds = effectChain.tailLengthSeconds(sampleRate)
+        flushSamplesRemaining = (tailSeconds * sampleRate).toInt()
+    }
+
     private suspend fun continuousRawBuffering() {
         try {
             while (!isClosed && !streamEnded) {
-                if (isFrozen) {
-                    delay(50)
-                    continue
-                }
                 val currentBufferSize = synchronized(rawBufferLock) { rawAudioBufferSize }
                 val targetSize = calculateRawBufferTarget()
 
@@ -161,16 +181,29 @@ class AudioEffectInputStream(
 
         if (!ensureProcessedAudio()) {
             if (!isFlushing) {
-                val tailSeconds = effectChain.tailLengthSeconds(sampleRate)
-                flushSamplesRemaining = (tailSeconds * sampleRate).toInt()
+                updateTailLength()
                 isFlushing = true
+            }
+
+            flushUpdateCounter += EFFECT_PROCESS_CHUNK_SIZE
+
+            if (flushUpdateCounter >= sampleRate / 4) {
+                updateTailLength()
+                flushUpdateCounter = 0
             }
 
             if (isFlushing && flushSamplesRemaining > 0) {
                 val flushed = flushEffectTail()
                 if (flushed) {
+                    if (tailFinished.isCompleted) {
+                        tailFinished
+                    }
                     bytesCopied += drainProcessedBuffer(b, off + bytesCopied, len - bytesCopied)
                     return bytesCopied
+                } else {
+                    if (!tailFinished.isCompleted) {
+                        tailFinished.complete(Unit)
+                    }
                 }
             }
 

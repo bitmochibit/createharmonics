@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.foundation.extension
 
+import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.foundation.services.contentService
 import me.mochibit.createharmonics.foundation.services.platformService
 import net.minecraft.CrashReport
@@ -16,6 +17,68 @@ import net.minecraft.world.level.chunk.LevelChunkSection
 import net.minecraft.world.level.material.FluidState
 import net.minecraft.world.level.material.Fluids
 import org.joml.Vector3d
+
+data class BlockCounts(
+    val roomIncreasers: Int,
+    val dampingIncreasers: Int,
+    val wetIncreasers: Int,
+) {
+    val total: Int get() = roomIncreasers + dampingIncreasers + wetIncreasers
+}
+
+fun Level.scanReverberatorBlocks(
+    x: Double,
+    y: Double,
+    z: Double,
+    scanRadius: Int,
+): BlockCounts {
+    var roomIncreasers = 0
+    var dampingIncreasers = 0
+    var wetIncreasers = 0
+
+    for (dx in -scanRadius..scanRadius) {
+        for (dy in -scanRadius..scanRadius) {
+            for (dz in -scanRadius..scanRadius) {
+                val nx = x + dx
+                val ny = y + dy
+                val nz = z + dz
+
+                // World-space check — transform ship-local coords to world if on a ship
+                val worldPos: Vector3d = Vector3d(nx, ny, nz)
+//                    if (ship != null) {
+//                        ship.shipToWorld.transformPosition(nx, ny, nz, Vector3d())
+//                    } else {
+//
+//                    }
+
+                val blockState =
+                    this.getBlockState(
+                        worldPos.x.toInt(),
+                        worldPos.y.toInt(),
+                        worldPos.z.toInt(),
+                    )
+
+                when (blockState.block) {
+                    in EffectPreset.Reverberator.ROOM_INCREASERS_BLOCKS -> roomIncreasers++
+                    in EffectPreset.Reverberator.DAMPING_INCREASERS_BLOCKS -> dampingIncreasers++
+                    in EffectPreset.Reverberator.WET_INCREASERS_BLOCKS -> wetIncreasers++
+                }
+
+                // Fallback: check ship-local space for blocks that are part of the contraption itself
+//                if (ship != null) {
+//                    val shipBlockState = level.getBlockState(nx.toInt(), ny.toInt(), nz.toInt())
+//                    when (shipBlockState.block) {
+//                        Blocks.AMETHYST_BLOCK -> roomIncreasers++
+//                        Blocks.EMERALD_BLOCK -> dampingIncreasers++
+//                        Blocks.DIAMOND_BLOCK -> wetIncreasers++
+//                    }
+//                }
+            }
+        }
+    }
+
+    return BlockCounts(roomIncreasers, dampingIncreasers, wetIncreasers)
+}
 
 fun Level.countLiquidCoveredFaces(
     x: Double,

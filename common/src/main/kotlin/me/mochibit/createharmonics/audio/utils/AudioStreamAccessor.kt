@@ -35,28 +35,30 @@ fun SoundInstance.getStreamDirectly(looping: Boolean): CompletableFuture<AudioSt
     return soundBuffers.getStream(this.sound.path, looping)
 }
 
-fun SoundInstance.pause() {
+fun SoundInstance.pause(): Boolean {
     if (this is StreamingSoundInstance) {
-        if (!currentAudioStreamDelegate.isInitialized()) return
+        if (!currentAudioStreamDelegate.isInitialized()) return false
         val currentAudioStream = this.currentAudioStream
         if (currentAudioStream is PausableAudioStream) {
             currentAudioStream.pause()
         }
     }
-    val channelHandle = soundEngineAccessor.instanceToChannel[this]
-    channelHandle?.execute(Channel::pause)
+    val channelHandle = soundEngineAccessor.instanceToChannel[this] ?: return false
+    channelHandle.execute(Channel::pause)
+    return true
 }
 
-fun SoundInstance.unpause() {
+fun SoundInstance.unpause(): Boolean {
     if (this is StreamingSoundInstance) {
-        if (!currentAudioStreamDelegate.isInitialized()) return
+        if (!currentAudioStreamDelegate.isInitialized()) return false
         val currentAudioStream = this.currentAudioStream
         if (currentAudioStream is PausableAudioStream) {
             currentAudioStream.resume()
         }
     }
-    val channelHandle = soundEngineAccessor.instanceToChannel[this]
-    channelHandle?.execute(Channel::unpause)
+    val channelHandle = soundEngineAccessor.instanceToChannel[this] ?: return false
+    channelHandle.execute(Channel::unpause)
+    return true
 }
 
 fun SoundEvent.getStreamDirectly(looping: Boolean = false): CompletableFuture<AudioStream> {

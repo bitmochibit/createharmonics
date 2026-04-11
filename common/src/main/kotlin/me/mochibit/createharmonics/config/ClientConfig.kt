@@ -10,7 +10,7 @@ object ClientConfig : ConfigBase() {
     lateinit var maxPitch: ConfigFloat
         private set
 
-    lateinit var playbackBufferSeconds: ConfigFloat
+    lateinit var reverberatorScanRadius: ConfigInt
         private set
 
     lateinit var ytdlpOverrideArgs: CValue<String, ModConfigSpec.ConfigValue<String>>
@@ -34,6 +34,7 @@ object ClientConfig : ConfigBase() {
     override fun registerAll(builder: ModConfigSpec.Builder) {
         menuButtonsGroup(builder)
         audioSourceGroup(builder)
+        audioEffectsGroup(builder)
         libraryGroup(builder)
         super.registerAll(builder)
     }
@@ -91,8 +92,7 @@ object ClientConfig : ConfigBase() {
 
         minPitch = f(0.5f, 0.1f, 1.0f, "minPitch", "Minimum pitch for audio playback")
         maxPitch = f(2.0f, 1.0f, 4.0f, "maxPitch", "Maximum pitch for audio playback")
-        playbackBufferSeconds =
-            f(0.05f, 0.01f, 30.0f, "playbackBufferSeconds", "Buffer time in seconds for audio playback")
+
         ytdlpOverrideArgs =
             CValue<String, ModConfigSpec.ConfigValue<String>>(
                 "ytdlpOverrideArgs",
@@ -100,6 +100,20 @@ object ClientConfig : ConfigBase() {
                     builder.define("ytdlpOverrideArgs", "")
                 },
                 "Override arguments for yt-dlp when requesting streaming URLs",
+            )
+    }
+
+    private fun audioEffectsGroup(builder: ModConfigSpec.Builder) {
+        group(1, "audio_effects", "Configuration for audio effects")
+
+        reverberatorScanRadius =
+            i(
+                5,
+                1,
+                30,
+                "reverberatorScanRadius",
+                "Radius within which reverberator blocks are detected to adjust the reverb effect.",
+                "Beware: higher values will impact performance.",
             )
     }
 

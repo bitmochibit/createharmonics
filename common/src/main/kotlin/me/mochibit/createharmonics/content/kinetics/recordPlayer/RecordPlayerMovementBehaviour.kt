@@ -70,6 +70,8 @@ data class RecordPlayerContextData(
     val playtimeClock: PlaytimeClock = PlaytimeClock(),
     var playbackState: PlaybackState = PlaybackState.STOPPED,
     val underwaterFilter: EffectPreset.UnderwaterFilter = EffectPreset.UnderwaterFilter(),
+    val reverberator: EffectPreset.Reverberator = EffectPreset.Reverberator(),
+    var ticksSinceReverberatorUpdate: Int = 0,
     var gracefulStopJob: Job? = null,
     var ticksSinceLastClockSave: Int = 0,
     override var isDirty: Boolean = false,
@@ -458,6 +460,12 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             player.tick()
 
             data.underwaterFilter.update(player, context.position, context.world)
+
+            data.ticksSinceReverberatorUpdate++
+            if (data.ticksSinceReverberatorUpdate >= 40) {
+                data.ticksSinceReverberatorUpdate = 0
+                data.reverberator.update(player, context.position, context.world)
+            }
 
             if (!data.isDirty) return
             data.clean()
