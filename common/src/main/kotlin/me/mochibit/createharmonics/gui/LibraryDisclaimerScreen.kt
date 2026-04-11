@@ -120,6 +120,7 @@ class LibraryDisclaimerScreen(
             when {
                 BinStatusManager.areAllLibrariesInstalled() -> State.STATUS
                 BinStatusManager.isAnyInstalling() -> State.STATUS
+                BinStatusManager.isAnyInstalled() -> State.STATUS
                 else -> State.DISCLAIMER
             }
         rebuildWidgets()
@@ -180,37 +181,46 @@ class LibraryDisclaimerScreen(
         val allInstalled = BinStatusManager.areAllLibrariesInstalled()
         val isInstalling = BinStatusManager.isAnyInstalling()
 
-        // Add delete buttons for installed libraries
         addDeleteButtonsForLibraries()
 
-        val (leftButton, rightButton) =
-            when {
-                !allInstalled && !isInstalling && !BuildConfig.IS_CURSEFORGE -> {
-                    ButtonData(
-                        ModLang
-                            .translate("gui.library_setup.install_missing_lib_btn")
-                            .component()
-                            .withStyle(ChatFormatting.GREEN),
-                    ) { startBackgroundInstallation() } to
-                        ButtonData(
-                            ModLang.translate("gui.library_setup.go_back_btn").component(),
-                        ) { onClose() }
-                }
+        val showInstallButton = !allInstalled && !isInstalling && !BuildConfig.IS_CURSEFORGE
 
-                else -> {
-                    ButtonData(
-                        ModLang.translate("gui.library_setup.open_folder_btn").component(),
-                    ) {
-                        BinStatusManager.ensureBinaryFolders()
-                        Util.getPlatform().openFile(BinProvider.Companion.providersFolder)
-                    } to
-                        ButtonData(
-                            ModLang.translate("gui.library_setup.go_back_btn").component(),
-                        ) { onClose() }
-                }
+        if (showInstallButton) {
+            val margin = 20
+            val availableWidth = width - margin * 2
+            val buttonWidth = (availableWidth - Layout.BUTTON_GAP * 2) / 3
+
+            val startX = cx - (buttonWidth * 3 + Layout.BUTTON_GAP * 2) / 2
+            listOf(
+                ModLang
+                    .translate("gui.library_setup.install_missing_lib_btn")
+                    .component()
+                    .withStyle(ChatFormatting.GREEN) to { _: Button -> startBackgroundInstallation() },
+                ModLang.translate("gui.library_setup.open_folder_btn").component() to { _: Button ->
+                    BinStatusManager.ensureBinaryFolders()
+                    Util.getPlatform().openFile(BinProvider.providersFolder)
+                },
+                ModLang.translate("gui.library_setup.go_back_btn").component() to { _: Button -> onClose() },
+            ).forEachIndexed { i, (label, action) ->
+                addRenderableWidget(
+                    Button
+                        .builder(label, action)
+                        .bounds(startX + i * (buttonWidth + Layout.BUTTON_GAP), bottomY, buttonWidth, Layout.BUTTON_HEIGHT)
+                        .build(),
+                )
             }
-
-        addButtonPair(cx, bottomY, leftButton, rightButton)
+        } else {
+            addButtonPair(
+                cx,
+                bottomY,
+                left =
+                    ButtonData(ModLang.translate("gui.library_setup.open_folder_btn").component()) {
+                        BinStatusManager.ensureBinaryFolders()
+                        Util.getPlatform().openFile(BinProvider.providersFolder)
+                    },
+                right = ButtonData(ModLang.translate("gui.library_setup.go_back_btn").component()) { onClose() },
+            )
+        }
     }
 
     private fun buildSkippedButtons() {
