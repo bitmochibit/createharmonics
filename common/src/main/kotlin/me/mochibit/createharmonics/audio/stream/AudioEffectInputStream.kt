@@ -63,7 +63,11 @@ class AudioEffectInputStream(
         return flushSamplesRemaining > 0
     }
 
-    @Volatile var isFrozen = false
+    @Volatile var isFrozen: Boolean = false
+        set(value) {
+            field = value
+            effectChain.setFrozen(value)
+        }
 
     @Volatile var isClosed = false
         private set
@@ -287,7 +291,7 @@ class AudioEffectInputStream(
         samplesProcessed += chunkSamples
 
         val maxAmplitude = outputSamples.maxOfOrNull { abs(it.toInt()) } ?: 0
-        if (maxAmplitude < 16) {
+        if (maxAmplitude <= 62) {
             flushSamplesRemaining = 0
             return false
         }

@@ -2,19 +2,16 @@ package me.mochibit.createharmonics.audio.effect
 
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import me.mochibit.createharmonics.audio.player.AudioPlayer
-import me.mochibit.createharmonics.config.ClientConfig
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.extension.countLiquidCoveredFaces
 import me.mochibit.createharmonics.foundation.extension.lerpTo
 import me.mochibit.createharmonics.foundation.extension.scanReverberatorBlocks
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
-import net.minecraft.core.BlockPos
 import net.minecraft.core.Vec3i
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.phys.Vec3
-import net.neoforged.neoforge.common.Tags
 
 sealed interface EffectPreset {
     fun update(
@@ -38,6 +35,16 @@ sealed interface EffectPreset {
     ) = update(audioPlayer, blockPos.x.toDouble(), blockPos.y.toDouble(), blockPos.z.toDouble(), level)
 
     class UnderwaterFilter : EffectPreset {
+        companion object {
+            val effectScope: AudioEffect.Scope =
+                AudioEffect.Scope.register(
+                    AudioEffect.Scope.DefaultScope(
+                        "underwaterFilterScope",
+                        100,
+                    ),
+                )
+        }
+
         private var targetCutoffFrequency = 20000f
         private var targetResonance = 0.707f
 
@@ -51,19 +58,18 @@ sealed interface EffectPreset {
         ) {
             val effectChain = audioPlayer.effectChain
             val effects = effectChain.getEffects()
-            val existingFilter = effects.firstOrNull { it.scope == AudioEffect.Scope.EXTERNAL_EFFECT && it is LowPassFilterEffect }
+            val existingFilter = effects.firstOrNull { it.scope == effectScope && it is LowPassFilterEffect }
 
             if (existingFilter == null) {
                 cutoffFrequencyInterpolated.getValue()
                 resonanceInterpolated.getValue()
                 targetCutoffFrequency = cutoffFrequency
                 targetResonance = resonance
-                effectChain.addAfterScope(
-                    AudioEffect.Scope.MACHINE_CONTROLLED_PITCH,
+                effectChain.addEffect(
                     LowPassFilterEffect(
                         cutoffFrequencyInterpolated,
                         resonanceInterpolated,
-                        AudioEffect.Scope.EXTERNAL_EFFECT,
+                        effectScope,
                     ),
                 )
             } else {
@@ -75,7 +81,7 @@ sealed interface EffectPreset {
         private fun removeLowPassFilter(audioPlayer: AudioPlayer) {
             val effectChain = audioPlayer.effectChain
             val effects = effectChain.getEffects()
-            val lowPassIndex = effects.indexOfFirst { it.scope == AudioEffect.Scope.EXTERNAL_EFFECT && it is LowPassFilterEffect }
+            val lowPassIndex = effects.indexOfFirst { it.scope == effectScope && it is LowPassFilterEffect }
             if (lowPassIndex < 0) return
 
             cutoffFrequencyInterpolated.getValue()
@@ -130,6 +136,14 @@ sealed interface EffectPreset {
         val wetMixInterpolated = FloatSupplierInterpolated({ targetWetMix }, INTERPOLATION_STEPS)
 
         companion object {
+            val effectScope: AudioEffect.Scope =
+                AudioEffect.Scope.register(
+                    AudioEffect.Scope.DefaultScope(
+                        "reverberatorScope",
+                        130,
+                    ),
+                )
+
             private const val INTERPOLATION_STEPS = 900L
 
             private const val BASE_ROOM_SIZE = 0.25f
@@ -163,20 +177,19 @@ sealed interface EffectPreset {
         private fun applyReverb(audioPlayer: AudioPlayer) {
             val effectChain = audioPlayer.effectChain
             val effects = effectChain.getEffects()
-            val existing = effects.firstOrNull { it.scope == AudioEffect.Scope.EXTERNAL_EFFECT && it is ReverbEffect }
+            val existing = effects.firstOrNull { it.scope == effectScope && it is ReverbEffect }
 
             if (existing == null) {
                 roomSizeInterpolated.getValue()
                 dampingInterpolated.getValue()
                 wetMixInterpolated.getValue()
 
-                effectChain.addAfterScope(
-                    AudioEffect.Scope.EXTERNAL_EFFECT,
+                effectChain.addEffect(
                     ReverbEffect(
                         roomSizeSupplier = roomSizeInterpolated,
                         dampingSupplier = dampingInterpolated,
                         wetMixSupplier = wetMixInterpolated,
-                        scope = AudioEffect.Scope.EXTERNAL_EFFECT,
+                        scope = effectScope,
                     ),
                 )
             }
@@ -185,7 +198,7 @@ sealed interface EffectPreset {
         private fun removeReverb(audioPlayer: AudioPlayer) {
             val effectChain = audioPlayer.effectChain
             val effects = effectChain.getEffects()
-            val reverbIndex = effects.indexOfFirst { it.scope == AudioEffect.Scope.EXTERNAL_EFFECT && it is ReverbEffect }
+            val reverbIndex = effects.indexOfFirst { it.scope == effectScope && it is ReverbEffect }
             if (reverbIndex < 0) return
 
             roomSizeInterpolated.getValue()

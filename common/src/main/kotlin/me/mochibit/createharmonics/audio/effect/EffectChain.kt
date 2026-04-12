@@ -17,7 +17,8 @@ sealed class ScopeAnchor {
 class EffectChain(
     @Volatile private var effects: List<AudioEffect> = emptyList(),
     override val scope: AudioEffect.Scope = AudioEffect.Scope.PERMANENT,
-) : AudioEffect {
+) : AudioEffect,
+    Freezable {
     constructor(vararg effects: AudioEffect) : this(effects.toList())
 
     override fun process(
@@ -106,7 +107,14 @@ class EffectChain(
      */
     @Synchronized
     fun addEffect(effect: AudioEffect) {
-        effects = effects + effect
+        val insertIndex =
+            effects.indexOfLast {
+                it.scope.pipelineOrder <= effect.scope.pipelineOrder
+            }
+        effects =
+            effects.toMutableList().apply {
+                add(if (insertIndex == -1) 0 else insertIndex + 1, effect)
+            }
     }
 
     /**
@@ -306,6 +314,10 @@ class EffectChain(
      * @return The index of the effect, or -1 if not found.
      */
     fun indexOf(effect: AudioEffect): Int = effects.indexOf(effect)
+
+    override fun setFrozen(frozen: Boolean) {
+        effects.filterIsInstance<Freezable>().forEach { it.setFrozen(frozen) }
+    }
 
     companion object {
         /**

@@ -1,6 +1,8 @@
 package me.mochibit.createharmonics.audio.effect
 
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
+import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.log10
 import kotlin.math.roundToInt
 
@@ -19,6 +21,10 @@ class ReverbEffect(
         private const val SCALE_DAMPING = 0.65f
         private const val ALLPASS_FEEDBACK = 0.5f
         private const val BASE_SAMPLE_RATE = 44100
+
+        private const val LIMITER_THRESHOLD = 0.9f
+        private const val LIMITER_ATTACK_MS = 0.5f
+        private const val LIMITER_RELEASE_MS = 120f
     }
 
     private var currentSampleRate = -1
@@ -33,6 +39,10 @@ class ReverbEffect(
     private var roomScale = 0f
     private var damp1 = 0f
     private var damp2 = 0f
+
+    private var limiterGain = 1.0f
+    private var limiterAttackCoeff = 0f
+    private var limiterReleaseCoeff = 0f
 
     private fun scaleTunings(
         base: IntArray,
@@ -49,6 +59,9 @@ class ReverbEffect(
 
         allpassBuffers = Array(4) { FloatArray(scaledAllpass[it]) }
         allpassIndices = IntArray(4)
+
+        limiterAttackCoeff = exp(-1.0 / (sampleRate * LIMITER_ATTACK_MS / 1000.0)).toFloat()
+        limiterReleaseCoeff = exp(-1.0 / (sampleRate * LIMITER_RELEASE_MS / 1000.0)).toFloat()
 
         currentSampleRate = sampleRate
     }
@@ -142,14 +155,23 @@ class ReverbEffect(
                 apOutput = 0f
             }
 
-            val finalSample = (input * dryMix + apOutput * wetMix).coerceIn(-1.0f, 1.0f)
-            output[i] = (finalSample * 32767.0f).roundToInt().coerceIn(-32768, 32767).toShort()
+            val mixed = input * dryMix + apOutput * wetMix
+
+            // Feed-forward limiter
+            val absMixed = abs(mixed)
+            val targetGain = if (absMixed > LIMITER_THRESHOLD) LIMITER_THRESHOLD / absMixed else 1.0f
+            val coeff = if (targetGain < limiterGain) limiterAttackCoeff else limiterReleaseCoeff
+            limiterGain = coeff * limiterGain + (1f - coeff) * targetGain
+
+            val limited = (mixed * limiterGain).coerceIn(-1.0f, 1.0f)
+            output[i] = (limited * 32767.0f).roundToInt().coerceIn(-32768, 32767).toShort()
         }
 
         return output
     }
 
     override fun reset() {
+        limiterGain = 1.0f
         if (currentSampleRate > 0) {
             initBuffers(currentSampleRate)
         }
