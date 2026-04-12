@@ -17,21 +17,28 @@ class PlayerStatusDisplaySource : SingleLineDisplaySource() {
         val smartBe = context.sourceBlockEntity as? SmartBlockEntity ?: return EMPTY_LINE
         val audioPlayerBehaviour = smartBe.getBehaviour(RecordPlayerBehaviour.BEHAVIOUR_TYPE) ?: return EMPTY_LINE
 
-        context.flapDisplayContext
+        val isFullyPowered = audioPlayerBehaviour.redstonePower == 15
 
-        return when (audioPlayerBehaviour.playbackState) {
-            PlaybackState.PLAYING -> {
-                ModLang.translate("display_source.record_player.playing").component()
+        val stateComponent =
+            when (audioPlayerBehaviour.playbackState) {
+                PlaybackState.PLAYING -> {
+                    ModLang.translate("display_source.record_player.playing").component()
+                }
+
+                PlaybackState.PAUSED -> {
+                    ModLang.translate("display_source.record_player.paused").component()
+                }
+
+                PlaybackState.STOPPED -> {
+                    ModLang.translate("display_source.record_player.stopped").component()
+                }
             }
 
-            PlaybackState.PAUSED -> {
-                ModLang.translate("display_source.record_player.paused").component()
-            }
-
-            PlaybackState.STOPPED -> {
-                ModLang.translate("display_source.record_player.stopped").component()
-            }
+        if (isFullyPowered) {
+            stateComponent.append(" \uD83D\uDD01")
         }
+
+        return stateComponent
     }
 
     override fun getTranslationKey(): String = "read_record_player_state"

@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.audio.player
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import me.mochibit.createharmonics.audio.info.AudioInfo
 import me.mochibit.createharmonics.audio.process.FFmpegExecutor
 import me.mochibit.createharmonics.audio.source.AudioSource
 import me.mochibit.createharmonics.audio.source.HttpAudioSource
@@ -13,7 +14,7 @@ object SourceStreamResolver {
     data class Result(
         val status: StreamStatus,
         val inputStream: InputStream?,
-        val finalSampleRate: Int,
+        val audioInfo: AudioInfo,
     ) {
         enum class StreamStatus {
             FAILED,
@@ -33,43 +34,45 @@ object SourceStreamResolver {
         source: AudioSource,
         pos: Double = 0.0,
     ): Result {
+        val info = source.resolveAudioInfo()
+        val adjustedPosition = if (info.isLive) 0.0 else pos
         val result =
             when (source) {
                 is HttpAudioSource, is YtdlpAudioSource -> {
-                    if (pos > 0 && pos > source.getDurationSeconds() && !source.isLive()) {
+                    if (adjustedPosition > 0 && adjustedPosition > info.durationSeconds) {
                         Result(
                             status = Result.StreamStatus.FINISHED,
                             inputStream = null,
-                            0,
+                            info,
                         )
                     } else {
                         Result(
                             status = Result.StreamStatus.OK,
                             inputStream =
                                 FFmpegExecutor.makeStream(
-                                    source.resolveAudioUrl(),
-                                    source.getSampleRate(),
-                                    pos,
-                                    source.getHttpHeaders(),
-                                    source.isLive(),
+                                    info.audioUrl,
+                                    info.sampleRate.toInt(),
+                                    adjustedPosition,
+                                    info.httpHeaders,
+                                    info.isLive,
                                 ),
-                            finalSampleRate = source.getSampleRate(),
+                            info,
                         )
                     }
                 }
 
                 is StreamAudioSource -> {
                     val stream = source.streamRetriever()
-                    if (pos > 0) {
-                        val positionWithinDuration = skipStreamToOffset(stream, pos, source.getSampleRate())
+                    if (adjustedPosition > 0) {
+                        val positionWithinDuration = skipStreamToOffset(stream, adjustedPosition, info.sampleRate.toInt())
                         if (!positionWithinDuration) {
-                            return Result(status = Result.StreamStatus.FINISHED, inputStream = null, 0)
+                            return Result(status = Result.StreamStatus.FINISHED, inputStream = null, info)
                         }
                     }
                     return Result(
                         status = Result.StreamStatus.OK,
                         inputStream = stream,
-                        finalSampleRate = source.getSampleRate(),
+                        info,
                     )
                 }
             }

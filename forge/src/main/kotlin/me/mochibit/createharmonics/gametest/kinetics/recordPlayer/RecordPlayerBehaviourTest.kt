@@ -264,7 +264,7 @@ class RecordPlayerBehaviourTest {
         behaviour.insertRecord(ItemStack(recordStack))
         behaviour.startPlayer()
 
-        behaviour.onPlaybackEnd(behaviour.recordPlayerUUID.toString())
+        behaviour.onPlaybackEnd(false)
 
         helper.assertTrue(
             behaviour.playbackState == PlaybackState.STOPPED,

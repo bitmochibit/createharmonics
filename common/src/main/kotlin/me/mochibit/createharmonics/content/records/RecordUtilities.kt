@@ -4,6 +4,7 @@ import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
+import me.mochibit.createharmonics.audio.info.AudioInfo
 import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.audio.player.AudioRequest
 import me.mochibit.createharmonics.audio.source.StreamAudioSource
@@ -151,20 +152,24 @@ object RecordUtilities {
 
         // Try to play audio from the crafted-from record
         val craftedWith = RecordCraftingHandler.getCraftedWithDisc(etherealRecord).item as? RecordItem ?: return
+        val soundEvent = craftedWith.sound
+
         val sampleRate =
-            craftedWith.sound.getStreamDirectly(false).get().use { audio ->
+            soundEvent.getStreamDirectly(false).get().use { audio ->
                 audio.format.sampleRate
             }
 
         this.request(
             AudioRequest.Stream(
                 {
-                    Ogg2PcmInputStream(craftedWith.sound.getStreamDirectly(false).get())
+                    Ogg2PcmInputStream(soundEvent.getStreamDirectly(false).get())
                 },
-                StreamAudioSource.Information(
-                    name = craftedWith.displayName.getString(48),
-                    bitrate = sampleRate.toInt(),
-                    duration = 1000,
+                AudioInfo(
+                    audioUrl = "stream",
+                    durationSeconds = 1000,
+                    title = craftedWith.displayName.getString(48),
+                    sampleRate = sampleRate,
+                    isLive = false,
                 ),
             ),
         )

@@ -20,7 +20,10 @@ import java.util.Optional;
 public abstract class ChannelMixin {
     @Shadow
     private AudioStream stream;
-    
+
+    @Shadow
+    public abstract boolean stopped();
+
     @Inject(
             method = "unpause",
             at = @At("HEAD"),

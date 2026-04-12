@@ -197,6 +197,7 @@ class RecordPlayerBehaviour(
     val radiusSupplierInterpolated = FloatSupplierInterpolated({ soundRadius.toFloat() }, 500)
 
     private val underwaterEffect = EffectPreset.UnderwaterFilter()
+    private val reverberator = EffectPreset.Reverberator()
 
     private var ticksSinceLastClockSave = 0
 
@@ -287,6 +288,14 @@ class RecordPlayerBehaviour(
             return playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE ||
                 playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
         }
+
+    override fun lazyTick() {
+        super.lazyTick()
+        val beLevel = be.level ?: return
+        beLevel.onClient { level, virtual ->
+            reverberator.update(audioPlayer, be.blockPos, level)
+        }
+    }
 
     override fun tick() {
         super.tick()
@@ -756,11 +765,11 @@ class RecordPlayerBehaviour(
         }
     }
 
-    fun onPlaybackEnd(
-        endedPlayerId: String,
-        failure: Boolean = false,
-    ) {
-        if (failure) return
+    fun onPlaybackEnd(failure: Boolean = false) {
+        if (failure) {
+            shouldRestartOnNextTick = true
+            return
+        }
         val isFullyPowered = this.redstonePower == 15
 
         if (isFullyPowered) {

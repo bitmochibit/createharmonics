@@ -24,6 +24,17 @@ object ProcessLifecycleManager {
         processes.remove(id)
     }
 
+    fun isAlive(id: Long): Boolean = processes[id]?.isAlive ?: false
+
+    fun getExitCode(id: Long): Int? {
+        val process = processes[id] ?: return null
+        return if (process.isAlive) {
+            null
+        } else {
+            process.exitValue()
+        }
+    }
+
     fun destroyProcess(id: Long) =
         modLaunch(Dispatchers.IO) {
             processes.remove(id)?.let { process ->

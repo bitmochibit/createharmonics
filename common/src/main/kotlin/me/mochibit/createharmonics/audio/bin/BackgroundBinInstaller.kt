@@ -9,6 +9,7 @@ import me.mochibit.createharmonics.foundation.locale.ModLang
 import me.mochibit.createharmonics.foundation.warn
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.components.toasts.SystemToast
+import net.minecraft.client.gui.components.toasts.TutorialToast
 import net.minecraft.network.chat.Component
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -122,31 +123,28 @@ object BackgroundBinInstaller {
     ) {
         Minecraft.getInstance().execute {
             val minecraft = Minecraft.getInstance()
-            val toastManager = minecraft.toasts
 
-            if (success) {
-                toastManager.addToast(
-                    SystemToast.multiline(
-                        minecraft,
-                        SystemToast.SystemToastIds.TUTORIAL_HINT,
-                        Component.literal(library.displayName).append(
-                            ModLang.translate("gui.library_installer.toast.success_title").component(),
-                        ),
-                        ModLang.translate("gui.library_installer.toast.success_desc").component(),
-                    ),
+            val title =
+                Component.literal(library.displayName).append(
+                    if (success) {
+                        ModLang.translate("gui.library_installer.toast.success_title").component()
+                    } else {
+                        ModLang.translate("gui.library_installer.toast.failure_title").component()
+                    },
                 )
-            } else {
-                toastManager.addToast(
-                    SystemToast.multiline(
-                        minecraft,
-                        SystemToast.SystemToastIds.TUTORIAL_HINT,
-                        Component.literal(library.displayName).append(
-                            ModLang.translate("gui.library_installer.toast.failure_title").component(),
-                        ),
-                        ModLang.translate("gui.library_installer.toast.failure_desc").component(),
-                    ),
-                )
-            }
+            val desc =
+                if (success) {
+                    ModLang.translate("gui.library_installer.toast.success_desc").component()
+                } else {
+                    ModLang.translate("gui.library_installer.toast.failure_desc").component()
+                }
+
+            SystemToast.addOrUpdate(
+                minecraft.toasts,
+                SystemToast.SystemToastIds.PACK_LOAD_FAILURE,
+                title,
+                desc,
+            )
         }
     }
 }

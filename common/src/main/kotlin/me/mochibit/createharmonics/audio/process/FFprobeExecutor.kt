@@ -9,6 +9,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
+import me.mochibit.createharmonics.audio.info.AudioInfo
 import me.mochibit.createharmonics.foundation.err
 
 /**
@@ -18,24 +19,16 @@ import me.mochibit.createharmonics.foundation.err
  * Returns duration and title in a single fast probe call.
  */
 class FFprobeExecutor {
-    data class ProbeInfo(
-        val durationSeconds: Int,
-        val title: String,
-        val sampleRate: Float,
-    )
-
     /**
      * Probes [url] and returns its duration (seconds) and title tag.
      * Returns null if ffprobe is unavailable or the probe fails.
      */
-    suspend fun probe(url: String): ProbeInfo? =
+    suspend fun probe(url: String): AudioInfo =
         withContext(Dispatchers.IO) {
             try {
                 val probePath =
-                    FFMPEGProvider.ffprobePath ?: run {
-                        "FFprobeExecutor: ffprobe binary not found".err()
-                        return@withContext null
-                    }
+                    FFMPEGProvider.ffprobePath
+                        ?: throw IllegalStateException("FFprobeExecutor: ffprobe binary not found")
 
                 val command =
                     listOf(
@@ -59,9 +52,6 @@ class FFprobeExecutor {
                 val processId = ProcessLifecycleManager.registerProcess(process)
 
                 try {
-                    // Drain both pipes concurrently to prevent pipe-buffer deadlocks.
-                    // Even with -v quiet, ffprobe may write to stderr; leaving it unread
-                    // risks stalling the process if the OS buffer fills up.
                     val (output, _) =
                         coroutineScope {
                             val stdout = async { process.inputStream.bufferedReader().use { it.readText() } }
@@ -71,7 +61,7 @@ class FFprobeExecutor {
 
                     val exitCode = process.waitFor()
 
-                    if (exitCode != 0 || output.isBlank()) return@withContext null
+                    if (exitCode != 0 || output.isBlank()) throw IllegalStateException("FFprobeExecutor: Failed to probe")
 
                     val json = Json { ignoreUnknownKeys = true }
                     val root = json.parseToJsonElement(output).jsonObject
@@ -105,13 +95,25 @@ class FFprobeExecutor {
                             ?.content
                             ?.toFloatOrNull() ?: 48_000f
 
-                    ProbeInfo(durationSeconds = duration, title = title ?: "", sampleRate = sampleRate)
+                    AudioInfo(
+                        audioUrl = url,
+                        durationSeconds = duration,
+                        title =
+                            title ?: try {
+                                val path = url.substringBefore('?').substringBefore('#')
+                                val filename = path.substringAfterLast('/')
+                                filename.ifBlank { "Unknown" }
+                            } catch (_: Exception) {
+                                "Unknown"
+                            },
+                        sampleRate = sampleRate,
+                        false,
+                    )
                 } finally {
                     ProcessLifecycleManager.destroyProcess(processId)
                 }
             } catch (e: Exception) {
-                "FFprobeExecutor: probe failed for $url: ${e.message}".err()
-                null
+                throw IllegalStateException("FFprobeExecutor: probe failed for $url: ${e.message}")
             }
         }
 }

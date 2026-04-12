@@ -31,7 +31,6 @@ class ConfigureRecordPressBasePacket(
             blockEntity.sendData()
             blockEntity.setChanged()
         }
-
         return true
     }
 }

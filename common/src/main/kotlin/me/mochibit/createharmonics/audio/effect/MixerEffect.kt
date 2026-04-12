@@ -8,11 +8,8 @@ import kotlin.math.roundToInt
 class MixerEffect(
     val mixName: String = "DefaultMixName",
     override val scope: AudioEffect.Scope = AudioEffect.Scope.PERMANENT,
-) : AudioEffect {
-    /**
-     * Mixed source to be played along the main source
-     * If the source is not a ONE-SHOT and must be kept playing, set [autoRemoveOnExhaust] to false
-     */
+) : AudioEffect,
+    Freezable {
     data class MixedSource(
         val id: String,
         val stream: AudioStream,
@@ -21,6 +18,12 @@ class MixerEffect(
     )
 
     private val sources = CopyOnWriteArrayList<MixedSource>()
+
+    @Volatile private var isFrozen = false
+
+    override fun setFrozen(frozen: Boolean) {
+        isFrozen = frozen
+    }
 
     fun addSource(
         id: String,
@@ -57,12 +60,17 @@ class MixerEffect(
         val exhaustedIds = mutableListOf<String>()
 
         for (source in sources) {
-            val (secondary, exhausted) = readStream(source.stream, samples.size)
-
-            if (exhausted && source.autoRemoveOnExhaust) {
-                exhaustedIds += source.id
-                continue
-            }
+            val secondary =
+                if (isFrozen) {
+                    ShortArray(samples.size)
+                } else {
+                    val (s, exhausted) = readStream(source.stream, samples.size)
+                    if (exhausted && source.autoRemoveOnExhaust) {
+                        exhaustedIds += source.id
+                        continue
+                    }
+                    s
+                }
 
             val primaryLevel = 1f - source.level.coerceIn(0f, 1f)
             val secondaryLevel = source.level.coerceIn(0f, 1f)
@@ -73,7 +81,7 @@ class MixerEffect(
             }
         }
 
-        if (exhaustedIds.isNotEmpty()) {
+        if (!isFrozen && exhaustedIds.isNotEmpty()) {
             val exhausted = sources.filter { it.id in exhaustedIds }
             sources.removeIf { it.id in exhaustedIds }
             exhausted.forEach { runCatching { it.stream.close() } }

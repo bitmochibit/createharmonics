@@ -77,11 +77,11 @@ class RecordPressBaseBlockEntity(
         }
 
     override fun clearContent() {
-        this.behaviour.lazyItemHandler.ifPresent { handler ->
-            for (i in 0 until handler.slots) {
-                handler.extractItem(i, Int.MAX_VALUE, false)
-            }
+        val handler = this.behaviour.itemHandler
+        for (i in 0 until handler.slots) {
+            handler.extractItem(i, Int.MAX_VALUE, false)
         }
+
         notifyUpdate()
     }
 }

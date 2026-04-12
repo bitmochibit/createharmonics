@@ -1,16 +1,48 @@
 package me.mochibit.createharmonics.audio.effect
 
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
+
 /**
  * Base interface for audio effects that can be chained together.
  * Each effect processes audio samples and can modify them in any way.
  */
 interface AudioEffect {
-    enum class Scope {
-        PERMANENT,
-        SOUND_COMPOSITION_MIXER,
-        MACHINE_CONTROLLED_PITCH,
-        INTRINSIC_EFFECT,
-        EXTERNAL_EFFECT,
+    interface Scope {
+        val id: String
+        val pipelineOrder: Int
+
+        data class DefaultScope(
+            override val id: String,
+            override val pipelineOrder: Int,
+        ) : Scope
+
+        companion object Registry {
+            private val scopes = ConcurrentHashMap<String, Scope>()
+            private val orderCounter = AtomicInteger(0)
+
+            fun register(scope: Scope): Scope {
+                require(!scopes.containsKey(scope.id)) {
+                    "Scope '${scope.id}' is already registered"
+                }
+                scopes[scope.id] = scope
+                orderCounter.updateAndGet { current -> maxOf(current, scope.pipelineOrder + 1) }
+                return scope
+            }
+
+            fun get(id: String): Scope? = scopes[id]
+
+            fun all(): List<Scope> = scopes.values.sortedBy { it.pipelineOrder }
+
+            /** Returns a unique pipeline order value, safe for concurrent callers. */
+            fun nextOrder(): Int = orderCounter.getAndIncrement()
+
+            val PERMANENT = register(DefaultScope("permanent", 0))
+            val INTRINSIC_EFFECT = register(DefaultScope("intrinsic_effect", 10))
+            val SOUND_COMPOSITION_MIXER = register(DefaultScope("sound_composition_mixer", 20))
+            val MACHINE_CONTROLLED_PITCH = register(DefaultScope("machine_controlled_pitch", 30))
+            val EXTERNAL_EFFECT = register(DefaultScope("external_effect", 40))
+        }
     }
 
     /**
@@ -40,6 +72,8 @@ interface AudioEffect {
     fun isBaseValues(): Boolean = false
 
     fun getSpeedMultiplier(): Double = 1.0
+
+    fun tailLengthSeconds(sampleRate: Int): Double = 0.0
 
     val scope: Scope
 

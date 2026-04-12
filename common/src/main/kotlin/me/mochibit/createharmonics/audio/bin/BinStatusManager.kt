@@ -121,6 +121,8 @@ object BinStatusManager {
 
     fun isAnyInstalling(): Boolean = installationStatuses.values.any { it.isInstalling }
 
+    fun isAnyInstalled(): Boolean = LibraryType.entries.any { isLibraryInstalled(it) }
+
     /**
      * Get all installation statuses
      */

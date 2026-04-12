@@ -21,8 +21,7 @@ public class ArmBlockEntityMixin {
             at = @At(
                     value = "INVOKE",
                     target = "Lnet/minecraft/world/level/block/state/BlockState;getOptionalValue(Lnet/minecraft/world/level/block/state/properties/Property;)Ljava/util/Optional;"
-            ),
-            remap = false
+            )
     )
     private Optional<?> redirectHasRecord(BlockState state, Property<?> property) {
         Optional<?> original = state.getOptionalValue(property);
