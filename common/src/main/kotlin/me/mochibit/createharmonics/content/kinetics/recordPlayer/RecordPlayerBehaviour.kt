@@ -178,6 +178,10 @@ class RecordPlayerBehaviour(
     var redstonePower = 0
         private set
 
+    @Volatile
+    var currentlyLooping = false
+        private set
+
     val playtimeClock = PlaytimeClock()
 
     // Track previous playback mode to detect user changes
@@ -363,6 +367,7 @@ class RecordPlayerBehaviour(
                     ) {
                         // PLAY MODE (normal or static pitch)
                         if (redstonePower == 15) {
+                            currentlyLooping = true
                             // Play mode + Redstone: Always play and loop
                             playbackEndedNaturally = false
                             if (playbackState != PlaybackState.PLAYING) {
@@ -371,6 +376,7 @@ class RecordPlayerBehaviour(
                                 handleRecordUse()
                             }
                         } else {
+                            currentlyLooping = false
                             // Play mode + No redstone: Play once then stop
                             when (playbackState) {
                                 PlaybackState.STOPPED -> {
@@ -406,6 +412,7 @@ class RecordPlayerBehaviour(
                     } else {
                         // PAUSE MODE (normal or static pitch)
                         if (isPowered) {
+                            currentlyLooping = true
                             // Pause mode + Redstone: Redstone controls playback (play/loop when powered)
                             playbackEndedNaturally = false
                             if (playbackState != PlaybackState.PLAYING) {
@@ -418,6 +425,7 @@ class RecordPlayerBehaviour(
                                 }
                             }
                         } else {
+                            currentlyLooping = false
                             // Pause mode + No redstone: Stay paused (don't auto-play on insert)
                             if (playbackState == PlaybackState.PLAYING) {
                                 updatePlaybackState(PlaybackState.PAUSED, resetTime = false)

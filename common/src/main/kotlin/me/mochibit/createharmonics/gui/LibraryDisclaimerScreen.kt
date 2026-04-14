@@ -364,6 +364,14 @@ class LibraryDisclaimerScreen(
         }
 
         super.render(guiGraphics, mouseX, mouseY, partialTick)
+
+        if (currentState == State.DISCLAIMER) {
+            hoveredCardIndex?.let { index ->
+                if (index in libraries.indices) {
+                    renderLibraryTooltip(guiGraphics, libraries[index], width / 2, height / 2)
+                }
+            }
+        }
     }
 
     private fun renderTitle(gfx: GuiGraphics) {
@@ -411,13 +419,6 @@ class LibraryDisclaimerScreen(
 
         // Library cards
         renderDisclaimerCards(gfx, cx, mouseX, mouseY)
-
-        // Tooltip for hovered card
-        hoveredCardIndex?.let { index ->
-            if (index in libraries.indices) {
-                renderLibraryTooltip(gfx, libraries[index], cx, cy)
-            }
-        }
     }
 
     private fun renderDisclaimerCards(
@@ -476,6 +477,9 @@ class LibraryDisclaimerScreen(
         screenCenterX: Int,
         screenCenterY: Int,
     ) {
+        gfx.pose().pushPose()
+        gfx.pose().translate(0.0, 0.0, 300.0)
+
         val tooltipWidth = 320
         val padding = 10
         val maxDescWidth = tooltipWidth - (padding * 2)
@@ -489,7 +493,13 @@ class LibraryDisclaimerScreen(
         val tooltipY = screenCenterY - tooltipHeight / 2 - 20
 
         // Background
-        gfx.fill(tooltipX, tooltipY, tooltipX + tooltipWidth, tooltipY + tooltipHeight, 0xE0000000.toInt())
+        gfx.fill(
+            tooltipX,
+            tooltipY,
+            tooltipX + tooltipWidth,
+            tooltipY + tooltipHeight,
+            0xFF151515.toInt(),
+        )
         gfx.renderOutline(tooltipX, tooltipY, tooltipWidth, tooltipHeight, Theme.BORDER_HOVER)
         gfx.fill(tooltipX, tooltipY, tooltipX + tooltipWidth, tooltipY + 2, Theme.ACCENT_BRIGHT)
 
@@ -510,6 +520,7 @@ class LibraryDisclaimerScreen(
 
         val hintText = ModLang.translate("gui.library_setup.card_tooltip.click_to_open_site").component().getString(128)
         gfx.drawString(font, hintText, tooltipX + padding, textY, 0xCCCCCC, false)
+        gfx.pose().popPose()
     }
 
     private fun renderStatus(gfx: GuiGraphics) {

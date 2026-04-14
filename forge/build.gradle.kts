@@ -1,4 +1,6 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import java.util.Properties
 
 plugins {
     id("org.jetbrains.kotlin.jvm") version "2.1.21"
@@ -13,7 +15,7 @@ kotlin {
     }
 }
 
-base.archivesName.set("${rootProject.property("mod_name")}-Forge-${rootProject.property("minecraft_version")}")
+base.archivesName.set("${rootProject.property("mod_name")}-forge-${rootProject.property("minecraft_version")}")
 
 val minecraftVersionProp = rootProject.property("minecraft_version").toString()
 val parchmentMinecraftProp = rootProject.property("parchment_minecraft").toString()
@@ -132,6 +134,12 @@ dependencies {
     annotationProcessor("org.spongepowered:mixin:0.8.5-SNAPSHOT:processor")
 }
 
+tasks.register<GradleBuild>("buildForCurseforge") {
+    startParameter.projectProperties = mapOf("curseforge" to "true")
+    group = "build"
+    tasks = listOf("build")
+}
+
 tasks.named<ProcessResources>("processResources") {
     from(project(":common").sourceSets["main"].resources)
     val buildProps = project.properties.toMap()
@@ -153,17 +161,63 @@ tasks.withType<JavaCompile>().configureEach {
     source(project(":common").sourceSets["main"].allSource)
 }
 
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+tasks.withType<KotlinCompile>().configureEach {
     source(project(":common").sourceSets["main"].kotlin)
 }
+
+tasks.register<GradleBuild>("cleanAll") {
+    group = "build"
+    tasks = listOf(":common:clean", ":forge:clean")
+}
+
+val curseforgeExcludes = project(":common").extra["curseforgeExcludes"] as List<*>
 
 tasks.named<Jar>("jar") {
     finalizedBy("reobfJar")
     manifest.attributes(
         "MixinConfigs" to "$modId.mixins.json,createharmonics.common.mixins.json",
     )
+    if (project.hasProperty("curseforge")) {
+        curseforgeExcludes.forEach { exclude(it.toString()) }
+    }
 }
 val compileKotlin: KotlinCompile by tasks
 compileKotlin.compilerOptions {
     freeCompilerArgs.set(listOf("-XXLanguage:+WhenGuards"))
+}
+
+val localProperties =
+    Properties().apply {
+        val file = rootProject.file("local.properties")
+        if (file.exists()) {
+            file.inputStream().use { load(it) }
+        }
+    }
+
+val prodModsDir: String =
+    localProperties.getProperty("prodModsDir")
+        ?: providers.gradleProperty("prodModsDir").orNull
+        ?: "build/deploy"
+
+tasks.register<Copy>("deployToProd") {
+    group = "build"
+
+    dependsOn("build")
+
+    from(layout.buildDirectory.dir("libs")) {
+        include("*.jar")
+        exclude("*-sources.jar", "*-dev.jar")
+    }
+
+    into(file(prodModsDir))
+}
+
+tasks.register<GradleBuild>("buildAndDeployToProd") {
+    group = "build"
+    tasks = listOf("build", ":forge:deployToProd")
+}
+
+tasks.register<GradleBuild>("buildCfAndDeployToProd") {
+    group = "build"
+    tasks = listOf("buildForCurseforge", ":forge:deployToProd")
 }
