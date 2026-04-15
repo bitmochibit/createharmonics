@@ -14,7 +14,6 @@ import me.mochibit.createharmonics.ModRegistrate
 import me.mochibit.createharmonics.config.ModStressConfig
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlock
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.brassJukebox.BrassJukeboxBlock
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlock
 import me.mochibit.createharmonics.foundation.info
 import net.minecraft.client.renderer.RenderType
@@ -47,27 +46,27 @@ object ModBlocks : CommonRegistry {
             .transform(customItemModel())
             .register()
 
-    val BRASS_JUKEBOX: BlockEntry<BrassJukeboxBlock> =
-        ModRegistrate
-            .block("brass_jukebox") { properties ->
-                BrassJukeboxBlock(properties)
-            }.properties { p ->
-                p
-                    .strength(2.0f, 6.0f)
-                    .sound(SoundType.METAL)
-                    .noOcclusion()
-            }.blockstate(BlockStateGen.horizontalBlockProvider(true))
-            .onRegister(movementBehaviour(RecordPlayerMovementBehaviour()))
-            .tag(
-                AllTags.AllBlockTags.SAFE_NBT.tag,
-            ).tag(AllTags.AllBlockTags.SIMPLE_MOUNTED_STORAGE.tag)
-            .transform(mountedItemStorage(ModMountedStorages.SIMPLE_RECORD_PLAYER_STORAGE))
-            .transform(displaySource(ModDisplaySources.AUDIO_NAME))
-            .transform(ModStressConfig.setImpact(1.0))
-            .item()
-            .tag(AllTags.AllItemTags.CONTRAPTION_CONTROLLED.tag)
-            .transform(customItemModel())
-            .register()
+//    val BRASS_JUKEBOX: BlockEntry<BrassJukeboxBlock> =
+//        ModRegistrate
+//            .block("brass_jukebox") { properties ->
+//                BrassJukeboxBlock(properties)
+//            }.properties { p ->
+//                p
+//                    .strength(2.0f, 6.0f)
+//                    .sound(SoundType.METAL)
+//                    .noOcclusion()
+//            }.blockstate(BlockStateGen.horizontalBlockProvider(true))
+//            .onRegister(movementBehaviour(RecordPlayerMovementBehaviour()))
+//            .tag(
+//                AllTags.AllBlockTags.SAFE_NBT.tag,
+//            ).tag(AllTags.AllBlockTags.SIMPLE_MOUNTED_STORAGE.tag)
+//            .transform(mountedItemStorage(ModMountedStorages.SIMPLE_RECORD_PLAYER_STORAGE))
+//            .transform(displaySource(ModDisplaySources.AUDIO_NAME))
+//            .transform(ModStressConfig.setImpact(1.0))
+//            .item()
+//            .tag(AllTags.AllItemTags.CONTRAPTION_CONTROLLED.tag)
+//            .transform(customItemModel())
+//            .register()
 
     val RECORD_PRESS_BASE: BlockEntry<RecordPressBaseBlock> =
         ModRegistrate

@@ -30,20 +30,20 @@ object ModBlockEntities : CommonRegistry {
                 }
             }.register()
 
-    val BRASS_JUKEBOX: BlockEntityEntry<BrassJukeboxBlockEntity> =
-        ModRegistrate
-            .blockEntity("brass_jukebox", ::BrassJukeboxBlockEntity)
-            .visual({
-                SimpleBlockEntityVisualizer.Factory { ctx, be, pt ->
-                    RecordPlayerVisual(ctx, be, pt)
-                }
-            }, false)
-            .validBlocks(ModBlocks.BRASS_JUKEBOX)
-            .renderer {
-                NonNullFunction { ctx ->
-                    RecordPlayerRenderer(ctx)
-                }
-            }.register()
+//    val BRASS_JUKEBOX: BlockEntityEntry<BrassJukeboxBlockEntity> =
+//        ModRegistrate
+//            .blockEntity("brass_jukebox", ::BrassJukeboxBlockEntity)
+//            .visual({
+//                SimpleBlockEntityVisualizer.Factory { ctx, be, pt ->
+//                    RecordPlayerVisual(ctx, be, pt)
+//                }
+//            }, false)
+//            .validBlocks(ModBlocks.BRASS_JUKEBOX)
+//            .renderer {
+//                NonNullFunction { ctx ->
+//                    RecordPlayerRenderer(ctx)
+//                }
+//            }.register()
 
     val RECORD_PRESS_BASE: BlockEntityEntry<RecordPressBaseBlockEntity> =
         ModRegistrate
