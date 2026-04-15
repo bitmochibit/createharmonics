@@ -74,12 +74,9 @@ object ProcessLifecycleManager {
     }
 
     fun shutdownAll() {
-        modLaunch {
-            processes.keys.toList().forEach { id ->
-                destroyProcessBlocking(id)
-            }
-
-            processes.clear()
+        processes.keys.toList().forEach { id ->
+            destroyProcessBlocking(id)
         }
+        processes.clear()
     }
 }

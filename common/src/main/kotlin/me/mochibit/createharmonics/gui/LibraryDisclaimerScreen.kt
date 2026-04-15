@@ -2,13 +2,17 @@ package me.mochibit.createharmonics.gui
 
 import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
+import kotlinx.coroutines.Dispatchers
 import me.mochibit.createharmonics.BuildConfig
 import me.mochibit.createharmonics.audio.bin.BackgroundBinInstaller
 import me.mochibit.createharmonics.audio.bin.BinProvider
 import me.mochibit.createharmonics.audio.bin.BinStatusManager
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
+import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
 import me.mochibit.createharmonics.config.ModConfigs
+import me.mochibit.createharmonics.foundation.async.modLaunch
+import me.mochibit.createharmonics.foundation.async.withMainContext
 import me.mochibit.createharmonics.foundation.extension.drawCenteredString
 import me.mochibit.createharmonics.foundation.extension.toMultilineFormattedCharSequence
 import me.mochibit.createharmonics.foundation.locale.ModLang
@@ -206,8 +210,12 @@ class LibraryDisclaimerScreen(
                 addRenderableWidget(
                     Button
                         .builder(label, action)
-                        .bounds(startX + i * (buttonWidth + Layout.BUTTON_GAP), bottomY, buttonWidth, Layout.BUTTON_HEIGHT)
-                        .build(),
+                        .bounds(
+                            startX + i * (buttonWidth + Layout.BUTTON_GAP),
+                            bottomY,
+                            buttonWidth,
+                            Layout.BUTTON_HEIGHT,
+                        ).build(),
                 )
             }
         } else {
@@ -236,7 +244,7 @@ class LibraryDisclaimerScreen(
                     ModLang.translate("gui.library_setup.open_folder_btn").component(),
                 ) {
                     BinStatusManager.ensureBinaryFolders()
-                    Util.getPlatform().openFile(BinProvider.Companion.providersFolder)
+                    Util.getPlatform().openFile(BinProvider.providersFolder)
                 },
             right =
                 ButtonData(
@@ -293,26 +301,23 @@ class LibraryDisclaimerScreen(
         val positions = calculateCardPositions()
 
         BinStatusManager.LibraryType.entries.forEachIndexed { index, library ->
-            // Check if library is actually installed (not just status)
             val isActuallyInstalled = BinStatusManager.isLibraryInstalled(library)
             val status = BinStatusManager.getStatus(library)
 
-            // Show delete button for installed libraries that are not currently installing
             if (isActuallyInstalled && !status.isInstalling && index < positions.size) {
                 val pos = positions[index]
-                val buttonSize = 16 // Icon button is typically 16x16
+                val buttonSize = 16
                 val paddingX = 8
                 val paddingY = 8
-                // Align to right edge of card with padding
                 val buttonX = pos.right - buttonSize - paddingX
-                // Center vertically or place near top with padding
                 val buttonY = pos.bottom - buttonSize - paddingY
 
                 val deleteButton =
                     IconButton(buttonX, buttonY, AllIcons.I_CONFIG_DISCARD)
                         .withCallback<IconButton> {
                             deleteLibrary(library)
-                        }.apply {
+                        }.atZLevel<IconButton>(400f)
+                        .apply {
                             setToolTip(
                                 ModLang.translate("gui.library_setup.delete_library_tooltip").component(),
                             )
@@ -326,14 +331,15 @@ class LibraryDisclaimerScreen(
     }
 
     private fun deleteLibrary(library: BinStatusManager.LibraryType) {
+        ProcessLifecycleManager.shutdownAll()
         val provider =
             when (library) {
                 BinStatusManager.LibraryType.YTDLP -> YTDLProvider
                 BinStatusManager.LibraryType.FFMPEG -> FFMPEGProvider
             }
-
         provider.directory.takeIf { it.exists() }?.deleteRecursively()
         BinStatusManager.resetStatus(library)
+
         rebuildWidgets()
     }
 
@@ -390,7 +396,7 @@ class LibraryDisclaimerScreen(
         mouseY: Int,
     ) {
         val cx = width / 2
-        val cy = height / 2
+        height / 2
 
         // Subtitle
         val subtitleKey =
@@ -830,7 +836,7 @@ class LibraryDisclaimerScreen(
             }
 
             // Rebuild if state changed or if widgets are empty or if installing
-            if (stateChanged || children().isEmpty() || BinStatusManager.isAnyInstalling()) {
+            if (stateChanged || children().isEmpty()) {
                 rebuildWidgets()
             }
         }

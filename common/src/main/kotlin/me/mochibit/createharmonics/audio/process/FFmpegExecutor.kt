@@ -10,7 +10,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.audio.stream.ProcessBoundInputStream
-import me.mochibit.createharmonics.audio.stream.ReconnectingInputStream
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.err
@@ -34,7 +33,6 @@ class FFmpegExecutor private constructor() {
             seekSeconds: Double = 0.0,
             headers: Map<String, String> = emptyMap(),
             isLive: Boolean = false,
-            retryIndefinitely: Boolean = true,
         ): InputStream? {
             val executor = FFmpegExecutor()
             val ready = executor.createStream(url, sampleRate, seekSeconds, headers, isLive)
@@ -55,23 +53,7 @@ class FFmpegExecutor private constructor() {
                     executor.destroy()
                 }
 
-            val base = ProcessBoundInputStream(currentPid, currentStream)
-
-            if (!retryIndefinitely) return base
-
-            return ReconnectingInputStream(
-                initialStream = base,
-                reconnect = {
-                    makeStream(url, sampleRate, seekSeconds, headers, isLive, retryIndefinitely = false)
-                },
-                shouldReconnect = {
-                    when (ProcessLifecycleManager.getExitCode(currentPid)) {
-                        null -> false
-                        0 -> false
-                        else -> true
-                    }
-                },
-            )
+            return ProcessBoundInputStream(currentPid, currentStream)
         }
     }
 
