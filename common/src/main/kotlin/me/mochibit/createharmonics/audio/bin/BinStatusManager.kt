@@ -40,7 +40,17 @@ object BinStatusManager {
 
     private val installationStatuses = ConcurrentHashMap<LibraryType, InstallationStatus>()
 
+    private val availabilityCache = ConcurrentHashMap<LibraryType, Boolean>()
+    private var lastAvailabilityCheck = 0L
+    private const val AVAILABILITY_CACHE_TTL_MS = 2000L
+
     init {
+        LibraryType.entries.forEach { type ->
+            installationStatuses[type] = InstallationStatus(type, status = Status.PENDING)
+        }
+    }
+
+    suspend fun initialize() {
         LibraryType.entries.forEach { type ->
             val isInstalled = isLibraryInstalled(type)
             type.provider.buildProviderFolder()
@@ -58,10 +68,8 @@ object BinStatusManager {
     }
 
     fun resetStatus(library: LibraryType) {
-        // Delete the library from the status map to force re-evaluation
         installationStatuses.remove(library)
-
-        // Re-initialize with fresh status check
+        availabilityCache.remove(library)
         val isInstalled = isLibraryInstalled(library)
         updateStatus(
             library,
@@ -85,26 +93,13 @@ object BinStatusManager {
      * Get current installation status for a library
      */
     fun getStatus(library: LibraryType): InstallationStatus {
-        // Check if the status changed outside of this manager
         val currentStatus = installationStatuses[library]
         if (currentStatus != null) {
-            val isInstalled = isLibraryInstalled(library)
+            val isInstalled = isLibraryInstalledCached(library)
             if (isInstalled && !currentStatus.isComplete) {
-                // Update status to INSTALLED if it was installed externally
-                updateStatus(
-                    library,
-                    progress = 1.0f,
-                    status = Status.INSTALLED,
-                    speed = "",
-                )
+                updateStatus(library, progress = 1.0f, status = Status.INSTALLED, speed = "")
             } else if (!isInstalled && currentStatus.status == Status.INSTALLED) {
-                // Update status to NOT_INSTALLED if it was uninstalled externally
-                updateStatus(
-                    library,
-                    progress = 0.0f,
-                    status = Status.NOT_INSTALLED,
-                    speed = "",
-                )
+                updateStatus(library, progress = 0.0f, status = Status.NOT_INSTALLED, speed = "")
             }
         }
 
@@ -112,7 +107,7 @@ object BinStatusManager {
             library,
             InstallationStatus(
                 library,
-                status = if (isLibraryInstalled(library)) Status.INSTALLED else Status.NOT_INSTALLED,
+                status = if (isLibraryInstalledCached(library)) Status.INSTALLED else Status.NOT_INSTALLED,
             ),
         )
     }
@@ -122,6 +117,17 @@ object BinStatusManager {
     fun isAnyInstalling(): Boolean = installationStatuses.values.any { it.isInstalling }
 
     fun isAnyInstalled(): Boolean = LibraryType.entries.any { isLibraryInstalled(it) }
+
+    private fun isLibraryInstalledCached(library: LibraryType): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - lastAvailabilityCheck > AVAILABILITY_CACHE_TTL_MS) {
+            LibraryType.entries.forEach { type ->
+                availabilityCache[type] = type.provider.isAvailable()
+            }
+            lastAvailabilityCheck = now
+        }
+        return availabilityCache[library] ?: isLibraryInstalled(library)
+    }
 
     /**
      * Get all installation statuses

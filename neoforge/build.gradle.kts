@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import java.util.Properties
 
 plugins {
     id("net.neoforged.moddev") version "2.0.78"
@@ -11,7 +12,7 @@ kotlin {
     }
 }
 
-base.archivesName.set("${rootProject.property("mod_name")}-NeoForge-${rootProject.property("minecraft_version")}")
+base.archivesName.set("${rootProject.property("mod_name")}-neoforge-${rootProject.property("minecraft_version")}")
 
 val minecraftVersionProp = rootProject.property("minecraft_version").toString() // e.g. "1.21.1"
 val parchmentMinecraftProp = rootProject.property("parchment_minecraft").toString()
@@ -143,14 +144,64 @@ tasks.withType<KotlinCompile>().configureEach {
     source(commonProject.sourceSets["main"].kotlin)
 }
 
-// No reobfJar on NeoForge — it ships Mojang-mapped at runtime natively.
+tasks.register<GradleBuild>("buildForCurseforge") {
+    startParameter.projectProperties = mapOf("curseforge" to "true")
+    group = "build"
+    tasks = listOf("build")
+}
+
+tasks.register<GradleBuild>("cleanAll") {
+    group = "build"
+    tasks = listOf(":common:clean", ":forge:clean")
+}
+
+val curseforgeExcludes = commonProject.extra["curseforgeExcludes"] as List<*>
+
 tasks.named<Jar>("jar") {
     manifest.attributes(
         "MixinConfigs" to "$modId.mixins.json,createharmonics.common.mixins.json",
     )
+    if (project.hasProperty("curseforge")) {
+        curseforgeExcludes.forEach { exclude(it.toString()) }
+    }
 }
-
 val compileKotlin: KotlinCompile by tasks
 compileKotlin.compilerOptions {
     freeCompilerArgs.set(listOf("-XXLanguage:+WhenGuards"))
+}
+
+val localProperties =
+    Properties().apply {
+        val file = rootProject.file("local.properties")
+        if (file.exists()) {
+            file.inputStream().use { load(it) }
+        }
+    }
+
+val prodModsDir: String =
+    localProperties.getProperty("prodModsDir")
+        ?: providers.gradleProperty("prodModsDir").orNull
+        ?: "build/deploy"
+
+tasks.register<Copy>("deployToProd") {
+    group = "build"
+
+    dependsOn("build")
+
+    from(layout.buildDirectory.dir("libs")) {
+        include("*.jar")
+        exclude("*-sources.jar", "*-dev.jar")
+    }
+
+    into(file(prodModsDir))
+}
+
+tasks.register<GradleBuild>("buildAndDeployToProd") {
+    group = "build"
+    tasks = listOf("build", ":forge:deployToProd")
+}
+
+tasks.register<GradleBuild>("buildCfAndDeployToProd") {
+    group = "build"
+    tasks = listOf("buildForCurseforge", ":forge:deployToProd")
 }

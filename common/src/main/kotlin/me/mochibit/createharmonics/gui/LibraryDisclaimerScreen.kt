@@ -2,13 +2,18 @@ package me.mochibit.createharmonics.gui
 
 import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import me.mochibit.createharmonics.BuildConfig
 import me.mochibit.createharmonics.audio.bin.BackgroundBinInstaller
 import me.mochibit.createharmonics.audio.bin.BinProvider
 import me.mochibit.createharmonics.audio.bin.BinStatusManager
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
+import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
 import me.mochibit.createharmonics.config.ModConfigs
+import me.mochibit.createharmonics.foundation.async.modLaunch
+import me.mochibit.createharmonics.foundation.async.withMainContext
 import me.mochibit.createharmonics.foundation.extension.drawCenteredString
 import me.mochibit.createharmonics.foundation.extension.toMultilineFormattedCharSequence
 import me.mochibit.createharmonics.foundation.locale.ModLang
@@ -181,6 +186,7 @@ class LibraryDisclaimerScreen(
         val allInstalled = BinStatusManager.areAllLibrariesInstalled()
         val isInstalling = BinStatusManager.isAnyInstalling()
 
+        // Add delete buttons for installed libraries
         addDeleteButtonsForLibraries()
 
         val showInstallButton = !allInstalled && !isInstalling && !BuildConfig.IS_CURSEFORGE
@@ -205,8 +211,12 @@ class LibraryDisclaimerScreen(
                 addRenderableWidget(
                     Button
                         .builder(label, action)
-                        .bounds(startX + i * (buttonWidth + Layout.BUTTON_GAP), bottomY, buttonWidth, Layout.BUTTON_HEIGHT)
-                        .build(),
+                        .bounds(
+                            startX + i * (buttonWidth + Layout.BUTTON_GAP),
+                            bottomY,
+                            buttonWidth,
+                            Layout.BUTTON_HEIGHT,
+                        ).build(),
                 )
             }
         } else {
@@ -235,7 +245,7 @@ class LibraryDisclaimerScreen(
                     ModLang.translate("gui.library_setup.open_folder_btn").component(),
                 ) {
                     BinStatusManager.ensureBinaryFolders()
-                    Util.getPlatform().openFile(BinProvider.Companion.providersFolder)
+                    Util.getPlatform().openFile(BinProvider.providersFolder)
                 },
             right =
                 ButtonData(
@@ -292,26 +302,23 @@ class LibraryDisclaimerScreen(
         val positions = calculateCardPositions()
 
         BinStatusManager.LibraryType.entries.forEachIndexed { index, library ->
-            // Check if library is actually installed (not just status)
             val isActuallyInstalled = BinStatusManager.isLibraryInstalled(library)
             val status = BinStatusManager.getStatus(library)
 
-            // Show delete button for installed libraries that are not currently installing
             if (isActuallyInstalled && !status.isInstalling && index < positions.size) {
                 val pos = positions[index]
-                val buttonSize = 16 // Icon button is typically 16x16
+                val buttonSize = 16
                 val paddingX = 8
                 val paddingY = 8
-                // Align to right edge of card with padding
                 val buttonX = pos.right - buttonSize - paddingX
-                // Center vertically or place near top with padding
                 val buttonY = pos.bottom - buttonSize - paddingY
 
                 val deleteButton =
                     IconButton(buttonX, buttonY, AllIcons.I_CONFIG_DISCARD)
                         .withCallback<IconButton> {
                             deleteLibrary(library)
-                        }.apply {
+                        }.atZLevel<IconButton>(400f)
+                        .apply {
                             setToolTip(
                                 ModLang.translate("gui.library_setup.delete_library_tooltip").component(),
                             )
@@ -325,15 +332,32 @@ class LibraryDisclaimerScreen(
     }
 
     private fun deleteLibrary(library: BinStatusManager.LibraryType) {
-        val provider =
-            when (library) {
-                BinStatusManager.LibraryType.YTDLP -> YTDLProvider
-                BinStatusManager.LibraryType.FFMPEG -> FFMPEGProvider
+        modLaunch(Dispatchers.IO) {
+            ProcessLifecycleManager.shutdownAll()
+
+            val provider =
+                when (library) {
+                    BinStatusManager.LibraryType.YTDLP -> YTDLProvider
+                    BinStatusManager.LibraryType.FFMPEG -> FFMPEGProvider
+                }
+
+            val dir = provider.directory
+
+            if (dir.exists()) {
+                repeat(5) {
+                    if (dir.deleteRecursively() || !dir.exists()) {
+                        return@repeat
+                    }
+                    delay(200)
+                }
             }
 
-        provider.directory.takeIf { it.exists() }?.deleteRecursively()
-        BinStatusManager.resetStatus(library)
-        rebuildWidgets()
+            BinStatusManager.resetStatus(library)
+
+            withMainContext {
+                rebuildWidgets()
+            }
+        }
     }
 
     private fun startBackgroundInstallation() {
@@ -363,6 +387,14 @@ class LibraryDisclaimerScreen(
         }
 
         renderables.forEach { it.render(guiGraphics, mouseX, mouseY, partialTick) }
+
+        if (currentState == State.DISCLAIMER) {
+            hoveredCardIndex?.let { index ->
+                if (index in libraries.indices) {
+                    renderLibraryTooltip(guiGraphics, libraries[index], width / 2, height / 2)
+                }
+            }
+        }
     }
 
     private fun renderTitle(gfx: GuiGraphics) {
@@ -381,7 +413,6 @@ class LibraryDisclaimerScreen(
         mouseY: Int,
     ) {
         val cx = width / 2
-        val cy = height / 2
 
         // Subtitle
         val subtitleKey =
@@ -410,13 +441,6 @@ class LibraryDisclaimerScreen(
 
         // Library cards
         renderDisclaimerCards(gfx, cx, mouseX, mouseY)
-
-        // Tooltip for hovered card
-        hoveredCardIndex?.let { index ->
-            if (index in libraries.indices) {
-                renderLibraryTooltip(gfx, libraries[index], cx, cy)
-            }
-        }
     }
 
     private fun renderDisclaimerCards(
@@ -475,6 +499,9 @@ class LibraryDisclaimerScreen(
         screenCenterX: Int,
         screenCenterY: Int,
     ) {
+        gfx.pose().pushPose()
+        gfx.pose().translate(0.0, 0.0, 300.0)
+
         val tooltipWidth = 320
         val padding = 10
         val maxDescWidth = tooltipWidth - (padding * 2)
@@ -488,7 +515,13 @@ class LibraryDisclaimerScreen(
         val tooltipY = screenCenterY - tooltipHeight / 2 - 20
 
         // Background
-        gfx.fill(tooltipX, tooltipY, tooltipX + tooltipWidth, tooltipY + tooltipHeight, 0xE0000000.toInt())
+        gfx.fill(
+            tooltipX,
+            tooltipY,
+            tooltipX + tooltipWidth,
+            tooltipY + tooltipHeight,
+            0xFF151515.toInt(),
+        )
         gfx.renderOutline(tooltipX, tooltipY, tooltipWidth, tooltipHeight, Theme.BORDER_HOVER)
         gfx.fill(tooltipX, tooltipY, tooltipX + tooltipWidth, tooltipY + 2, Theme.ACCENT_BRIGHT)
 
@@ -509,6 +542,7 @@ class LibraryDisclaimerScreen(
 
         val hintText = ModLang.translate("gui.library_setup.card_tooltip.click_to_open_site").component().getString(128)
         gfx.drawString(font, hintText, tooltipX + padding, textY, 0xCCCCCC, false)
+        gfx.pose().popPose()
     }
 
     private fun renderStatus(gfx: GuiGraphics) {
@@ -818,7 +852,7 @@ class LibraryDisclaimerScreen(
             }
 
             // Rebuild if state changed or if widgets are empty or if installing
-            if (stateChanged || children().isEmpty() || BinStatusManager.isAnyInstalling()) {
+            if (stateChanged || children().isEmpty()) {
                 rebuildWidgets()
             }
         }

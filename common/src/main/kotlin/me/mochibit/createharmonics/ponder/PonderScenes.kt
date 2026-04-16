@@ -18,7 +18,6 @@ import net.createmod.ponder.api.scene.SceneBuilder
 import net.createmod.ponder.api.scene.SceneBuildingUtil
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
-import net.minecraft.core.Vec3i
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.item.ItemStack
@@ -26,7 +25,6 @@ import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.LeverBlock
 import net.minecraft.world.phys.AABB
 import kotlin.jvm.java
-import kotlin.math.max
 
 object PonderScenes {
     fun recordPressBase(
@@ -397,7 +395,8 @@ object PonderScenes {
             for (row in 0 until typeMaxRow) {
                 val block = typeList.getOrNull(row)
                 if (block != null) {
-                    val placePos = BlockPos(reverberatorWallStartX, reverberatorWallStartY + index, reverberatorWallStartZ + row)
+                    val placePos =
+                        BlockPos(reverberatorWallStartX, reverberatorWallStartY + index, reverberatorWallStartZ + row)
                     scene.world().setBlock(placePos, block.defaultBlockState(), true)
                     scene.idle(3)
                 }

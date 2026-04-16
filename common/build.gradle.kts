@@ -5,6 +5,8 @@ plugins {
     id("net.neoforged.moddev") version "2.0.141"
 }
 
+val isCurseForge = project.hasProperty("curseforge")
+
 kotlin {
     jvmToolchain {
         languageVersion = JavaLanguageVersion.of(21)
@@ -12,7 +14,7 @@ kotlin {
     }
 }
 
-base.archivesName.set("${rootProject.property("mod_name")}-Common-${rootProject.property("minecraft_version")}")
+base.archivesName.set("${rootProject.property("mod_name")}-common-${rootProject.property("minecraft_version")}")
 
 val minecraftVersionProp = rootProject.property("minecraft_version").toString()
 val parchmentMinecraftProp = rootProject.property("parchment_minecraft").toString()
@@ -30,9 +32,6 @@ val vs2Version = rootProject.property("vs2_version").toString()
 val vsCoreVersion = rootProject.property("vs_core_version").toString()
 
 val neoForgeVersion = rootProject.property("neo_version").toString()
-
-// ── BuildConfig generation ────────────────────────────────────────────────────
-
 val generateBuildConfigTask =
     tasks.register("generateBuildConfig") {
         print("Generating BuildConfig.kt")
@@ -44,7 +43,6 @@ val generateBuildConfigTask =
         outputs.dir(outputDir)
 
         doLast {
-            val isCurseForge = project.hasProperty("curseforge")
             val file = File("$outputDir/me/mochibit/createharmonics/BuildConfig.kt")
             file.parentFile.mkdirs()
             file.writeText(
@@ -131,20 +129,35 @@ artifacts {
     add("commonResources", sourceSets["main"].resources.sourceDirectories.singleFile)
 }
 
-// ── Shadow jar ────────────────────────────────────────────────────────────────
+// Shared exclusion patterns so forge/neoforge build scripts can reuse them
+val curseforgeExcludes =
+    listOf(
+        "me/mochibit/createharmonics/audio/bin/BackgroundBinInstaller.class",
+        "me/mochibit/createharmonics/audio/bin/BackgroundBinInstaller$*.class",
+        "me/mochibit/createharmonics/audio/bin/BinInstaller.class",
+        "me/mochibit/createharmonics/audio/bin/BinInstaller$*.class",
+    )
+// Expose them so platform scripts can consume via project(":common").extra
+extra["curseforgeExcludes"] = curseforgeExcludes
 
 tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
     configurations = listOf(project.configurations["shadow"])
     archiveClassifier.set("")
     mergeServiceFiles()
 
-    exclude("kotlin/**")
-    exclude("kotlinx/**")
-    exclude("META-INF/kotlin*")
+    if (isCurseForge) {
+        curseforgeExcludes.forEach { exclude(it) }
+    }
 }
 
 tasks.named("jar") {
     finalizedBy("shadowJar")
+}
+
+tasks.register<GradleBuild>("buildForCurseforge") {
+    startParameter.projectProperties = mapOf("curseforge" to "true")
+    group = "build"
+    tasks = listOf("build")
 }
 
 val compileKotlin: KotlinCompile by tasks

@@ -17,8 +17,6 @@ class PlayerStatusDisplaySource : SingleLineDisplaySource() {
         val smartBe = context.sourceBlockEntity as? SmartBlockEntity ?: return EMPTY_LINE
         val audioPlayerBehaviour = smartBe.getBehaviour(RecordPlayerBehaviour.BEHAVIOUR_TYPE) ?: return EMPTY_LINE
 
-        val isFullyPowered = audioPlayerBehaviour.redstonePower == 15
-
         val stateComponent =
             when (audioPlayerBehaviour.playbackState) {
                 PlaybackState.PLAYING -> {
@@ -34,7 +32,7 @@ class PlayerStatusDisplaySource : SingleLineDisplaySource() {
                 }
             }
 
-        if (isFullyPowered) {
+        if (audioPlayerBehaviour.currentlyLooping) {
             stateComponent.append(" \uD83D\uDD01")
         }
 

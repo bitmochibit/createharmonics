@@ -2,9 +2,11 @@ package me.mochibit.createharmonics.audio.process
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.err
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.seconds
 
 object ProcessLifecycleManager {
@@ -53,18 +55,23 @@ object ProcessLifecycleManager {
             }
         }
 
-    /**
-     * Synchronously destroy a process. Use this during shutdown to ensure cleanup completes.
-     */
-    fun destroyProcessBlocking(id: Long) {
+    private suspend fun destroyProcessBlockingSuspend(id: Long) {
         processes.remove(id)?.let { process ->
             try {
                 if (process.isAlive) {
                     process.destroy()
-                    // Wait up to 1 second for graceful shutdown
-                    if (!process.waitFor(1, java.util.concurrent.TimeUnit.SECONDS)) {
+
+                    val timedOut =
+                        withContext(Dispatchers.IO) {
+                            !process.waitFor(1, TimeUnit.SECONDS)
+                        }
+
+                    if (timedOut) {
                         process.destroyForcibly()
-                        process.waitFor(500, java.util.concurrent.TimeUnit.MILLISECONDS)
+
+                        withContext(Dispatchers.IO) {
+                            process.waitFor()
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -73,13 +80,10 @@ object ProcessLifecycleManager {
         }
     }
 
-    fun shutdownAll() {
-        modLaunch {
-            processes.keys.toList().forEach { id ->
-                destroyProcessBlocking(id)
-            }
-
-            processes.clear()
+    suspend fun shutdownAll() {
+        processes.keys.toList().forEach { id ->
+            destroyProcessBlockingSuspend(id)
         }
+        processes.clear()
     }
 }

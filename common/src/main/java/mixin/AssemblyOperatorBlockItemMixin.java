@@ -22,7 +22,9 @@ public abstract class AssemblyOperatorBlockItemMixin {
     @Inject(
             method = "operatesOn",
             at = @At("HEAD"),
-            cancellable = true)
+            cancellable = true,
+            remap = false
+    )
     private void onRecipeApply(LevelReader world, BlockPos pos, BlockState placedOnState, CallbackInfoReturnable<Boolean> cir) {
         var registry = ModBlocks.INSTANCE;
         if (registry.getRECORD_PRESS_BASE().has(placedOnState)) {

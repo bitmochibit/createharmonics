@@ -21,7 +21,8 @@ import java.util.List;
 public abstract class RecipeApplierMixin {
     @Inject(
             method = "applyRecipeOn(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/crafting/Recipe;Z)Ljava/util/List;",
-            at = @At("RETURN")
+            at = @At("RETURN"),
+            remap = false
     )
     private static void onRecipeApply(Level level, ItemStack stackIn, Recipe<?> recipe, boolean returnProcessingRemainder, CallbackInfoReturnable<List<ItemStack>> cir) {
         List<ItemStack> result = cir.getReturnValue();
@@ -35,7 +36,8 @@ public abstract class RecipeApplierMixin {
 
     @Inject(
             method = "applyRecipeOn(Lnet/minecraft/world/entity/item/ItemEntity;Lnet/minecraft/world/item/crafting/Recipe;Z)V",
-            at = @At("RETURN")
+            at = @At("RETURN"),
+            remap = false
     )
     private static void onRecipeApplyOverload(ItemEntity entity, Recipe<?> recipe, boolean returnProcessingRemainder, CallbackInfo ci) {
         ItemStack stackIn = entity.getItem();
