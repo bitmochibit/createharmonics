@@ -152,7 +152,7 @@ tasks.register<GradleBuild>("buildForCurseforge") {
 
 tasks.register<GradleBuild>("cleanAll") {
     group = "build"
-    tasks = listOf(":common:clean", ":forge:clean")
+    tasks = listOf(":common:clean", ":neoforge:clean")
 }
 
 val curseforgeExcludes = commonProject.extra["curseforgeExcludes"] as List<*>
@@ -198,10 +198,10 @@ tasks.register<Copy>("deployToProd") {
 
 tasks.register<GradleBuild>("buildAndDeployToProd") {
     group = "build"
-    tasks = listOf("build", ":forge:deployToProd")
+    tasks = listOf("build", ":neoforge:deployToProd")
 }
 
 tasks.register<GradleBuild>("buildCfAndDeployToProd") {
     group = "build"
-    tasks = listOf("buildForCurseforge", ":forge:deployToProd")
+    tasks = listOf("buildForCurseforge", ":neoforge:deployToProd")
 }

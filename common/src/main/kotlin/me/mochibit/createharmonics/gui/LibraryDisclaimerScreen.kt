@@ -815,8 +815,6 @@ class LibraryDisclaimerScreen(
 
     override fun isPauseScreen(): Boolean = true
 
-    override fun shouldCloseOnEsc(): Boolean = !BinStatusManager.isAnyInstalling()
-
     private fun formatStatus(status: BinStatusManager.Status): String =
         when (status) {
             BinStatusManager.Status.PENDING -> "gui.library_setup.status.single_lib.pending"
