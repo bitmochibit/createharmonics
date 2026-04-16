@@ -3,6 +3,7 @@ package me.mochibit.createharmonics.gui
 import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import me.mochibit.createharmonics.BuildConfig
 import me.mochibit.createharmonics.audio.bin.BackgroundBinInstaller
 import me.mochibit.createharmonics.audio.bin.BinProvider
@@ -331,16 +332,32 @@ class LibraryDisclaimerScreen(
     }
 
     private fun deleteLibrary(library: BinStatusManager.LibraryType) {
-        ProcessLifecycleManager.shutdownAll()
-        val provider =
-            when (library) {
-                BinStatusManager.LibraryType.YTDLP -> YTDLProvider
-                BinStatusManager.LibraryType.FFMPEG -> FFMPEGProvider
-            }
-        provider.directory.takeIf { it.exists() }?.deleteRecursively()
-        BinStatusManager.resetStatus(library)
+        modLaunch(Dispatchers.IO) {
+            ProcessLifecycleManager.shutdownAll()
 
-        rebuildWidgets()
+            val provider =
+                when (library) {
+                    BinStatusManager.LibraryType.YTDLP -> YTDLProvider
+                    BinStatusManager.LibraryType.FFMPEG -> FFMPEGProvider
+                }
+
+            val dir = provider.directory
+
+            if (dir.exists()) {
+                repeat(5) {
+                    if (dir.deleteRecursively() || !dir.exists()) {
+                        return@repeat
+                    }
+                    delay(200)
+                }
+            }
+
+            BinStatusManager.resetStatus(library)
+
+            withMainContext {
+                rebuildWidgets()
+            }
+        }
     }
 
     private fun startBackgroundInstallation() {
@@ -396,7 +413,6 @@ class LibraryDisclaimerScreen(
         mouseY: Int,
     ) {
         val cx = width / 2
-        height / 2
 
         // Subtitle
         val subtitleKey =
