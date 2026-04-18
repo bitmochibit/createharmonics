@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.foundation.eventbus
 
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
@@ -8,48 +9,88 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
-import me.mochibit.createharmonics.foundation.async.ModCoroutineScope
+import me.mochibit.createharmonics.foundation.async.EventBusScope
 import me.mochibit.createharmonics.foundation.async.currentMainDispatcher
+import me.mochibit.createharmonics.foundation.err
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.reflect.KClass
 
+private val HIGH_FREQUENCY_EVENTS =
+    setOf(
+        TickEvents.ClientTickEvent::class,
+    )
+
 object EventBus {
-    /**
-     * One [MutableSharedFlow] per priority tier, looked up by [EventPriority.ordinal].
-     * Events are emitted into every tier's flow in [EventPriority] order so that
-     * higher-priority handlers always run (and can cancel the event) before lower-priority ones.
-     */
     @PublishedApi
-    internal val tierFlows: Map<EventPriority, MutableSharedFlow<ModEvent>> =
-        EventPriority.entries.associateWith { MutableSharedFlow(extraBufferCapacity = 64) }
+    internal val eventFlows = ConcurrentHashMap<Pair<KClass<*>, EventPriority>, MutableSharedFlow<ModEvent>>()
+
+    @PublishedApi
+    internal val syncListeners = ConcurrentHashMap<KClass<*>, MutableList<(ModEvent) -> Unit>>()
+
+    inline fun <reified T : ModEvent> onSync(noinline handler: (T) -> Unit) {
+        val list =
+            syncListeners.getOrPut(T::class) {
+                java.util.concurrent.CopyOnWriteArrayList()
+            }
+        @Suppress("UNCHECKED_CAST")
+        list.add(handler as (ModEvent) -> Unit)
+    }
+
+    fun flowFor(
+        klass: KClass<*>,
+        priority: EventPriority,
+    ): MutableSharedFlow<ModEvent> =
+        eventFlows.getOrPut(klass to priority) {
+            if (klass in HIGH_FREQUENCY_EVENTS) {
+                MutableSharedFlow(
+                    extraBufferCapacity = 4,
+                    onBufferOverflow = BufferOverflow.DROP_OLDEST,
+                )
+            } else {
+                MutableSharedFlow(
+                    extraBufferCapacity = 64,
+                    onBufferOverflow = BufferOverflow.DROP_OLDEST,
+                )
+            }
+        }
 
     /**
      * Post [event] fire-and-forget across all priority tiers.
-     * Use for non-cancellable events where you don't need to observe side-effects.
      */
     fun post(event: ModEvent) {
+        syncListeners[event::class]?.forEach { listener ->
+            try {
+                listener(event)
+            } catch (e: Exception) {
+                "EventBus sync handler error for ${event::class.simpleName}: $e".err()
+                e.printStackTrace()
+            }
+        }
+
         EventPriority.entries.forEach { priority ->
-            tierFlows[priority]!!.tryEmit(event)
+            val emitted = flowFor(event::class, priority).tryEmit(event)
+            if (!emitted && event::class !in HIGH_FREQUENCY_EVENTS) {
+                "[EVENTBUS] DROP ${event::class.simpleName} on priority $priority".err()
+            }
         }
     }
 
     /**
      * Post [event] and suspend until each priority tier has processed it in order.
-     * Cancellable events will have [Cancellable.isCancelled] set correctly by the time
-     * this function returns, so callers can check it immediately afterwards.
      */
     suspend fun postAndAwait(event: ModEvent) {
         EventPriority.entries.forEach { priority ->
-            tierFlows[priority]!!.emit(event)
+            flowFor(event::class, priority).emit(event)
         }
     }
 
     /**
      * Subscribe to events of type [T].
      *
-     * @param priority        Controls when this handler runs relative to others. Defaults to [EventPriority.NORMAL].
+     * @param priority         Controls when this handler runs relative to others.
      * @param listenSubclasses If `true`, also matches subtype instances of [T].
-     * @param ignoreCancelled  If `true` (default), the handler is skipped when [Cancellable.isCancelled] is already `true`.
-     *                         [EventPriority.MONITOR] handlers always run regardless of this flag.
+     * @param ignoreCancelled  If `true` (default), skips cancelled events.
      * @return A [Job] — cancel it to unsubscribe.
      */
     inline fun <reified T : ModEvent> on(
@@ -80,7 +121,8 @@ object EventBus {
         handler: suspend (T) -> Unit,
     ): Job {
         val shouldRun = { event: ModEvent ->
-            val typeMatch = if (listenSubclasses) klass.isInstance(event) else event::class == klass
+            val typeMatch =
+                if (listenSubclasses) klass.isInstance(event) else event::class == klass
             val cancellationOk =
                 priority == EventPriority.MONITOR ||
                     !ignoreCancelled ||
@@ -88,27 +130,31 @@ object EventBus {
             typeMatch && cancellationOk
         }
 
-        return tierFlows[priority]!!
+        return flowFor(klass, priority)
             .filter { shouldRun(it) }
             .map {
                 @Suppress("UNCHECKED_CAST")
                 it as T
-            }.onEach { handler(it) }
-            .launchIn(ModCoroutineScope)
+            }.onEach { event ->
+                try {
+                    handler(event)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    "EventBus handler error for ${klass.simpleName}: $e".err()
+                    e.printStackTrace()
+                }
+            }.launchIn(EventBusScope)
     }
 
     /**
      * Suspend until the next event of type [T] is posted, then return it.
-     *
-     * @param listenSubclasses If `true`, also matches subtype instances.
-     * @param priority         Which tier to listen on. Defaults to [EventPriority.MONITOR] so the event
-     *                         is observed in its final state (after all other handlers have run).
      */
     suspend inline fun <reified T : ModEvent> awaitFirst(
         listenSubclasses: Boolean = false,
         priority: EventPriority = EventPriority.MONITOR,
     ): T =
-        tierFlows[priority]!!
+        flowFor(T::class, priority)
             .filter { if (listenSubclasses) it is T else it::class == T::class }
             .map {
                 @Suppress("UNCHECKED_CAST")

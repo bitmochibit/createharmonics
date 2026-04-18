@@ -1,14 +1,22 @@
 package me.mochibit.createharmonics.audio.player
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.withContext
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.EffectChain
@@ -17,6 +25,7 @@ import me.mochibit.createharmonics.audio.instance.SampleRatedInstance
 import me.mochibit.createharmonics.audio.stream.AudioEffectInputStream
 import me.mochibit.createharmonics.audio.utils.pause
 import me.mochibit.createharmonics.audio.utils.unpause
+import me.mochibit.createharmonics.foundation.async.ClientCoroutineScope
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.async.withMainContext
 import me.mochibit.createharmonics.foundation.info
@@ -27,6 +36,7 @@ import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import java.io.Closeable
 import java.io.InputStream
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.seconds
 
@@ -42,7 +52,12 @@ typealias SoundInstanceFactory = (streamId: String, stream: InputStream) -> Soun
 class AudioPlayer(
     val playerId: String,
     val soundInstanceFactory: (streamId: String, stream: InputStream) -> SoundInstance,
-) : Closeable {
+) {
+    private val playerScope =
+        CoroutineScope(
+            ClientCoroutineScope.coroutineContext + SupervisorJob(ClientCoroutineScope.coroutineContext[Job]),
+        )
+
     private val _state = MutableStateFlow(PlayerState.STOPPED)
 
     private var currentAudioRequest: AudioRequest? = null
@@ -71,8 +86,7 @@ class AudioPlayer(
     val clock = PlaytimeClock()
 
     val reproducingALive =
-        java.util.concurrent.atomic
-            .AtomicBoolean(false)
+        AtomicBoolean(false)
 
     init {
         startStateMachine()
@@ -82,7 +96,7 @@ class AudioPlayer(
         val currentSm = stateMachineJob
         if (currentSm == null || !currentSm.isActive) {
             stateMachineJob =
-                modLaunch(Dispatchers.IO) {
+                playerScope.launch(Dispatchers.IO) {
                     try {
                         for (intent in intents) {
                             try {
@@ -95,7 +109,10 @@ class AudioPlayer(
                             }
                         }
                     } finally {
-                        doStopPlayback()
+                        withContext(NonCancellable) {
+                            doStopPlayback()
+                            playerScope.cancel()
+                        }
                     }
                 }
         }
@@ -153,9 +170,21 @@ class AudioPlayer(
 
             PlayerIntent.Pause -> {
                 when (_state.value) {
-                    PlayerState.PAUSED -> return
-                    PlayerState.PLAYING -> pausePlayback()
-                    else -> return
+                    PlayerState.PAUSED -> {
+                        return
+                    }
+
+                    PlayerState.PLAYING -> {
+                        pausePlayback()
+                    }
+
+                    PlayerState.LOADING -> {
+                        transition(PlayerState.PAUSED)
+                    }
+
+                    else -> {
+                        return
+                    }
                 }
             }
 
@@ -185,10 +214,15 @@ class AudioPlayer(
         val resolutionStart = System.currentTimeMillis()
         val resolvedInputStream =
             try {
-                val source = AudioSourceResolver.resolve(request)
+                val source =
+                    runInterruptible {
+                        AudioSourceResolver.resolve(request)
+                    }
                 SourceStreamResolver.resolveInputStream(source, pos)
+            } catch (e: CancellationException) {
+                if (_state.value == PlayerState.LOADING) _state.value = PlayerState.STOPPED
+                throw e
             } catch (e: Exception) {
-                "Something went wrong when creating the source $e".info()
                 handleStreamEnd()
                 return transition(PlayerState.STOPPED)
             }
@@ -206,6 +240,14 @@ class AudioPlayer(
                 it.preserveTiming()
             }
             reproducingALive.set(true)
+        }
+
+        if (!currentCoroutineContext().isActive || _state.value != PlayerState.LOADING) {
+            withContext(Dispatchers.IO) {
+                resolvedInputStream.inputStream.close()
+            }
+            if (_state.value == PlayerState.LOADING) transition(PlayerState.STOPPED)
+            return
         }
 
         val stream =
@@ -278,9 +320,12 @@ class AudioPlayer(
 
     private suspend fun unstuckPlayback() {
         cancelTailWaiting()
+        if (_state.value != PlayerState.PLAYING && _state.value != PlayerState.HANGED) return
         val soundInstance = currentSoundInstance ?: return doStopPlayback()
         withMainContext {
-            soundManager.play(soundInstance)
+            if (!soundManager.isActive(soundInstance)) {
+                soundManager.play(soundInstance)
+            }
         }
     }
 
@@ -291,26 +336,25 @@ class AudioPlayer(
 
     private suspend fun doStopPlayback() {
         cancelTailWaiting()
-        val hasTail = currentAudioEffectInputStream?.hasTail ?: false
+        val capturedStream = currentAudioEffectInputStream
+        val capturedInstance = currentSoundInstance
+        currentAudioEffectInputStream = null
+        currentSoundInstance = null
 
+        val hasTail = capturedStream?.hasTail ?: false
         if (hasTail) {
-            currentAudioEffectInputStream?.isFrozen = true
+            capturedStream.isFrozen = true
             ambientTailJob =
                 modLaunch(Dispatchers.IO) {
-                    currentAudioEffectInputStream?.tailFinished?.await()
-                    currentAudioEffectInputStream?.close()
+                    capturedStream.tailFinished.await()
+                    capturedStream.close()
                     effectChain.reset()
-                    withMainContext { currentSoundInstance?.let { soundManager.stop(it) } }
-                    currentAudioEffectInputStream = null
-                    currentSoundInstance = null
+                    withMainContext { capturedInstance?.let { soundManager.stop(it) } }
                 }
         } else {
-            ambientTailJob?.cancel()
-            currentAudioEffectInputStream?.close()
+            capturedStream?.close()
             effectChain.reset()
-            withMainContext { currentSoundInstance?.let { soundManager.stop(it) } }
-            currentAudioEffectInputStream = null
-            currentSoundInstance = null
+            withMainContext { capturedInstance?.let { soundManager.stop(it) } }
         }
 
         soundEventComposition.stopComposition()
@@ -394,8 +438,15 @@ class AudioPlayer(
         this.clock.tick()
     }
 
-    override fun close() {
+    fun close() {
+        stateMachineJob?.cancel()
         intents.trySend(PlayerIntent.Shutdown)
         intents.close()
+    }
+
+    suspend fun closeSuspending() {
+        intents.close()
+        withContext(NonCancellable) { doStopPlayback() }
+        playerScope.cancel()
     }
 }

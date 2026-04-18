@@ -1,10 +1,12 @@
 package me.mochibit.createharmonics.foundation.async
 
+import kotlinx.coroutines.CompletableJob
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.launch
 import me.mochibit.createharmonics.foundation.err
@@ -25,12 +27,18 @@ object ModCoroutineScope : CoroutineScope {
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Default + supervisor + exceptionHandler
 
-    /**
-     * Shutdown the coroutine scope completely. This should only be called on game unload.
-     */
-    fun shutdown() {
-        supervisor.cancel()
-    }
+    internal fun createChildSupervisor(): CompletableJob = SupervisorJob(supervisor)
+}
+
+object EventBusScope : CoroutineScope {
+    private val exceptionHandler =
+        CoroutineExceptionHandler { _, throwable ->
+            "Uncaught exception in EventBus handler: $throwable".err()
+            throwable.printStackTrace()
+        }
+
+    override val coroutineContext: CoroutineContext =
+        Dispatchers.Default + SupervisorJob() + exceptionHandler
 }
 
 /**
@@ -38,7 +46,7 @@ object ModCoroutineScope : CoroutineScope {
  * Cancelled when the client disconnects from a server or the game shuts down.
  * A fresh scope is automatically created after cancellation for the next session.
  */
-object ClientCoroutineScope {
+object ClientCoroutineScope : CoroutineScope {
     private val exceptionHandler =
         CoroutineExceptionHandler { _, throwable ->
             "Uncaught exception in client coroutine: $throwable".err()
@@ -46,29 +54,19 @@ object ClientCoroutineScope {
         }
 
     @Volatile
-    private var supervisor = SupervisorJob()
+    private var supervisor =
+        ModCoroutineScope.createChildSupervisor()
 
-    val coroutineContext: CoroutineContext
+    override val coroutineContext: CoroutineContext
         get() = Dispatchers.Default + supervisor + exceptionHandler
 
-    fun launch(
-        context: CoroutineContext = coroutineContext,
-        block: suspend CoroutineScope.() -> Unit,
-    ): Job = CoroutineScope(coroutineContext).launch(context, block = block)
-
-    /**
-     * Cancel all active client coroutines and recreate the supervisor for the next session.
-     */
-    fun cancelAll() {
-        supervisor.cancelChildren()
+    fun cancelChildren() {
+        coroutineContext.cancelChildren()
     }
 
-    /**
-     * Shutdown completely. Only called on game exit.
-     */
-    fun shutdown() {
-        supervisor.cancel()
-        supervisor = SupervisorJob()
+    fun reset() {
+        coroutineContext.cancel()
+        supervisor = ModCoroutineScope.createChildSupervisor()
     }
 }
 
@@ -77,7 +75,7 @@ object ClientCoroutineScope {
  * Cancelled when the server stops or the game shuts down.
  * A fresh scope is automatically created after cancellation for the next session.
  */
-object ServerCoroutineScope {
+object ServerCoroutineScope : CoroutineScope {
     private val exceptionHandler =
         CoroutineExceptionHandler { _, throwable ->
             "Uncaught exception in server coroutine: $throwable".err()
@@ -85,28 +83,18 @@ object ServerCoroutineScope {
         }
 
     @Volatile
-    private var supervisor = SupervisorJob()
+    private var supervisor =
+        ModCoroutineScope.createChildSupervisor()
 
-    val coroutineContext: CoroutineContext
+    override val coroutineContext: CoroutineContext
         get() = Dispatchers.Default + supervisor + exceptionHandler
 
-    fun launch(
-        context: CoroutineContext = coroutineContext,
-        block: suspend CoroutineScope.() -> Unit,
-    ): Job = CoroutineScope(coroutineContext).launch(context, block = block)
-
-    /**
-     * Cancel all active server coroutines and recreate the supervisor for the next session.
-     */
-    fun cancelAll() {
-        supervisor.cancelChildren()
+    fun cancelChildren() {
+        coroutineContext.cancelChildren()
     }
 
-    /**
-     * Shutdown completely. Only called on game exit.
-     */
-    fun shutdown() {
-        supervisor.cancel()
-        supervisor = SupervisorJob()
+    fun reset() {
+        coroutineContext.cancel()
+        supervisor = ModCoroutineScope.createChildSupervisor()
     }
 }

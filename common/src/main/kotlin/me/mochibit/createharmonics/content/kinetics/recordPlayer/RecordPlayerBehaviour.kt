@@ -748,9 +748,7 @@ class RecordPlayerBehaviour(
                     }
 
                     PlaybackState.PAUSED -> {
-                        if (audioPlayer.state.value == PlayerState.PLAYING) {
-                            pauseClientPlayer()
-                        }
+                        pauseClientPlayer()
                     }
 
                     PlaybackState.STOPPED -> {

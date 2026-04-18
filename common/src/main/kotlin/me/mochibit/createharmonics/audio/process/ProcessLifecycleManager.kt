@@ -2,8 +2,9 @@ package me.mochibit.createharmonics.audio.process
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import me.mochibit.createharmonics.foundation.async.modLaunch
+import me.mochibit.createharmonics.foundation.async.ModCoroutineScope
 import me.mochibit.createharmonics.foundation.err
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -38,7 +39,7 @@ object ProcessLifecycleManager {
     }
 
     fun destroyProcess(id: Long) =
-        modLaunch(Dispatchers.IO) {
+        ModCoroutineScope.launch(Dispatchers.IO) {
             processes.remove(id)?.let { process ->
                 try {
                     if (process.isAlive) {

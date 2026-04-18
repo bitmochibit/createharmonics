@@ -2,30 +2,33 @@ package me.mochibit.createharmonics.audio.process
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
-import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.audio.stream.ProcessBoundInputStream
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.err
-import java.io.BufferedInputStream
 import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
-import java.io.IOException
 import java.io.InputStream
 import java.io.SequenceInputStream
-import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 class FFmpegExecutor private constructor() {
     companion object {
+        /** Minimum timeout (minutes) regardless of seek position. */
+        private const val BASE_TIMEOUT_MINUTES = 2L
+
+        /** Extra minutes added per hour of seek offset, to account for DASH segment navigation. */
+        private const val EXTRA_TIMEOUT_PER_SEEK_HOUR = 2L
+
         /**
-         * Use a managed FFMPEG process for creating an [InputStream] bound to a url
+         * Use a managed FFmpeg process for creating an [InputStream] bound to a url.
+         *
+         * The returned stream is a [SequenceInputStream] that prepends the first
+         * chunk already consumed during readiness probing, so no audio data is lost.
          */
         suspend fun makeStream(
             url: String,
@@ -35,8 +38,11 @@ class FFmpegExecutor private constructor() {
             isLive: Boolean = false,
         ): InputStream? {
             val executor = FFmpegExecutor()
-            val ready = executor.createStream(url, sampleRate, seekSeconds, headers, isLive)
-            if (!ready) {
+
+            // createStream returns the first chunk of bytes as proof the stream is alive,
+            // or null on failure/timeout.
+            val firstChunk = executor.createStream(url, sampleRate, seekSeconds, headers, isLive)
+            if (firstChunk == null) {
                 executor.destroy()
                 return null
             }
@@ -53,37 +59,44 @@ class FFmpegExecutor private constructor() {
                     executor.destroy()
                 }
 
-            return ProcessBoundInputStream(currentPid, currentStream)
+            val fullStream = SequenceInputStream(ByteArrayInputStream(firstChunk), currentStream)
+            return ProcessBoundInputStream(currentPid, fullStream)
+        }
+
+        private fun getTimeout(isLive: Boolean): Long {
+            var base = 10.seconds.inWholeMilliseconds
+            if (isLive) {
+                base += 30.seconds.inWholeMilliseconds
+            }
+            return base
         }
     }
 
     @Volatile private var process: Process? = null
 
     @Volatile private var processId: Long? = null
-    private val lifecycleMutex = Mutex()
 
-    private val streamReady = CompletableDeferred<Result<Unit>>()
+    private val lifecycleMutex = Mutex()
 
     val inputStream: InputStream?
         get() = process?.inputStream
 
+    fun isRunning(): Boolean = process?.isAlive == true
+
     fun getSeekString(seconds: Double): String {
         val totalMilliseconds = (seconds * 1000).toLong()
-
         val hours = totalMilliseconds / 3600000
         val minutes = (totalMilliseconds % 3600000) / 60000
         val secs = (totalMilliseconds % 60000) / 1000
         val millis = totalMilliseconds % 1000
-
         return String.format("%d:%02d:%02d.%03d", hours, minutes, secs, millis)
     }
 
-    fun isRunning(): Boolean = process?.isAlive == true
-
     /**
-     * Creates an FFmpeg stream and suspends until the stream is ready or timeout occurs.
+     * Starts the FFmpeg process and suspends until the first bytes of audio arrive
+     * (blocking read, no polling) or the dynamic timeout elapses.
      *
-     * @return true if stream was successfully created and is ready, false otherwise
+     * @return The first chunk of raw PCM bytes if the stream started successfully, null otherwise.
      */
     suspend fun createStream(
         url: String,
@@ -91,17 +104,16 @@ class FFmpegExecutor private constructor() {
         seekSeconds: Double = 0.0,
         headers: Map<String, String> = emptyMap(),
         isLive: Boolean = false,
-    ): Boolean {
+    ): ByteArray? {
         if (!FFMPEGProvider.isAvailable()) {
             "FFmpeg is not available".err()
-            return false
+            return null
         }
 
         val command =
             buildList {
                 add(FFMPEGProvider.getExecutablePath())
 
-                // Add seek offset before input for faster seeking
                 if (seekSeconds > 0.0 && !isLive) {
                     add("-ss")
                     add(getSeekString(seekSeconds))
@@ -112,7 +124,8 @@ class FFmpegExecutor private constructor() {
                         headers.entries
                             .joinToString("\r\n") { (key, value) -> "$key: $value" }
                             .plus(
-                                "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",
+                                "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+                                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",
                             ).plus("\r\n")
                     add("-headers")
                     add(headerString)
@@ -126,7 +139,6 @@ class FFmpegExecutor private constructor() {
                 if (isLive) {
                     add("-reconnect_streamed")
                     add("1")
-
                     add("-protocol_whitelist")
                     add("file,http,https,tcp,tls,crypto,hls")
                 } else {
@@ -155,10 +167,9 @@ class FFmpegExecutor private constructor() {
                 add("pipe:1")
             }
 
-        // Guard the entire start sequence so that isRunning() check + assignment are atomic
         val newProcess =
             lifecycleMutex.withLock {
-                if (isRunning()) return false
+                if (isRunning()) return null
 
                 try {
                     withContext(Dispatchers.IO) {
@@ -168,15 +179,13 @@ class FFmpegExecutor private constructor() {
                     }
                 } catch (e: Exception) {
                     "Failed to start FFmpeg process: ${e.message}".err()
-                    streamReady.complete(Result.failure(e))
-                    return false
+                    return null
                 }.also { p ->
                     process = p
                     processId = ProcessLifecycleManager.registerProcess(p)
                 }
             }
 
-        // Drain stderr so the process doesn't block on a full pipe buffer
         modLaunch(Dispatchers.IO) {
             newProcess.errorStream.bufferedReader().use { reader ->
                 try {
@@ -186,47 +195,38 @@ class FFmpegExecutor private constructor() {
             }
         }
 
-        val streamReadyTimeoutMs = 3.minutes.inWholeMilliseconds
-        val pollIntervalMs = 1.seconds.inWholeMilliseconds
-        val maxAttempts = (streamReadyTimeoutMs / pollIntervalMs).toInt()
+        val firstChunkDeferred = CompletableDeferred<Result<ByteArray>>()
 
-        // Monitor stream readiness
         modLaunch(Dispatchers.IO) {
             try {
-                var attempts = 0
-                while (attempts < maxAttempts && newProcess.isAlive) {
-                    try {
-                        if (newProcess.inputStream.available() > 0) {
-                            streamReady.complete(Result.success(Unit))
-                            return@modLaunch
-                        }
-                    } catch (_: Exception) {
-                        // Stream not ready yet
-                    }
-                    delay(pollIntervalMs)
-                    attempts++
-                }
-
-                if (!newProcess.isAlive) {
-                    streamReady.complete(Result.failure(Exception("FFmpeg process terminated before stream was ready")))
+                val buf = ByteArray(4096)
+                val n = newProcess.inputStream.read(buf) // blocks until data or EOF/error
+                if (n > 0) {
+                    firstChunkDeferred.complete(Result.success(buf.copyOf(n)))
                 } else {
-                    streamReady.complete(Result.failure(Exception("Stream ready timeout")))
+                    firstChunkDeferred.complete(
+                        Result.failure(Exception("FFmpeg stream closed before producing data (EOF)")),
+                    )
                 }
             } catch (e: Exception) {
-                streamReady.complete(Result.failure(e))
+                firstChunkDeferred.complete(Result.failure(e))
             }
         }
 
-        return withTimeoutOrNull(streamReadyTimeoutMs) {
-            streamReady.await().isSuccess
-        } ?: false.also {
-            "Timeout waiting for FFmpeg stream to be ready".err()
+        val timeoutMs = getTimeout(isLive)
+
+        return withTimeoutOrNull(timeoutMs) {
+            firstChunkDeferred.await().getOrNull()
+        }.also { chunk ->
+            if (chunk == null) {
+                "Timeout waiting for FFmpeg first bytes (seek=${seekSeconds}s, timeout=${timeoutMs}ms, url=$url)".err()
+            }
         }
     }
 
     /**
      * Destroys the FFmpeg process.
-     * Fields are cleared immediately under the mutex; blocking teardown runs outside it.
+     * Fields are cleared immediately under the mutex; blocking teardown runs on IO dispatcher.
      */
     suspend fun destroy() {
         val (currentProcess, currentPid) =
@@ -242,6 +242,14 @@ class FFmpegExecutor private constructor() {
 
         withContext(Dispatchers.IO) {
             try {
+                if (currentProcess.isAlive) {
+                    currentProcess.destroy()
+                    if (!currentProcess.waitFor(500, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                        currentProcess.destroyForcibly()
+                        currentProcess.waitFor(50, java.util.concurrent.TimeUnit.MILLISECONDS)
+                    }
+                }
+
                 try {
                     currentProcess.inputStream?.close()
                 } catch (_: Exception) {
@@ -249,14 +257,6 @@ class FFmpegExecutor private constructor() {
                 try {
                     currentProcess.errorStream?.close()
                 } catch (_: Exception) {
-                }
-
-                if (currentProcess.isAlive) {
-                    currentProcess.destroy()
-                    if (!currentProcess.waitFor(100, java.util.concurrent.TimeUnit.MILLISECONDS)) {
-                        currentProcess.destroyForcibly()
-                        currentProcess.waitFor(50, java.util.concurrent.TimeUnit.MILLISECONDS)
-                    }
                 }
             } catch (e: Exception) {
                 "Error destroying FFmpeg process: ${e.message}".err()

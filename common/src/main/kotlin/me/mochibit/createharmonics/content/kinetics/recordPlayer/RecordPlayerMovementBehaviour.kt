@@ -501,14 +501,14 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                         return
                     }
 
-                    if (player.state.value == PlayerState.PLAYING) player.pause()
+                    player.pause()
                 }
 
                 PlaybackState.STOPPED -> {
                     if (player.state.value == PlayerState.STOPPED) {
                         return
                     }
-                    if (player.state.value != PlayerState.STOPPED) player.stop()
+                    player.stop()
                 }
             }
         }

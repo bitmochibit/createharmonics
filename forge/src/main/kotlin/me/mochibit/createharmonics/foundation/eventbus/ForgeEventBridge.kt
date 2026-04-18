@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.foundation.eventbus
 
+import me.mochibit.createharmonics.foundation.info
 import net.minecraft.server.level.ServerPlayer
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent
