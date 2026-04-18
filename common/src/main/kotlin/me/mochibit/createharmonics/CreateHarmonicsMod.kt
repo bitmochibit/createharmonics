@@ -61,7 +61,6 @@ object CreateHarmonicsMod {
                     runBlocking {
                         ProcessLifecycleManager.shutdownAll()
                     }
-                    ModCoroutineScope.shutdown()
                 } catch (e: Exception) {
                     "Error shutting down processes: ${e.message}".err()
                 }

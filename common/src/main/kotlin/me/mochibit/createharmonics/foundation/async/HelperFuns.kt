@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.foundation.async
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -15,20 +16,15 @@ private val isClient: Boolean
 val currentMainDispatcher: CoroutineContext
     get() = if (isClient) ModDispatchers.Client() else ModDispatchers.Server()
 
-private fun currentScope(): CoroutineScope =
-    if (isClient) {
-        CoroutineScope(ClientCoroutineScope.coroutineContext)
-    } else {
-        CoroutineScope(ServerCoroutineScope.coroutineContext)
-    }
+private fun currentScope(): CoroutineScope = if (isClient) ClientCoroutineScope else ServerCoroutineScope
 
 fun modLaunch(
-    context: CoroutineContext = currentMainDispatcher,
+    context: CoroutineContext = Dispatchers.Default,
     block: suspend CoroutineScope.() -> Unit,
 ) = currentScope().launch(context, block = block)
 
 fun delayedLaunch(
-    context: CoroutineContext = currentMainDispatcher,
+    context: CoroutineContext = Dispatchers.Default,
     delay: kotlin.time.Duration,
     block: suspend CoroutineScope.() -> Unit,
 ) = currentScope().launch(context) {
@@ -39,7 +35,7 @@ fun delayedLaunch(
 infix fun kotlin.time.Duration.thenLaunch(block: suspend CoroutineScope.() -> Unit) = delayedLaunch(delay = this, block = block)
 
 fun repeatingLaunch(
-    context: CoroutineContext = currentMainDispatcher,
+    context: CoroutineContext = Dispatchers.Default,
     initialDelay: kotlin.time.Duration = kotlin.time.Duration.ZERO,
     delay: kotlin.time.Duration,
     block: suspend CoroutineScope.() -> Unit,
