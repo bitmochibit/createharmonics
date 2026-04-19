@@ -69,6 +69,10 @@ class AudioEffectInputStream(
             effectChain.setFrozen(value)
         }
 
+    fun freezeEffects(frozen: Boolean) {
+        effectChain.setFrozen(frozen)
+    }
+
     @Volatile var isClosed = false
         private set
 

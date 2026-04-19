@@ -49,13 +49,14 @@ object SourceStreamResolver {
                         Result(
                             status = Result.StreamStatus.OK,
                             inputStream =
-                                FFmpegExecutor.makeStream(
-                                    info.audioUrl,
-                                    info.sampleRate.toInt(),
-                                    adjustedPosition,
-                                    info.httpHeaders,
-                                    info.isLive,
-                                ),
+                                FFmpegExecutor
+                                    .makeStream(
+                                        info.audioUrl,
+                                        info.sampleRate.toInt(),
+                                        adjustedPosition,
+                                        info.httpHeaders,
+                                        info.isLive,
+                                    )?.first,
                             info,
                         )
                     }

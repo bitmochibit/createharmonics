@@ -121,6 +121,7 @@ class RecordPlayerVisual(
     }
 
     override fun beginFrame(ctx: DynamicVisual.Context?) {
+        if (!blockEntity.playerBehaviour.hasRecord()) return
         disc
             .setIdentityTransform()
             .translate(visualPosition)

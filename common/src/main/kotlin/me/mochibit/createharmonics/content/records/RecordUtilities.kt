@@ -135,7 +135,7 @@ object RecordUtilities {
         val recordProps = etherealRecordItem.recordType
         this.soundEventComposition.removeAll { true }
 
-        this.soundEventComposition.anchorAfter(AudioEffect.Scope.INTRINSIC_EFFECT)
+        this.soundEventComposition.anchorBefore(AudioEffect.Scope.MACHINE_CONTROLLED_PITCH)
 
         val soundEvents = recordProps.properties.soundEventCompProvider()
         for (event in soundEvents) {
@@ -155,7 +155,8 @@ object RecordUtilities {
             this.request(
                 AudioRequest.Url(url),
             )
-            return this.play(initialPos)
+            this.play(initialPos)
+            return
         }
 
         // Try to play audio from the crafted-from record
@@ -163,10 +164,9 @@ object RecordUtilities {
         val song = JukeboxSong.fromStack(level.registryAccess(), craftedWithItem)
         if (!song.isPresent) return
 
+        val songData = song.get().value()
         val soundEvent =
-            song
-                .get()
-                .value()
+            songData
                 .soundEvent
                 .value()
 
@@ -183,7 +183,7 @@ object RecordUtilities {
                 AudioInfo(
                     audioUrl = "stream",
                     durationSeconds = 1000,
-                    title = craftedWithItem.displayName.getString(48),
+                    title = songData.description.getString(128),
                     sampleRate = sampleRate,
                     isLive = false,
                 ),

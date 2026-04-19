@@ -40,19 +40,16 @@ object ProcessLifecycleManager {
 
     fun destroyProcess(id: Long) =
         ModCoroutineScope.launch(Dispatchers.IO) {
-            processes.remove(id)?.let { process ->
-                try {
-                    if (process.isAlive) {
-                        process.destroy()
-                        // Wait up to 2 seconds for graceful shutdown
-                        delay(2.seconds)
-                        if (process.isAlive) {
-                            process.destroyForcibly()
-                        }
+            val process = processes.remove(id) ?: return@launch
+            try {
+                if (process.isAlive) {
+                    process.destroyForcibly()
+                    withContext(Dispatchers.IO) {
+                        process.waitFor()
                     }
-                } catch (e: Exception) {
-                    "Error destroying process $id: ${e.message}".err()
                 }
+            } catch (e: Exception) {
+                "Error destroying process $id: ${e.message}".err()
             }
         }
 
@@ -60,19 +57,10 @@ object ProcessLifecycleManager {
         processes.remove(id)?.let { process ->
             try {
                 if (process.isAlive) {
-                    process.destroy()
+                    process.destroyForcibly()
 
-                    val timedOut =
-                        withContext(Dispatchers.IO) {
-                            !process.waitFor(1, TimeUnit.SECONDS)
-                        }
-
-                    if (timedOut) {
-                        process.destroyForcibly()
-
-                        withContext(Dispatchers.IO) {
-                            process.waitFor()
-                        }
+                    withContext(Dispatchers.IO) {
+                        process.waitFor()
                     }
                 }
             } catch (e: Exception) {
