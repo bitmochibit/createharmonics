@@ -329,6 +329,10 @@ class AudioPlayer(
                 withMainContext { soundManager.play(soundInstance) }
                 soundEventComposition.makeComposition(soundInstance)
                 notifyAudioTitle(resolvedStream.audioInfo.title)
+                if (!soundManager.isActive(soundInstance)) {
+                    handleStreamFailure()
+                    return@launch
+                }
                 transition(PlayerState.PLAYING)
             }
     }

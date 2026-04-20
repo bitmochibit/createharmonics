@@ -16,6 +16,7 @@ import me.mochibit.createharmonics.foundation.registry.CommonRegistry
 import me.mochibit.createharmonics.foundation.registry.autoRegister
 import me.mochibit.createharmonics.gui.CommonGuiEventHandler
 import net.createmod.catnip.lang.FontHelper
+import net.createmod.catnip.platform.CatnipServices
 import net.minecraft.resources.ResourceKey
 import net.minecraft.world.item.CreativeModeTab
 
@@ -50,22 +51,6 @@ object CreateHarmonicsMod {
 
         autoRegister<CommonRegistry>()
         autoHandler<CommonGuiEventHandler>()
-
-        modLaunch(Dispatchers.IO) {
-            BinStatusManager.initialize()
-        }
-
-        Runtime.getRuntime().addShutdownHook(
-            Thread {
-                try {
-                    runBlocking {
-                        ProcessLifecycleManager.shutdownAll()
-                    }
-                } catch (e: Exception) {
-                    "Error shutting down processes: ${e.message}".err()
-                }
-            },
-        )
     }
 }
 

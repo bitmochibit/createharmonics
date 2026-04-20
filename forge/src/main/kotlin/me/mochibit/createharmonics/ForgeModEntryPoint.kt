@@ -1,10 +1,15 @@
 package me.mochibit.createharmonics
 
 import com.simibubi.create.foundation.data.CreateRegistrate
+import kotlinx.coroutines.runBlocking
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
+import me.mochibit.createharmonics.audio.bin.BinStatusManager
+import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
+import me.mochibit.createharmonics.foundation.async.launchOnClient
+import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.extension.asResource
 import me.mochibit.createharmonics.foundation.registry.ForgeConfigRegistrar
 import me.mochibit.createharmonics.foundation.registry.ForgeRegistry
@@ -115,7 +120,21 @@ class ForgeModEntryPoint(
 
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT) {
             Runnable {
+                launchOnClient {
+                    BinStatusManager.initialize()
+                }
                 PonderIndex.addPlugin(ModPonderPlugin())
+                Runtime.getRuntime().addShutdownHook(
+                    Thread {
+                        try {
+                            runBlocking {
+                                ProcessLifecycleManager.shutdownAll()
+                            }
+                        } catch (e: Exception) {
+                            "Error shutting down processes: ${e.message}".err()
+                        }
+                    },
+                )
             }
         }
 

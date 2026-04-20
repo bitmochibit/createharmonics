@@ -18,6 +18,7 @@ import java.io.ByteArrayInputStream
 import java.io.InputStream
 import java.io.SequenceInputStream
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 class FFmpegExecutor private constructor() {
@@ -69,7 +70,7 @@ class FFmpegExecutor private constructor() {
         private fun getTimeout(isLive: Boolean): Long {
             var base = 10.seconds.inWholeMilliseconds
             if (isLive) {
-                base += 30.seconds.inWholeMilliseconds
+                base += 2.minutes.inWholeMilliseconds
             }
             return base
         }
