@@ -4,12 +4,6 @@ import com.simibubi.create.foundation.data.CreateRegistrate
 import com.simibubi.create.foundation.item.ItemDescription
 import com.simibubi.create.foundation.item.KineticStats
 import com.simibubi.create.foundation.item.TooltipModifier
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
-import me.mochibit.createharmonics.audio.bin.BinStatusManager
-import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
-import me.mochibit.createharmonics.foundation.async.ModCoroutineScope
-import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.eventbus.autoHandler
 import me.mochibit.createharmonics.foundation.registry.CommonRegistry
@@ -50,22 +44,6 @@ object CreateHarmonicsMod {
 
         autoRegister<CommonRegistry>()
         autoHandler<CommonGuiEventHandler>()
-
-        modLaunch(Dispatchers.IO) {
-            BinStatusManager.initialize()
-        }
-
-        Runtime.getRuntime().addShutdownHook(
-            Thread {
-                try {
-                    runBlocking {
-                        ProcessLifecycleManager.shutdownAll()
-                    }
-                } catch (e: Exception) {
-                    "Error shutting down processes: ${e.message}".err()
-                }
-            },
-        )
     }
 }
 

@@ -18,6 +18,14 @@ val currentMainDispatcher: CoroutineContext
 
 private fun currentScope(): CoroutineScope = if (isClient) ClientCoroutineScope else ServerCoroutineScope
 
+suspend fun onClientThread(block: suspend CoroutineScope.() -> Unit) = withContext(ModDispatchers.Client(), block)
+
+suspend fun onServerThread(block: suspend CoroutineScope.() -> Unit) = withContext(ModDispatchers.Server(), block)
+
+fun launchOnClient(block: suspend CoroutineScope.() -> Unit) = ClientCoroutineScope.launch(ModDispatchers.Client(), block = block)
+
+fun launchOnServer(block: suspend CoroutineScope.() -> Unit) = ServerCoroutineScope.launch(ModDispatchers.Server(), block = block)
+
 fun modLaunch(
     context: CoroutineContext = Dispatchers.Default,
     block: suspend CoroutineScope.() -> Unit,

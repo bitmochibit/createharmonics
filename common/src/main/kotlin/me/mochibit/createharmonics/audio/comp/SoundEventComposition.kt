@@ -78,12 +78,12 @@ class SoundEventComposition(
         mixer.clearSources()
         soundEffectChain.addWithAnchor(mixer, mixerAnchor)
         this.referenceSoundInstance = referenceSoundInstance
-        entries.forEach { startEntry(it, referenceSoundInstance) }
+        entries.toList().forEach { startEntry(it, referenceSoundInstance) }
     }
 
     fun stopComposition() {
         soundEffectChain.removeEffect(mixer)
-        entries.forEach { stopEntry(it) }
+        entries.toList().forEach { stopEntry(it) }
         mixer.clearSources()
         referenceSoundInstance = null
     }
@@ -161,8 +161,9 @@ class SoundEventComposition(
     }
 
     private fun stopEntry(entry: ActiveEntry) {
-        entry.jobs.forEach { runCatching { it.cancel() } }
+        val jobsToCancel = entry.jobs.toList()
         entry.jobs.clear()
+        jobsToCancel.forEach { runCatching { it.cancel() } }
 
         val instancesToStop = entry.instances.toList()
         entry.instances.clear()

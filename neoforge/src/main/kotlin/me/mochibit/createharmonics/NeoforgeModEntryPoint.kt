@@ -9,12 +9,8 @@ import me.mochibit.createharmonics.foundation.registry.ModBlockEntities
 import me.mochibit.createharmonics.foundation.registry.NeoforgeModPackets
 import me.mochibit.createharmonics.foundation.registry.NeoforgeRegistry
 import me.mochibit.createharmonics.foundation.registry.autoRegister
-import me.mochibit.createharmonics.ponder.ModPonderPlugin
 import net.createmod.catnip.config.ui.BaseConfigScreen
-import net.createmod.ponder.foundation.PonderIndex
-import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
-import net.neoforged.api.distmarker.Dist
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.fml.ModContainer
@@ -23,11 +19,9 @@ import net.neoforged.fml.common.EventBusSubscriber
 import net.neoforged.fml.common.Mod
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent
 import net.neoforged.fml.event.lifecycle.FMLLoadCompleteEvent
-import net.neoforged.fml.loading.FMLEnvironment
 import net.neoforged.neoforge.capabilities.Capabilities
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory
-import net.neoforged.neoforge.common.NeoForge
 
 @Mod(MOD_ID)
 class NeoforgeModEntryPoint(
@@ -84,10 +78,6 @@ class NeoforgeModEntryPoint(
     }
 
     private fun initialize() {
-        if (FMLEnvironment.dist.isClient) {
-            PonderIndex.addPlugin(ModPonderPlugin())
-        }
-
         CreateHarmonicsMod.commonSetup {
             registerEventListeners(this@NeoforgeModEntryPoint.modEventBus)
         }
