@@ -22,4 +22,6 @@ sealed interface PlayerIntent {
     data class NewRequest(
         val req: AudioRequest,
     ) : PlayerIntent
+
+    object TailFinished : PlayerIntent
 }

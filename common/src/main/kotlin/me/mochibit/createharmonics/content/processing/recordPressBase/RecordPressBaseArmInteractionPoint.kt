@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.content.processing.recordPressBase
 
+import com.simibubi.create.content.kinetics.mechanicalArm.ArmBlockEntity
 import com.simibubi.create.content.kinetics.mechanicalArm.ArmInteractionPoint
 import me.mochibit.createharmonics.foundation.registry.ModArmInteractionPoints
 import net.minecraft.core.BlockPos

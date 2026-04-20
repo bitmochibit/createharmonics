@@ -1,7 +1,5 @@
 package me.mochibit.createharmonics.foundation.registry.platform
 
-import org.valkyrienskies.core.impl.shadow.it
-import java.util.EnumMap
 import java.util.function.Supplier
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty

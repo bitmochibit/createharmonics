@@ -2,6 +2,9 @@ package me.mochibit.createharmonics.audio.process
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -14,6 +17,7 @@ import me.mochibit.createharmonics.foundation.err
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 import java.io.SequenceInputStream
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.seconds
 
 class FFmpegExecutor private constructor() {
@@ -36,11 +40,8 @@ class FFmpegExecutor private constructor() {
             seekSeconds: Double = 0.0,
             headers: Map<String, String> = emptyMap(),
             isLive: Boolean = false,
-        ): InputStream? {
+        ): Pair<InputStream, FFmpegExecutor>? {
             val executor = FFmpegExecutor()
-
-            // createStream returns the first chunk of bytes as proof the stream is alive,
-            // or null on failure/timeout.
             val firstChunk = executor.createStream(url, sampleRate, seekSeconds, headers, isLive)
             if (firstChunk == null) {
                 executor.destroy()
@@ -48,19 +49,21 @@ class FFmpegExecutor private constructor() {
             }
 
             val currentPid =
-                executor.processId ?: return null.also {
+                executor.processId ?: run {
                     "Null PID process detected, aborting..".err()
                     executor.destroy()
+                    return null
                 }
 
             val currentStream =
-                executor.inputStream ?: return null.also {
+                executor.inputStream ?: run {
                     "Null stream detected, aborting...".err()
                     executor.destroy()
+                    return null
                 }
 
             val fullStream = SequenceInputStream(ByteArrayInputStream(firstChunk), currentStream)
-            return ProcessBoundInputStream(currentPid, fullStream)
+            return ProcessBoundInputStream(currentPid, fullStream) to executor
         }
 
         private fun getTimeout(isLive: Boolean): Long {
@@ -170,12 +173,9 @@ class FFmpegExecutor private constructor() {
         val newProcess =
             lifecycleMutex.withLock {
                 if (isRunning()) return null
-
                 try {
                     withContext(Dispatchers.IO) {
-                        ProcessBuilder(command)
-                            .redirectErrorStream(false)
-                            .start()
+                        ProcessBuilder(command).redirectErrorStream(false).start()
                     }
                 } catch (e: Exception) {
                     "Failed to start FFmpeg process: ${e.message}".err()
@@ -195,32 +195,33 @@ class FFmpegExecutor private constructor() {
             }
         }
 
-        val firstChunkDeferred = CompletableDeferred<Result<ByteArray>>()
-
-        modLaunch(Dispatchers.IO) {
-            try {
-                val buf = ByteArray(4096)
-                val n = newProcess.inputStream.read(buf) // blocks until data or EOF/error
-                if (n > 0) {
-                    firstChunkDeferred.complete(Result.success(buf.copyOf(n)))
-                } else {
-                    firstChunkDeferred.complete(
-                        Result.failure(Exception("FFmpeg stream closed before producing data (EOF)")),
-                    )
-                }
-            } catch (e: Exception) {
-                firstChunkDeferred.complete(Result.failure(e))
-            }
-        }
-
         val timeoutMs = getTimeout(isLive)
 
-        return withTimeoutOrNull(timeoutMs) {
-            firstChunkDeferred.await().getOrNull()
-        }.also { chunk ->
-            if (chunk == null) {
-                "Timeout waiting for FFmpeg first bytes (seek=${seekSeconds}s, timeout=${timeoutMs}ms, url=$url)".err()
+        val firstChunkDeferred = CompletableDeferred<ByteArray?>()
+        val readJob =
+            modLaunch(Dispatchers.IO) {
+                try {
+                    val buf = ByteArray(4096)
+                    val n = newProcess.inputStream.read(buf)
+                    firstChunkDeferred.complete(if (n > 0) buf.copyOf(n) else null)
+                } catch (_: Exception) {
+                    firstChunkDeferred.complete(null)
+                }
             }
+
+        return try {
+            val chunk = withTimeoutOrNull(timeoutMs) { firstChunkDeferred.await() }
+            if (chunk == null) {
+                destroy()
+                readJob.join()
+            }
+            chunk
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) {
+                destroy()
+                readJob.cancelAndJoin()
+            }
+            throw e
         }
     }
 

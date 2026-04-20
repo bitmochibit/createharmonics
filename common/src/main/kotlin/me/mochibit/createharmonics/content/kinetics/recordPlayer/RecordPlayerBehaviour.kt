@@ -49,7 +49,6 @@ import java.io.InputStream
 import java.util.UUID
 import kotlin.math.abs
 
-// TODO: Refactor the track logic to be cleaner and reusable with other behaviours too
 class RecordPlayerBehaviour(
     val be: RecordPlayerBlockEntity,
 ) : BlockEntityBehaviour(be) {

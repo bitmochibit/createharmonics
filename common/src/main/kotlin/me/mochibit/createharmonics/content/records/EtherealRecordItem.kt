@@ -1,7 +1,9 @@
 package me.mochibit.createharmonics.content.records
 
+import com.simibubi.create.content.equipment.goggles.GogglesItem
 import me.mochibit.createharmonics.foundation.locale.ModLang
 import net.minecraft.ChatFormatting
+import net.minecraft.client.Minecraft
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.network.chat.CommonComponents
 import net.minecraft.network.chat.Component
@@ -40,6 +42,7 @@ class EtherealRecordItem(
 
     override fun getDefaultInstance(): ItemStack {
         val default = super.getDefaultInstance()
+
         if (JUKEBOX_DISCS.isNotEmpty()) {
             val randomDisc = JUKEBOX_DISCS.random()
             RecordCraftingHandler.setCraftedWithDisc(
@@ -47,6 +50,7 @@ class EtherealRecordItem(
                 ItemStack(randomDisc),
             )
         }
+
         return default
     }
 
@@ -56,6 +60,9 @@ class EtherealRecordItem(
         tooltipComponents: MutableList<Component>,
         isAdvanced: TooltipFlag,
     ) {
+        val player = Minecraft.getInstance().player ?: return
+        if (!GogglesItem.isWearingGoggles(player)) return
+
         val url = RecordUtilities.getAudioUrl(stack)
         if (!url.isNullOrBlank()) {
             tooltipComponents.add(

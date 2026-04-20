@@ -127,7 +127,7 @@ object RecordUtilities {
         val recordProps = etherealRecordItem.recordType
         this.soundEventComposition.removeAll { true }
 
-        this.soundEventComposition.anchorAfter(AudioEffect.Scope.INTRINSIC_EFFECT)
+        this.soundEventComposition.anchorBefore(AudioEffect.Scope.MACHINE_CONTROLLED_PITCH)
 
         val soundEvents = recordProps.properties.soundEventCompProvider()
         for (event in soundEvents) {
@@ -147,7 +147,8 @@ object RecordUtilities {
             this.request(
                 AudioRequest.Url(url),
             )
-            return this.play(initialPos)
+            this.play(initialPos)
+            return
         }
 
         // Try to play audio from the crafted-from record

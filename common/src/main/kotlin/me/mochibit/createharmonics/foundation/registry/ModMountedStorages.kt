@@ -31,7 +31,7 @@ object ModMountedStorages : CommonRegistry {
             be: BlockEntity?,
         ): RecordPlayerMountedStorage? {
             if (be is RecordPlayerBlockEntity) {
-                return RecordPlayerMountedStorage.Companion.fromRecordPlayer(be)
+                return RecordPlayerMountedStorage.fromRecordPlayer(be)
             }
             return null
         }
