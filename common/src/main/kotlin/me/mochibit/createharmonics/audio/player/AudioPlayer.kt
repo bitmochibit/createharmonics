@@ -116,6 +116,7 @@ class AudioPlayer(
     }
 
     private suspend fun handleIntent(intent: PlayerIntent) {
+        "Current intent $intent".info()
         when (intent) {
             PlayerIntent.AudioFinished -> {
                 startPlaybackJob?.cancelAndJoin() // wait for job to fully exit before notifying
@@ -262,12 +263,6 @@ class AudioPlayer(
                         val resolved = SourceStreamResolver.resolveInputStream(source, pos)
                         resolvedInputStream = resolved.inputStream
                         resolved
-                    } catch (e: CancellationException) {
-                        withContext(NonCancellable) {
-                            resolvedInputStream?.close()
-                            handleStreamFailure()
-                        }
-                        throw e
                     } catch (e: Exception) {
                         withContext(NonCancellable) {
                             resolvedInputStream?.close()
@@ -298,7 +293,7 @@ class AudioPlayer(
                         }
                         // In this particular cause probably the input stream creation dropped a timeout
                         // This can happen with very long videos (especially on YouTube) and seeking is problematic there
-                        handleStreamFailure(shouldDisableSeek = true)
+                        handleStreamFailure(shouldDisableSeek = true, shouldRetry = true)
                     }
                     return@launch
                 }
@@ -330,7 +325,7 @@ class AudioPlayer(
                 soundEventComposition.makeComposition(soundInstance)
                 notifyAudioTitle(resolvedStream.audioInfo.title)
                 if (!soundManager.isActive(soundInstance)) {
-                    handleStreamFailure()
+                    handleStreamFailure(shouldRetry = true)
                     return@launch
                 }
                 transition(PlayerState.PLAYING)
@@ -432,11 +427,17 @@ class AudioPlayer(
         }
     }
 
-    private suspend fun handleStreamFailure(shouldDisableSeek: Boolean = false) {
+    private suspend fun handleStreamFailure(
+        shouldDisableSeek: Boolean = false,
+        shouldRetry: Boolean = false,
+    ) {
         startPlaybackJob = null
         doStopPlayback()
         isSeekingDisabled.set(shouldDisableSeek)
-        intents.trySend(PlayerIntent.Play(0.0))
+        if (shouldRetry) {
+            intents.trySend(PlayerIntent.Play(0.0))
+            "Restarting failing stream..".info()
+        }
     }
 
     private suspend fun cancelTail() {
