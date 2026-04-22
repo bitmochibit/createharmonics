@@ -116,7 +116,6 @@ class AudioPlayer(
     }
 
     private suspend fun handleIntent(intent: PlayerIntent) {
-        "Current intent $intent".info()
         when (intent) {
             PlayerIntent.AudioFinished -> {
                 startPlaybackJob?.cancelAndJoin() // wait for job to fully exit before notifying
