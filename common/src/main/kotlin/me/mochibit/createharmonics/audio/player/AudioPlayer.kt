@@ -9,6 +9,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -285,6 +286,7 @@ class AudioPlayer(
                 if (resolvedStream.status == SourceStreamResolver.Result.StreamStatus.FINISHED ||
                     resolvedStream.inputStream == null
                 ) {
+                    val wasActive = isActive
                     withContext(NonCancellable) {
                         resolvedStream.inputStream?.close()
                         if (pos > 0) {
@@ -292,7 +294,7 @@ class AudioPlayer(
                         }
                         // In this particular cause probably the input stream creation dropped a timeout
                         // This can happen with very long videos (especially on YouTube) and seeking is problematic there
-                        handleStreamFailure(shouldDisableSeek = true, shouldRetry = true)
+                        handleStreamFailure(shouldDisableSeek = true, shouldRetry = wasActive)
                     }
                     return@launch
                 }
@@ -324,7 +326,11 @@ class AudioPlayer(
                 soundEventComposition.makeComposition(soundInstance)
                 notifyAudioTitle(resolvedStream.audioInfo.title)
                 if (!soundManager.isActive(soundInstance)) {
-                    handleStreamFailure(shouldRetry = true)
+                    if (isActive) {
+                        handleStreamFailure(shouldRetry = true)
+                    } else {
+                        handleStreamFailure(shouldRetry = false)
+                    }
                     return@launch
                 }
                 transition(PlayerState.PLAYING)
@@ -430,10 +436,11 @@ class AudioPlayer(
         shouldDisableSeek: Boolean = false,
         shouldRetry: Boolean = false,
     ) {
+        val shouldReallyRetry = shouldRetry && currentCoroutineContext().isActive
         startPlaybackJob = null
         doStopPlayback()
         isSeekingDisabled.set(shouldDisableSeek)
-        if (shouldRetry) {
+        if (shouldReallyRetry) {
             intents.trySend(PlayerIntent.Play(0.0))
             "Restarting failing stream..".info()
         }
