@@ -34,9 +34,9 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
     }
 
     init {
-        EventBus.on<ServerEvents.PlayerStartTrackingEntity> { event ->
+        EventBus.onMcMain<ServerEvents.PlayerStartTrackingEntity> { event ->
             val entity = event.entity
-            if (entity !is AbstractContraptionEntity) return@on
+            if (entity !is AbstractContraptionEntity) return@onMcMain
 
             entity.contraption.actors.forEach { (_, context) ->
                 if (context.contraption.entity.stringUUID == event.entity.stringUUID) {
@@ -44,7 +44,20 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
                 }
             }
         }
+
+        EventBus.onMcMain<ServerEvents.PlayerStopTrackingEntity> { event ->
+            val entity = event.entity
+            if (entity !is AbstractContraptionEntity) return@onMcMain
+
+            entity.contraption.actors.forEach { (_, context) ->
+                if (context.contraption.entity.stringUUID == event.entity.stringUUID) {
+                    context.blockEntityData?.let { onStopTracking(it) }
+                }
+            }
+        }
     }
+
+    abstract fun onStopTracking(blockEntityData: CompoundTag)
 
     @Suppress("UNCHECKED_CAST")
     fun getContextData(context: MovementContext): Data {

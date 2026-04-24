@@ -95,6 +95,8 @@ class AudioPlayer(
     val clock = PlaytimeClock()
     val isSeekingDisabled = AtomicBoolean(false)
 
+    private val loadingGeneration = AtomicInteger(0)
+
     private val soundManager get() = Minecraft.getInstance().soundManager
 
     @Volatile
@@ -219,7 +221,7 @@ class AudioPlayer(
             }
 
             is PlayerIntent.StreamReady -> {
-                if (_state.value != PlayerState.LOADING) {
+                if (_state.value != PlayerState.LOADING || intent.streamGeneration != loadingGeneration.get()) {
                     intent.stream.close()
                     return
                 }
@@ -241,11 +243,6 @@ class AudioPlayer(
                 withMainContext { soundManager.play(intent.soundInstance) }
                 soundEventComposition.makeComposition(intent.soundInstance)
                 notifyAudioTitle(intent.audioInfo.title)
-
-                if (!soundManager.isActive(intent.soundInstance)) {
-                    intents.trySend(PlayerIntent.StreamFailed(shouldRetry = true))
-                    return
-                }
 
                 transition(PlayerState.PLAYING)
             }
@@ -269,15 +266,19 @@ class AudioPlayer(
                 startPlaybackJob?.cancelAndJoin()
                 when (_state.value) {
                     PlayerState.PAUSED -> {
+                        startPlaybackJob?.cancelAndJoin()
                         resumePlayback(freezeOnly = true)
                         pausePlayback()
                     }
 
                     PlayerState.PLAYING -> {
+                        startPlaybackJob?.cancelAndJoin()
                         unstuckPlayback()
                     }
 
-                    else -> {}
+                    else -> {
+                        return
+                    }
                 }
             }
 
@@ -309,7 +310,7 @@ class AudioPlayer(
         val request = currentAudioRequest ?: return
 
         startPlaybackJob?.cancelAndJoin()
-
+        loadingGeneration.incrementAndGet()
         transition(PlayerState.LOADING)
 
         launchStreamResolution(request, pos)
@@ -319,6 +320,7 @@ class AudioPlayer(
         request: AudioRequest,
         pos: Double,
     ) {
+        val currentGeneration = loadingGeneration.incrementAndGet()
         startPlaybackJob =
             playerScope.launch(Dispatchers.IO) {
                 streamResolutionStartMillis.set(System.currentTimeMillis())
@@ -376,7 +378,7 @@ class AudioPlayer(
                     return@launch
                 }
 
-                intents.trySend(PlayerIntent.StreamReady(stream, soundInstance, resolvedStream.audioInfo, atPos = pos))
+                intents.trySend(PlayerIntent.StreamReady(stream, soundInstance, resolvedStream.audioInfo, pos, currentGeneration))
             }
     }
 
@@ -496,6 +498,7 @@ class AudioPlayer(
         shouldDisableSeek: Boolean = false,
         shouldRetry: Boolean = false,
     ) {
+        startPlaybackJob?.cancelAndJoin()
         startPlaybackJob = null
         doStopPlayback()
         isSeekingDisabled.set(shouldDisableSeek)

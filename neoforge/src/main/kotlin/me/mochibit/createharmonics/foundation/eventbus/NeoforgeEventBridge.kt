@@ -48,6 +48,9 @@ object NeoforgeEventBridge : PlatformEventBridge<Event>() {
             .registerBoth { CommonEvents.EntityJoinLevelEvent(entity, level) }
         on<PlayerEvent.StartTracking>()
             .register { ServerEvents.PlayerStartTrackingEntity(entity as ServerPlayer, target) }
+        on<PlayerEvent.StopTracking>().register {
+            ServerEvents.PlayerStopTrackingEntity(this.entity as ServerPlayer, target)
+        }
         on<RegisterCommandsEvent>()
             .registerBoth { CommonEvents.RegisterCommandsEvent(dispatcher, commandSelection, buildContext) }
         on<LevelEvent.Unload>()

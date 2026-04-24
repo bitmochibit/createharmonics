@@ -51,7 +51,6 @@ import net.minecraft.core.particles.ShriekParticleOption
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
-import net.minecraft.util.RandomSource
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
@@ -301,6 +300,11 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                     }
             }
         }
+
+    override fun onStopTracking(blockEntityData: CompoundTag) {
+        val playerId = blockEntityData.getUUID(PLAYER_UUID_KEY).toString()
+        ModPackets.broadcast(AudioPlayerContextStopPacket(playerId))
+    }
 
     override fun write(
         target: CompoundTag,
