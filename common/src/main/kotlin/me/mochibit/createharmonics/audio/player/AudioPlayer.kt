@@ -9,13 +9,15 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.channels.onClosed
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.effect.MixerEffect
@@ -25,17 +27,21 @@ import me.mochibit.createharmonics.audio.stream.AudioEffectInputStream
 import me.mochibit.createharmonics.audio.utils.pause
 import me.mochibit.createharmonics.audio.utils.unpause
 import me.mochibit.createharmonics.foundation.async.ClientCoroutineScope
+import me.mochibit.createharmonics.foundation.async.launchOnClient
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.async.withMainContext
+import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerStreamEndPacket
 import me.mochibit.createharmonics.foundation.network.packet.UpdateAudioNamePacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
+import net.minecraft.client.sounds.AudioStream
 import java.io.InputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.seconds
 
@@ -59,21 +65,29 @@ class AudioPlayer(
 
     private val _state = MutableStateFlow(PlayerState.STOPPED)
 
-    @Volatile private var currentAudioRequest: AudioRequest? = null
+    @Volatile
+    private var currentAudioRequest: AudioRequest? = null
 
-    @Volatile private var currentAudioEffectInputStream: AudioEffectInputStream? = null
+    @Volatile
+    private var currentAudioEffectInputStream: AudioEffectInputStream? = null
 
-    @Volatile private var currentSoundInstance: SoundInstance? = null
+    @Volatile
+    private var currentSoundInstance: SoundInstance? = null
 
     private val intents = Channel<PlayerIntent>(Channel.UNLIMITED)
 
-    @Volatile private var stateMachineJob: Job? = null
+    val playerTerminated = AtomicBoolean(false)
 
-    @Volatile private var tailJob: Job? = null
+    @Volatile
+    private var stateMachineJob: Job? = null
 
-    @Volatile private var startPlaybackJob: Job? = null
+    @Volatile
+    private var tailJob: Job? = null
 
-    private val streamGeneration = AtomicInteger(0)
+    @Volatile
+    private var startPlaybackJob: Job? = null
+
+    private val streamResolutionStartMillis = AtomicLong(0)
 
     val effectChain = EffectChain()
     val soundEventComposition = SoundEventComposition(soundEffectChain = effectChain)
@@ -83,7 +97,8 @@ class AudioPlayer(
 
     private val soundManager get() = Minecraft.getInstance().soundManager
 
-    @Volatile private var lastResyncAt: Long = -1L
+    @Volatile
+    private var lastResyncAt: Long = -1L
     private val resyncCooldown = 10.seconds
 
     init {
@@ -113,57 +128,23 @@ class AudioPlayer(
                         }
                     }
                 }
+            playerScope.launch(Dispatchers.Default) {
+                while (isActive) {
+                    delay(1.seconds)
+                    val instance = currentSoundInstance
+                    val currentState = _state.value
+                    if (currentState == PlayerState.PLAYING && instance != null) {
+                        if (!soundManager.isActive(instance)) {
+                            intents.trySend(PlayerIntent.AudioHanged)
+                        }
+                    }
+                }
+            }
         }
     }
 
     private suspend fun handleIntent(intent: PlayerIntent) {
         when (intent) {
-            PlayerIntent.AudioFinished -> {
-                startPlaybackJob?.cancelAndJoin() // wait for job to fully exit before notifying
-                notifyStreamEnd()
-                stopPlayback()
-            }
-
-            PlayerIntent.AudioHanged -> {
-                if (_state.value == PlayerState.STOPPED) return
-                startPlaybackJob?.cancelAndJoin()
-                when (_state.value) {
-                    PlayerState.LOADING -> {
-                        val pos = clock.currentPlaytime
-                        doStopPlayback()
-                        startPlayback(pos)
-                    }
-
-                    PlayerState.PAUSED -> {
-                        resumePlayback(freezeOnly = true)
-                        pausePlayback()
-                    }
-
-                    PlayerState.PLAYING -> {
-                        unstuckPlayback()
-                    }
-
-                    else -> {}
-                }
-            }
-
-            PlayerIntent.TailFinished -> {
-                if (_state.value == PlayerState.TAILING) {
-                    _state.value = PlayerState.STOPPED
-                }
-            }
-
-            is PlayerIntent.NewRequest -> {
-                if (currentAudioRequest?.isSameSource(intent.req) == true) return
-
-                // Cancel in-flight resolution before changing the request
-                startPlaybackJob?.cancelAndJoin()
-
-                if (_state.value == PlayerState.PLAYING || _state.value == PlayerState.LOADING) return
-                stopPlayback()
-                currentAudioRequest = intent.req
-            }
-
             is PlayerIntent.Play -> {
                 when (_state.value) {
                     PlayerState.PLAYING,
@@ -192,14 +173,10 @@ class AudioPlayer(
                     PlayerState.TAILING -> {
                         startPlayback(intent.initialPosition)
                     }
-
-                    PlayerState.HANGED -> {
-                        unstuckPlayback()
-                    }
                 }
             }
 
-            PlayerIntent.Pause -> {
+            is PlayerIntent.Pause -> {
                 when (_state.value) {
                     PlayerState.PAUSED,
                     PlayerState.TAILING,
@@ -222,7 +199,7 @@ class AudioPlayer(
                 }
             }
 
-            PlayerIntent.Stop -> {
+            is PlayerIntent.Stop -> {
                 // Cancel any in-flight resolution first so the FFmpeg process is
                 // killed before doStopPlayback tears down the rest.
                 startPlaybackJob?.cancelAndJoin()
@@ -241,7 +218,89 @@ class AudioPlayer(
                 }
             }
 
-            else -> {}
+            is PlayerIntent.StreamReady -> {
+                if (_state.value != PlayerState.LOADING) {
+                    intent.stream.close()
+                    return
+                }
+
+                currentAudioEffectInputStream = intent.stream
+                currentSoundInstance = intent.soundInstance
+
+                if (intent.audioInfo.isLive) {
+                    effectChain
+                        .getEffects()
+                        .filterIsInstance<PitchShiftEffect>()
+                        .forEach { it.preserveTiming() }
+                    isSeekingDisabled.set(true)
+                }
+
+                val resolutionElapsed = (System.currentTimeMillis() - streamResolutionStartMillis.get()) / 1000.0
+                val adjustedPos = if (intent.audioInfo.isLive) 0.0 else intent.atPos + resolutionElapsed
+                clock.play(adjustedPos)
+                withMainContext { soundManager.play(intent.soundInstance) }
+                soundEventComposition.makeComposition(intent.soundInstance)
+                notifyAudioTitle(intent.audioInfo.title)
+
+                if (!soundManager.isActive(intent.soundInstance)) {
+                    intents.trySend(PlayerIntent.StreamFailed(shouldRetry = true))
+                    return
+                }
+
+                transition(PlayerState.PLAYING)
+            }
+
+            is PlayerIntent.StreamFailed -> {
+                doStopPlayback()
+                isSeekingDisabled.set(intent.shouldDisableSeek)
+                if (intent.shouldRetry) {
+                    intents.trySend(PlayerIntent.Play(0.0))
+                    "Restarting failing stream..".info()
+                }
+            }
+
+            is PlayerIntent.AudioFinished -> {
+                startPlaybackJob?.cancelAndJoin()
+                notifyStreamEnd()
+                stopPlayback()
+            }
+
+            is PlayerIntent.AudioHanged -> {
+                startPlaybackJob?.cancelAndJoin()
+                when (_state.value) {
+                    PlayerState.PAUSED -> {
+                        resumePlayback(freezeOnly = true)
+                        pausePlayback()
+                    }
+
+                    PlayerState.PLAYING -> {
+                        unstuckPlayback()
+                    }
+
+                    else -> {}
+                }
+            }
+
+            is PlayerIntent.TailFinished -> {
+                if (_state.value == PlayerState.TAILING) {
+                    transition(PlayerState.STOPPED)
+                }
+            }
+
+            is PlayerIntent.NewRequest -> {
+                if (currentAudioRequest?.isSameSource(intent.req) == true) return
+
+                // Cancel in-flight resolution before changing the request
+                startPlaybackJob?.cancelAndJoin()
+
+                if (_state.value == PlayerState.PLAYING || _state.value == PlayerState.LOADING) return
+                stopPlayback()
+                currentAudioRequest = intent.req
+            }
+
+            else -> {
+                "Invalid intent sent to the audio player!".info()
+            }
         }
     }
 
@@ -253,9 +312,16 @@ class AudioPlayer(
 
         transition(PlayerState.LOADING)
 
+        launchStreamResolution(request, pos)
+    }
+
+    private fun launchStreamResolution(
+        request: AudioRequest,
+        pos: Double,
+    ) {
         startPlaybackJob =
             playerScope.launch(Dispatchers.IO) {
-                val resolutionStart = System.currentTimeMillis()
+                streamResolutionStartMillis.set(System.currentTimeMillis())
                 var resolvedInputStream: InputStream? = null
                 val resolvedStream =
                     try {
@@ -264,76 +330,53 @@ class AudioPlayer(
                         resolvedInputStream = resolved.inputStream
                         resolved
                     } catch (e: Exception) {
-                        withContext(NonCancellable) {
-                            resolvedInputStream?.close()
-                            handleStreamFailure()
-                        }
+                        resolvedInputStream?.close()
+                        if (isActive) intents.trySend(PlayerIntent.StreamFailed())
                         return@launch
                     }
 
-                if (_state.value != PlayerState.LOADING) {
-                    withContext(NonCancellable) {
-                        resolvedStream.inputStream?.close()
-                        handleStreamFailure()
+                if (!isActive) {
+                    resolvedStream.inputStream?.close()
+                    return@launch
+                }
+
+                if (resolvedStream.status == SourceStreamResolver.Result.StreamStatus.FINISHED) {
+                    resolvedStream.inputStream?.close()
+                    intents.trySend(PlayerIntent.AudioFinished)
+                    return@launch
+                }
+
+                if (resolvedStream.inputStream == null || resolvedStream.status == SourceStreamResolver.Result.StreamStatus.FAILED) {
+                    resolvedStream.inputStream?.close()
+                    if (pos > 0) {
+                        "Restarted source playback since it hanged, probably for this url seek is not supported".info()
+                    }
+                    if (isActive) {
+                        intents.trySend(PlayerIntent.StreamFailed(shouldDisableSeek = true, shouldRetry = true))
                     }
                     return@launch
                 }
 
-                val resolutionElapsed = (System.currentTimeMillis() - resolutionStart) / 1000.0
-                val adjustedPos = if (resolvedStream.audioInfo.isLive) 0.0 else pos + resolutionElapsed
-                clock.play(adjustedPos)
-
-                if (resolvedStream.status == SourceStreamResolver.Result.StreamStatus.FINISHED ||
-                    resolvedStream.inputStream == null
-                ) {
-                    val wasActive = isActive
-                    withContext(NonCancellable) {
-                        resolvedStream.inputStream?.close()
-                        if (pos > 0) {
-                            "Restarted source playback since it hanged, probably for this url seek is not supported".info()
-                        }
-                        // In this particular cause probably the input stream creation dropped a timeout
-                        // This can happen with very long videos (especially on YouTube) and seeking is problematic there
-                        handleStreamFailure(shouldDisableSeek = true, shouldRetry = wasActive)
-                    }
-                    return@launch
-                }
-
-                if (resolvedStream.audioInfo.isLive) {
-                    effectChain.getEffects().filterIsInstance<PitchShiftEffect>().forEach { it.preserveTiming() }
-                    isSeekingDisabled.set(true)
-                }
-
-                val generation = streamGeneration.incrementAndGet()
                 val stream =
                     AudioEffectInputStream(
                         resolvedStream.inputStream,
                         effectChain,
                         resolvedStream.audioInfo.sampleRate.toInt(),
-                        onStreamEnd = { if (streamGeneration.get() == generation) handleStreamEnd() },
-                        onStreamHang = { if (streamGeneration.get() == generation) handleStreamHang() },
+                        onStreamEnd = { handleStreamEnd() },
+                        onStreamHang = { handleStreamHang() },
                     )
-
-                currentAudioEffectInputStream = stream
 
                 val soundInstance = soundInstanceFactory(playerId, stream)
                 if (soundInstance is SampleRatedInstance) {
                     soundInstance.sampleRate = resolvedStream.audioInfo.sampleRate.toInt()
                 }
-                currentSoundInstance = soundInstance
 
-                withMainContext { soundManager.play(soundInstance) }
-                soundEventComposition.makeComposition(soundInstance)
-                notifyAudioTitle(resolvedStream.audioInfo.title)
-                if (!soundManager.isActive(soundInstance)) {
-                    if (isActive) {
-                        handleStreamFailure(shouldRetry = true)
-                    } else {
-                        handleStreamFailure(shouldRetry = false)
-                    }
+                if (!isActive) {
+                    stream.close()
                     return@launch
                 }
-                transition(PlayerState.PLAYING)
+
+                intents.trySend(PlayerIntent.StreamReady(stream, soundInstance, resolvedStream.audioInfo, atPos = pos))
             }
     }
 
@@ -349,16 +392,25 @@ class AudioPlayer(
             freezeMixerSources(true)
             tailJob =
                 modLaunch(Dispatchers.IO) {
-                    capturedStream.tailFinished.await()
-                    withMainContext {
-                        if (!capturedInstance.pause()) soundManager.stop(capturedInstance)
+                    try {
+                        withTimeoutOrNull(15.seconds) {
+                            capturedStream.tailFinished.await()
+                        }
+                    } finally {
+                        withContext(NonCancellable) {
+                            withMainContext {
+                                if (!capturedInstance.pause()) soundManager.stop(capturedInstance)
+                            }
+                        }
                     }
                 }
         } else {
-            capturedStream?.isFrozen = true
-            freezeMixerSources(true)
-            withMainContext {
-                if (!capturedInstance.pause()) soundManager.stop(capturedInstance)
+            withContext(NonCancellable) {
+                capturedStream?.isFrozen = true
+                freezeMixerSources(true)
+                withMainContext {
+                    if (!capturedInstance.pause()) soundManager.stop(capturedInstance)
+                }
             }
         }
     }
@@ -385,7 +437,12 @@ class AudioPlayer(
     private suspend fun unstuckPlayback() {
         cancelTail()
         val capturedInstance = currentSoundInstance ?: return handleStreamFailure()
-        withMainContext { soundManager.play(capturedInstance) }
+        withMainContext {
+            if (Minecraft.getInstance().level == null) return@withMainContext
+            if (Minecraft.getInstance().isSingleplayer && Minecraft.getInstance().isPaused) return@withMainContext
+            if (soundManager.isActive(capturedInstance)) return@withMainContext
+            soundManager.play(capturedInstance)
+        }
     }
 
     private suspend fun stopPlayback() {
@@ -394,7 +451,6 @@ class AudioPlayer(
     }
 
     private suspend fun doStopPlayback() {
-        cancelTail()
         startPlaybackJob?.cancelAndJoin()
         startPlaybackJob = null
 
@@ -414,7 +470,9 @@ class AudioPlayer(
             tailJob =
                 modLaunch(Dispatchers.IO) {
                     try {
-                        capturedStream.tailFinished.await()
+                        withTimeoutOrNull(15.seconds) {
+                            capturedStream.tailFinished.await()
+                        }
                     } finally {
                         withContext(NonCancellable) {
                             capturedStream.close()
@@ -425,10 +483,12 @@ class AudioPlayer(
                     intents.trySend(PlayerIntent.TailFinished)
                 }
         } else {
-            capturedStream?.close()
-            effectChain.reset()
-            withMainContext { capturedInstance?.let { soundManager.stop(it) } }
-            _state.value = PlayerState.STOPPED
+            withContext(NonCancellable) {
+                capturedStream?.close()
+                effectChain.reset()
+                withMainContext { capturedInstance?.let { soundManager.stop(it) } }
+                _state.value = PlayerState.STOPPED
+            }
         }
     }
 
@@ -436,11 +496,10 @@ class AudioPlayer(
         shouldDisableSeek: Boolean = false,
         shouldRetry: Boolean = false,
     ) {
-        val shouldReallyRetry = shouldRetry && currentCoroutineContext().isActive
         startPlaybackJob = null
         doStopPlayback()
         isSeekingDisabled.set(shouldDisableSeek)
-        if (shouldReallyRetry) {
+        if (shouldRetry) {
             intents.trySend(PlayerIntent.Play(0.0))
             "Restarting failing stream..".info()
         }
@@ -501,12 +560,14 @@ class AudioPlayer(
     fun tick() = clock.tick()
 
     fun close() {
+        playerTerminated.set(true)
         stateMachineJob?.cancel()
         intents.trySend(PlayerIntent.Shutdown)
         intents.close()
     }
 
     suspend fun closeSuspending() {
+        playerTerminated.set(true)
         intents.close()
         withContext(NonCancellable) { doStopPlayback() }
         playerScope.cancel()
