@@ -301,6 +301,11 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             }
         }
 
+    override fun onStopTracking(blockEntityData: CompoundTag) {
+        val playerId = blockEntityData.getUUID(PLAYER_UUID_KEY).toString()
+        ModPackets.broadcast(AudioPlayerContextStopPacket(playerId))
+    }
+
     override fun write(
         target: CompoundTag,
         contextData: RecordPlayerContextData,

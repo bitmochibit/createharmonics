@@ -17,4 +17,9 @@ object ServerEvents {
         val player: ServerPlayer,
         val entity: Entity,
     ) : ServerProxyEvent
+
+    data class PlayerStopTrackingEntity(
+        val player: ServerPlayer,
+        val entity: Entity,
+    ) : ServerProxyEvent
 }

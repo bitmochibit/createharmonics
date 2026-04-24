@@ -34,6 +34,7 @@ sealed interface PlayerIntent {
         val soundInstance: SoundInstance,
         val audioInfo: AudioInfo,
         val atPos: Double,
+        val streamGeneration: Int,
     ) : PlayerIntent
 
     data class StreamFailed(
