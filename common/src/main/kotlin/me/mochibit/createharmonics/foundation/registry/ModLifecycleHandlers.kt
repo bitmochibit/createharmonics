@@ -24,8 +24,9 @@ object ModLifecycleHandlers : CommonRegistry {
             ClientCoroutineScope.reset()
         }
 
-        EventBus.on<CommonEvents.LevelUnloadEvent> { event ->
-            AudioPlayerManager.closeAll()
+        EventBus.onSync<CommonEvents.LevelUnloadEvent> { event ->
+            AudioPlayerManager.closeAllBlocking()
+            ClientCoroutineScope.reset()
         }
 
         // Dedicated/integrated server stops
