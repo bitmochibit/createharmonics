@@ -117,14 +117,14 @@ class AudioPlayer(
                             try {
                                 if (intent is PlayerIntent.Shutdown) break
                                 handleIntent(intent)
-                            } catch (e: CancellationException) {
-                                if (!isActive) throw e
                             } catch (e: Exception) {
+                                if (e is CancellationException) throw e
                                 e.printStackTrace()
                             }
                         }
                     } finally {
                         withContext(NonCancellable) {
+                            intents.close()
                             doStopPlayback()
                             playerScope.cancel()
                         }
@@ -332,6 +332,7 @@ class AudioPlayer(
                         resolvedInputStream = resolved.inputStream
                         resolved
                     } catch (e: Exception) {
+                        if (e is CancellationException) throw e
                         resolvedInputStream?.close()
                         if (isActive) intents.trySend(PlayerIntent.StreamFailed())
                         return@launch

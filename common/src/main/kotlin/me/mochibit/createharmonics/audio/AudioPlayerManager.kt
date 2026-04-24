@@ -20,23 +20,22 @@ object AudioPlayerManager {
         provider: SoundInstanceFactory,
         effectChainConfiguration: EffectChain.() -> Unit,
     ): AudioPlayer {
-        val existing = players[id]
-        if (existing != null) {
-            return existing.also {
-                it.startStateMachine()
-            }
-        }
-
         require(id.isNotBlank()) { "Player ID cannot be blank" }
-        require(!players.containsKey(id)) { "Player '$id' already exists — use get() or release() first" }
 
         val player =
-            AudioPlayer(
-                playerId = id,
-                soundInstanceFactory = provider,
-            )
-        player.effectChain.effectChainConfiguration()
-        players[id] = player
+            players.computeIfAbsent(id) { key ->
+                AudioPlayer(
+                    playerId = key,
+                    soundInstanceFactory = provider,
+                ).also { newPlayer ->
+                    newPlayer.effectChain.effectChainConfiguration()
+                }
+            }
+
+        // Ensure state machine is running in case it was a re-retrieved existing player
+        // that somehow had its state machine cancelled, though usually not expected unless stopped.
+        player.startStateMachine()
+
         return player
     }
 
