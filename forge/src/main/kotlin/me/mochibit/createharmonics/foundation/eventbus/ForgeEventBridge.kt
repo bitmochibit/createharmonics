@@ -48,17 +48,17 @@ object ForgeEventBridge : PlatformEventBridge<Event>() {
         on<ServerStoppedEvent>()
             .register { ServerEvents.ServerStoppedEvent(server) }
         on<EntityJoinLevelEvent>()
-            .registerBoth { CommonEvents.EntityJoinLevelEvent(entity, level) }
+            .registerBoth { side -> CommonEvents.EntityJoinLevelEvent(entity, level, side) }
         on<PlayerEvent.StartTracking>()
             .register { ServerEvents.PlayerStartTrackingEntity(entity as ServerPlayer, target) }
         on<PlayerEvent.StopTracking>()
             .register { ServerEvents.PlayerStopTrackingEntity(entity as ServerPlayer, target) }
         on<RegisterCommandsEvent>()
-            .registerBoth { CommonEvents.RegisterCommandsEvent(dispatcher, commandSelection, buildContext) }
+            .registerBoth { side -> CommonEvents.RegisterCommandsEvent(dispatcher, commandSelection, buildContext, side) }
         on<LevelEvent.Unload>()
-            .registerBoth { CommonEvents.LevelUnloadEvent(level) }
+            .registerBoth { side -> CommonEvents.LevelUnloadEvent(level, side) }
         on<GameShuttingDownEvent>()
-            .registerBoth { CommonEvents.GameShuttingDownEvent() }
+            .registerBoth { side -> CommonEvents.GameShuttingDownEvent(side) }
 
         on<ClientPlayerNetworkEvent.LoggingOut>()
             .registerClient { ClientEvents.ClientDisconnectedEvent(multiPlayerGameMode, player, connection) }

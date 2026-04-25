@@ -2,6 +2,8 @@ package me.mochibit.createharmonics.foundation.eventbus
 
 import me.mochibit.createharmonics.foundation.registry.Registrable
 
+enum class LogicalSide { CLIENT, SERVER }
+
 interface ModEvent
 
 /**
@@ -9,7 +11,7 @@ interface ModEvent
  * Handlers that run at a lower priority will be skipped when [isCancelled] is true
  * (unless they register with [EventPriority.MONITOR] or set ignoreCancelled = false).
  */
-interface Cancellable : ModEvent {
+interface Cancellable {
     var isCancelled: Boolean
 }
 

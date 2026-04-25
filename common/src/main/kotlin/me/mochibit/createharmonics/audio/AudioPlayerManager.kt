@@ -41,22 +41,25 @@ object AudioPlayerManager {
 
     fun get(id: String): AudioPlayer? = players[id]
 
-    fun release(id: String) {
-        players.remove(id)?.close()
+    fun release(
+        id: String,
+        cancelTail: Boolean = false,
+    ) {
+        players.remove(id)?.close(cancelTail)
     }
 
-    fun closeAllBlocking() {
+    fun closeAllBlocking(cancelTails: Boolean = false) {
         val snapshot = players.values.toList().also { players.clear() }
         snapshot.forEach { player ->
-            runCatching { player.close() }
+            runCatching { player.close(cancelTails) }
                 .onFailure { "Error disposing ${player.playerId}: ${it.message}".err() }
         }
     }
 
-    suspend fun closeAll() {
+    suspend fun closeAll(cancelTails: Boolean = false) {
         val snapshot = players.values.toList().also { players.clear() }
         snapshot.forEach { player ->
-            runCatching { player.closeSuspending() }
+            runCatching { player.closeSuspending(cancelTails) }
                 .onFailure { "Error disposing ${player.playerId}: ${it.message}".err() }
         }
     }

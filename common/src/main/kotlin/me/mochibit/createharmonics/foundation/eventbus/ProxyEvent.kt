@@ -11,7 +11,9 @@ import net.minecraft.world.level.LevelAccessor
 /**
  * This event type is used to register platform specific event handlers that are required even for the common layer
  */
-sealed interface ProxyEvent : ModEvent
+sealed interface ProxyEvent : ModEvent {
+    val side: LogicalSide
+}
 
 sealed interface ClientProxyEvent : ProxyEvent
 
@@ -21,6 +23,7 @@ object CommonEvents {
     data class EntityJoinLevelEvent(
         val entity: Entity,
         val level: Level,
+        override val side: LogicalSide,
     ) : ClientProxyEvent,
         ServerProxyEvent
 
@@ -28,16 +31,19 @@ object CommonEvents {
         val dispatcher: CommandDispatcher<CommandSourceStack>,
         val env: Commands.CommandSelection,
         val context: CommandBuildContext,
+        override val side: LogicalSide,
     ) : ClientProxyEvent,
         ServerProxyEvent
 
     data class LevelUnloadEvent(
         val levelAccess: LevelAccessor,
+        override val side: LogicalSide,
     ) : ClientProxyEvent,
         ServerProxyEvent
 
-    class GameShuttingDownEvent :
-        ClientProxyEvent,
+    class GameShuttingDownEvent(
+        override val side: LogicalSide,
+    ) : ClientProxyEvent,
         ServerProxyEvent
 }
 
@@ -58,5 +64,7 @@ object TickEvents {
     data class ClientTickEvent(
         val type: Type,
         val phase: Phase,
-    ) : ClientProxyEvent
+    ) : ClientProxyEvent {
+        override val side: LogicalSide = LogicalSide.CLIENT
+    }
 }
