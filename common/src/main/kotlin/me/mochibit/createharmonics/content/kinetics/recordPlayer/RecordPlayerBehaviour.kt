@@ -101,11 +101,12 @@ class RecordPlayerBehaviour(
             .toFloat()
 
     private var _recordPlayerUUID: UUID? = null
-    val recordPlayerUUID: UUID
+    val recordPlayerUUID: UUID?
         get() {
-            return _recordPlayerUUID ?: UUID.randomUUID().also {
-                _recordPlayerUUID = it
-                be.level?.onServer {
+            return _recordPlayerUUID ?: run {
+                if (be.level?.isClientSide != false) return@run null
+                UUID.randomUUID().also {
+                    _recordPlayerUUID = it
                     be.notifyUpdate()
                 }
             }
@@ -202,10 +203,11 @@ class RecordPlayerBehaviour(
 
     private var ticksSinceLastClockSave = 0
 
-    private val audioPlayer: AudioPlayer
-        get() =
-            AudioPlayerManager.getOrCreate(
-                id = recordPlayerUUID.toString(),
+    private val audioPlayer: AudioPlayer?
+        get() {
+            val uuid = _recordPlayerUUID ?: return null
+            return AudioPlayerManager.getOrCreate(
+                id = uuid.toString(),
                 provider = { streamId, stream ->
                     contentService.streamingSoundInstanceFactory(
                         stream,
@@ -227,6 +229,7 @@ class RecordPlayerBehaviour(
                     }
                 },
             )
+        }
 
     private val particleRandom: RandomSource = RandomSource.create()
     private val playerParticleJob =
@@ -294,7 +297,9 @@ class RecordPlayerBehaviour(
         super.lazyTick()
         val beLevel = be.level ?: return
         beLevel.onClient { level, virtual ->
-            reverberator.update(audioPlayer, be.blockPos, level)
+            audioPlayer?.let {
+                reverberator.update(it, be.blockPos, level)
+            }
         }
     }
 
@@ -435,8 +440,10 @@ class RecordPlayerBehaviour(
         }
 
         level.onClient { level, virtual ->
-            audioPlayer.tick()
-            underwaterEffect.update(audioPlayer, be.blockPos, level)
+            audioPlayer?.tick()
+            audioPlayer?.let {
+                underwaterEffect.update(it, be.blockPos, level)
+            }
         }
     }
 
@@ -597,8 +604,9 @@ class RecordPlayerBehaviour(
         initialPos: Double = 0.0,
     ) {
         val level = be.level ?: return
+        val player = audioPlayer ?: return
 
-        audioPlayer.playFromRecord(
+        player.playFromRecord(
             currentRecord,
             { pitchSupplierInterpolated.getValue() },
             { radiusSupplierInterpolated.getValue() },
@@ -607,19 +615,19 @@ class RecordPlayerBehaviour(
             level,
         )
 
-        underwaterEffect.update(audioPlayer, be.blockPos, level)
+        underwaterEffect.update(player, be.blockPos, level)
     }
 
     private fun resumeClientPlayer() {
-        audioPlayer.play()
+        audioPlayer?.play()
     }
 
     private fun pauseClientPlayer() {
-        audioPlayer.pause()
+        audioPlayer?.pause()
     }
 
     private fun stopClientPlayer() {
-        audioPlayer.stop()
+        audioPlayer?.stop()
     }
 
     fun dropContent() {
@@ -634,7 +642,7 @@ class RecordPlayerBehaviour(
     }
 
     override fun unload() {
-        val uuidStr = recordPlayerUUID.toString()
+        val uuidStr = recordPlayerUUID?.toString() ?: return
 
         playerParticleJob.cancel()
 
@@ -653,7 +661,7 @@ class RecordPlayerBehaviour(
     }
 
     override fun destroy() {
-        val uuidStr = recordPlayerUUID.toString()
+        val uuidStr = recordPlayerUUID?.toString() ?: return
 
         playerParticleJob.cancel()
 
@@ -725,18 +733,19 @@ class RecordPlayerBehaviour(
             val oldPlaybackState = playbackState
 
             be.level?.onClient { level, virtual ->
+                val player = audioPlayer ?: return@onClient
                 when (newPlaybackState) {
                     PlaybackState.PLAYING -> {
                         val currentRecord = getRecord()
                         if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
-                            when (audioPlayer.state.value) {
+                            when (player.state.value) {
                                 PlayerState.PAUSED -> {
                                     // Resuming from pause — let the internal clock continue
                                     resumeClientPlayer()
                                 }
 
                                 PlayerState.PLAYING -> {
-                                    audioPlayer.syncWith(playtimeClock)
+                                    player.syncWith(playtimeClock)
                                 }
 
                                 else -> {
@@ -767,7 +776,9 @@ class RecordPlayerBehaviour(
         }
 
         if (clientPacket && be.level?.isClientSide == true) {
-            underwaterEffect.update(audioPlayer, be.blockPos, be.level!!)
+            audioPlayer?.let {
+                underwaterEffect.update(it, be.blockPos, be.level!!)
+            }
         }
     }
 

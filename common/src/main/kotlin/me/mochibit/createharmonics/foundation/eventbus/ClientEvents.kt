@@ -12,7 +12,9 @@ object ClientEvents {
         val controller: MultiPlayerGameMode?,
         val localPlayer: LocalPlayer?,
         val networkManager: Connection?,
-    ) : ClientProxyEvent
+    ) : ClientProxyEvent {
+        override val side: LogicalSide = LogicalSide.CLIENT
+    }
 
     object ScreenEvent {
         data class Init(
@@ -20,6 +22,8 @@ object ClientEvents {
             val listenerList: List<GuiEventListener>,
             val addListener: (GuiEventListener) -> Unit,
             val removeListener: (GuiEventListener) -> Unit,
-        ) : ClientProxyEvent
+        ) : ClientProxyEvent {
+            override val side: LogicalSide = LogicalSide.CLIENT
+        }
     }
 }

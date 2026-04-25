@@ -123,7 +123,7 @@ sealed interface EffectPreset {
      * Applies a [ReverbEffect] whose parameters are modulated by nearby mineral blocks:
      */
     class Reverberator(
-        private val scanRadius: Int = ModConfigs.client.reverberatorScanRadius.get(),
+        private val scanRadiusProvider: () -> Int = { ModConfigs.client.reverberatorScanRadius.get() },
         private val maxEffectiveBlocks: Int = 8,
     ) : EffectPreset {
         // Base values when no blocks are present (near-dry, subtle room)
@@ -222,7 +222,7 @@ sealed interface EffectPreset {
             if (level is VirtualRenderWorld) return
             if (!level.isClientSide) return
 
-            val counts = level.scanReverberatorBlocks(x, y, z, scanRadius)
+            val counts = level.scanReverberatorBlocks(x, y, z, scanRadiusProvider())
 
             if (counts.total == 0) {
                 removeReverb(audioPlayer)

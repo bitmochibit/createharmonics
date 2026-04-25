@@ -26,8 +26,12 @@ object AudioSourceResolver {
         )
 
     private fun isDirectAudioUrl(url: String): Boolean {
-        val path = url.substringBefore('?').substringBefore('#')
-        return path.substringAfterLast('.', "").lowercase() in DIRECT_AUDIO_EXTENSIONS
+        val cleanUrl = url.substringBefore('#')
+        val pathExt = cleanUrl.substringBefore('?').substringAfterLast('.', "").lowercase()
+        if (pathExt in DIRECT_AUDIO_EXTENSIONS) return true
+
+        val fullExt = cleanUrl.substringAfterLast('.', "").lowercase()
+        return fullExt in DIRECT_AUDIO_EXTENSIONS
     }
 
     fun resolve(request: AudioRequest): AudioSource =

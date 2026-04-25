@@ -39,22 +39,24 @@ abstract class PlatformEventBridge<PlatformEvent : Any> {
     inner class ProxyBuilder<FE : PlatformEvent>(
         val klass: KClass<FE>,
     ) {
-        inline fun <reified PE : ServerProxyEvent> register(noinline mapper: FE.() -> PE) {
+        inline fun <reified PE : ServerProxyEvent> register(noinline mapper: FE.(LogicalSide) -> PE) {
             markServerRegistered(PE::class)
-            registerListener(klass, mapper)
+            registerListener(klass) { mapper(LogicalSide.SERVER) }
         }
 
-        inline fun <reified PE : ClientProxyEvent> registerClient(noinline mapper: FE.() -> PE) {
+        inline fun <reified PE : ClientProxyEvent> registerClient(noinline mapper: FE.(LogicalSide) -> PE) {
             markClientRegistered(PE::class)
-            registerClientListener(klass, mapper)
+            registerClientListener(klass) { mapper(LogicalSide.CLIENT) }
         }
 
-        inline fun <reified E> registerBoth(noinline mapper: FE.() -> E)
+        inline fun <reified E> registerBoth(
+            noinline mapper: FE.(LogicalSide) -> E,
+        )
                 where E : ServerProxyEvent, E : ClientProxyEvent {
             markServerRegistered(E::class)
             markClientRegistered(E::class)
-            registerListener(klass, mapper)
-            registerClientListener(klass, mapper)
+            registerListener(klass) { mapper(LogicalSide.SERVER) }
+            registerClientListener(klass) { mapper(LogicalSide.CLIENT) }
         }
     }
 
