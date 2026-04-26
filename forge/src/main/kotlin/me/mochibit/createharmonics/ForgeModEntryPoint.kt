@@ -1,26 +1,16 @@
 package me.mochibit.createharmonics
 
-import com.simibubi.create.foundation.data.CreateRegistrate
-import kotlinx.coroutines.runBlocking
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
-import me.mochibit.createharmonics.audio.bin.BinStatusManager
-import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
-import me.mochibit.createharmonics.foundation.async.launchOnClient
-import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.extension.asResource
-import me.mochibit.createharmonics.foundation.registry.ForgeConfigRegistrar
 import me.mochibit.createharmonics.foundation.registry.ForgeRegistry
 import me.mochibit.createharmonics.foundation.registry.autoRegister
-import me.mochibit.createharmonics.ponder.ModPonderPlugin
 import net.createmod.catnip.config.ui.BaseConfigScreen
-import net.createmod.ponder.foundation.PonderIndex
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.core.Direction
-import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory
@@ -28,7 +18,6 @@ import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.common.capabilities.Capability
 import net.minecraftforge.common.capabilities.ForgeCapabilities
 import net.minecraftforge.common.capabilities.ICapabilityProvider
-import net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent
 import net.minecraftforge.common.util.LazyOptional
 import net.minecraftforge.event.AttachCapabilitiesEvent
 import net.minecraftforge.eventbus.api.IEventBus
@@ -38,7 +27,6 @@ import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent
 import net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
-import net.minecraftforge.items.IItemHandler
 
 @Mod(MOD_ID)
 class ForgeModEntryPoint(
@@ -120,21 +108,7 @@ class ForgeModEntryPoint(
 
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT) {
             Runnable {
-                launchOnClient {
-                    BinStatusManager.initialize()
-                }
-                PonderIndex.addPlugin(ModPonderPlugin())
-                Runtime.getRuntime().addShutdownHook(
-                    Thread {
-                        try {
-                            runBlocking {
-                                ProcessLifecycleManager.shutdownAll()
-                            }
-                        } catch (e: Exception) {
-                            "Error shutting down processes: ${e.message}".err()
-                        }
-                    },
-                )
+                CreateHarmonicsClientMod.setup()
             }
         }
 

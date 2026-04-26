@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.foundation.services
 
+import me.mochibit.createharmonics.foundation.eventbus.ForgeClientEventBridge
 import me.mochibit.createharmonics.foundation.eventbus.ForgeEventBridge
 import net.minecraftforge.fml.ModList
 import net.minecraftforge.fml.loading.FMLLoader
@@ -18,5 +19,9 @@ class ForgePlatformService : PlatformService {
 
     override fun setupEventBridge() {
         ForgeEventBridge.setup()
+    }
+
+    override fun setupClientEventBridge() {
+        ForgeClientEventBridge.setup()
     }
 }

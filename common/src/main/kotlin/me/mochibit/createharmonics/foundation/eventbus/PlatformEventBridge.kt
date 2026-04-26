@@ -3,84 +3,49 @@ package me.mochibit.createharmonics.foundation.eventbus
 
 import kotlin.reflect.KClass
 
-abstract class PlatformEventBridge<PlatformEvent : Any> {
-    private val registeredServer: MutableMap<KClass<out ServerProxyEvent>, Boolean> =
-        ServerProxyEvent::class
-            .allSealedLeaves<ServerProxyEvent>()
-            .associateWith { false }
-            .toMutableMap()
-
-    private val registeredClient: MutableMap<KClass<out ClientProxyEvent>, Boolean> =
-        ClientProxyEvent::class
-            .allSealedLeaves<ClientProxyEvent>()
-            .associateWith { false }
-            .toMutableMap()
-
-    fun markServerRegistered(klass: KClass<out ServerProxyEvent>) {
-        check(klass in registeredServer) { "Unknown ServerProxyEvent subclass: ${klass.simpleName}" }
-        registeredServer[klass] = true
-    }
-
-    fun markClientRegistered(klass: KClass<out ClientProxyEvent>) {
-        check(klass in registeredClient) { "Unknown ClientProxyEvent subclass: ${klass.simpleName}" }
-        registeredClient[klass] = true
-    }
-
-    abstract fun <FE : PlatformEvent> registerListener(
+abstract class PlatformEventBridge<PE : Any> {
+    abstract fun <FE : PE> registerListener(
         klass: KClass<FE>,
         mapper: FE.() -> ServerProxyEvent,
     )
 
-    abstract fun <FE : PlatformEvent> registerClientListener(
+    open fun <FE : PE> registerClientListener(
         klass: KClass<FE>,
         mapper: FE.() -> ClientProxyEvent,
-    )
+    ) {}
 
-    inner class ProxyBuilder<FE : PlatformEvent>(
+    open fun onServerRegistered(klass: KClass<out ServerProxyEvent>) {}
+
+    open fun onClientRegistered(klass: KClass<out ClientProxyEvent>) {}
+
+    inner class ProxyBuilder<FE : PE>(
         val klass: KClass<FE>,
     ) {
-        inline fun <reified PE : ServerProxyEvent> register(noinline mapper: FE.(LogicalSide) -> PE) {
-            markServerRegistered(PE::class)
+        inline fun <reified E : ServerProxyEvent> register(noinline mapper: FE.(LogicalSide) -> E) {
+            onServerRegistered(E::class)
             registerListener(klass) { mapper(LogicalSide.SERVER) }
         }
 
-        inline fun <reified PE : ClientProxyEvent> registerClient(noinline mapper: FE.(LogicalSide) -> PE) {
-            markClientRegistered(PE::class)
+        inline fun <reified E : ClientProxyEvent> registerClient(noinline mapper: FE.(LogicalSide) -> E) {
+            onClientRegistered(E::class)
             registerClientListener(klass) { mapper(LogicalSide.CLIENT) }
         }
 
-        inline fun <reified E> registerBoth(
-            noinline mapper: FE.(LogicalSide) -> E,
-        )
-                where E : ServerProxyEvent, E : ClientProxyEvent {
-            markServerRegistered(E::class)
-            markClientRegistered(E::class)
+        inline fun <reified E> registerBoth(noinline mapper: FE.(LogicalSide) -> E) where E : ServerProxyEvent, E : ClientProxyEvent {
+            onServerRegistered(E::class)
             registerListener(klass) { mapper(LogicalSide.SERVER) }
             registerClientListener(klass) { mapper(LogicalSide.CLIENT) }
         }
     }
 
-    protected inline fun <reified FE : PlatformEvent> on() = ProxyBuilder(FE::class)
+    protected inline fun <reified FE : PE> on() = ProxyBuilder(FE::class)
 
     protected abstract fun setupProxyEvents()
 
-    fun setup() {
-        setupProxyEvents()
-        val missingServer = registeredServer.filterValues { !it }.keys
-        val missingClient = registeredClient.filterValues { !it }.keys
-        if (missingServer.isNotEmpty() || missingClient.isNotEmpty()) {
-            error(
-                "Unregistered proxy events detected! " +
-                    "\n\nserver: ${missingServer.map { it.qualifiedName }}" +
-                    "\nclient: ${missingClient.map { it.qualifiedName }}" +
-                    "\n\nThis is an oversight on the part of Create: Harmonics developers; please open a issue on github to notify them!" +
-                    "\nhttps://github.com/bitmochibit/createharmonics/issues",
-            )
-        }
-    }
+    abstract fun setup()
 }
 
-private fun <T : Any> KClass<*>.allSealedLeaves(): List<KClass<out T>> =
+fun <T : Any> KClass<*>.allSealedLeaves(): List<KClass<out T>> =
     if (sealedSubclasses.isEmpty()) {
         listOf(this as KClass<out T>)
     } else {

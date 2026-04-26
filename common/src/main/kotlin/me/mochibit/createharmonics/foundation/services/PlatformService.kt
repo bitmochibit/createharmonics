@@ -20,6 +20,8 @@ interface PlatformService {
     fun isModLoaded(modId: String): Boolean
 
     fun setupEventBridge()
+
+    fun setupClientEventBridge()
 }
 
 val platformService: PlatformService by lazy {
