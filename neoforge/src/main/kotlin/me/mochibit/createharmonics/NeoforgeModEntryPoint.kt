@@ -9,19 +9,12 @@ import me.mochibit.createharmonics.foundation.registry.ModBlockEntities
 import me.mochibit.createharmonics.foundation.registry.NeoforgeModPackets
 import me.mochibit.createharmonics.foundation.registry.NeoforgeRegistry
 import me.mochibit.createharmonics.foundation.registry.autoRegister
-import net.createmod.catnip.config.ui.BaseConfigScreen
-import net.minecraft.client.gui.screens.Screen
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.bus.api.SubscribeEvent
-import net.neoforged.fml.ModContainer
-import net.neoforged.fml.ModLoadingContext
 import net.neoforged.fml.common.EventBusSubscriber
 import net.neoforged.fml.common.Mod
-import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent
-import net.neoforged.fml.event.lifecycle.FMLLoadCompleteEvent
 import net.neoforged.neoforge.capabilities.Capabilities
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent
-import net.neoforged.neoforge.client.gui.IConfigScreenFactory
 
 @Mod(MOD_ID)
 class NeoforgeModEntryPoint(
@@ -40,28 +33,6 @@ class NeoforgeModEntryPoint(
 
     @EventBusSubscriber(modid = MOD_ID)
     object ModSetup {
-        @JvmStatic
-        @SubscribeEvent
-        fun onClientSetup(event: FMLClientSetupEvent) {
-            BaseConfigScreen.setDefaultActionFor(MOD_ID) { base ->
-                base.withSpecs(
-                    ModConfigs.client.specification,
-                    ModConfigs.common.specification,
-                    ModConfigs.server.specification,
-                )
-            }
-        }
-
-        @JvmStatic
-        @SubscribeEvent
-        fun onLoadComplete(event: FMLLoadCompleteEvent) {
-            ModLoadingContext.get().registerExtensionPoint(IConfigScreenFactory::class.java) {
-                IConfigScreenFactory { _: ModContainer, previousScreen: Screen ->
-                    BaseConfigScreen(previousScreen, MOD_ID)
-                }
-            }
-        }
-
         @JvmStatic
         @SubscribeEvent
         fun registerCapabilities(event: RegisterCapabilitiesEvent) {

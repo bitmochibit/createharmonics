@@ -5,9 +5,6 @@ import net.neoforged.api.distmarker.Dist
 import net.neoforged.bus.api.Event
 import net.neoforged.bus.api.EventPriority
 import net.neoforged.fml.loading.FMLEnvironment
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent
-import net.neoforged.neoforge.client.event.ClientTickEvent
-import net.neoforged.neoforge.client.event.ScreenEvent
 import net.neoforged.neoforge.common.NeoForge
 import net.neoforged.neoforge.event.GameShuttingDownEvent
 import net.neoforged.neoforge.event.RegisterCommandsEvent
@@ -18,7 +15,7 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent
 import net.neoforged.neoforge.event.server.ServerStoppedEvent
 import kotlin.reflect.KClass
 
-object NeoforgeEventBridge : PlatformEventBridge<Event>() {
+object NeoforgeCommonEventBridge : CommonEventBridge<Event>() {
     override fun <FE : Event> registerListener(
         klass: KClass<FE>,
         mapper: FE.() -> ServerProxyEvent,
@@ -40,42 +37,19 @@ object NeoforgeEventBridge : PlatformEventBridge<Event>() {
     }
 
     override fun setupProxyEvents() {
-        on<ServerStartedEvent>()
-            .register { ServerEvents.ServerStartedEvent(server) }
-        on<ServerStoppedEvent>()
-            .register { ServerEvents.ServerStoppedEvent(server) }
+        on<ServerStartedEvent>().register { ServerEvents.ServerStartedEvent(server) }
+        on<ServerStoppedEvent>().register { ServerEvents.ServerStoppedEvent(server) }
         on<EntityJoinLevelEvent>()
             .registerBoth { side -> CommonEvents.EntityJoinLevelEvent(entity, level, side) }
         on<PlayerEvent.StartTracking>()
             .register { ServerEvents.PlayerStartTrackingEntity(entity as ServerPlayer, target) }
-        on<PlayerEvent.StopTracking>().register {
-            ServerEvents.PlayerStopTrackingEntity(this.entity as ServerPlayer, target)
-        }
+        on<PlayerEvent.StopTracking>()
+            .register { ServerEvents.PlayerStopTrackingEntity(entity as ServerPlayer, target) }
         on<RegisterCommandsEvent>()
             .registerBoth { side -> CommonEvents.RegisterCommandsEvent(dispatcher, commandSelection, buildContext, side) }
         on<LevelEvent.Unload>()
             .registerBoth { side -> CommonEvents.LevelUnloadEvent(level, side) }
         on<GameShuttingDownEvent>()
             .registerBoth { side -> CommonEvents.GameShuttingDownEvent(side) }
-
-        on<ClientPlayerNetworkEvent.LoggingOut>()
-            .registerClient { ClientEvents.ClientDisconnectedEvent(multiPlayerGameMode, player, connection) }
-        on<ClientTickEvent.Pre>()
-            .registerClient {
-                TickEvents.ClientTickEvent(type = TickEvents.Type.CLIENT, phase = TickEvents.Phase.START)
-            }
-        on<ClientTickEvent.Post>()
-            .registerClient {
-                TickEvents.ClientTickEvent(type = TickEvents.Type.CLIENT, phase = TickEvents.Phase.END)
-            }
-
-        on<ScreenEvent.Init.Post>().registerClient {
-            ClientEvents.ScreenEvent.Init(
-                this.screen,
-                this.listenersList,
-                this::addListener,
-                this::removeListener,
-            )
-        }
     }
 }

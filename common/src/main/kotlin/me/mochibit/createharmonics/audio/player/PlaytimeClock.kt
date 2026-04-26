@@ -7,7 +7,11 @@ class PlaytimeClock {
     private var _isPlaying: Boolean = false
     private var lastTickNano: Long = -1L
 
-    val currentPlaytime: Double get() = offset
+    val currentPlaytime: Double get() {
+        if (!_isPlaying || lastTickNano == -1L) return offset
+        return offset + (System.nanoTime() - lastTickNano) / 1_000_000_000.0
+    }
+
     val isPlaying: Boolean get() = _isPlaying
 
     fun tick() {

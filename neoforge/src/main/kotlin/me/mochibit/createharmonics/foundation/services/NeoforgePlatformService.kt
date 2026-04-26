@@ -1,9 +1,9 @@
 package me.mochibit.createharmonics.foundation.services
 
-import me.mochibit.createharmonics.foundation.eventbus.NeoforgeEventBridge
+import me.mochibit.createharmonics.foundation.eventbus.NeoforgeClientEventBridge
+import me.mochibit.createharmonics.foundation.eventbus.NeoforgeCommonEventBridge
 import net.neoforged.fml.ModList
 import net.neoforged.fml.loading.FMLLoader
-import net.neoforged.neoforge.common.Tags
 
 class NeoforgePlatformService : PlatformService {
     override val currentPlatform: PlatformService.Platform = PlatformService.Platform.NEOFORGE
@@ -18,6 +18,10 @@ class NeoforgePlatformService : PlatformService {
     override fun isModLoaded(modId: String): Boolean = ModList.get().isLoaded(modId)
 
     override fun setupEventBridge() {
-        NeoforgeEventBridge.setup()
+        NeoforgeCommonEventBridge.setup()
+    }
+
+    override fun setupClientEventBridge() {
+        NeoforgeClientEventBridge.setup()
     }
 }
