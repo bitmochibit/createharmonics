@@ -5,11 +5,11 @@ import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.PlaybackState
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
-import me.mochibit.createharmonics.content.records.RecordCraftingHandler
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.foundation.registry.ModBlocks
 import me.mochibit.createharmonics.foundation.registry.ModItems
 import me.mochibit.createharmonics.foundation.registry.ModItems.etherealRecord
+import me.mochibit.createharmonics.handler.RecordCraftingHandler
 import net.minecraft.core.BlockPos
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper

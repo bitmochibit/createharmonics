@@ -4,16 +4,18 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Runnable
 import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
+import me.mochibit.createharmonics.foundation.eventbus.ModEventHandler
 import me.mochibit.createharmonics.foundation.eventbus.ProxyEvent
 import me.mochibit.createharmonics.foundation.eventbus.ServerEvents
+import me.mochibit.createharmonics.handler.CommonEventHandler
 import net.minecraft.client.Minecraft
 import net.minecraft.server.MinecraftServer
 import kotlin.coroutines.CoroutineContext
 
-object ModDispatchers {
+object ModDispatchers : ModEventHandler {
     private var currentServer: MinecraftServer? = null
 
-    init {
+    override fun setupEvents() {
         EventBus.on<ServerEvents.ServerStartedEvent> { event ->
             currentServer = event.server
         }

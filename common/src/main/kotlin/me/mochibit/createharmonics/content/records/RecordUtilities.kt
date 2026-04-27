@@ -3,23 +3,18 @@ package me.mochibit.createharmonics.content.records
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.audio.effect.AudioEffect
-import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.info.AudioInfo
 import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.audio.player.AudioRequest
-import me.mochibit.createharmonics.audio.source.StreamAudioSource
 import me.mochibit.createharmonics.audio.stream.Ogg2PcmInputStream
 import me.mochibit.createharmonics.audio.utils.getStreamDirectly
 import me.mochibit.createharmonics.foundation.registry.ModItems
-import me.mochibit.createharmonics.foundation.services.contentService
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
-import net.minecraft.client.Minecraft
+import me.mochibit.createharmonics.handler.RecordCraftingHandler
 import net.minecraft.nbt.CompoundTag
-import net.minecraft.resources.ResourceLocation
 import net.minecraft.util.RandomSource
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.RecordItem
-import javax.sound.sampled.AudioSystem
 
 // TODO This will be refactored to be more robust
 object RecordUtilities {

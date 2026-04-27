@@ -4,11 +4,13 @@ import com.simibubi.create.foundation.data.CreateRegistrate
 import com.simibubi.create.foundation.item.ItemDescription
 import com.simibubi.create.foundation.item.KineticStats
 import com.simibubi.create.foundation.item.TooltipModifier
+import me.mochibit.createharmonics.foundation.async.ModDispatchers
 import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.eventbus.autoHandler
 import me.mochibit.createharmonics.foundation.registry.CommonRegistry
 import me.mochibit.createharmonics.foundation.registry.autoRegister
 import me.mochibit.createharmonics.gui.CommonGuiEventHandler
+import me.mochibit.createharmonics.handler.CommonEventHandler
 import net.createmod.catnip.lang.FontHelper
 import net.minecraft.resources.ResourceKey
 import net.minecraft.world.item.CreativeModeTab
@@ -41,9 +43,10 @@ object CreateHarmonicsMod {
         }
         initialized = true
         _registrate.registrateConfiguration()
-
+        ModDispatchers.setupEvents()
         autoRegister<CommonRegistry>()
         autoHandler<CommonGuiEventHandler>()
+        autoHandler<CommonEventHandler>()
     }
 }
 

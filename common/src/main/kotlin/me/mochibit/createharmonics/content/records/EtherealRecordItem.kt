@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.content.records
 
 import com.simibubi.create.content.equipment.goggles.GogglesItem
 import me.mochibit.createharmonics.foundation.locale.ModLang
+import me.mochibit.createharmonics.handler.RecordCraftingHandler
 import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft
 import net.minecraft.core.registries.BuiltInRegistries
