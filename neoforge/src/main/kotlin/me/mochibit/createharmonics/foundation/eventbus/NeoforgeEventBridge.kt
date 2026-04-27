@@ -15,7 +15,7 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent
 import net.neoforged.neoforge.event.server.ServerStoppedEvent
 import kotlin.reflect.KClass
 
-object NeoforgeCommonEventBridge : CommonEventBridge<Event>() {
+object NeoforgeEventBridge : CommonEventBridge<Event>() {
     override fun <FE : Event> registerListener(
         klass: KClass<FE>,
         mapper: FE.() -> ServerProxyEvent,
