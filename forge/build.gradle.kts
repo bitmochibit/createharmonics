@@ -15,7 +15,7 @@ kotlin {
     }
 }
 
-base.archivesName.set("${rootProject.property("mod_name")}-forge-${rootProject.property("minecraft_version")}")
+base.archivesName.set("${rootProject.property("mod_id")}-forge-${rootProject.property("minecraft_version")}")
 
 val minecraftVersionProp = rootProject.property("minecraft_version").toString()
 val parchmentMinecraftProp = rootProject.property("parchment_minecraft").toString()
