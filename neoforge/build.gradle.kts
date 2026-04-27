@@ -12,7 +12,7 @@ kotlin {
     }
 }
 
-base.archivesName.set("${rootProject.property("mod_name")}-neoforge-${rootProject.property("minecraft_version")}")
+base.archivesName.set("${rootProject.property("mod_id")}-neoforge-${rootProject.property("minecraft_version")}")
 
 val minecraftVersionProp = rootProject.property("minecraft_version").toString() // e.g. "1.21.1"
 val parchmentMinecraftProp = rootProject.property("parchment_minecraft").toString()
