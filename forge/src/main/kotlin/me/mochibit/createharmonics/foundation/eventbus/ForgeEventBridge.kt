@@ -11,6 +11,7 @@ import net.minecraftforge.event.server.ServerStartedEvent
 import net.minecraftforge.event.server.ServerStoppedEvent
 import net.minecraftforge.eventbus.api.Event
 import net.minecraftforge.eventbus.api.EventPriority
+import net.minecraftforge.fml.util.thread.EffectiveSide
 import kotlin.reflect.KClass
 
 object ForgeEventBridge : CommonEventBridge<Event>() {
@@ -20,6 +21,17 @@ object ForgeEventBridge : CommonEventBridge<Event>() {
     ) {
         MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, klass.java) { event: FE ->
             EventBus.post(event.mapper())
+        }
+    }
+
+    override fun <FE : Event> registerClientListener(
+        klass: KClass<FE>,
+        mapper: FE.() -> ClientProxyEvent,
+    ) {
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, klass.java) { event: FE ->
+            if (EffectiveSide.get().isClient) {
+                EventBus.post(event.mapper())
+            }
         }
     }
 
