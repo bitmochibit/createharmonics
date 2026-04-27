@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.content.records
 
 import com.simibubi.create.content.equipment.goggles.GogglesItem
 import me.mochibit.createharmonics.foundation.locale.ModLang
+import me.mochibit.createharmonics.handler.RecordCraftingHandler
 import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft
 import net.minecraft.core.component.DataComponents
@@ -12,7 +13,6 @@ import net.minecraft.network.chat.Style
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.TooltipFlag
-import net.minecraft.world.level.Level
 
 class EtherealRecordItem(
     val recordType: RecordType,
