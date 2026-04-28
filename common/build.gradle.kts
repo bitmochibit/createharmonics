@@ -109,7 +109,7 @@ dependencies {
     compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-$minecraftVersionProp:$flywheelVersion")
     compileOnly("com.tterrag.registrate:Registrate:$registrateVersion")
 
-    // VS2 — Unavailable for 1.21
+    // Coming soon, Sable
 }
 
 // ── Artifact publication for submodules ───────────────────────────────────────
@@ -140,19 +140,13 @@ val curseforgeExcludes =
 // Expose them so platform scripts can consume via project(":common").extra
 extra["curseforgeExcludes"] = curseforgeExcludes
 
-tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
-    configurations = listOf(project.configurations["shadow"])
-    archiveClassifier.set("")
-    mergeServiceFiles()
-
+tasks.named<Jar>("jar") {
+    from(project.configurations["shadow"].map { if (it.isDirectory) it else zipTree(it) })
     if (isCurseForge) {
         curseforgeExcludes.forEach { exclude(it) }
     }
 }
 
-tasks.named("jar") {
-    finalizedBy("shadowJar")
-}
 
 tasks.register<GradleBuild>("buildForCurseforge") {
     startParameter.projectProperties = mapOf("curseforge" to "true")

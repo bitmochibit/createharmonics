@@ -1,39 +1,11 @@
 package me.mochibit.createharmonics.audio.player
 
+import me.mochibit.createharmonics.audio.info.AudioInfo
 import me.mochibit.createharmonics.audio.source.AudioSource
 import me.mochibit.createharmonics.audio.source.HttpAudioSource
 import me.mochibit.createharmonics.audio.source.StreamAudioSource
-import me.mochibit.createharmonics.audio.source.YtdlpAudioSource
 
 object AudioSourceResolver {
-    private val DIRECT_AUDIO_EXTENSIONS =
-        setOf(
-            "mp3",
-            "mp4",
-            "m4a",
-            "m4b",
-            "wav",
-            "wave",
-            "ogg",
-            "oga",
-            "opus",
-            "flac",
-            "aac",
-            "webm",
-            "wma",
-            "aiff",
-            "aif",
-        )
-
-    private fun isDirectAudioUrl(url: String): Boolean {
-        val cleanUrl = url.substringBefore('#')
-        val pathExt = cleanUrl.substringBefore('?').substringAfterLast('.', "").lowercase()
-        if (pathExt in DIRECT_AUDIO_EXTENSIONS) return true
-
-        val fullExt = cleanUrl.substringAfterLast('.', "").lowercase()
-        return fullExt in DIRECT_AUDIO_EXTENSIONS
-    }
-
     fun resolve(request: AudioRequest): AudioSource =
         when (request) {
             is AudioRequest.Stream -> {
@@ -41,11 +13,7 @@ object AudioSourceResolver {
             }
 
             is AudioRequest.Url -> {
-                if (isDirectAudioUrl(request.url)) {
-                    HttpAudioSource(request.url)
-                } else {
-                    YtdlpAudioSource(request.url)
-                }
+                HttpAudioSource(request.url)
             }
         }
 }

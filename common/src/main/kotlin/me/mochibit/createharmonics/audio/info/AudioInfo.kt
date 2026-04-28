@@ -27,11 +27,12 @@ data class AudioInfo(
     val timestamp: Long = System.currentTimeMillis(), // Default to creation time
 ) {
     companion object {
-        suspend fun withYtdlp(rawUrl: String): AudioInfo =
-            AudioInfoCache.getAudioInfo(rawUrl, AudioInfoCache.InfoExtractionStrategy.Companion.YtdlpStrat)
-
-        suspend fun withFFProbe(rawUrl: String): AudioInfo =
-            AudioInfoCache.getAudioInfo(rawUrl, AudioInfoCache.InfoExtractionStrategy.Companion.FFProbeStrat)
+        suspend fun resolveUrl(rawUrl: String): AudioInfo =
+            try {
+                AudioInfoCache.getAudioInfo(rawUrl, AudioInfoCache.InfoExtractionStrategy.Companion.FFProbeStrat)
+            } catch (e: Exception) {
+                AudioInfoCache.getAudioInfo(rawUrl, AudioInfoCache.InfoExtractionStrategy.Companion.YtdlpStrat)
+            }
     }
 }
 

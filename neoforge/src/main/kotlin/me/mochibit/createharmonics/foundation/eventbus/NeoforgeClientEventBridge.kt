@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.foundation.eventbus
 
 import net.neoforged.bus.api.Event
 import net.neoforged.bus.api.EventPriority
+import net.neoforged.fml.util.thread.EffectiveSide
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent
 import net.neoforged.neoforge.client.event.ClientTickEvent
 import net.neoforged.neoforge.client.event.ScreenEvent
@@ -14,7 +15,9 @@ object NeoforgeClientEventBridge : ClientEventBridge<Event>() {
         mapper: FE.() -> ClientProxyEvent,
     ) {
         NeoForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, klass.java) { event: FE ->
-            EventBus.post(event.mapper())
+            if (EffectiveSide.get().isClient) {
+                EventBus.post(event.mapper())
+            }
         }
     }
 

@@ -3,6 +3,7 @@ package me.mochibit.createharmonics.audio.instance
 import me.mochibit.createharmonics.audio.stream.PcmAudioStream
 import me.mochibit.createharmonics.foundation.extension.asResource
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
+import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.client.sounds.AudioStream
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
@@ -35,6 +36,41 @@ abstract class StreamingSoundInstance(
     ),
     SampleRatedInstance {
     override fun getLocation(): ResourceLocation = "streaming_sound_instance".asResource()
+
+    companion object {
+        fun simpleFactory(
+            stream: InputStream,
+            streamId: String,
+            soundEvent: SoundEvent,
+            sampleRate: Int = 44100,
+            soundSource: SoundSource = SoundSource.RECORDS,
+            randomSource: RandomSource = RandomSource.create(),
+            volumeSupplier: FloatSupplier = FloatSupplier { 1.0f },
+            pitchSupplier: FloatSupplier = FloatSupplier { 1.0f },
+            posSupplier: () -> BlockPos = { BlockPos.ZERO },
+            radiusSupplier: FloatSupplier = FloatSupplier { 64f },
+            looping: Boolean = false,
+            attenuation: SoundInstance.Attenuation = SoundInstance.Attenuation.LINEAR,
+            delay: Int = 0,
+            relative: Boolean = false,
+        ): StreamingSoundInstance =
+            SimpleStreamSoundInstance(
+                inStream = stream,
+                streamId,
+                soundEvent,
+                posSupplier,
+                volumeSupplier,
+                pitchSupplier,
+                radiusSupplier,
+                randomSource,
+                soundSource,
+                looping,
+                delay,
+                attenuation,
+                relative,
+                sampleRate,
+            )
+    }
 
     val currentAudioStreamDelegate =
         lazy {

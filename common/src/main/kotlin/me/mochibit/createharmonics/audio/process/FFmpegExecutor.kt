@@ -119,11 +119,6 @@ class FFmpegExecutor private constructor() {
             buildList {
                 add(FFMPEGProvider.getExecutablePath())
 
-                if (seekSeconds > 0.0 && !isLive) {
-                    add("-ss")
-                    add(getSeekString(seekSeconds))
-                }
-
                 if (headers.isNotEmpty()) {
                     val headerString =
                         headers.entries
@@ -135,11 +130,6 @@ class FFmpegExecutor private constructor() {
                     add("-headers")
                     add(headerString)
                 }
-
-                add("-reconnect_on_network_error")
-                add("1")
-                add("-reconnect_on_http_error")
-                add("5xx,4xx")
 
                 if (isLive) {
                     add("-reconnect_streamed")
@@ -155,6 +145,12 @@ class FFmpegExecutor private constructor() {
 
                 add("-i")
                 add(url)
+
+                if (seekSeconds > 0.0 && !isLive) {
+                    add("-ss")
+                    add(getSeekString(seekSeconds))
+                }
+
                 add("-f")
                 add("s16le")
                 add("-ar")
@@ -169,6 +165,7 @@ class FFmpegExecutor private constructor() {
                     add((512 * ModConfigs.client.maxPitch.get()).toString())
                 }
 
+                add("-vn")
                 add("pipe:1")
             }
 

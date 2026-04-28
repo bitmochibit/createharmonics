@@ -94,6 +94,11 @@ sourceSets.main {
     kotlin.srcDir("src/generated/kotlin")
 }
 
+val shadow by configurations.creating {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+
 dependencies {
     // Kotlin for NeoForge
     implementation("thedarkcolour:kotlinforforge-neoforge:${rootProject.property("kotlin_for_neoforge_version")}")
@@ -113,6 +118,7 @@ dependencies {
     runtimeOnly("mezz.jei:jei-$jeiMinecraftVersion-neoforge:$jeiVersion")
 
     compileOnly(project(":common"))
+    shadow("org.tukaani:xz:1.11")
     compileOnly("org.tukaani:xz:1.11")
 }
 
@@ -158,6 +164,7 @@ tasks.register<GradleBuild>("cleanAll") {
 val curseforgeExcludes = commonProject.extra["curseforgeExcludes"] as List<*>
 
 tasks.named<Jar>("jar") {
+    from(configurations["shadow"].map { if (it.isDirectory) it else zipTree(it) })
     manifest.attributes(
         "MixinConfigs" to "$modId.mixins.json,createharmonics.common.mixins.json",
     )

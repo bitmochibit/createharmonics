@@ -22,30 +22,5 @@ import net.minecraft.world.level.material.FluidState
 import java.io.InputStream
 
 class NeoforgeContentService : ContentService {
-    override fun streamingSoundInstanceFactory(
-        stream: InputStream,
-        streamId: String,
-        soundEvent: SoundEvent,
-        sampleRate: Int,
-        soundSource: SoundSource,
-        randomSource: RandomSource,
-        volumeSupplier: FloatSupplier,
-        pitchSupplier: FloatSupplier,
-        posSupplier: () -> BlockPos,
-        radiusSupplier: FloatSupplier,
-    ): StreamingSoundInstance =
-        SimpleStreamSoundInstance(
-            stream,
-            streamId,
-            soundEvent,
-            posSupplier,
-            radiusSupplier,
-            pitchSupplier,
-            radiusSupplier,
-            randomSource,
-            soundSource,
-            sampleRate = sampleRate,
-        )
-
     override fun getViscosity(fluidState: FluidState): Int = fluidState.fluidType.viscosity
 }

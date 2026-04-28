@@ -5,6 +5,7 @@ import me.mochibit.createharmonics.foundation.registry.NeoforgeModPackets
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Entity
 import net.neoforged.neoforge.network.PacketDistributor
+import net.neoforged.neoforge.server.ServerLifecycleHooks
 
 class NeoforgeNetworkService : NetworkService {
     override fun sendToServer(packet: ModPacket) {
@@ -26,6 +27,8 @@ class NeoforgeNetworkService : NetworkService {
     }
 
     override fun broadcast(packet: ModPacket) {
+        val server = ServerLifecycleHooks.getCurrentServer() ?: return
+        if (!server.isRunning) return
         PacketDistributor.sendToAllPlayers(NeoforgeModPackets.payloadFor(packet))
     }
 }

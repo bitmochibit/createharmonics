@@ -5,6 +5,7 @@ import net.neoforged.api.distmarker.Dist
 import net.neoforged.bus.api.Event
 import net.neoforged.bus.api.EventPriority
 import net.neoforged.fml.loading.FMLEnvironment
+import net.neoforged.fml.util.thread.EffectiveSide
 import net.neoforged.neoforge.common.NeoForge
 import net.neoforged.neoforge.event.GameShuttingDownEvent
 import net.neoforged.neoforge.event.RegisterCommandsEvent
@@ -16,12 +17,14 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent
 import kotlin.reflect.KClass
 
 object NeoforgeEventBridge : CommonEventBridge<Event>() {
-    override fun <FE : Event> registerListener(
+    override fun <FE : Event> registerServerListener(
         klass: KClass<FE>,
         mapper: FE.() -> ServerProxyEvent,
     ) {
         NeoForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, klass.java) { event: FE ->
-            EventBus.post(event.mapper())
+            if (EffectiveSide.get().isServer) {
+                EventBus.post(event.mapper())
+            }
         }
     }
 
@@ -29,22 +32,22 @@ object NeoforgeEventBridge : CommonEventBridge<Event>() {
         klass: KClass<FE>,
         mapper: FE.() -> ClientProxyEvent,
     ) {
-        if (FMLEnvironment.dist == Dist.CLIENT) {
-            NeoForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, klass.java) { event: FE ->
+        NeoForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, klass.java) { event: FE ->
+            if (EffectiveSide.get().isClient) {
                 EventBus.post(event.mapper())
             }
         }
     }
 
     override fun setupProxyEvents() {
-        on<ServerStartedEvent>().register { ServerEvents.ServerStartedEvent(server) }
-        on<ServerStoppedEvent>().register { ServerEvents.ServerStoppedEvent(server) }
+        on<ServerStartedEvent>().registerServer { ServerEvents.ServerStartedEvent(server) }
+        on<ServerStoppedEvent>().registerServer { ServerEvents.ServerStoppedEvent(server) }
         on<EntityJoinLevelEvent>()
             .registerBoth { side -> CommonEvents.EntityJoinLevelEvent(entity, level, side) }
         on<PlayerEvent.StartTracking>()
-            .register { ServerEvents.PlayerStartTrackingEntity(entity as ServerPlayer, target) }
+            .registerServer { ServerEvents.PlayerStartTrackingEntity(entity as ServerPlayer, target) }
         on<PlayerEvent.StopTracking>()
-            .register { ServerEvents.PlayerStopTrackingEntity(entity as ServerPlayer, target) }
+            .registerServer { ServerEvents.PlayerStopTrackingEntity(entity as ServerPlayer, target) }
         on<RegisterCommandsEvent>()
             .registerBoth { side -> CommonEvents.RegisterCommandsEvent(dispatcher, commandSelection, buildContext, side) }
         on<LevelEvent.Unload>()

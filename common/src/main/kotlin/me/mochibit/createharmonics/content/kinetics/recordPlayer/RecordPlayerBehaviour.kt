@@ -8,6 +8,7 @@ import me.mochibit.createharmonics.audio.AudioPlayerManager
 import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
+import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
 import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.audio.player.PlayerState
 import me.mochibit.createharmonics.audio.player.PlaytimeClock
@@ -209,7 +210,7 @@ class RecordPlayerBehaviour(
             return AudioPlayerManager.getOrCreate(
                 id = uuid.toString(),
                 provider = { streamId, stream ->
-                    contentService.streamingSoundInstanceFactory(
+                    StreamingSoundInstance.simpleFactory(
                         stream,
                         streamId,
                         SoundEvents.EMPTY,
