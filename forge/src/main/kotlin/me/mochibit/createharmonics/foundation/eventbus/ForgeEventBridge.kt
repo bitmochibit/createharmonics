@@ -15,12 +15,14 @@ import net.minecraftforge.fml.util.thread.EffectiveSide
 import kotlin.reflect.KClass
 
 object ForgeEventBridge : CommonEventBridge<Event>() {
-    override fun <FE : Event> registerListener(
+    override fun <FE : Event> registerServerListener(
         klass: KClass<FE>,
         mapper: FE.() -> ServerProxyEvent,
     ) {
         MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, klass.java) { event: FE ->
-            EventBus.post(event.mapper())
+            if (EffectiveSide.get().isServer) {
+                EventBus.post(event.mapper())
+            }
         }
     }
 
@@ -37,15 +39,15 @@ object ForgeEventBridge : CommonEventBridge<Event>() {
 
     override fun setupProxyEvents() {
         on<ServerStartedEvent>()
-            .register { ServerEvents.ServerStartedEvent(server) }
+            .registerServer { ServerEvents.ServerStartedEvent(server) }
         on<ServerStoppedEvent>()
-            .register { ServerEvents.ServerStoppedEvent(server) }
+            .registerServer { ServerEvents.ServerStoppedEvent(server) }
         on<EntityJoinLevelEvent>()
             .registerBoth { side -> CommonEvents.EntityJoinLevelEvent(entity, level, side) }
         on<PlayerEvent.StartTracking>()
-            .register { ServerEvents.PlayerStartTrackingEntity(entity as ServerPlayer, target) }
+            .registerServer { ServerEvents.PlayerStartTrackingEntity(entity as ServerPlayer, target) }
         on<PlayerEvent.StopTracking>()
-            .register { ServerEvents.PlayerStopTrackingEntity(entity as ServerPlayer, target) }
+            .registerServer { ServerEvents.PlayerStopTrackingEntity(entity as ServerPlayer, target) }
         on<RegisterCommandsEvent>()
             .registerBoth { side -> CommonEvents.RegisterCommandsEvent(dispatcher, commandSelection, buildContext, side) }
         on<LevelEvent.Unload>()

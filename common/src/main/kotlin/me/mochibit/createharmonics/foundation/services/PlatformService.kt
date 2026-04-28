@@ -15,7 +15,15 @@ interface PlatformService {
 
     val currentPlatform: Platform
 
+    /**
+     * Physical dist
+     */
     val environment: Environment
+
+    /**
+     * Logical side
+     */
+    val currentThreadSide: Environment
 
     fun isModLoaded(modId: String): Boolean
 

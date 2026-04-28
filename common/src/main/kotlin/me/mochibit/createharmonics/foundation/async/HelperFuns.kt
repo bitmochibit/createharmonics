@@ -8,15 +8,27 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.mochibit.createharmonics.foundation.services.PlatformService
 import me.mochibit.createharmonics.foundation.services.platformService
+import net.minecraftforge.fml.util.thread.EffectiveSide
 import kotlin.coroutines.CoroutineContext
 
-private val isClient: Boolean
-    get() = platformService isEnvironment PlatformService.Environment.CLIENT
-
 val currentMainDispatcher: CoroutineContext
-    get() = if (isClient) ModDispatchers.Client() else ModDispatchers.Server()
+    get() =
+        if (platformService.currentThreadSide ==
+            PlatformService.Environment.SERVER
+        ) {
+            ModDispatchers.Server()
+        } else {
+            ModDispatchers.Client()
+        }
 
-private fun currentScope(): CoroutineScope = if (isClient) ClientCoroutineScope else ServerCoroutineScope
+private fun currentScope(): CoroutineScope =
+    if (platformService isEnvironment
+        PlatformService.Environment.CLIENT
+    ) {
+        ClientCoroutineScope
+    } else {
+        ServerCoroutineScope
+    }
 
 suspend fun onClientThread(block: suspend CoroutineScope.() -> Unit) = withContext(ModDispatchers.Client(), block)
 

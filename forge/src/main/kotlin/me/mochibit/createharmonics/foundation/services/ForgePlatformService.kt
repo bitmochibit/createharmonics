@@ -4,6 +4,7 @@ import me.mochibit.createharmonics.foundation.eventbus.ForgeClientEventBridge
 import me.mochibit.createharmonics.foundation.eventbus.ForgeEventBridge
 import net.minecraftforge.fml.ModList
 import net.minecraftforge.fml.loading.FMLLoader
+import net.minecraftforge.fml.util.thread.EffectiveSide
 
 class ForgePlatformService : PlatformService {
     override val currentPlatform: PlatformService.Platform = PlatformService.Platform.FORGE
@@ -14,6 +15,8 @@ class ForgePlatformService : PlatformService {
                 FMLLoader.getDist().isDedicatedServer -> PlatformService.Environment.SERVER
                 else -> throw IllegalStateException("Unknown environment")
             }
+    override val currentThreadSide: PlatformService.Environment
+        get() = if (EffectiveSide.get().isServer) PlatformService.Environment.SERVER else PlatformService.Environment.CLIENT
 
     override fun isModLoaded(modId: String): Boolean = ModList.get().isLoaded(modId)
 

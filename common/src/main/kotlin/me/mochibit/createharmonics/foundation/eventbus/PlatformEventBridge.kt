@@ -4,26 +4,58 @@ package me.mochibit.createharmonics.foundation.eventbus
 import kotlin.reflect.KClass
 
 abstract class PlatformEventBridge<PE : Any> {
-    abstract fun <FE : PE> registerListener(
+    companion object {
+        protected val serverTracking: MutableMap<KClass<out ServerProxyEvent>, Boolean> =
+            ServerProxyEvent::class
+                .allSealedLeaves<ServerProxyEvent>()
+                .associateWith { false }
+                .toMutableMap()
+
+        protected val clientTracking: MutableMap<KClass<out ClientProxyEvent>, Boolean> =
+            ClientProxyEvent::class
+                .allSealedLeaves<ClientProxyEvent>()
+                .associateWith { false }
+                .toMutableMap()
+
+        fun validateAll(checkClientOnlyToo: Boolean) {
+            val missingServer = serverTracking.filterValues { !it }.keys
+            val missingClient =
+                if (checkClientOnlyToo) {
+                    clientTracking.filterValues { !it }.keys
+                } else {
+                    emptySet()
+                }
+            val missing = missingServer + missingClient
+            if (missing.isNotEmpty()) {
+                error(
+                    "Unregistered proxy events!\n" +
+                        missing.map { it.qualifiedName } +
+                        "\nhttps://github.com/bitmochibit/createharmonics/issues",
+                )
+            }
+        }
+    }
+
+    abstract fun <FE : PE> registerClientListener(
+        klass: KClass<FE>,
+        mapper: FE.() -> ClientProxyEvent,
+    )
+
+    abstract fun <FE : PE> registerServerListener(
         klass: KClass<FE>,
         mapper: FE.() -> ServerProxyEvent,
     )
 
-    open fun <FE : PE> registerClientListener(
-        klass: KClass<FE>,
-        mapper: FE.() -> ClientProxyEvent,
-    ) {}
+    abstract fun onServerRegistered(klass: KClass<out ServerProxyEvent>)
 
-    open fun onServerRegistered(klass: KClass<out ServerProxyEvent>) {}
-
-    open fun onClientRegistered(klass: KClass<out ClientProxyEvent>) {}
+    abstract fun onClientRegistered(klass: KClass<out ClientProxyEvent>)
 
     inner class ProxyBuilder<FE : PE>(
         val klass: KClass<FE>,
     ) {
-        inline fun <reified E : ServerProxyEvent> register(noinline mapper: FE.(LogicalSide) -> E) {
+        inline fun <reified E : ServerProxyEvent> registerServer(noinline mapper: FE.(LogicalSide) -> E) {
             onServerRegistered(E::class)
-            registerListener(klass) { mapper(LogicalSide.SERVER) }
+            registerServerListener(klass) { mapper(LogicalSide.SERVER) }
         }
 
         inline fun <reified E : ClientProxyEvent> registerClient(noinline mapper: FE.(LogicalSide) -> E) {
@@ -33,7 +65,8 @@ abstract class PlatformEventBridge<PE : Any> {
 
         inline fun <reified E> registerBoth(noinline mapper: FE.(LogicalSide) -> E) where E : ServerProxyEvent, E : ClientProxyEvent {
             onServerRegistered(E::class)
-            registerListener(klass) { mapper(LogicalSide.SERVER) }
+            onClientRegistered(E::class)
+            registerServerListener(klass) { mapper(LogicalSide.SERVER) }
             registerClientListener(klass) { mapper(LogicalSide.CLIENT) }
         }
     }

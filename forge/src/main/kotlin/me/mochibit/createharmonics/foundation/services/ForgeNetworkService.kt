@@ -1,13 +1,11 @@
 package me.mochibit.createharmonics.foundation.services
 
-import me.mochibit.createharmonics.foundation.network.packet.ContraptionBlockDataChangedPacket
 import me.mochibit.createharmonics.foundation.network.packet.ModPacket
 import me.mochibit.createharmonics.foundation.registry.ForgeModPackets
-import net.minecraft.nbt.CompoundTag
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Entity
-import net.minecraftforge.network.NetworkEvent
 import net.minecraftforge.network.PacketDistributor
+import net.minecraftforge.server.ServerLifecycleHooks
 
 class ForgeNetworkService : NetworkService {
     override fun sendToServer(packet: ModPacket) {
@@ -32,6 +30,8 @@ class ForgeNetworkService : NetworkService {
     }
 
     override fun broadcast(packet: ModPacket) {
+        val server = ServerLifecycleHooks.getCurrentServer()
+        if (!server.isRunning) return
         ForgeModPackets.channel.send(PacketDistributor.ALL.noArg(), packet)
     }
 }

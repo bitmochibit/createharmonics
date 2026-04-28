@@ -2,27 +2,23 @@ package me.mochibit.createharmonics.foundation.eventbus
 
 import kotlin.reflect.KClass
 
+/**
+ * This class keeps a reference for common events; **client** do have _server_ classes
+ *
+ * The opposite doesn't apply, so in that cases, for safety, use [ClientEventBridge]
+ */
 abstract class CommonEventBridge<PE : Any> : PlatformEventBridge<PE>() {
-    private val serverTracking: MutableMap<KClass<out ServerProxyEvent>, Boolean> =
-        ServerProxyEvent::class
-            .allSealedLeaves<ServerProxyEvent>()
-            .associateWith { false }
-            .toMutableMap()
-
     override fun onServerRegistered(klass: KClass<out ServerProxyEvent>) {
         check(klass in serverTracking) { "Unknown ServerProxyEvent: ${klass.simpleName}" }
         serverTracking[klass] = true
     }
 
+    override fun onClientRegistered(klass: KClass<out ClientProxyEvent>) {
+        check(klass in clientTracking) { "Unknown ServerProxyEvent: ${klass.simpleName}" }
+        clientTracking[klass] = true
+    }
+
     override fun setup() {
         setupProxyEvents()
-        val missing = serverTracking.filterValues { !it }.keys
-        if (missing.isNotEmpty()) {
-            error(
-                "Unregistered server proxy events!\n" +
-                    missing.map { it.qualifiedName } +
-                    "\nhttps://github.com/bitmochibit/createharmonics/issues",
-            )
-        }
     }
 }

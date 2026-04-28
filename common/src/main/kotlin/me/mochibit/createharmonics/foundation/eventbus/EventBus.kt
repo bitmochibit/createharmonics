@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
 import me.mochibit.createharmonics.foundation.async.EventBusScope
+import me.mochibit.createharmonics.foundation.async.ModDispatchers
 import me.mochibit.createharmonics.foundation.async.currentMainDispatcher
 import me.mochibit.createharmonics.foundation.err
 import java.util.concurrent.ConcurrentHashMap
@@ -107,7 +108,12 @@ object EventBus {
         noinline handler: suspend (T) -> Unit,
     ): Job =
         on<T>(priority, listenSubclasses, ignoreCancelled) { event ->
-            withContext(currentMainDispatcher) {
+            val dispatcher =
+                when ((event as? ProxyEvent)?.side) {
+                    LogicalSide.SERVER -> ModDispatchers.Server()
+                    else -> ModDispatchers.Client()
+                }
+            withContext(dispatcher) {
                 handler(event)
             }
         }
