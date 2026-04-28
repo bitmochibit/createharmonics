@@ -1,6 +1,5 @@
 package me.mochibit.createharmonics.audio.instance
 
-import me.mochibit.createharmonics.audio.stream.PcmAudioStream
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import net.minecraft.client.resources.sounds.Sound
 import net.minecraft.client.resources.sounds.SoundInstance
@@ -115,9 +114,4 @@ class SimpleShipStreamSoundInstance(
         this.pitch = currentPitch
     }
 
-    override fun getStream(
-        soundBuffers: SoundBufferLibrary,
-        sound: Sound,
-        looping: Boolean,
-    ): CompletableFuture<AudioStream> = CompletableFuture.completedFuture(this.currentAudioStream)
 }

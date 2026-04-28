@@ -1,12 +1,11 @@
 package me.mochibit.createharmonics.foundation.extension
 
-import com.simibubi.create.infrastructure.ponder.scenes.fluid.HosePulleyScenes.level
 import me.mochibit.createharmonics.audio.effect.EffectPreset
+import me.mochibit.createharmonics.compat.VSCompat
 import me.mochibit.createharmonics.foundation.services.contentService
 import me.mochibit.createharmonics.foundation.services.platformService
 import net.minecraft.CrashReport
 import net.minecraft.CrashReportCategory
-import net.minecraft.CrashReportDetail
 import net.minecraft.ReportedException
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -19,8 +18,6 @@ import net.minecraft.world.level.chunk.LevelChunkSection
 import net.minecraft.world.level.material.FluidState
 import net.minecraft.world.level.material.Fluids
 import org.joml.Vector3d
-import org.valkyrienskies.core.api.ships.Ship
-import org.valkyrienskies.mod.common.getShipManagingPos
 
 data class BlockCounts(
     val roomIncreasers: Int,
@@ -30,6 +27,15 @@ data class BlockCounts(
     val total: Int get() = roomIncreasers + dampingIncreasers + wetIncreasers
 }
 
+private fun Level.getVSTransformOrNull(
+    x: Double,
+    y: Double,
+    z: Double,
+): ((Double, Double, Double) -> Vector3d)? {
+    if (!platformService.isModLoaded("valkyrienskies")) return null
+    return VSCompat.getShipTransform(this, x, y, z)
+}
+
 fun Level.scanReverberatorBlocks(
     x: Double,
     y: Double,
@@ -37,12 +43,7 @@ fun Level.scanReverberatorBlocks(
     scanRadius: Int,
     checkForShip: Boolean = true,
 ): BlockCounts {
-    val ship =
-        if (checkForShip) {
-            this.getShipManagingPos(x, y, z)
-        } else {
-            null
-        }
+    val shipTransform = if (checkForShip) getVSTransformOrNull(x, y, z) else null
 
     var roomIncreasers = 0
     var dampingIncreasers = 0
@@ -55,13 +56,7 @@ fun Level.scanReverberatorBlocks(
                 val ny = y + dy
                 val nz = z + dz
 
-                // World-space check — transform ship-local coords to world if on a ship
-                val worldPos: Vector3d =
-                    if (ship != null) {
-                        ship.shipToWorld.transformPosition(nx, ny, nz, Vector3d())
-                    } else {
-                        Vector3d(nx, ny, nz)
-                    }
+                val worldPos = shipTransform?.invoke(nx, ny, nz) ?: Vector3d(nx, ny, nz)
 
                 val blockState =
                     this.getBlockState(
@@ -76,8 +71,7 @@ fun Level.scanReverberatorBlocks(
                     in EffectPreset.Reverberator.WET_INCREASERS_BLOCKS -> wetIncreasers++
                 }
 
-                // Fallback: check ship-local space for blocks that are part of the contraption itself
-                if (ship != null) {
+                if (shipTransform != null) {
                     val shipBlockState = this.getBlockState(nx.toInt(), ny.toInt(), nz.toInt())
                     when (shipBlockState.block) {
                         Blocks.AMETHYST_BLOCK -> roomIncreasers++
@@ -98,12 +92,7 @@ fun Level.countLiquidCoveredFaces(
     z: Double,
     checkForShip: Boolean = true,
 ): Pair<Int, Boolean> {
-    val ship =
-        if (checkForShip) {
-            this.getShipManagingPos(x, y, z)
-        } else {
-            null
-        }
+    val shipTransform = if (checkForShip) getVSTransformOrNull(x, y, z) else null
 
     var liquidCount = 0
     var viscousCount = 0
@@ -117,26 +106,20 @@ fun Level.countLiquidCoveredFaces(
         }
     }
 
-    // Fast-path: if the center position itself is submerged, the source is fully surrounded —
-    // treat all 6 faces as covered immediately without checking any neighbours.
-
-    // Check ship-local center first (cheapest — no transform needed)
-    if (ship != null) {
+    if (shipTransform != null) {
         val shipCenterFluid = getFluidState(x.toInt(), y.toInt(), z.toInt())
         if (!shipCenterFluid.isEmpty) {
             return Direction.entries.size to (contentService.getViscosity(shipCenterFluid) > 1000)
         }
     }
 
-    // Check world-space center
-    val centerWorldPos: Vector3d =
-        if (ship != null) {
-            ship.shipToWorld.transformPosition(x, y, z, Vector3d())
-        } else {
-            Vector3d(x, y, z)
-        }
-
-    val centerFluid = getFluidState(centerWorldPos.x.toInt(), centerWorldPos.y.toInt(), centerWorldPos.z.toInt())
+    val centerWorldPos = shipTransform?.invoke(x, y, z) ?: Vector3d(x, y, z)
+    val centerFluid =
+        getFluidState(
+            centerWorldPos.x.toInt(),
+            centerWorldPos.y.toInt(),
+            centerWorldPos.z.toInt(),
+        )
     if (!centerFluid.isEmpty) {
         return Direction.entries.size to (contentService.getViscosity(centerFluid) > 1000)
     }
@@ -146,44 +129,35 @@ fun Level.countLiquidCoveredFaces(
         val ny = y + direction.stepY
         val nz = z + direction.stepZ
 
-        // 1. World-space check — always takes priority
-        val worldNeighbor: Vector3d =
-            if (ship != null) {
-                ship.shipToWorld.transformPosition(nx, ny, nz, Vector3d())
-            } else {
-                Vector3d(nx, ny, nz)
-            }
+        val worldNeighbor = shipTransform?.invoke(nx, ny, nz) ?: Vector3d(nx, ny, nz)
 
-        val worldFluid = getFluidState(worldNeighbor.x.toInt(), worldNeighbor.y.toInt(), worldNeighbor.z.toInt())
+        val worldFluid =
+            getFluidState(
+                worldNeighbor.x.toInt(),
+                worldNeighbor.y.toInt(),
+                worldNeighbor.z.toInt(),
+            )
         if (!worldFluid.isEmpty) {
             accumulateFluid(worldFluid)
             continue
         }
 
-        // 2. If the world block is non-air and non-fluid, it physically blocks this face — skip ship check
-        val worldBlock = getBlockState(worldNeighbor.x.toInt(), worldNeighbor.y.toInt(), worldNeighbor.z.toInt())
+        val worldBlock =
+            getBlockState(
+                worldNeighbor.x.toInt(),
+                worldNeighbor.y.toInt(),
+                worldNeighbor.z.toInt(),
+            )
         if (!worldBlock.isAir) continue
 
-        // 3. Fallback: check ship-local space (handles fluid blocks that are part of the ship itself)
-        if (ship != null) {
+        if (shipTransform != null) {
             val shipFluid = getFluidState(nx.toInt(), ny.toInt(), nz.toInt())
-            if (!shipFluid.isEmpty) {
-                accumulateFluid(shipFluid)
-            }
+            if (!shipFluid.isEmpty) accumulateFluid(shipFluid)
         }
     }
 
     val isThick = viscousCount >= waterCount && viscousCount > 0
     return liquidCount to isThick
-}
-
-fun BlockPos.getManagingShip(level: Level): Ship? {
-    if (!platformService.isModLoaded("valkyrienskies")) return null
-    return level.getShipManagingPos(
-        this.x.toDouble(),
-        this.y.toDouble(),
-        this.z.toDouble(),
-    )
 }
 
 fun Level.getFluidState(

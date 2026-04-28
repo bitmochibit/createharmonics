@@ -7,5 +7,8 @@
   "refmap": "createharmonics.refmap.json",
   "injectors": {
     "defaultRequire": 1
-  }
+  },
+  "client": [
+    "StreamingSoundInstanceMixin"
+  ]
 }
