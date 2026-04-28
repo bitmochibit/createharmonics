@@ -135,18 +135,12 @@ val curseforgeExcludes =
 // Expose them so platform scripts can consume via project(":common").extra
 extra["curseforgeExcludes"] = curseforgeExcludes
 
-tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
-    configurations = listOf(project.configurations["shadow"])
-    archiveClassifier.set("")
-    mergeServiceFiles()
-
+tasks.named<Jar>("jar") {
+    from(project.configurations["shadow"].map { if (it.isDirectory) it else zipTree(it) })
     if (isCurseForge) {
         curseforgeExcludes.forEach { exclude(it) }
     }
-}
-
-tasks.named("jar") {
-    finalizedBy("shadowJar")
+    finalizedBy("reobfJar")
 }
 
 tasks.register<GradleBuild>("buildForCurseforge") {

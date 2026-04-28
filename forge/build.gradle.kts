@@ -103,6 +103,11 @@ sourceSets.main {
     kotlin.srcDir("src/generated/kotlin")
 }
 
+val shadow by configurations.creating {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+
 dependencies {
     // Kotlin for Forge
     implementation("thedarkcolour:kotlinforforge:${rootProject.property("kotlin_for_forge_version")}")
@@ -130,6 +135,7 @@ dependencies {
     modRuntimeOnly("mezz.jei:jei-$jeiMinecraftVersion-forge:$jeiVersion")
 
     compileOnly(project(":common"))
+    shadow("org.tukaani:xz:1.11")
     compileOnly("org.tukaani:xz:1.11")
     annotationProcessor("org.spongepowered:mixin:0.8.5-SNAPSHOT:processor")
 }
@@ -174,6 +180,9 @@ val curseforgeExcludes = project(":common").extra["curseforgeExcludes"] as List<
 
 tasks.named<Jar>("jar") {
     finalizedBy("reobfJar")
+
+    from(configurations["shadow"].map { if (it.isDirectory) it else zipTree(it) })
+
     manifest.attributes(
         "MixinConfigs" to "$modId.mixins.json,createharmonics.common.mixins.json",
     )
