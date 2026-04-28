@@ -351,6 +351,7 @@ class AudioPlayer(
 
                 if (resolvedStream.inputStream == null || resolvedStream.status == SourceStreamResolver.Result.StreamStatus.FAILED) {
                     resolvedStream.inputStream?.close()
+                    resolvedStream.toString().info()
                     if (pos > 0) {
                         "Restarted source playback since it hanged, probably for this url seek is not supported".info()
                     }

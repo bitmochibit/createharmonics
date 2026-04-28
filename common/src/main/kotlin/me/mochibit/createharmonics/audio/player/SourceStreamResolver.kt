@@ -7,7 +7,6 @@ import me.mochibit.createharmonics.audio.process.FFmpegExecutor
 import me.mochibit.createharmonics.audio.source.AudioSource
 import me.mochibit.createharmonics.audio.source.HttpAudioSource
 import me.mochibit.createharmonics.audio.source.StreamAudioSource
-import me.mochibit.createharmonics.audio.source.YtdlpAudioSource
 import java.io.InputStream
 
 object SourceStreamResolver {
@@ -38,7 +37,7 @@ object SourceStreamResolver {
         val adjustedPosition = if (info.isLive) 0.0 else pos
         val result =
             when (source) {
-                is HttpAudioSource, is YtdlpAudioSource -> {
+                is HttpAudioSource -> {
                     if (adjustedPosition > 0 && adjustedPosition > info.durationSeconds) {
                         Result(
                             status = Result.StreamStatus.FINISHED,

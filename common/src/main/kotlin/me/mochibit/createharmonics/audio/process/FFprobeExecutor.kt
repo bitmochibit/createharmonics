@@ -66,20 +66,21 @@ class FFprobeExecutor {
                     val json = Json { ignoreUnknownKeys = true }
                     val root = json.parseToJsonElement(output).jsonObject
 
-                    val format = root["format"]?.jsonObject
+                    if (root.isEmpty()) throw IllegalStateException("FFprobeExecutor: Failed to probe")
+
+                    val format = root["format"]?.jsonObject ?: throw IllegalStateException("FFprobeExecutor: Missing format data")
                     val streams = root["streams"]?.jsonArray
 
-                    val duration =
-                        format
-                            ?.get("duration")
+                    val durationRaw =
+                        format["duration"]
                             ?.jsonPrimitive
                             ?.content
                             ?.toDoubleOrNull()
-                            ?.toInt() ?: 0
+
+                    val duration = durationRaw?.toInt() ?: 0
 
                     val title =
-                        format
-                            ?.get("tags")
+                        format["tags"]
                             ?.jsonObject
                             ?.get("title")
                             ?.jsonPrimitive
@@ -95,6 +96,10 @@ class FFprobeExecutor {
                             ?.content
                             ?.toFloatOrNull() ?: 48_000f
 
+                    val icyTags = format["tags"]?.jsonObject
+                    val hasIcyName = icyTags?.containsKey("icy-name") == true
+                    val isLive = durationRaw == null || durationRaw == 0.0 || hasIcyName
+
                     AudioInfo(
                         audioUrl = url,
                         durationSeconds = duration,
@@ -107,7 +112,7 @@ class FFprobeExecutor {
                                 "Unknown"
                             },
                         sampleRate = sampleRate,
-                        false,
+                        isLive,
                     )
                 } finally {
                     ProcessLifecycleManager.destroyProcess(processId)

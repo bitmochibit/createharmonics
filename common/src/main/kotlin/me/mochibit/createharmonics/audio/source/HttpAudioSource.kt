@@ -11,5 +11,5 @@ import me.mochibit.createharmonics.audio.info.AudioInfo
 class HttpAudioSource(
     private val url: String,
 ) : AudioSource {
-    override suspend fun resolveAudioInfo(): AudioInfo = AudioInfo.withFFProbe(url)
+    override suspend fun resolveAudioInfo(): AudioInfo = AudioInfo.resolveUrl(url)
 }
