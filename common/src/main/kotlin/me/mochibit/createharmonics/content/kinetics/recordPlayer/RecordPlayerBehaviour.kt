@@ -149,8 +149,24 @@ class RecordPlayerBehaviour(
             return redstonePower.remapTo(1, 15, 4, ServerConfig.maxJukeboxSoundRange.get())
         }
 
+    @Volatile
+    private var lastActiveVolume: Float = 1f
     val currentVolume: Float
         get() {
+            val playerState = audioPlayer?.state?.value
+            val isDecaying =
+                playbackState == PlaybackState.PAUSED ||
+                    playerState == PlayerState.TAILING
+
+            if (isDecaying || (
+                    reverberator.currentlyActive &&
+                        playerState != PlayerState.PLAYING &&
+                        playerState != PlayerState.LOADING
+                )
+            ) {
+                return lastActiveVolume
+            }
+
             return when {
                 redstonePower <= 0 && isPauseMode -> 0.0f
                 redstonePower <= 0 -> 1f
@@ -442,6 +458,9 @@ class RecordPlayerBehaviour(
 
         level.onClient { level, virtual ->
             audioPlayer?.tick()
+            if (playbackState == PlaybackState.PLAYING) {
+                lastActiveVolume = volumeSupplierInterpolated.getValue()
+            }
             audioPlayer?.let {
                 underwaterEffect.update(it, be.blockPos, level)
             }
@@ -758,6 +777,7 @@ class RecordPlayerBehaviour(
                     }
 
                     PlaybackState.PAUSED -> {
+                        lastActiveVolume = volumeSupplierInterpolated.getValue()
                         pauseClientPlayer()
                     }
 

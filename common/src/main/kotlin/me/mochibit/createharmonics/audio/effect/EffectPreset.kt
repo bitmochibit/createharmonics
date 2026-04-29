@@ -131,6 +131,9 @@ sealed interface EffectPreset {
         private var targetDamping = BASE_DAMPING
         private var targetWetMix = BASE_WET_MIX
 
+        var currentlyActive: Boolean = false
+            private set
+
         val roomSizeInterpolated = FloatSupplierInterpolated({ targetRoomSize }, INTERPOLATION_STEPS)
         val dampingInterpolated = FloatSupplierInterpolated({ targetDamping }, INTERPOLATION_STEPS)
         val wetMixInterpolated = FloatSupplierInterpolated({ targetWetMix }, INTERPOLATION_STEPS)
@@ -184,6 +187,8 @@ sealed interface EffectPreset {
                 dampingInterpolated.getValue()
                 wetMixInterpolated.getValue()
 
+                currentlyActive = true
+
                 effectChain.addEffect(
                     ReverbEffect(
                         roomSizeSupplier = roomSizeInterpolated,
@@ -210,6 +215,8 @@ sealed interface EffectPreset {
             targetWetMix = BASE_WET_MIX
 
             effectChain.removeEffectAt(reverbIndex, true)
+
+            currentlyActive = false
         }
 
         override fun update(
