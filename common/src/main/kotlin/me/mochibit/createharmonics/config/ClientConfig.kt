@@ -31,11 +31,15 @@ object ClientConfig : ConfigBase() {
     lateinit var neverShowLibraryDisclaimer: ConfigBool
         private set
 
+    lateinit var debugFFmpeg: ConfigBool
+        private set
+
     override fun registerAll(builder: ModConfigSpec.Builder) {
         menuButtonsGroup(builder)
         audioSourceGroup(builder)
         audioEffectsGroup(builder)
         libraryGroup(builder)
+        debugGroup(builder)
         super.registerAll(builder)
     }
 
@@ -127,6 +131,18 @@ object ClientConfig : ConfigBase() {
                 "Never show library installation disclaimer on startup",
                 "When enabled, the library installation prompt will not appear on game startup",
                 "You can still access the library installer through the in-game menu button",
+            )
+    }
+
+    private fun debugGroup(builder: ModConfigSpec.Builder) {
+        group(1, "debug", "Debug utilities for detecting errors")
+
+        debugFFmpeg =
+            b(
+                false,
+                "debugFFmpeg",
+                "Enables extensive logging for debugging ffmpeg lifecycle",
+                "This is useful for reporting bugs and discovering why ffmpeg is failing.",
             )
     }
 

@@ -4,7 +4,6 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -13,6 +12,7 @@ import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.stream.ProcessBoundInputStream
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.async.modLaunch
+import me.mochibit.createharmonics.foundation.debug
 import me.mochibit.createharmonics.foundation.err
 import java.io.ByteArrayInputStream
 import java.io.InputStream
@@ -77,9 +77,11 @@ class FFmpegExecutor private constructor() {
         }
     }
 
-    @Volatile private var process: Process? = null
+    @Volatile
+    private var process: Process? = null
 
-    @Volatile private var processId: Long? = null
+    @Volatile
+    private var processId: Long? = null
 
     private val lifecycleMutex = Mutex()
 
@@ -119,6 +121,7 @@ class FFmpegExecutor private constructor() {
             buildList {
                 add(FFMPEGProvider.getExecutablePath())
 
+                // <editor-fold desc="Input commands">
                 if (headers.isNotEmpty()) {
                     val headerString =
                         headers.entries
@@ -134,8 +137,8 @@ class FFmpegExecutor private constructor() {
                 if (isLive) {
                     add("-reconnect_streamed")
                     add("1")
-                    add("-protocol_whitelist")
-                    add("file,http,https,tcp,tls,crypto,hls")
+//                    add("-protocol_whitelist")
+//                    add("file,http,https,tcp,tls,crypto,hls")
                 } else {
                     add("-reconnect")
                     add("1")
@@ -143,9 +146,20 @@ class FFmpegExecutor private constructor() {
                     add("30")
                 }
 
+                if (ModConfigs.client.debugFFmpeg.get()) {
+                    "Enabling verbose logging for FFmpeg".debug()
+                    add("-loglevel")
+                    add("verbose")
+                } else {
+                    add("-loglevel")
+                    add("quiet")
+                }
+                // </editor-fold>
+
                 add("-i")
                 add(url)
 
+                // <editor-fold desc="Output commands">
                 if (seekSeconds > 0.0 && !isLive) {
                     add("-ss")
                     add(getSeekString(seekSeconds))
@@ -157,8 +171,6 @@ class FFmpegExecutor private constructor() {
                 add(sampleRate.toString())
                 add("-ac")
                 add("1")
-                add("-loglevel")
-                add("fatal")
 
                 if (isLive) {
                     add("-max_muxing_queue_size")
@@ -167,6 +179,7 @@ class FFmpegExecutor private constructor() {
 
                 add("-vn")
                 add("pipe:1")
+                // </editor-fold>
             }
 
         val newProcess =
@@ -229,6 +242,8 @@ class FFmpegExecutor private constructor() {
      * Fields are cleared immediately under the mutex; blocking teardown runs on IO dispatcher.
      */
     suspend fun destroy() {
+        val isDebug = ModConfigs.client.debugFFmpeg.get()
+
         val (currentProcess, currentPid) =
             lifecycleMutex.withLock {
                 val p = process
@@ -237,6 +252,10 @@ class FFmpegExecutor private constructor() {
                 processId = null
                 p to id
             }
+
+        if (isDebug) {
+            "Destroying FFMPEG.. pid=$currentPid".debug()
+        }
 
         currentProcess ?: return
 
@@ -250,6 +269,10 @@ class FFmpegExecutor private constructor() {
                     }
                 }
 
+                if (isDebug) {
+                    "Passed FFMPEG destruction for pid=$currentPid".debug()
+                }
+
                 try {
                     currentProcess.inputStream?.close()
                 } catch (_: Exception) {
@@ -257,6 +280,9 @@ class FFmpegExecutor private constructor() {
                 try {
                     currentProcess.errorStream?.close()
                 } catch (_: Exception) {
+                }
+                if (isDebug) {
+                    "Passed FFMPEG iostream closure for pid=$currentPid".debug()
                 }
             } catch (e: Exception) {
                 "Error destroying FFmpeg process: ${e.message}".err()
