@@ -7,6 +7,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.INamedIc
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollOptionBehaviour
 import com.simibubi.create.foundation.gui.AllIcons
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
+import me.mochibit.createharmonics.config.ModStressConfig
 import me.mochibit.createharmonics.foundation.extension.lerpTo
 import me.mochibit.createharmonics.foundation.registry.ModIcons
 import net.createmod.catnip.math.AngleHelper
@@ -18,6 +19,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.neoforged.neoforge.items.ItemStackHandler
+import kotlin.math.abs
 
 abstract class RecordPlayerBlockEntity(
     type: BlockEntityType<*>,
@@ -80,6 +82,8 @@ abstract class RecordPlayerBlockEntity(
         if (level?.isClientSide == true && !VisualizationManager.supportsVisualization(level)) {
             visualSpeed = visualSpeed.lerpTo(this.speed, visualSpeedSmoothFactor)
         }
+
+        refreshNetworkStress()
     }
 
     fun getRotationAngle(partialTicks: Float): Float {
@@ -123,6 +127,49 @@ abstract class RecordPlayerBlockEntity(
         for (i in 0 until itemHandler.slots) {
             itemHandler.setStackInSlot(i, if (i < wrapped.slots) wrapped.getStackInSlot(i) else ItemStack.EMPTY)
         }
+    }
+
+    fun refreshNetworkStress() {
+        if (level?.isClientSide == true || !hasNetwork()) return
+        val network = orCreateNetwork
+        val stressApplied = calculateStressApplied()
+        if (lastStressApplied == stressApplied) return
+        if (stressApplied == 0.0f) {
+            lastStressApplied = 0f
+            orCreateNetwork.updateStressFor(this, stressApplied)
+            network.updateStress()
+            sendData()
+            return
+        }
+        lastStressApplied = stressApplied
+        orCreateNetwork.updateStressFor(this, stressApplied)
+        network.updateStress()
+        sendData()
+    }
+
+    override fun calculateStressApplied(): Float {
+        val baseImpact = ModStressConfig.getImpact(stressConfigKey)?.asDouble?.toFloat() ?: 0.0f
+
+        if (this.playerBehaviour.playbackState == PlaybackState.STOPPED) {
+            return 0f
+        }
+
+        var impact = baseImpact
+
+        val effectiveState = if (playerBehaviour.speedInterrupted) PlaybackState.PLAYING else playerBehaviour.playbackState
+
+        if (effectiveState == PlaybackState.PAUSED) {
+            impact = baseImpact / 4f
+        } else if (playerBehaviour.isStaticPitchMode) {
+            val rpm = abs(theoreticalSpeed)
+            if (rpm <= 0f) {
+                impact = baseImpact
+            } else if (rpm <= 128f) {
+                impact = baseImpact * (128f / rpm)
+            }
+        }
+
+        return impact
     }
 
     val itemHandler: RecordPlayerItemHandler
