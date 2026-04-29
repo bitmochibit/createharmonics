@@ -4,6 +4,7 @@ import me.mochibit.createharmonics.audio.instance.SimpleShipStreamSoundInstance
 import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
 import me.mochibit.createharmonics.foundation.services.platformService
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
+import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.core.BlockPos
 import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundSource
@@ -55,6 +56,10 @@ internal object VSCompat {
         pitchSupplier: FloatSupplier,
         posSupplier: () -> BlockPos,
         radiusSupplier: FloatSupplier,
+        looping: Boolean = false,
+        attenuation: SoundInstance.Attenuation = SoundInstance.Attenuation.LINEAR,
+        delay: Int = 0,
+        relative: Boolean = false,
         level: Level,
         blockEntity: BlockEntity,
     ): StreamingSoundInstance? {
@@ -70,7 +75,11 @@ internal object VSCompat {
             radiusSupplier,
             randomSource,
             soundSource,
-            sampleRate = sampleRate,
+            looping,
+            delay,
+            attenuation,
+            relative,
+            sampleRate,
         )
     }
 }

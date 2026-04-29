@@ -5,6 +5,7 @@ import me.mochibit.createharmonics.compat.VSCompat
 import me.mochibit.createharmonics.foundation.extension.asResource
 import me.mochibit.createharmonics.foundation.services.platformService
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
+import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.client.sounds.AudioStream
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceLocation
@@ -53,6 +54,10 @@ abstract class StreamingSoundInstance(
             pitchSupplier: FloatSupplier = FloatSupplier { 1.0f },
             posSupplier: () -> BlockPos = { BlockPos.ZERO },
             radiusSupplier: FloatSupplier = FloatSupplier { 64f },
+            looping: Boolean = false,
+            attenuation: SoundInstance.Attenuation = SoundInstance.Attenuation.LINEAR,
+            delay: Int = 0,
+            relative: Boolean = false,
             checkForVsShip: Boolean = false,
             vsLevelCheck: Level? = null,
             vsBeCheck: BlockEntity? = null,
@@ -74,6 +79,10 @@ abstract class StreamingSoundInstance(
                         pitchSupplier,
                         posSupplier,
                         radiusSupplier,
+                        looping,
+                        attenuation,
+                        delay,
+                        relative,
                         vsLevelCheck,
                         vsBeCheck,
                     )
@@ -81,16 +90,20 @@ abstract class StreamingSoundInstance(
             }
 
             return SimpleStreamSoundInstance(
-                stream,
+                inStream = stream,
                 streamId,
                 soundEvent,
                 posSupplier,
-                radiusSupplier,
+                volumeSupplier,
                 pitchSupplier,
                 radiusSupplier,
                 randomSource,
                 soundSource,
-                sampleRate = sampleRate,
+                looping,
+                delay,
+                attenuation,
+                relative,
+                sampleRate,
             )
         }
     }
