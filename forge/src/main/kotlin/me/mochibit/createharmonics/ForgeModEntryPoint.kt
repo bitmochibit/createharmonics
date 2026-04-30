@@ -83,7 +83,7 @@ class ForgeModEntryPoint(
                             override fun <T> getCapability(
                                 cap: Capability<T>,
                                 side: Direction?,
-                            ): LazyOptional<T> = ForgeCapabilities.ITEM_HANDLER.orEmpty(cap, be.lazyItemHandler.cast())
+                            ): LazyOptional<T> = ForgeCapabilities.ITEM_HANDLER.orEmpty(cap, be.playerBehaviour.lazyItemHandler.cast())
                         },
                     )
                 }

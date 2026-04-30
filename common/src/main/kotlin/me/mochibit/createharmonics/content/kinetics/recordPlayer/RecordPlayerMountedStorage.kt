@@ -45,7 +45,7 @@ class RecordPlayerMountedStorage(
                 ) { storage -> storage.wrapped }
 
         fun fromRecordPlayer(be: RecordPlayerBlockEntity): RecordPlayerMountedStorage {
-            val handler = be.lazyItemHandler.resolve().get()
+            val handler = be.itemHandler
             return RecordPlayerMountedStorage(Handler(handler, handler.slots))
         }
     }
