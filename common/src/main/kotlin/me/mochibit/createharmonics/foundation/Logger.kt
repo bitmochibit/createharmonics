@@ -19,7 +19,7 @@ object Logger {
     }
 
     fun debug(message: String) {
-        logger.debug(PREFIX + message)
+        logger.info(PREFIX + "~ DEBUG ~" + message)
     }
 }
 

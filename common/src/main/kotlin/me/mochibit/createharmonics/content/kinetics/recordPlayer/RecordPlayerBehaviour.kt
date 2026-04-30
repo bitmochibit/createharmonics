@@ -116,7 +116,7 @@ class RecordPlayerBehaviour(
     private val currentPitch: Float
         get() {
             // Use static pitch (1.0f) if in static pitch mode
-            if (isStaticPitchMode()) {
+            if (isStaticPitchMode) {
                 return 1.0f
             }
 
@@ -292,11 +292,12 @@ class RecordPlayerBehaviour(
 
     override fun getType(): BehaviourType<RecordPlayerBehaviour> = BEHAVIOUR_TYPE
 
-    private fun isStaticPitchMode(): Boolean {
-        val playbackMode = be.playbackMode.get()
-        return playbackMode == RecordPlayerBlockEntity.PlaybackMode.PLAY_STATIC_PITCH ||
-            playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
-    }
+    val isStaticPitchMode: Boolean
+        get() {
+            val playbackMode = be.playbackMode.get()
+            return playbackMode == RecordPlayerBlockEntity.PlaybackMode.PLAY_STATIC_PITCH ||
+                playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
+        }
 
     private fun ensureTracking() {
         if (activePlayersByUUID[recordPlayerUUID.toString()] == null) {
@@ -449,6 +450,7 @@ class RecordPlayerBehaviour(
                             // Pause mode + No redstone: Stay paused (don't auto-play on insert)
                             if (playbackState == PlaybackState.PLAYING) {
                                 updatePlaybackState(PlaybackState.PAUSED, resetTime = false)
+                                speedInterrupted = false
                             }
                             // If STOPPED, stay STOPPED (don't auto-start)
                         }
