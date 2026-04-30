@@ -449,6 +449,7 @@ class RecordPlayerBehaviour(
                             // Pause mode + No redstone: Stay paused (don't auto-play on insert)
                             if (playbackState == PlaybackState.PLAYING) {
                                 updatePlaybackState(PlaybackState.PAUSED, resetTime = false)
+                                speedInterrupted = false
                             }
                             // If STOPPED, stay STOPPED (don't auto-start)
                         }

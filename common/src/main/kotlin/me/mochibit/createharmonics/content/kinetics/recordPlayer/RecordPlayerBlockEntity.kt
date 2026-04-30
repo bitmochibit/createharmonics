@@ -129,47 +129,53 @@ abstract class RecordPlayerBlockEntity(
         }
     }
 
+    private var cachedStressImpact = Float.NaN
+
     fun refreshNetworkStress() {
         if (level?.isClientSide == true || !hasNetwork()) return
-        val network = orCreateNetwork
-        val stressApplied = calculateStressApplied()
-        if (lastStressApplied == stressApplied) return
-        if (stressApplied == 0.0f) {
-            lastStressApplied = 0f
-            orCreateNetwork.updateStressFor(this, stressApplied)
-            network.updateStress()
-            sendData()
-            return
-        }
-        lastStressApplied = stressApplied
-        orCreateNetwork.updateStressFor(this, stressApplied)
-        network.updateStress()
-        sendData()
+        val newStress = calculateStressApplied()
+        if (cachedStressImpact == newStress) return
+        cachedStressImpact = newStress
+        orCreateNetwork.updateStressFor(this, newStress)
+        setChanged()
+    }
+
+    override fun onSpeedChanged(previousSpeed: Float) {
+        super.onSpeedChanged(previousSpeed)
+
+        cachedStressImpact = Float.NaN
     }
 
     override fun calculateStressApplied(): Float {
         val baseImpact = ModStressConfig.getImpact(stressConfigKey)?.asDouble?.toFloat() ?: 0.0f
 
-        if (this.playerBehaviour.playbackState == PlaybackState.STOPPED) {
-            return 0f
-        }
+        val applied =
+            when (playerBehaviour.playbackState) {
+                PlaybackState.STOPPED -> {
+                    0f
+                }
 
-        var impact = baseImpact
+                PlaybackState.PAUSED -> {
+                    if (playerBehaviour.speedInterrupted) {
+                        calculatePlayingStress(baseImpact)
+                    } else {
+                        baseImpact / 4f
+                    }
+                }
 
-        val effectiveState = if (playerBehaviour.speedInterrupted) PlaybackState.PLAYING else playerBehaviour.playbackState
-
-        if (effectiveState == PlaybackState.PAUSED) {
-            impact = baseImpact / 4f
-        } else if (playerBehaviour.isStaticPitchMode) {
-            val rpm = abs(theoreticalSpeed)
-            if (rpm <= 0f) {
-                impact = baseImpact
-            } else if (rpm <= 128f) {
-                impact = baseImpact * (128f / rpm)
+                PlaybackState.PLAYING -> {
+                    calculatePlayingStress(baseImpact)
+                }
             }
-        }
 
-        return impact
+        lastStressApplied = applied
+        return applied
+    }
+
+    private fun calculatePlayingStress(baseImpact: Float): Float {
+        if (!playerBehaviour.isStaticPitchMode) return baseImpact
+        val rpm = abs(theoreticalSpeed)
+        return if (rpm in (0f + Float.MIN_VALUE)..128f) baseImpact * (128f / rpm) else baseImpact
     }
 
     val itemHandler: RecordPlayerItemHandler
