@@ -154,6 +154,8 @@ class FFmpegExecutor private constructor() {
                     add("-loglevel")
                     add("quiet")
                 }
+
+                add("-nostdin")
                 // </editor-fold>
 
                 add("-i")
@@ -178,6 +180,8 @@ class FFmpegExecutor private constructor() {
                 }
 
                 add("-vn")
+                add("-sn")
+                add("-dn")
                 add("pipe:1")
                 // </editor-fold>
             }
