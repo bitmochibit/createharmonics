@@ -210,5 +210,6 @@ tasks.register<GradleBuild>("buildAndDeployToProd") {
 
 tasks.register<GradleBuild>("buildCfAndDeployToProd") {
     group = "build"
-    tasks = listOf("buildForCurseforge", ":neoforge:deployToProd")
+    startParameter.projectProperties = mapOf("curseforge" to "true")
+    tasks = listOf("build", ":neoforge:deployToProd")
 }
