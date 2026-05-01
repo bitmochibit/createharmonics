@@ -192,8 +192,7 @@ val prodModsDir: String =
 
 tasks.register<Copy>("deployToProd") {
     group = "build"
-
-    dependsOn("build")
+    dependsOn("jar")
 
     from(layout.buildDirectory.dir("libs")) {
         include("*.jar")
