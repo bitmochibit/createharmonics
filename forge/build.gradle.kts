@@ -210,9 +210,7 @@ val prodModsDir: String =
 
 tasks.register<Copy>("deployToProd") {
     group = "build"
-
-    dependsOn("build")
-
+    dependsOn("reobfJar")
     from(layout.buildDirectory.dir("libs")) {
         include("*.jar")
         exclude("*-sources.jar", "*-dev.jar")
@@ -228,5 +226,6 @@ tasks.register<GradleBuild>("buildAndDeployToProd") {
 
 tasks.register<GradleBuild>("buildCfAndDeployToProd") {
     group = "build"
-    tasks = listOf("buildForCurseforge", ":forge:deployToProd")
+    startParameter.projectProperties = mapOf("curseforge" to "true")
+    tasks = listOf("build", ":forge:deployToProd")
 }
