@@ -67,23 +67,25 @@ object NeoforgeModPackets : NeoforgeRegistry {
             isC2S && isS2C -> {
                 registrar.playToServer(type, codec) { payload, ctx ->
                     payload.packet.handle(ModPacket.Context(ctx.player() as? ServerPlayer))
+                    if (payload.packet is S2CPacket) payload.packet.handleServer(ModPacket.Context(ctx.player() as? ServerPlayer))
                 }
                 registrar.playToClient(type, codec) { payload, ctx ->
                     payload.packet.handle(ModPacket.Context(null))
-                    if (payload.packet is S2CPacket) payload.packet.handleServer(ModPacket.Context(null))
+                    if (payload.packet is C2SPacket) payload.packet.handleClient(ModPacket.Context(null))
                 }
             }
 
             isC2S -> {
                 registrar.playToServer(type, codec) { payload, ctx ->
                     payload.packet.handle(ModPacket.Context(ctx.player() as? ServerPlayer))
+                    if (payload.packet is S2CPacket) payload.packet.handleServer(ModPacket.Context(ctx.player() as? ServerPlayer))
                 }
             }
 
             else -> {
                 registrar.playToClient(type, codec) { payload, ctx ->
                     payload.packet.handle(ModPacket.Context(null))
-                    if (payload.packet is S2CPacket) payload.packet.handleServer(ModPacket.Context(null))
+                    if (payload.packet is C2SPacket) payload.packet.handleClient(ModPacket.Context(null))
                 }
             }
         }
