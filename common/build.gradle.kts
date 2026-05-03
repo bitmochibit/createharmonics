@@ -28,8 +28,8 @@ val ponderVersion = rootProject.property("ponder_version").toString()
 val flywheelVersion = rootProject.property("flywheel_version").toString()
 val registrateVersion = rootProject.property("registrate_version").toString()
 
-val vs2Version = rootProject.property("vs2_version").toString()
-val vsCoreVersion = rootProject.property("vs_core_version").toString()
+val sableVersion = rootProject.property("sable_version").toString()
+val veilVersion = rootProject.property("veil_version").toString()
 
 val neoForgeVersion = rootProject.property("neo_version").toString()
 val generateBuildConfigTask =
@@ -103,13 +103,29 @@ dependencies {
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutinesVersion")
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion")
 
-    // Create — NeoForge 1.21.1 coordinates
     compileOnly("com.simibubi.create:create-$minecraftVersionProp:$createVersion:slim") { isTransitive = false }
     compileOnly("net.createmod.ponder:ponder-neoforge:$ponderVersion+mc$minecraftVersionProp")
     compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-$minecraftVersionProp:$flywheelVersion")
     compileOnly("com.tterrag.registrate:Registrate:$registrateVersion")
 
-    // Coming soon, Sable
+    implementation("dev.eriksonn.aeronautics:aeronautics-neoforge-1.21.1:1.2.1") {
+        exclude("foundry.veil")
+        exclude("com.tterrag.registrate")
+        exclude("cc.tweaked")
+        exclude("maven.modrinth")
+    }
+
+    implementation("dev.simulated_team.simulated:simulated-neoforge-1.21.1:1.2.1") {
+        exclude("foundry.veil")
+        exclude("com.tterrag.registrate")
+        exclude("cc.tweaked")
+        exclude("maven.modrinth")
+    }
+
+//    api("dev.ryanhcode.sable:sable-common-$minecraftVersionProp:$sableVersion") {
+//        exclude("foundry.veil")
+//        exclude("com.tterrag.registrate")
+//    }
 }
 
 // ── Artifact publication for submodules ───────────────────────────────────────
@@ -146,7 +162,6 @@ tasks.named<Jar>("jar") {
         curseforgeExcludes.forEach { exclude(it) }
     }
 }
-
 
 tasks.register<GradleBuild>("buildForCurseforge") {
     startParameter.projectProperties = mapOf("curseforge" to "true")

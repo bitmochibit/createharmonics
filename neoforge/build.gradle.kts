@@ -33,6 +33,9 @@ val kotlinVersion = rootProject.property("kotlin_version").toString()
 val kotlinCoroutinesVersion = rootProject.property("kotlin_coroutines_version").toString()
 val kotlinSerializationVersion = rootProject.property("kotlin_serialization_version").toString()
 
+val sableVersion = rootProject.property("sable_version").toString()
+val veilVersion = rootProject.property("veil_version").toString()
+
 val neoProject = project
 val commonProject = project(":common")
 
@@ -116,6 +119,25 @@ dependencies {
     implementation("com.tterrag.registrate:Registrate:$registrateVersion")
     // JEI
     runtimeOnly("mezz.jei:jei-$jeiMinecraftVersion-neoforge:$jeiVersion")
+
+//    api("dev.ryanhcode.sable:sable-common-$minecraftVersionProp:$sableVersion") {
+//        exclude("foundry.veil")
+//        exclude("com.tterrag.registrate")
+//    }
+
+    implementation("dev.eriksonn.aeronautics:aeronautics-neoforge-1.21.1:1.2.1") {
+        exclude("foundry.veil")
+        exclude("com.tterrag.registrate")
+        exclude("cc.tweaked")
+        exclude("maven.modrinth")
+    }
+
+    implementation("dev.simulated_team.simulated:simulated-neoforge-1.21.1:1.2.1") {
+        exclude("foundry.veil")
+        exclude("com.tterrag.registrate")
+        exclude("cc.tweaked")
+        exclude("maven.modrinth")
+    }
 
     compileOnly(project(":common"))
     shadow("org.tukaani:xz:1.11")

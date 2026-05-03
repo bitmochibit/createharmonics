@@ -71,3 +71,9 @@ versionRange="[6.0.9,6.1.0)"
 ordering="NONE"
 side="BOTH"
 
+[[dependencies."${mod_id}"]]
+modId = "sable"
+type="optional"
+versionRange = "[1.2.1,)"
+ordering = "AFTER"
+side = "BOTH"

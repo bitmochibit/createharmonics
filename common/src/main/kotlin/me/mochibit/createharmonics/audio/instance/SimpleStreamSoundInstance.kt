@@ -3,16 +3,18 @@ package me.mochibit.createharmonics.audio.instance
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Position
 import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
+import org.joml.Vector3d
 import java.io.InputStream
 
 class SimpleStreamSoundInstance(
     inStream: InputStream,
     streamId: String,
     soundEvent: SoundEvent,
-    posSupplier: () -> BlockPos,
+    posMutator: (vec: Vector3d) -> Unit,
     volumeSupplier: FloatSupplier = FloatSupplier { 1.0f },
     pitchSupplier: FloatSupplier = FloatSupplier { 1.0f },
     radiusSupplier: FloatSupplier = FloatSupplier { 64f },
@@ -28,11 +30,11 @@ class SimpleStreamSoundInstance(
         streamId,
         sampleRate,
         soundEvent,
+        posMutator,
         soundSource,
         randomSource,
         volumeSupplier,
         pitchSupplier,
-        posSupplier,
         radiusSupplier,
     ) {
     init {

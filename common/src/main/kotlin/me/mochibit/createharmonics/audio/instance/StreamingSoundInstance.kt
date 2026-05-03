@@ -6,10 +6,12 @@ import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.client.sounds.AudioStream
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Position
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
+import org.joml.Vector3d
 import java.io.InputStream
 import java.util.concurrent.CompletableFuture
 
@@ -18,18 +20,18 @@ abstract class StreamingSoundInstance(
     val streamId: String,
     override var sampleRate: Int = 44100,
     soundEvent: SoundEvent,
+    posMutator: (vec: Vector3d) -> Unit,
     soundSource: SoundSource = SoundSource.RECORDS,
     randomSource: RandomSource = RandomSource.create(),
     volumeSupplier: FloatSupplier = FloatSupplier { 1.0f },
     pitchSupplier: FloatSupplier = FloatSupplier { 1.0f },
-    posSupplier: () -> BlockPos = { BlockPos.ZERO },
     radiusSupplier: FloatSupplier = FloatSupplier { 64f },
 ) : SuppliedSoundInstance(
         soundEvent,
         soundSource,
         randomSource,
         true,
-        posSupplier,
+        posMutator,
         volumeSupplier,
         pitchSupplier,
         radiusSupplier,
@@ -42,12 +44,12 @@ abstract class StreamingSoundInstance(
             stream: InputStream,
             streamId: String,
             soundEvent: SoundEvent,
+            posMutator: (vec: Vector3d) -> Unit,
             sampleRate: Int = 44100,
             soundSource: SoundSource = SoundSource.RECORDS,
             randomSource: RandomSource = RandomSource.create(),
             volumeSupplier: FloatSupplier = FloatSupplier { 1.0f },
             pitchSupplier: FloatSupplier = FloatSupplier { 1.0f },
-            posSupplier: () -> BlockPos = { BlockPos.ZERO },
             radiusSupplier: FloatSupplier = FloatSupplier { 64f },
             looping: Boolean = false,
             attenuation: SoundInstance.Attenuation = SoundInstance.Attenuation.LINEAR,
@@ -58,7 +60,7 @@ abstract class StreamingSoundInstance(
                 inStream = stream,
                 streamId,
                 soundEvent,
-                posSupplier,
+                posMutator,
                 volumeSupplier,
                 pitchSupplier,
                 radiusSupplier,

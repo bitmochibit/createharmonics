@@ -56,6 +56,7 @@ import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
+import org.joml.Vector3d
 import kotlin.math.abs
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
@@ -464,12 +465,12 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
 
             player.tick()
 
-            data.underwaterFilter.update(player, context.position, context.world)
+            data.underwaterFilter.update(player, context.position.x, context.position.y, context.position.z, context.world)
 
             data.ticksSinceReverberatorUpdate++
             if (data.ticksSinceReverberatorUpdate >= 40) {
                 data.ticksSinceReverberatorUpdate = 0
-                data.reverberator.update(player, context.position, context.world)
+                data.reverberator.update(player, context.position.x, context.position.y, context.position.z, context.world)
             }
 
             if (!data.isDirty) return
@@ -552,7 +553,13 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                     stream,
                     streamId,
                     SoundEvents.EMPTY,
-                    posSupplier = { BlockPos.containing(context.position) },
+                    posMutator = { vec ->
+                        vec.set(
+                            context.position.x,
+                            context.position.y,
+                            context.position.z,
+                        )
+                    },
                     radiusSupplier = data.radiusSupplier,
                     volumeSupplier = data.volumeSupplier,
                 )

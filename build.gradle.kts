@@ -50,6 +50,21 @@ subprojects {
             name = "ParchmentMC"
             url = uri("https://maven.parchmentmc.org")
         }
+
+        exclusiveContent {
+            forRepository {
+                maven {
+                    url = uri("https://maven.ryanhcode.dev/releases")
+                    name = "RyanHCode Maven"
+                }
+            }
+            filter {
+                includeGroup("dev.ryanhcode.sable")
+                includeGroup("dev.ryanhcode.sable-companion")
+                includeGroup("dev.eriksonn.aeronautics")
+                includeGroup("dev.simulated_team.simulated")
+            }
+        }
     }
 
     val modAuthor = rootProject.property("mod_authors").toString()

@@ -1,6 +1,5 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
-import com.simibubi.create.content.contraptions.render.ClientContraption
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
@@ -28,10 +27,8 @@ import me.mochibit.createharmonics.foundation.extension.remapTo
 import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
-import me.mochibit.createharmonics.foundation.services.contentService
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
 import net.createmod.catnip.nbt.NBTHelper
-import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.core.HolderLookup
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.core.particles.ShriekParticleOption
@@ -45,7 +42,7 @@ import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
-import java.io.InputStream
+import org.joml.Vector3d
 import java.util.UUID
 import kotlin.math.abs
 
@@ -230,7 +227,13 @@ class RecordPlayerBehaviour(
                         stream,
                         streamId,
                         SoundEvents.EMPTY,
-                        posSupplier = { be.blockPos },
+                        posMutator = { vec ->
+                            vec.set(
+                                be.blockPos.x.toDouble(),
+                                be.blockPos.y.toDouble(),
+                                be.blockPos.z.toDouble(),
+                            )
+                        },
                         radiusSupplier = radiusSupplierInterpolated,
                         volumeSupplier = volumeSupplierInterpolated,
                     )
@@ -316,15 +319,15 @@ class RecordPlayerBehaviour(
         val beLevel = be.level ?: return
         beLevel.onClient { level, virtual ->
             audioPlayer?.let {
-                reverberator.update(it, be.blockPos, level)
+                reverberator.update(it, be.blockPos.x.toDouble(), be.blockPos.y.toDouble(), be.blockPos.z.toDouble(), level)
             }
         }
     }
 
     override fun tick() {
         super.tick()
-
         val level = be.level ?: return
+        val blockPos = be.blockPos
 
         level.onServer {
             playtimeClock.tick()
@@ -425,8 +428,6 @@ class RecordPlayerBehaviour(
                                 PlaybackState.PLAYING -> {
                                     // Already playing, continue
                                 }
-
-                                else -> {}
                             }
                         }
                     } else {
@@ -464,7 +465,7 @@ class RecordPlayerBehaviour(
                 lastActiveVolume = volumeSupplierInterpolated.getValue()
             }
             audioPlayer?.let {
-                underwaterEffect.update(it, be.blockPos, level)
+                underwaterEffect.update(it, be.blockPos.x.toDouble(), be.blockPos.y.toDouble(), be.blockPos.z.toDouble(), level)
             }
         }
     }
@@ -637,7 +638,7 @@ class RecordPlayerBehaviour(
             level,
         )
 
-        underwaterEffect.update(player, be.blockPos, level)
+        underwaterEffect.update(player, be.blockPos.x.toDouble(), be.blockPos.y.toDouble(), be.blockPos.z.toDouble(), level)
     }
 
     private fun resumeClientPlayer() {
@@ -800,7 +801,7 @@ class RecordPlayerBehaviour(
 
         if (clientPacket && be.level?.isClientSide == true) {
             audioPlayer?.let {
-                underwaterEffect.update(it, be.blockPos, be.level!!)
+                underwaterEffect.update(it, be.blockPos.x.toDouble(), be.blockPos.y.toDouble(), be.blockPos.z.toDouble(), be.level!!)
             }
         }
     }
