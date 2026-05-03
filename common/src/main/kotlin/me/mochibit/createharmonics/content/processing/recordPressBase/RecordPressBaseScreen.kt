@@ -11,7 +11,7 @@ import me.mochibit.createharmonics.foundation.registry.ModBlocks
 import me.mochibit.createharmonics.foundation.registry.ModPackets
 import me.mochibit.createharmonics.gui.ModGuiTexture
 import me.mochibit.createharmonics.gui.widget.AdvancedIconButton
-import mixin.AbstractWidgetAccessor
+import me.mochibit.createharmonics.mixin.AbstractWidgetAccessor
 import net.createmod.catnip.animation.LerpedFloat
 import net.createmod.catnip.animation.LerpedFloat.Chaser
 import net.createmod.catnip.gui.AbstractSimiScreen

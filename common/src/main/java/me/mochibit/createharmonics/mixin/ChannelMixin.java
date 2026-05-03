@@ -1,4 +1,4 @@
-package mixin;
+package me.mochibit.createharmonics.mixin;
 
 import com.mojang.blaze3d.audio.Channel;
 import me.mochibit.createharmonics.audio.stream.PausableAudioStream;

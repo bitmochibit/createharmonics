@@ -1,4 +1,4 @@
-package mixin;
+package me.mochibit.createharmonics.mixin;
 
 import me.mochibit.createharmonics.event.crafting.RecipeAssembledEvent;
 import me.mochibit.createharmonics.foundation.eventbus.EventBus;

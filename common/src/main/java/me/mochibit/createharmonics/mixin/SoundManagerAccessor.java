@@ -1,4 +1,4 @@
-package mixin;
+package me.mochibit.createharmonics.mixin;
 
 import net.minecraft.client.sounds.SoundEngine;
 import org.spongepowered.asm.mixin.gen.Accessor;

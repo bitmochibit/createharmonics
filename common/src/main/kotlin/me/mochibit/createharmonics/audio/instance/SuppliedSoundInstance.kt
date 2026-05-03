@@ -2,8 +2,8 @@ package me.mochibit.createharmonics.audio.instance
 
 import me.mochibit.createharmonics.compat.ModCompats
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
-import mixin.SoundEngineAccessor
-import mixin.SoundManagerAccessor
+import me.mochibit.createharmonics.mixin.SoundEngineAccessor
+import me.mochibit.createharmonics.mixin.SoundManagerAccessor
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance
 import net.minecraft.client.resources.sounds.Sound

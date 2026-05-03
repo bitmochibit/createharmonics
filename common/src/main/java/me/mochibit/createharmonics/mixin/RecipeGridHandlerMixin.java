@@ -1,4 +1,4 @@
-package mixin;
+package me.mochibit.createharmonics.mixin;
 
 import com.simibubi.create.content.kinetics.crafter.RecipeGridHandler;
 import me.mochibit.createharmonics.event.crafting.RecipeAssembledEvent;
