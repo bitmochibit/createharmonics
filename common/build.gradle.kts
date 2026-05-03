@@ -1,7 +1,6 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id("com.gradleup.shadow")
     id("net.neoforged.moddev") version "2.0.141"
 }
 
@@ -92,7 +91,6 @@ neoForge {
 // ── Dependencies ──────────────────────────────────────────────────────────────
 
 dependencies {
-    shadow("org.tukaani:xz:1.11")
     compileOnly("org.tukaani:xz:1.11")
 
     // Mixin annotation processor
@@ -157,7 +155,6 @@ val curseforgeExcludes =
 extra["curseforgeExcludes"] = curseforgeExcludes
 
 tasks.named<Jar>("jar") {
-    from(project.configurations["shadow"].map { if (it.isDirectory) it else zipTree(it) })
     if (isCurseForge) {
         curseforgeExcludes.forEach { exclude(it) }
     }

@@ -1,7 +1,9 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.util.Properties
 
 plugins {
+    id("com.gradleup.shadow")
     id("net.neoforged.moddev") version "2.0.78"
 }
 
@@ -97,11 +99,6 @@ sourceSets.main {
     kotlin.srcDir("src/generated/kotlin")
 }
 
-val shadow by configurations.creating {
-    isCanBeResolved = true
-    isCanBeConsumed = false
-}
-
 dependencies {
     // Kotlin for NeoForge
     implementation("thedarkcolour:kotlinforforge-neoforge:${rootProject.property("kotlin_for_neoforge_version")}")
@@ -186,7 +183,6 @@ tasks.register<GradleBuild>("cleanAll") {
 val curseforgeExcludes = commonProject.extra["curseforgeExcludes"] as List<*>
 
 tasks.named<Jar>("jar") {
-    from(configurations["shadow"].map { if (it.isDirectory) it else zipTree(it) })
     manifest.attributes(
         "MixinConfigs" to "$modId.mixins.json,createharmonics.common.mixins.json",
     )
@@ -194,6 +190,22 @@ tasks.named<Jar>("jar") {
         curseforgeExcludes.forEach { exclude(it.toString()) }
     }
 }
+
+tasks.named("build") {
+    dependsOn("shadowJar")
+}
+
+tasks.named<ShadowJar>("shadowJar") {
+    configurations = listOf(project.configurations.getByName("shadow"))
+    dependencies {
+        include(dependency("org.tukaani:xz:1.11"))
+    }
+
+    relocate("org.tukaani.xz", "me.mochibit.createharmonics.libs.tukaani.xz")
+
+    archiveClassifier = ""
+}
+
 val compileKotlin: KotlinCompile by tasks
 compileKotlin.compilerOptions {
     freeCompilerArgs.set(listOf("-XXLanguage:+WhenGuards"))
@@ -214,12 +226,9 @@ val prodModsDir: String =
 
 tasks.register<Copy>("deployToProd") {
     group = "build"
-    dependsOn("jar")
+    dependsOn("build")
 
-    from(layout.buildDirectory.dir("libs")) {
-        include("*.jar")
-        exclude("*-sources.jar", "*-dev.jar")
-    }
+    from(tasks.named("shadowJar"))
 
     into(file(prodModsDir))
 }
