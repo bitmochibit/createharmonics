@@ -301,6 +301,7 @@ private fun Level.scanReverberatorBlocks(
                 cursorVector.value.set(position.value.x + dx, position.value.y + dy, position.value.z + dz)
                 ModCompats.sableCompat?.projectOutOfSubLevel(this, cursorVector.value)
 
+                // In world contribution
                 val blockState =
                     this.getBlockState(
                         cursorVector.value.x.toInt(),
@@ -313,6 +314,8 @@ private fun Level.scanReverberatorBlocks(
                     in EffectPreset.Reverberator.DAMPING_INCREASERS_BLOCKS -> dampingIncreasers++
                     in EffectPreset.Reverberator.WET_INCREASERS_BLOCKS -> wetIncreasers++
                 }
+
+                // In physics space contribution
 
                 if (inPlotGrid) {
                     val shipBlockState =
@@ -358,9 +361,9 @@ private fun Level.countLiquidCoveredFaces(
             position.value.y + direction.stepY,
             position.value.z + direction.stepZ,
         )
-
-        // 1. World-space check — always takes priority
-        ModCompats.sableCompat?.projectOutOfSubLevel(this, cursorVector.value)
+        if (inPlot) {
+            ModCompats.sableCompat?.projectOutOfSubLevel(this, cursorVector.value)
+        }
 
         val worldFluid =
             getFluidState(cursorVector.value.x.toInt(), cursorVector.value.y.toInt(), cursorVector.value.z.toInt())
@@ -369,20 +372,16 @@ private fun Level.countLiquidCoveredFaces(
             continue
         }
 
-        // 2. If the world block is non-air and non-fluid, it physically blocks this face — skip ship check
-//        val worldBlock =
-//            getBlockState(cursorVector.value.x.toInt(), cursorVector.value.y.toInt(), cursorVector.value.z.toInt())
-//        if (!worldBlock.isAir) continue
-
-        // 3. Fallback: check physics space (handles fluid blocks that are part of the physics plot itself)
-        val shipFluid =
-            getFluidState(
-                (position.value.x + direction.stepX).toInt(),
-                (position.value.y + direction.stepY).toInt(),
-                (position.value.z + direction.stepZ).toInt(),
-            )
-        if (!shipFluid.isEmpty) {
-            accumulateFluid(shipFluid)
+        if (inPlot) {
+            val shipFluid =
+                getFluidState(
+                    (position.value.x + direction.stepX).toInt(),
+                    (position.value.y + direction.stepY).toInt(),
+                    (position.value.z + direction.stepZ).toInt(),
+                )
+            if (!shipFluid.isEmpty) {
+                accumulateFluid(shipFluid)
+            }
         }
     }
 
