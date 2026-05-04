@@ -3,6 +3,7 @@ package me.mochibit.createharmonics.handler
 import me.mochibit.createharmonics.event.crafting.RecipeAssembledEvent
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
 import me.mochibit.createharmonics.foundation.registry.ModItems
+import me.mochibit.createharmonics.foundation.registry.platform.ModDataComponents
 import net.minecraft.core.component.DataComponents
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.resources.ResourceLocation
@@ -11,32 +12,18 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.item.component.CustomData
 
 object RecordCraftingHandler : CommonEventHandler {
-    const val CRAFTED_WITH_DISC_KEY = "crafted_with_disc"
+    private const val CRAFTED_WITH_DISC_KEY = "crafted_with_disc"
 
-    private fun isVanillaDisc(stack: ItemStack): Boolean {
-        val item = stack.item
-        return item.defaultInstance.has(DataComponents.JUKEBOX_PLAYABLE)
-    }
+    private fun isVanillaDisc(stack: ItemStack): Boolean = stack.item.defaultInstance.has(DataComponents.JUKEBOX_PLAYABLE)
 
-    private fun isBaseRecord(stack: ItemStack): Boolean {
-        val item = stack.item
-        return item == ModItems.BASE_RECORD.get()
-    }
+    private fun isBaseRecord(stack: ItemStack): Boolean = stack.item == ModItems.BASE_RECORD.get()
 
-    private fun isEtherealRecord(stack: ItemStack): Boolean {
-        val item = stack.item
-        return ModItems.ETHEREAL_RECORDS.any { it.value.get() == item }
-    }
+    private fun isEtherealRecord(stack: ItemStack): Boolean = ModItems.ETHEREAL_RECORDS.any { it.value.get() == stack.item }
 
     fun getCraftedWithDisc(stack: ItemStack): ItemStack {
-        val customData = stack.get(DataComponents.CUSTOM_DATA) ?: return ItemStack.EMPTY
-        val tag = customData.copyTag()
-        val resLocStr = tag.getString(CRAFTED_WITH_DISC_KEY)
-        if (resLocStr.isEmpty()) return ItemStack.EMPTY
-
+        val resLocStr = getOrMigrateCraftedWith(stack) ?: return ItemStack.EMPTY
         val resLoc = ResourceLocation.tryParse(resLocStr) ?: return ItemStack.EMPTY
         val item = BuiltInRegistries.ITEM.get(resLoc)
-
         return if (item == Items.AIR) ItemStack.EMPTY else ItemStack(item)
     }
 
@@ -45,28 +32,34 @@ object RecordCraftingHandler : CommonEventHandler {
         withDisc: ItemStack,
     ) {
         if (!isBaseRecord(stack) && !isEtherealRecord(stack)) return
-
         val resLoc = BuiltInRegistries.ITEM.getKey(withDisc.item)
+        stack.set(ModDataComponents.craftedWith, resLoc.toString())
+    }
 
+    private fun getOrMigrateCraftedWith(stack: ItemStack): String? {
+        stack.get(ModDataComponents.craftedWith)?.let { return it }
+
+        val legacyValue =
+            stack
+                .get(DataComponents.CUSTOM_DATA)
+                ?.copyTag()
+                ?.getString(CRAFTED_WITH_DISC_KEY)
+                ?.takeIf { it.isNotEmpty() } ?: return null
+
+        stack.set(ModDataComponents.craftedWith, legacyValue)
         stack.update(DataComponents.CUSTOM_DATA, CustomData.EMPTY) { data ->
-            data.update { tag -> tag.putString(CRAFTED_WITH_DISC_KEY, resLoc.toString()) }
+            data.update { tag -> tag.remove(CRAFTED_WITH_DISC_KEY) }
         }
+
+        return legacyValue
     }
 
     private fun transferCraftedWithDisc(
         etherealStack: ItemStack,
         baseStack: ItemStack,
     ) {
-        val resLocStr =
-            baseStack
-                .get(DataComponents.CUSTOM_DATA)
-                ?.copyTag()
-                ?.getString(CRAFTED_WITH_DISC_KEY)
-                ?.takeIf { it.isNotEmpty() } ?: return
-
-        etherealStack.update(DataComponents.CUSTOM_DATA, CustomData.EMPTY) { data ->
-            data.update { tag -> tag.putString(CRAFTED_WITH_DISC_KEY, resLocStr) }
-        }
+        val resLocStr = getOrMigrateCraftedWith(baseStack) ?: return
+        etherealStack.set(ModDataComponents.craftedWith, resLocStr)
     }
 
     override fun setupEvents() {
@@ -75,18 +68,18 @@ object RecordCraftingHandler : CommonEventHandler {
             result.forEach { resultStack ->
                 when {
                     isBaseRecord(resultStack) -> {
-                        val discUsed = ingredients.firstOrNull { isVanillaDisc(it) }
-                        discUsed?.let { setCraftedWithDisc(resultStack, it) }
+                        ingredients
+                            .firstOrNull { isVanillaDisc(it) }
+                            ?.let { setCraftedWithDisc(resultStack, it) }
                     }
 
                     isEtherealRecord(resultStack) -> {
-                        val sourceRecord = ingredients.firstOrNull { isBaseRecord(it) || isEtherealRecord(it) }
-                        sourceRecord?.let {
-                            val originalDisc = getCraftedWithDisc(it)
-                            if (!originalDisc.isEmpty) {
-                                transferCraftedWithDisc(resultStack, it)
+                        ingredients
+                            .firstOrNull { isBaseRecord(it) || isEtherealRecord(it) }
+                            ?.let { source ->
+                                val originalDisc = getCraftedWithDisc(source)
+                                if (!originalDisc.isEmpty) transferCraftedWithDisc(resultStack, source)
                             }
-                        }
                     }
                 }
             }
