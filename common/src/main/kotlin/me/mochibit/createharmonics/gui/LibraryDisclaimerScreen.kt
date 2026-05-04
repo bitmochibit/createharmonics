@@ -668,6 +668,16 @@ class LibraryDisclaimerScreen(
         val statusText = formatStatus(status.status)
         gfx.drawString(font, statusText, dims.right - font.width(statusText) - 12, dims.top + 8, Theme.WHITE, false)
 
+        if (library == BinStatusManager.LibraryType.FFMPEG &&
+            status.isComplete &&
+            FFMPEGProvider.ffprobePath == null
+        ) {
+            val warnText = ModLang.translate("gui.library_setup.status.ffprobe_missing").component()
+            val warnX = dims.left + 12
+            val warnY = dims.top + dims.height - font.lineHeight - 5
+            gfx.drawString(font, "⚠ ${warnText.string}", warnX, warnY, 0xFFAA00, false)
+        }
+
         // Progress or message
         if (status.isInstalling || (status.progress > 0 && !status.isComplete)) {
             renderProgressBar(gfx, dims, status)

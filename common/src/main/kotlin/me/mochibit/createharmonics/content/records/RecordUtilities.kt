@@ -10,6 +10,7 @@ import me.mochibit.createharmonics.audio.stream.Ogg2PcmInputStream
 import me.mochibit.createharmonics.audio.utils.getStreamDirectly
 import me.mochibit.createharmonics.foundation.registry.ModItems
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
+import me.mochibit.createharmonics.foundation.warn
 import me.mochibit.createharmonics.handler.RecordCraftingHandler
 import net.minecraft.core.component.DataComponents
 import net.minecraft.server.level.ServerLevel
@@ -144,11 +145,19 @@ object RecordUtilities {
         }
 
         if (url.isNotBlank() && FFMPEGProvider.isAvailable() && YTDLProvider.isAvailable()) {
-            this.request(
-                AudioRequest.Url(url),
-            )
-            this.play(initialPos)
-            return
+            if (FFMPEGProvider.isProbeAvailable()) {
+                this.request(
+                    AudioRequest.Url(url),
+                )
+                this.play(initialPos)
+                return
+            } else {
+                (
+                    "FFmpeg is correctly installed but it seems ffprobe is missing! \nIf it was installed by the mod" +
+                        " please report this here https://github.com/bitmochibit/createharmonics/issues.\n" +
+                        "If it was installed manually, make sure ffprobe executable is in the same folder as ffmpeg"
+                ).warn()
+            }
         }
 
         // Try to play audio from the crafted-from record

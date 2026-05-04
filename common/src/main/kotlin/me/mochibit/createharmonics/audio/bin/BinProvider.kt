@@ -55,7 +55,7 @@ abstract class BinProvider(
         }
 
         val instructionFile = File(directory, "$providerName-instructions.md")
-        if (!instructionFile.exists()) {
+        if (!instructionFile.exists() || instructionFile.readText().trim() != providerInstructions.trim()) {
             instructionFile.writeText(providerInstructions)
         }
     }
@@ -101,7 +101,7 @@ abstract class BinProvider(
     /**
      * Clear the cached executable path (useful after installation)
      */
-    internal fun clearCache() {
+    internal open fun clearCache() {
         cachedExecutablePath = null
     }
 

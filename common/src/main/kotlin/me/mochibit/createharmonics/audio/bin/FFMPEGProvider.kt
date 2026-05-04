@@ -4,23 +4,52 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.io.File
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 
 object FFMPEGProvider : BinProvider("ffmpeg") {
-    val ffprobePath: String? by lazy {
-        val ffmpegPath = getExecutablePath() ?: return@lazy null
-        val ffmpegFile = java.io.File(ffmpegPath)
-        val probeName = if (isWindows) "ffprobe.exe" else "ffprobe"
-        val probe = java.io.File(ffmpegFile.parentFile, probeName)
-        return@lazy if (probe.exists()) {
-            ensureExecutable(probe)
-            probe.absolutePath
-        } else {
-            null
+    @Volatile
+    private var cachedFfprobePath: String? = null
+    private var ffprobeChecked = false
+
+    val ffprobePath: String?
+        get() {
+            if (ffprobeChecked) {
+                cachedFfprobePath?.let { cached ->
+                    if (java.io.File(cached).exists()) return cached
+                }
+            }
+            val ffmpegPath =
+                getExecutablePath() ?: run {
+                    ffprobeChecked = true
+                    cachedFfprobePath = null
+                    return null
+                }
+            val probeName = if (isWindows) "ffprobe.exe" else "ffprobe"
+            val probe = java.io.File(java.io.File(ffmpegPath).parentFile, probeName)
+            ffprobeChecked = true
+            cachedFfprobePath =
+                if (probe.exists()) {
+                    ensureExecutable(probe)
+                    probe.absolutePath
+                } else {
+                    null
+                }
+            return cachedFfprobePath
         }
+
+    fun isProbeAvailable(): Boolean {
+        val execPath = ffprobePath
+        return execPath != null && File(execPath).let { it.exists() && it.canExecute() }
+    }
+
+    override fun clearCache() {
+        super.clearCache()
+        cachedFfprobePath = null
+        ffprobeChecked = false
     }
 
     override fun getDownloadUrl(): String =
