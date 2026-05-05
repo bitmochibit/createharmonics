@@ -8,6 +8,8 @@ import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.audio.player.AudioRequest
 import me.mochibit.createharmonics.audio.stream.Ogg2PcmInputStream
 import me.mochibit.createharmonics.audio.utils.getStreamDirectly
+import me.mochibit.createharmonics.config.ClientConfig
+import me.mochibit.createharmonics.foundation.debug
 import me.mochibit.createharmonics.foundation.registry.ModItems
 import me.mochibit.createharmonics.foundation.registry.platform.ModDataComponents
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
@@ -168,6 +170,17 @@ object RecordUtilities {
                         "If it was installed manually, make sure ffprobe executable is in the same folder as ffmpeg"
                 ).warn()
             }
+        }
+
+        if (ClientConfig.debugAudioPlayer.get()) {
+            (
+                "Url play request was ignored! Is it intended?\n" +
+                    "current url = $url\n" +
+                    "ffmpeg available = ${FFMPEGProvider.isAvailable()}\n" +
+                    "ytdlp available = ${YTDLProvider.isAvailable()}\n" +
+                    "ffprobe available = ${FFMPEGProvider.isProbeAvailable()}\n\n" +
+                    "Generally if this is intended, you shouldn't see any AudioPlayer fail notices!"
+            ).debug()
         }
 
         // Try to play audio from the crafted-from record

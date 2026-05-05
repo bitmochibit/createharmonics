@@ -34,6 +34,9 @@ object ClientConfig : ConfigBase() {
     lateinit var debugFFmpeg: ConfigBool
         private set
 
+    lateinit var debugAudioPlayer: ConfigBool
+        private set
+
     override fun registerAll(builder: ModConfigSpec.Builder) {
         menuButtonsGroup(builder)
         audioSourceGroup(builder)
@@ -143,6 +146,14 @@ object ClientConfig : ConfigBase() {
                 "debugFFmpeg",
                 "Enables extensive logging for debugging ffmpeg lifecycle",
                 "This is useful for reporting bugs and discovering why ffmpeg is failing.",
+            )
+
+        debugAudioPlayer =
+            b(
+                false,
+                "debugAudioPlayer",
+                "Enables extensive logging for debugging the audio player lifecycle",
+                "This is useful for reporting bugs and discovering why the audio player is not working as expected.",
             )
     }
 

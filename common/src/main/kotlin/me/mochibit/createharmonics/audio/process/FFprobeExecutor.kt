@@ -61,12 +61,16 @@ class FFprobeExecutor {
 
                     val exitCode = process.waitFor()
 
-                    if (exitCode != 0 || output.isBlank()) throw IllegalStateException("FFprobeExecutor: Failed to probe")
+                    if (exitCode != 0 ||
+                        output.isBlank()
+                    ) {
+                        throw IllegalStateException("FFprobeExecutor: Failed to probe, process exited with code $exitCode")
+                    }
 
                     val json = Json { ignoreUnknownKeys = true }
                     val root = json.parseToJsonElement(output).jsonObject
 
-                    if (root.isEmpty()) throw IllegalStateException("FFprobeExecutor: Failed to probe")
+                    if (root.isEmpty()) throw IllegalStateException("FFprobeExecutor: Failed to probe, output is empty")
 
                     val format = root["format"]?.jsonObject ?: throw IllegalStateException("FFprobeExecutor: Missing format data")
                     val streams = root["streams"]?.jsonArray

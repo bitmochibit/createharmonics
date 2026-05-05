@@ -38,7 +38,7 @@ object SourceStreamResolver {
         val result =
             when (source) {
                 is HttpAudioSource -> {
-                    if (adjustedPosition > 0 && adjustedPosition > info.durationSeconds) {
+                    if (adjustedPosition > 0 && info.durationSeconds > 0 && adjustedPosition > info.durationSeconds) {
                         Result(
                             status = Result.StreamStatus.FINISHED,
                             inputStream = null,

@@ -4,6 +4,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.mochibit.createharmonics.audio.process.FFprobeExecutor
 import me.mochibit.createharmonics.audio.process.YTdlpExecutor
+import me.mochibit.createharmonics.config.ClientConfig
+import me.mochibit.createharmonics.foundation.debug
 import me.mochibit.createharmonics.foundation.err
 import java.net.URI
 import java.net.http.HttpClient
@@ -31,6 +33,10 @@ data class AudioInfo(
             try {
                 AudioInfoCache.getAudioInfo(rawUrl, AudioInfoCache.InfoExtractionStrategy.Companion.FFProbeStrat)
             } catch (e: Exception) {
+                if (ClientConfig.debugAudioPlayer.get()) {
+                    "[AUDIO PLAYER MAYBE FAIL] Url extraction with FFProbe failed, please check why\n cause:${e.message ?: "no explicit cause.. wtf"}"
+                        .debug()
+                }
                 AudioInfoCache.getAudioInfo(rawUrl, AudioInfoCache.InfoExtractionStrategy.Companion.YtdlpStrat)
             }
     }

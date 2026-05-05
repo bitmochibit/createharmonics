@@ -19,25 +19,11 @@ object FFMPEGProvider : BinProvider("ffmpeg") {
         get() {
             if (ffprobeChecked) {
                 cachedFfprobePath?.let { cached ->
-                    if (java.io.File(cached).exists()) return cached
+                    if (File(cached).exists()) return cached
                 }
             }
-            val ffmpegPath =
-                getExecutablePath() ?: run {
-                    ffprobeChecked = true
-                    cachedFfprobePath = null
-                    return null
-                }
-            val probeName = if (isWindows) "ffprobe.exe" else "ffprobe"
-            val probe = java.io.File(java.io.File(ffmpegPath).parentFile, probeName)
             ffprobeChecked = true
-            cachedFfprobePath =
-                if (probe.exists()) {
-                    ensureExecutable(probe)
-                    probe.absolutePath
-                } else {
-                    null
-                }
+            cachedFfprobePath = findBinary("ffprobe")?.absolutePath
             return cachedFfprobePath
         }
 
@@ -59,6 +45,13 @@ object FFMPEGProvider : BinProvider("ffmpeg") {
             }
 
             isMac -> {
+                if (isMacSilicon) {
+                    throw LibraryDownloadUrlUnavailable(
+                        "No static FFmpeg builds available for Apple Silicon. " +
+                            "Please install ffmpeg manually (e.g. via Homebrew: brew install ffmpeg) " +
+                            "and place it in ${directory.absolutePath}",
+                    )
+                }
                 "https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip"
             }
 
@@ -98,7 +91,7 @@ object FFMPEGProvider : BinProvider("ffmpeg") {
         val asset =
             assets.firstOrNull { element ->
                 val name = element.jsonObject["name"]?.jsonPrimitive?.content ?: ""
-                name.contains(variant) && name.endsWith(".$extension")
+                name.endsWith("-$variant.$extension")
             } ?: error("No asset found for variant='$variant', extension='$extension'")
 
         return asset.jsonObject["browser_download_url"]!!.jsonPrimitive.content
