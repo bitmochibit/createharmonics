@@ -52,7 +52,9 @@ interface RecordPlayerTrait {
         level.onServer {
             if (clickItem.item is EtherealRecordItem && !blockEntity.playerBehaviour.hasRecord()) {
                 // Click with record: insert and play
-                blockEntity.playerBehaviour.insertRecord(clickItem)
+                if (!blockEntity.playerBehaviour.insertRecord(clickItem)) {
+                    return ItemInteractionResult.FAIL
+                }
                 clickItem.shrink(1)
 
                 // Play insertion sound

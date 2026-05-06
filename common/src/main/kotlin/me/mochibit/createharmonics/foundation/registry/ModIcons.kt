@@ -6,6 +6,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer
 import com.simibubi.create.foundation.gui.AllIcons
 import me.mochibit.createharmonics.foundation.extension.asResource
 import me.mochibit.createharmonics.foundation.info
+import me.mochibit.createharmonics.foundation.services.PlatformService
 import net.createmod.catnip.theme.Color
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.renderer.LightTexture
@@ -16,6 +17,9 @@ import net.minecraft.world.phys.Vec3
 import org.joml.Matrix4f
 
 object ModIcons : CommonRegistry {
+    override val targetEnvironment: PlatformService.Environment
+        get() = PlatformService.Environment.CLIENT
+
     private val ATLAS = "textures/gui/icons.png".asResource()
     private const val ATLAS_SIZE = 256
     private const val ICON_SIZE = 16

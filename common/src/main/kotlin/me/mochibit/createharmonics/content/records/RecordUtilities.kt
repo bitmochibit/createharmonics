@@ -68,6 +68,7 @@ object RecordUtilities {
         }
 
         // Apply damage
+        val brokenStack = stack.copy()
         val damaged = stack.copy()
         var broken = false
         damaged.hurtAndBreak(1, level, null) {
@@ -75,16 +76,8 @@ object RecordUtilities {
         }
 
         return if (broken) {
-            // Get the crafted-from record
-            val craftedWithDisc = RecordCraftingHandler.getCraftedWithDisc(stack)
-
-            // Create a BaseRecordItem with the craftedWith data preserved
-            val baseRecordStack = ItemStack(ModItems.BASE_RECORD.get())
-            if (!craftedWithDisc.isEmpty) {
-                RecordCraftingHandler.setCraftedWithDisc(baseRecordStack, craftedWithDisc)
-            }
-
-            RecordUseResult.Broken(baseRecordStack)
+            brokenStack.damageValue = stack.maxDamage
+            RecordUseResult.Broken(brokenStack)
         } else {
             RecordUseResult.Damaged(damaged)
         }

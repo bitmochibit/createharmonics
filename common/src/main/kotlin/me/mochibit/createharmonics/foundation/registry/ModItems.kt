@@ -5,9 +5,14 @@ import me.mochibit.createharmonics.ModRegistrate
 import me.mochibit.createharmonics.content.records.BaseRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordType
+import me.mochibit.createharmonics.foundation.extension.asResource
 import me.mochibit.createharmonics.foundation.info
+import me.mochibit.createharmonics.foundation.services.PlatformService
+import me.mochibit.createharmonics.foundation.services.platformService
+import net.minecraft.client.renderer.item.ItemProperties
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.Rarity
+import net.neoforged.neoforge.client.model.generators.ModelFile
 import java.util.EnumMap
 
 object ModItems : CommonRegistry {
@@ -39,7 +44,27 @@ object ModItems : CommonRegistry {
                 }
                 EtherealRecordItem(recordType, properties)
             }.model { ctx, prov ->
-                prov.generated(ctx, prov.modLoc("item/ethereal_record/$typeName"))
+                val builder = prov.generated(ctx, prov.modLoc("item/ethereal_record/$typeName"))
+
+                if (recordType != RecordType.CREATIVE) {
+                    builder
+                        .override()
+                        .predicate("broken".asResource(), 1f)
+                        .model(
+                            prov
+                                .getBuilder("${ctx.name}_broken")
+                                .parent(ModelFile.UncheckedModelFile("item/generated"))
+                                .texture("layer0", prov.modLoc("item/ethereal_record/${typeName}_broken")),
+                        ).end()
+                }
+            }.onRegister { item ->
+                if (recordType == RecordType.CREATIVE) return@onRegister
+                val platform = platformService
+                if (platform.environment == PlatformService.Environment.CLIENT) {
+                    ItemProperties.register(item, "broken".asResource()) { stack, _, _, _ ->
+                        if (item.isRecordBroken(stack)) 1.0f else 0.0f
+                    }
+                }
             }.register()
     }
 

@@ -39,6 +39,8 @@ class EtherealRecordItem(
         }
     }
 
+    fun isRecordBroken(stack: ItemStack): Boolean = stack.damageValue >= stack.maxDamage
+
     override fun isDamageable(stack: ItemStack): Boolean = recordType.uses > 0
 
     override fun getDefaultInstance(): ItemStack {
