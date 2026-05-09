@@ -22,7 +22,6 @@ import net.minecraft.world.item.JukeboxSong
 import net.minecraft.world.item.component.CustomData
 import net.minecraft.world.level.Level
 
-// TODO This will be refactored to be more robust
 object RecordUtilities {
     fun getAudioUrl(stack: ItemStack): String? {
         if (stack.item !is EtherealRecordItem) return null
@@ -61,14 +60,14 @@ object RecordUtilities {
         stack: ItemStack,
         level: ServerLevel,
     ): RecordUseResult {
-        if (stack.item !is EtherealRecordItem) return RecordUseResult.Invalid
+        val itemType = stack.item
+        if (itemType !is EtherealRecordItem) return RecordUseResult.Invalid
 
-        if (!stack.item.isDamageable(stack)) {
+        if (!itemType.isDamageable(stack)) {
             return RecordUseResult.NotDamageable(stack)
         }
 
         // Apply damage
-        val brokenStack = stack.copy()
         val damaged = stack.copy()
         var broken = false
         damaged.hurtAndBreak(1, level, null) {
@@ -76,11 +75,37 @@ object RecordUtilities {
         }
 
         return if (broken) {
-            brokenStack.damageValue = stack.maxDamage
-            RecordUseResult.Broken(brokenStack)
+            val brokenItemStack = toBrokenRecordStack(stack)
+            if (brokenItemStack === stack) return RecordUseResult.Invalid
+            RecordUseResult.Broken(brokenItemStack)
         } else {
             RecordUseResult.Damaged(damaged)
         }
+    }
+
+    fun toBrokenRecordStack(stack: ItemStack): ItemStack {
+        val recordItem = stack.item as? EtherealRecordItem ?: return stack
+        val brokenItemType = ModItems.getBrokenEtherealRecordItem(recordItem.recordType)?.get() ?: return stack
+
+        val craftedWithDisc = RecordCraftingHandler.getCraftedWithDisc(stack)
+        val brokenItemStack = ItemStack(brokenItemType)
+        if (!craftedWithDisc.isEmpty) {
+            RecordCraftingHandler.setCraftedWithDisc(brokenItemStack, craftedWithDisc)
+        }
+        return brokenItemStack
+    }
+
+    fun fromBrokenRecordStack(stack: ItemStack): ItemStack {
+        val brokenItemType = stack.item as? EtherealRecordItem ?: return stack
+        val recordItem = ModItems.getEtherealRecordItem(brokenItemType.recordType).get() ?: return stack
+
+        val craftedWithDisc = RecordCraftingHandler.getCraftedWithDisc(stack)
+        val recordItemStack = ItemStack(recordItem)
+        if (!craftedWithDisc.isEmpty) {
+            RecordCraftingHandler.setCraftedWithDisc(recordItemStack, craftedWithDisc)
+        }
+
+        return recordItemStack
     }
 
     /**
@@ -135,7 +160,7 @@ object RecordUtilities {
 
         this.soundEventComposition.anchorBefore(AudioEffect.Scope.MACHINE_CONTROLLED_PITCH)
 
-        val soundEvents = recordProps.properties.soundEventCompProvider()
+        val soundEvents = recordProps.properties.createSoundEventComps()
         for (event in soundEvents) {
             event.pitchSupplier = compPitchSupplier
             event.radiusSupplier = compRadiusSupplier
@@ -145,7 +170,7 @@ object RecordUtilities {
 
         this.effectChain.cleanAllExceptScopes(AudioEffect.Scope.MACHINE_CONTROLLED_PITCH)
 
-        recordProps.properties.audioEffectsProvider().forEach { effect ->
+        recordProps.properties.createAudioEffects().forEach { effect ->
             this.effectChain.addBeforeScope(AudioEffect.Scope.MACHINE_CONTROLLED_PITCH, effect)
         }
 

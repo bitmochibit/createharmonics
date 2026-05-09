@@ -1,10 +1,9 @@
 package me.mochibit.createharmonics.foundation.eventbus
 
+import com.simibubi.create.content.kinetics.deployer.DeployerRecipeSearchEvent
 import net.minecraft.server.level.ServerPlayer
-import net.neoforged.api.distmarker.Dist
 import net.neoforged.bus.api.Event
 import net.neoforged.bus.api.EventPriority
-import net.neoforged.fml.loading.FMLEnvironment
 import net.neoforged.fml.util.thread.EffectiveSide
 import net.neoforged.neoforge.common.NeoForge
 import net.neoforged.neoforge.event.GameShuttingDownEvent
@@ -49,10 +48,26 @@ object NeoforgeEventBridge : CommonEventBridge<Event>() {
         on<PlayerEvent.StopTracking>()
             .registerServer { ServerEvents.PlayerStopTrackingEntity(entity as ServerPlayer, target) }
         on<RegisterCommandsEvent>()
-            .registerBoth { side -> CommonEvents.RegisterCommandsEvent(dispatcher, commandSelection, buildContext, side) }
+            .registerBoth { side ->
+                CommonEvents.RegisterCommandsEvent(
+                    dispatcher,
+                    commandSelection,
+                    buildContext,
+                    side,
+                )
+            }
         on<LevelEvent.Unload>()
             .registerBoth { side -> CommonEvents.LevelUnloadEvent(level, side) }
         on<GameShuttingDownEvent>()
             .registerBoth { side -> CommonEvents.GameShuttingDownEvent(side) }
+
+        on<DeployerRecipeSearchEvent>().registerBoth { side ->
+            CommonEvents.CreateEvents.CreateDeployerRecipeSearchEvent(
+                side,
+                this.blockEntity,
+                this.inventory,
+                this::addRecipe,
+            )
+        }
     }
 }

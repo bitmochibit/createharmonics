@@ -37,5 +37,9 @@ class RecordPlayerItemHandler(
     override fun isItemValid(
         slot: Int,
         stack: ItemStack,
-    ): Boolean = stack.item is EtherealRecordItem || stack.isEmpty
+    ): Boolean {
+        if (stack.isEmpty) return true
+        val item = stack.item as? EtherealRecordItem ?: return false
+        return !item.isRecordBroken()
+    }
 }

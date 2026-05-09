@@ -1,12 +1,19 @@
 package me.mochibit.createharmonics.foundation.eventbus
 
 import com.mojang.brigadier.CommandDispatcher
+import com.simibubi.create.content.kinetics.deployer.DeployerBlockEntity
 import net.minecraft.commands.CommandBuildContext
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.world.entity.Entity
+import net.minecraft.world.item.crafting.Recipe
+import net.minecraft.world.item.crafting.RecipeHolder
+import net.minecraft.world.item.crafting.RecipeInput
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelAccessor
+import net.neoforged.neoforge.items.wrapper.RecipeWrapper
+import java.util.Optional
+import java.util.function.Supplier
 
 /**
  * This event type is used to register platform specific event handlers that are required even for the common layer
@@ -45,6 +52,16 @@ object CommonEvents {
         override val side: LogicalSide,
     ) : ClientProxyEvent,
         ServerProxyEvent
+
+    object CreateEvents {
+        data class CreateDeployerRecipeSearchEvent(
+            override val side: LogicalSide,
+            val deployerBe: DeployerBlockEntity,
+            val recipeWrapper: RecipeWrapper,
+            val addRecipe: (Supplier<Optional<out RecipeHolder<out Recipe<out RecipeInput>>>>, Int) -> Unit,
+        ) : ClientProxyEvent,
+            ServerProxyEvent
+    }
 }
 
 object TickEvents {

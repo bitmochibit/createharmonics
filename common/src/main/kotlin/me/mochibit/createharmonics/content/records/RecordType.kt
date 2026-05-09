@@ -6,21 +6,22 @@ import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.BitCrushEffect
 import me.mochibit.createharmonics.audio.effect.EQBand
 import me.mochibit.createharmonics.audio.effect.EqualizerEffect
-import me.mochibit.createharmonics.audio.effect.ReverbEffect
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.extension.Tags
-import me.mochibit.createharmonics.foundation.extension.asResource
 import me.mochibit.createharmonics.foundation.extension.withPath
 import me.mochibit.createharmonics.foundation.locale.LangProvider
 import me.mochibit.createharmonics.foundation.locale.ModLang
+import me.mochibit.createharmonics.foundation.registry.ModItems
 import me.mochibit.createharmonics.foundation.registry.platform.ModSoundRegistry
-import net.minecraft.core.registries.BuiltInRegistries
+import mezz.jei.library.ingredients.IngredientInfo
 import net.minecraft.network.chat.MutableComponent
 import net.minecraft.network.chat.Style
 import net.minecraft.network.chat.TextColor
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.util.RandomSource
+import net.minecraft.world.item.Items
 import net.minecraft.world.item.crafting.Ingredient
+import java.util.EnumSet
 import java.util.Locale.getDefault
 
 enum class RecordType(
@@ -36,12 +37,20 @@ enum class RecordType(
                         )
                     },
                 ),
-            audioEffectsProvider = {
+            repair =
+                Properties.Repair(
+                    fullRepairIngredientProvider = {
+                        Ingredient.of(
+                            Tags.Items withPath "stones",
+                        )
+                    },
+                ),
+            createAudioEffects = {
                 listOf(
                     BitCrushEffect(quality = 0.3f, scope = AudioEffect.Scope.INTRINSIC_EFFECT),
                 )
             },
-            soundEventCompProvider = {
+            createSoundEventComps = {
                 listOf(
                     SoundEventComposition.SoundEventDef(
                         ModSoundRegistry.slidingStone,
@@ -53,9 +62,9 @@ enum class RecordType(
             },
             defaultDurability = 20,
             effectAttributes =
-                listOf(
-                    Properties.EffectAttribute.MUDDY,
-                    Properties.EffectAttribute.RUSTIC,
+                EnumSet.of(
+                    EffectAttribute.MUDDY,
+                    EffectAttribute.RUSTIC,
                 ),
         ),
     ),
@@ -70,10 +79,18 @@ enum class RecordType(
                         )
                     },
                 ),
+            repair =
+                Properties.Repair(
+                    fullRepairIngredientProvider = {
+                        Ingredient.of(
+                            Tags.Items withPath "ingots/gold",
+                        )
+                    },
+                ),
             defaultDurability = 1,
             effectAttributes =
-                listOf(
-                    Properties.EffectAttribute.CLEAN,
+                EnumSet.of(
+                    EffectAttribute.CLEAN,
                 ),
         ),
     ),
@@ -88,12 +105,20 @@ enum class RecordType(
                         )
                     },
                 ),
-            audioEffectsProvider = {
+            repair =
+                Properties.Repair(
+                    fullRepairIngredientProvider = {
+                        Ingredient.of(
+                            Tags.Items withPath "gems/emerald",
+                        )
+                    },
+                ),
+            createAudioEffects = {
                 listOf(
                     BitCrushEffect(quality = 0.6f, scope = AudioEffect.Scope.INTRINSIC_EFFECT),
                 )
             },
-            soundEventCompProvider = {
+            createSoundEventComps = {
                 listOf(
                     SoundEventComposition.SoundEventDef(
                         SoundEvents.VILLAGER_AMBIENT,
@@ -107,9 +132,9 @@ enum class RecordType(
             },
             defaultDurability = 800,
             effectAttributes =
-                listOf(
-                    Properties.EffectAttribute.MUDDY,
-                    Properties.EffectAttribute.NOISY,
+                EnumSet.of(
+                    EffectAttribute.MUDDY,
+                    EffectAttribute.NOISY,
                 ),
         ),
     ),
@@ -124,7 +149,15 @@ enum class RecordType(
                         )
                     },
                 ),
-            soundEventCompProvider = {
+            repair =
+                Properties.Repair(
+                    fullRepairIngredientProvider = {
+                        Ingredient.of(
+                            Tags.Items withPath "gems/diamond",
+                        )
+                    },
+                ),
+            createSoundEventComps = {
                 listOf(
                     SoundEventComposition.SoundEventDef(
                         ModSoundRegistry.glitter,
@@ -137,9 +170,9 @@ enum class RecordType(
             },
             defaultDurability = 1500,
             effectAttributes =
-                listOf(
-                    Properties.EffectAttribute.CLEAN,
-                    Properties.EffectAttribute.SHINY,
+                EnumSet.of(
+                    EffectAttribute.CLEAN,
+                    EffectAttribute.SHINY,
                 ),
         ),
     ),
@@ -148,14 +181,27 @@ enum class RecordType(
         Properties(
             recipe =
                 Properties.Recipe(
-                    { Ingredient.of(BuiltInRegistries.ITEM.get("diamond_ethereal_record".asResource())) },
+                    { Ingredient.of(ModItems.getEtherealRecordItem(DIAMOND)) },
                     {
                         Ingredient.of(
                             Tags.Items withPath "ingots/netherite",
                         )
                     },
                 ),
-            audioEffectsProvider = {
+            repair =
+                Properties.Repair(
+                    fullRepairIngredientProvider = {
+                        Ingredient.of(
+                            Tags.Items withPath "ingots/netherite",
+                        )
+                    },
+                    partialRepairIngredientProvider = {
+                        Ingredient.of(
+                            Items.NETHERITE_SCRAP,
+                        ) to 1 / 4f
+                    },
+                ),
+            createAudioEffects = {
                 listOf(
                     EqualizerEffect(
                         bands =
@@ -171,9 +217,9 @@ enum class RecordType(
             },
             defaultDurability = 2000,
             effectAttributes =
-                listOf(
-                    Properties.EffectAttribute.CLEAN,
-                    Properties.EffectAttribute.BASSY,
+                EnumSet.of(
+                    EffectAttribute.CLEAN,
+                    EffectAttribute.BASSY,
                 ),
         ),
     ),
@@ -184,15 +230,21 @@ enum class RecordType(
                 Properties.Recipe(
                     secondaryIngredientProvider = { Ingredient.of(AllItems.BRASS_INGOT) },
                 ),
-            audioEffectsProvider = {
+            repair =
+                Properties.Repair(
+                    fullRepairIngredientProvider = {
+                        Ingredient.of(AllItems.BRASS_INGOT)
+                    },
+                ),
+            createAudioEffects = {
                 listOf(
                     BitCrushEffect(quality = 0.9f, scope = AudioEffect.Scope.INTRINSIC_EFFECT),
                 )
             },
             defaultDurability = 250,
             effectAttributes =
-                listOf(
-                    Properties.EffectAttribute.MID,
+                EnumSet.of(
+                    EffectAttribute.MID,
                 ),
         ),
     ),
@@ -202,8 +254,8 @@ enum class RecordType(
             recipe = null,
             defaultDurability = 0,
             effectAttributes =
-                listOf(
-                    Properties.EffectAttribute.CLEAN,
+                EnumSet.of(
+                    EffectAttribute.CLEAN,
                 ),
         ),
     ),
@@ -214,54 +266,64 @@ enum class RecordType(
         get() =
             ModConfigs.server.getRecordDurability(this) ?: this.properties.defaultDurability
 
-    data class Properties(
+    class Properties(
         val recipe: Recipe? = null,
-        val audioEffectsProvider: () -> List<AudioEffect> = { listOf() },
-        val soundEventCompProvider: () -> List<SoundEventComposition.SoundEventDef> = { listOf() },
+        val repair: Repair? = null,
+        val createAudioEffects: () -> List<AudioEffect> = { listOf() },
+        val createSoundEventComps: () -> List<SoundEventComposition.SoundEventDef> = { listOf() },
         val defaultDurability: Int = 250,
-        val effectAttributes: List<EffectAttribute> = listOf(),
+        val effectAttributes: EnumSet<EffectAttribute> = EnumSet.noneOf(EffectAttribute::class.java),
     ) {
-        data class Recipe(
+        class Recipe(
             val primaryIngredientProvider: () -> Ingredient = {
                 Ingredient.of(
-                    BuiltInRegistries.ITEM.get("ethereal_record_base".asResource()),
+                    ModItems.BASE_RECORD.get(),
                 )
             },
             val secondaryIngredientProvider: () -> Ingredient = { Ingredient.EMPTY },
         )
 
-        enum class EffectAttribute(
-            val style: Style,
-            val qualityIndicator: Boolean = false,
-        ) {
-            BASSY(Style.EMPTY.withColor(TextColor.parseColor("#A53561").orThrow)),
-            SHINY(Style.EMPTY.withColor(TextColor.parseColor("#55E1D9").orThrow)),
-            RUSTIC(Style.EMPTY.withColor(TextColor.parseColor("#58693C").orThrow)),
-            NOISY(Style.EMPTY.withColor(TextColor.parseColor("#17D960").orThrow)),
+        class Repair(
+            val fullRepairIngredientProvider: (() -> Ingredient)? = null,
+            /**
+             * Since it's a partial repair, it returns a Pair containing Ingredient and how many points it restores that part.
+             */
+            val partialRepairIngredientProvider: (() -> Pair<Ingredient, RepairFraction>)? = null,
+        )
+    }
 
-            CLEAN(Style.EMPTY.withColor(TextColor.parseColor("#F3F3F3").orThrow).withBold(true), true),
-            MID(Style.EMPTY.withColor(TextColor.parseColor("#F3F3F3").orThrow).withItalic(true), true),
-            MUDDY(Style.EMPTY.withColor(TextColor.parseColor("#F3F3F3").orThrow), true),
-            ;
+    enum class EffectAttribute(
+        val style: Style,
+        val qualityIndicator: Boolean = false,
+    ) {
+        BASSY(Style.EMPTY.withColor(TextColor.parseColor("#A53561").orThrow)),
+        SHINY(Style.EMPTY.withColor(TextColor.parseColor("#55E1D9").orThrow)),
+        RUSTIC(Style.EMPTY.withColor(TextColor.parseColor("#58693C").orThrow)),
+        NOISY(Style.EMPTY.withColor(TextColor.parseColor("#17D960").orThrow)),
 
-            fun translatedComponent(): MutableComponent =
-                ModLang
-                    .translate(
-                        "tooltips.item.ethereal_record.effect_attribute.${this.name.lowercase()}",
-                    ).component()
-                    .withStyle(style)
+        CLEAN(Style.EMPTY.withColor(TextColor.parseColor("#F3F3F3").orThrow).withBold(true), true),
+        MID(Style.EMPTY.withColor(TextColor.parseColor("#F3F3F3").orThrow).withItalic(true), true),
+        MUDDY(Style.EMPTY.withColor(TextColor.parseColor("#F3F3F3").orThrow), true),
+        ;
 
-            companion object : LangProvider {
-                override fun provideLang(keyValueConsumer: (String, String) -> Unit) {
-                    for (attribute in entries) {
-                        val attrName = attribute.name.lowercase()
-                        keyValueConsumer(
-                            "tooltips.item.ethereal_record.effect_attribute.$attrName".withModNamespace(),
-                            attrName.replaceFirstChar { if (it.isLowerCase()) it.titlecase(getDefault()) else it.toString() },
-                        )
-                    }
+        fun translatedComponent(): MutableComponent =
+            ModLang
+                .translate(
+                    "tooltips.item.ethereal_record.effect_attribute.${this.name.lowercase()}",
+                ).component()
+                .withStyle(style)
+
+        companion object : LangProvider {
+            override fun provideLang(keyValueConsumer: (String, String) -> Unit) {
+                for (attribute in entries) {
+                    val attrName = attribute.name.lowercase()
+                    keyValueConsumer(
+                        "tooltips.item.ethereal_record.effect_attribute.$attrName".withModNamespace(),
+                        attrName.replaceFirstChar { if (it.isLowerCase()) it.titlecase(getDefault()) else it.toString() },
+                    )
                 }
             }
         }
     }
 }
+typealias RepairFraction = Float

@@ -54,6 +54,7 @@ import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
 import org.joml.Vector3d
@@ -304,6 +305,7 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
         }
 
     override fun onStopTracking(blockEntityData: CompoundTag) {
+        if (!blockEntityData.contains(PLAYER_UUID_KEY)) return
         val playerId = blockEntityData.getUUID(PLAYER_UUID_KEY).toString()
         ModPackets.broadcast(AudioPlayerContextStopPacket(playerId))
     }

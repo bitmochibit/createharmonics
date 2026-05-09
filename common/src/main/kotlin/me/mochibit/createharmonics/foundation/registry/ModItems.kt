@@ -25,50 +25,46 @@ object ModItems : CommonRegistry {
                 prov.generated(ctx, prov.modLoc("item/ethereal_record_base/base"))
             }.register()
 
+    val BROKEN_ETHEREAL_RECORDS =
+        EnumMap<RecordType, ItemEntry<EtherealRecordItem>>(RecordType::class.java).apply {
+            RecordType.entries
+                .filter { it != RecordType.CREATIVE }
+                .forEach { this[it] = registerBrokenEtherealRecordVariant(it) }
+        }
+
     val ETHEREAL_RECORDS =
         EnumMap<RecordType, ItemEntry<EtherealRecordItem>>(RecordType::class.java).apply {
-            RecordType.entries.forEach { type ->
-                val entry = registerEtherealRecordVariant(type)
-                this[type] = entry
-            }
+            RecordType.entries.forEach { this[it] = registerEtherealRecordVariant(it) }
         }
+
+    private fun registerBrokenEtherealRecordVariant(recordType: RecordType): ItemEntry<EtherealRecordItem> {
+        val typeName = recordType.name.lowercase()
+        return ModRegistrate
+            .item("broken_${typeName}_ethereal_record") {
+                EtherealRecordItem(recordType, Item.Properties().stacksTo(1), true)
+            }.model { ctx, prov ->
+                prov.generated(ctx, prov.modLoc("item/ethereal_record/${typeName}_broken"))
+            }.register()
+    }
 
     private fun registerEtherealRecordVariant(recordType: RecordType): ItemEntry<EtherealRecordItem> {
         val typeName = recordType.name.lowercase()
-        val name = "${typeName}_ethereal_record"
         return ModRegistrate
-            .item(name) {
+            .item("${typeName}_ethereal_record") {
                 val properties = Item.Properties().stacksTo(1)
-                if (recordType == RecordType.CREATIVE) {
-                    properties.rarity(Rarity.EPIC)
-                }
+                if (recordType == RecordType.CREATIVE) properties.rarity(Rarity.EPIC)
                 EtherealRecordItem(recordType, properties)
             }.model { ctx, prov ->
-                val builder = prov.generated(ctx, prov.modLoc("item/ethereal_record/$typeName"))
-
-                if (recordType != RecordType.CREATIVE) {
-                    builder
-                        .override()
-                        .predicate("broken".asResource(), 1f)
-                        .model(
-                            prov
-                                .getBuilder("${ctx.name}_broken")
-                                .parent(ModelFile.UncheckedModelFile("item/generated"))
-                                .texture("layer0", prov.modLoc("item/ethereal_record/${typeName}_broken")),
-                        ).end()
-                }
-            }.onRegister { item ->
-                if (recordType == RecordType.CREATIVE) return@onRegister
-                val platform = platformService
-                if (platform.environment == PlatformService.Environment.CLIENT) {
-                    ItemProperties.register(item, "broken".asResource()) { stack, _, _, _ ->
-                        if (item.isRecordBroken(stack)) 1.0f else 0.0f
-                    }
-                }
+                // Niente più override — il modello è pulito
+                prov.generated(ctx, prov.modLoc("item/ethereal_record/$typeName"))
             }.register()
     }
 
     fun getEtherealRecordItem(recordType: RecordType): ItemEntry<EtherealRecordItem> = ETHEREAL_RECORDS.getValue(recordType)
+
+    fun getBrokenEtherealRecordItem(recordType: RecordType): ItemEntry<EtherealRecordItem>? = BROKEN_ETHEREAL_RECORDS[recordType]
+
+    fun brokenVariantOf(recordType: RecordType): Item? = BROKEN_ETHEREAL_RECORDS[recordType]?.get()
 
     override fun register() {
         "Registering items".info()

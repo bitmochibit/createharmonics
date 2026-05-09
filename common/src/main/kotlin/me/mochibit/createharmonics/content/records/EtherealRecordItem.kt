@@ -17,6 +17,7 @@ import net.minecraft.world.item.TooltipFlag
 class EtherealRecordItem(
     val recordType: RecordType,
     props: Properties,
+    private val brokenVariant: Boolean = false,
 ) : Item(
         props.apply {
             val maxDamage =
@@ -39,7 +40,7 @@ class EtherealRecordItem(
         }
     }
 
-    fun isRecordBroken(stack: ItemStack): Boolean = stack.damageValue >= stack.maxDamage
+    fun isRecordBroken(): Boolean = brokenVariant
 
     override fun isDamageable(stack: ItemStack): Boolean = recordType.uses > 0
 

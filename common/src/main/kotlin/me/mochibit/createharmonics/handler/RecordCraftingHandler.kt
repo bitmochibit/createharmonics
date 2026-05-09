@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.handler
 
+import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.event.crafting.RecipeAssembledEvent
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
 import me.mochibit.createharmonics.foundation.registry.ModItems
@@ -18,7 +19,7 @@ object RecordCraftingHandler : CommonEventHandler {
 
     private fun isBaseRecord(stack: ItemStack): Boolean = stack.item == ModItems.BASE_RECORD.get()
 
-    private fun isEtherealRecord(stack: ItemStack): Boolean = ModItems.ETHEREAL_RECORDS.any { it.value.get() == stack.item }
+    private fun isEtherealRecord(stack: ItemStack): Boolean = stack.item is EtherealRecordItem
 
     fun getCraftedWithDisc(stack: ItemStack): ItemStack {
         val resLocStr = getOrMigrateCraftedWith(stack) ?: return ItemStack.EMPTY

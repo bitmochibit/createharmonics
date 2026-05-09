@@ -524,7 +524,7 @@ class RecordPlayerBehaviour(
         if (hasRecord()) return false
         val item = discItem.item
         if (item !is EtherealRecordItem) return false
-        if (item.isRecordBroken(discItem)) return false
+        if (item.isRecordBroken()) return false
         itemHandler.insertItem(MAIN_RECORD_SLOT, discItem.copy(), false)
         playbackEndedNaturally = false // Allow the newly inserted record to play
         return true

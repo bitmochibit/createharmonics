@@ -10,6 +10,7 @@ import me.mochibit.createharmonics.foundation.registry.ModPackets
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.StructureBlockInfo
 import kotlin.collections.set
 
@@ -37,7 +38,6 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
         EventBus.onSync<ServerEvents.PlayerStartTrackingEntity> { event ->
             val entity = event.entity
             if (entity !is AbstractContraptionEntity) return@onSync
-            if (entity.contraption?.entity == null) return@onSync
 
             entity.contraption.actors.forEach { (_, context) ->
                 context.resync()
@@ -47,7 +47,6 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
         EventBus.onSync<ServerEvents.PlayerStopTrackingEntity> { event ->
             val entity = event.entity
             if (entity !is AbstractContraptionEntity) return@onSync
-            if (entity.contraption?.entity == null) return@onSync
 
             entity.contraption.actors.forEach { (_, context) ->
                 context.blockEntityData?.let { onStopTracking(it) }
