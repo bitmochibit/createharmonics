@@ -1,4 +1,4 @@
-package mixin;
+package me.mochibit.createharmonics.mixin;
 
 import com.simibubi.create.content.processing.AssemblyOperatorBlockItem;
 import me.mochibit.createharmonics.foundation.registry.ModBlocks;

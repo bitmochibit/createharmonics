@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.foundation.eventbus
 
+import com.simibubi.create.content.kinetics.deployer.DeployerRecipeSearchEvent
 import net.minecraft.server.level.ServerPlayer
 import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.event.GameShuttingDownEvent
@@ -54,5 +55,14 @@ object ForgeEventBridge : CommonEventBridge<Event>() {
             .registerBoth { side -> CommonEvents.LevelUnloadEvent(level, side) }
         on<GameShuttingDownEvent>()
             .registerBoth { side -> CommonEvents.GameShuttingDownEvent(side) }
+
+        on<DeployerRecipeSearchEvent>().registerBoth { side ->
+            CommonEvents.CreateEvents.CreateDeployerRecipeSearchEvent(
+                side,
+                this.blockEntity,
+                this.inventory,
+                this::addRecipe,
+            )
+        }
     }
 }

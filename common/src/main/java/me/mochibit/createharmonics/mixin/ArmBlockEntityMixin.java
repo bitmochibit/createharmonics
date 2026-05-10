@@ -1,4 +1,4 @@
-package mixin;
+package me.mochibit.createharmonics.mixin;
 
 import com.simibubi.create.content.kinetics.mechanicalArm.ArmBlockEntity;
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerTrait;

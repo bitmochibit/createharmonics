@@ -10,7 +10,7 @@ object YTDLProvider : BinProvider(
             }
 
             isMac -> {
-                "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos"
+                "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos.zip"
             }
 
             isLinux -> {

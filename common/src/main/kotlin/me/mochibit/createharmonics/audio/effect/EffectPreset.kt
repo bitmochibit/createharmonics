@@ -2,16 +2,34 @@ package me.mochibit.createharmonics.audio.effect
 
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import me.mochibit.createharmonics.audio.player.AudioPlayer
+import me.mochibit.createharmonics.compat.ModCompats
 import me.mochibit.createharmonics.config.ModConfigs
-import me.mochibit.createharmonics.foundation.extension.countLiquidCoveredFaces
+import me.mochibit.createharmonics.foundation.extension.getBlockState
+import me.mochibit.createharmonics.foundation.extension.getFluidState
 import me.mochibit.createharmonics.foundation.extension.lerpTo
-import me.mochibit.createharmonics.foundation.extension.scanReverberatorBlocks
+import me.mochibit.createharmonics.foundation.services.contentService
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
+import net.minecraft.core.Direction
 import net.minecraft.core.Vec3i
+import net.minecraft.tags.FluidTags
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
-import net.minecraft.world.phys.Vec3
+import net.minecraft.world.level.material.FluidState
+import org.joml.Vector3d
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.round
+
+@JvmInline
+value class PositionVector(
+    val value: Vector3d,
+)
+
+@JvmInline
+value class CursorVector(
+    val value: Vector3d,
+)
 
 sealed interface EffectPreset {
     fun update(
@@ -22,19 +40,26 @@ sealed interface EffectPreset {
         level: Level,
     )
 
-    fun update(
-        audioPlayer: AudioPlayer,
-        blockPos: Vec3,
-        level: Level,
-    ) = update(audioPlayer, blockPos.x, blockPos.y, blockPos.z, level)
+    abstract class AbstractEffectPreset : EffectPreset {
+        protected val positionVec = PositionVector(Vector3d())
 
-    fun update(
-        audioPlayer: AudioPlayer,
-        blockPos: Vec3i,
-        level: Level,
-    ) = update(audioPlayer, blockPos.x.toDouble(), blockPos.y.toDouble(), blockPos.z.toDouble(), level)
+        /**
+         * Use this vector for avoiding GC pressure in scans
+         */
+        protected val cursorVec = CursorVector(Vector3d())
 
-    class UnderwaterFilter : EffectPreset {
+        override fun update(
+            audioPlayer: AudioPlayer,
+            x: Double,
+            y: Double,
+            z: Double,
+            level: Level,
+        ) {
+            positionVec.value.set(x, y, z)
+        }
+    }
+
+    class UnderwaterFilter : AbstractEffectPreset() {
         companion object {
             val effectScope: AudioEffect.Scope =
                 AudioEffect.Scope.register(
@@ -98,10 +123,11 @@ sealed interface EffectPreset {
             z: Double,
             level: Level,
         ) {
+            super.update(audioPlayer, x, y, z, level)
             if (level is VirtualRenderWorld) return
             if (!level.isClientSide) return
 
-            val (liquidCoveredFaces, isThick) = level.countLiquidCoveredFaces(x, y, z)
+            val (liquidCoveredFaces, isThick) = level.countLiquidCoveredFaces(positionVec, cursorVec)
 
             if (liquidCoveredFaces > 0) {
                 val maxEffectiveFaces = 4f
@@ -125,7 +151,7 @@ sealed interface EffectPreset {
     class Reverberator(
         private val scanRadiusProvider: () -> Int = { ModConfigs.client.reverberatorScanRadius.get() },
         private val maxEffectiveBlocks: Int = 8,
-    ) : EffectPreset {
+    ) : AbstractEffectPreset() {
         // Base values when no blocks are present (near-dry, subtle room)
         private var targetRoomSize = BASE_ROOM_SIZE
         private var targetDamping = BASE_DAMPING
@@ -226,10 +252,11 @@ sealed interface EffectPreset {
             z: Double,
             level: Level,
         ) {
+            super.update(audioPlayer, x, y, z, level)
             if (level is VirtualRenderWorld) return
             if (!level.isClientSide) return
 
-            val counts = level.scanReverberatorBlocks(x, y, z, scanRadiusProvider())
+            val counts = level.scanReverberatorBlocks(positionVec, scanRadiusProvider(), cursorVec)
 
             if (counts.total == 0) {
                 removeReverb(audioPlayer)
@@ -248,4 +275,117 @@ sealed interface EffectPreset {
             applyReverb(audioPlayer)
         }
     }
+}
+
+private data class BlockCounts(
+    val roomIncreasers: Int,
+    val dampingIncreasers: Int,
+    val wetIncreasers: Int,
+) {
+    val total: Int get() = roomIncreasers + dampingIncreasers + wetIncreasers
+}
+
+private fun Level.scanReverberatorBlocks(
+    position: PositionVector,
+    scanRadius: Int,
+    cursorVector: CursorVector,
+): BlockCounts {
+    var roomIncreasers = 0
+    var dampingIncreasers = 0
+    var wetIncreasers = 0
+
+    val inPlotGrid = ModCompats.vsCompat?.isInShip(this, position.value) == true
+
+    for (dx in -scanRadius..scanRadius) {
+        for (dy in -scanRadius..scanRadius) {
+            for (dz in -scanRadius..scanRadius) {
+                cursorVector.value.set(position.value.x + dx, position.value.y + dy, position.value.z + dz)
+                ModCompats.vsCompat?.projectOutOfShip(this, cursorVector.value)
+
+                // In world contribution
+                val blockState =
+                    this.getBlockState(
+                        cursorVector.value.x.toInt(),
+                        cursorVector.value.y.toInt(),
+                        cursorVector.value.z.toInt(),
+                    )
+
+                when (blockState.block) {
+                    in EffectPreset.Reverberator.ROOM_INCREASERS_BLOCKS -> roomIncreasers++
+                    in EffectPreset.Reverberator.DAMPING_INCREASERS_BLOCKS -> dampingIncreasers++
+                    in EffectPreset.Reverberator.WET_INCREASERS_BLOCKS -> wetIncreasers++
+                }
+
+                // In physics space contribution
+
+                if (inPlotGrid) {
+                    val shipBlockState =
+                        this.getBlockState(
+                            (position.value.x + dx).toInt(),
+                            (position.value.y + dy).toInt(),
+                            (position.value.z + dz).toInt(),
+                        )
+                    when (shipBlockState.block) {
+                        Blocks.AMETHYST_BLOCK -> roomIncreasers++
+                        Blocks.EMERALD_BLOCK -> dampingIncreasers++
+                        Blocks.DIAMOND_BLOCK -> wetIncreasers++
+                    }
+                }
+            }
+        }
+    }
+
+    return BlockCounts(roomIncreasers, dampingIncreasers, wetIncreasers)
+}
+
+private fun Level.countLiquidCoveredFaces(
+    position: PositionVector,
+    cursorVector: CursorVector,
+): Pair<Int, Boolean> {
+    var liquidCount = 0
+    var viscousCount = 0
+    var waterCount = 0
+
+    val inPlot = ModCompats.vsCompat?.isInShip(this, position.value) == true
+
+    fun accumulateFluid(fluidState: FluidState) {
+        liquidCount++
+        when {
+            contentService.getViscosity(fluidState) > 1000 -> viscousCount++
+            fluidState.`is`(FluidTags.WATER) -> waterCount++
+        }
+    }
+
+    for (direction in Direction.entries) {
+        cursorVector.value.set(
+            position.value.x + direction.stepX,
+            position.value.y + direction.stepY,
+            position.value.z + direction.stepZ,
+        )
+        if (inPlot) {
+            ModCompats.vsCompat?.projectOutOfShip(this, cursorVector.value)
+        }
+
+        val worldFluid =
+            getFluidState(cursorVector.value.x.toInt(), cursorVector.value.y.toInt(), cursorVector.value.z.toInt())
+        if (!worldFluid.isEmpty) {
+            accumulateFluid(worldFluid)
+            continue
+        }
+
+        if (inPlot) {
+            val shipFluid =
+                getFluidState(
+                    (position.value.x + direction.stepX).toInt(),
+                    (position.value.y + direction.stepY).toInt(),
+                    (position.value.z + direction.stepZ).toInt(),
+                )
+            if (!shipFluid.isEmpty) {
+                accumulateFluid(shipFluid)
+            }
+        }
+    }
+
+    val isThick = viscousCount >= waterCount && viscousCount > 0
+    return liquidCount to isThick
 }

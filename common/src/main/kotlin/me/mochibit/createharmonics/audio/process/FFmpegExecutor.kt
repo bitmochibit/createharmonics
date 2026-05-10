@@ -14,6 +14,7 @@ import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.debug
 import me.mochibit.createharmonics.foundation.err
+import me.mochibit.createharmonics.foundation.warn
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 import java.io.SequenceInputStream
@@ -222,6 +223,21 @@ class FFmpegExecutor private constructor() {
                     firstChunkDeferred.complete(if (n > 0) buf.copyOf(n) else null)
                 } catch (_: Exception) {
                     firstChunkDeferred.complete(null)
+                } finally {
+                    if (ModConfigs.client.debugFFmpeg.get()) {
+                        try {
+                            val code = newProcess.exitValue()
+                            if (code == 0) {
+                                "FFmpeg exited normally".debug()
+                            } else if (code == -1073741515) {
+                                "FFmpeg is failing to run due to missing runtime dependencies!! Check your installation of FFMPEG it may be broken."
+                                    .warn()
+                            } else {
+                                "FFmpeg process exited with non-zero code: $code (pid=$processId)".debug()
+                            }
+                        } catch (_: IllegalThreadStateException) {
+                        }
+                    }
                 }
             }
 
@@ -246,8 +262,6 @@ class FFmpegExecutor private constructor() {
      * Fields are cleared immediately under the mutex; blocking teardown runs on IO dispatcher.
      */
     suspend fun destroy() {
-        val isDebug = ModConfigs.client.debugFFmpeg.get()
-
         val (currentProcess, currentPid) =
             lifecycleMutex.withLock {
                 val p = process
@@ -256,10 +270,6 @@ class FFmpegExecutor private constructor() {
                 processId = null
                 p to id
             }
-
-        if (isDebug) {
-            "Destroying FFMPEG.. pid=$currentPid".debug()
-        }
 
         currentProcess ?: return
 
@@ -273,10 +283,6 @@ class FFmpegExecutor private constructor() {
                     }
                 }
 
-                if (isDebug) {
-                    "Passed FFMPEG destruction for pid=$currentPid".debug()
-                }
-
                 try {
                     currentProcess.inputStream?.close()
                 } catch (_: Exception) {
@@ -284,9 +290,6 @@ class FFmpegExecutor private constructor() {
                 try {
                     currentProcess.errorStream?.close()
                 } catch (_: Exception) {
-                }
-                if (isDebug) {
-                    "Passed FFMPEG iostream closure for pid=$currentPid".debug()
                 }
             } catch (e: Exception) {
                 "Error destroying FFmpeg process: ${e.message}".err()

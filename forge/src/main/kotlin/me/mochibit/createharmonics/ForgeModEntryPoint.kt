@@ -74,6 +74,7 @@ class ForgeModEntryPoint(
     @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
     object ForgeEvents {
         @SubscribeEvent
+        @JvmStatic
         fun onAttachCapabilities(event: AttachCapabilitiesEvent<BlockEntity>) {
             when (val be = event.`object`) {
                 is RecordPlayerBlockEntity -> {

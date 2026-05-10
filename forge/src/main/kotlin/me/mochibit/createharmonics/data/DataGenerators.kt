@@ -48,7 +48,7 @@ object DataGenerators {
                 provider.add(key, value)
             }
 
-            RecordType.Properties.EffectAttribute.provideLang(langConsumer)
+            RecordType.EffectAttribute.provideLang(langConsumer)
 
             provideDefaultLang(langConsumer)
 

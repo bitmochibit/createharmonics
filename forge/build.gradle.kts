@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.util.Properties
 
 plugins {
+    id("com.gradleup.shadow")
     id("org.jetbrains.kotlin.jvm") version "2.1.21"
     id("org.jetbrains.kotlin.plugin.serialization") version "2.1.21"
     id("net.neoforged.moddev.legacyforge") version "2.0.140"
@@ -103,11 +104,6 @@ sourceSets.main {
     kotlin.srcDir("src/generated/kotlin")
 }
 
-val shadow by configurations.creating {
-    isCanBeResolved = true
-    isCanBeConsumed = false
-}
-
 dependencies {
     // Kotlin for Forge
     implementation("thedarkcolour:kotlinforforge:${rootProject.property("kotlin_for_forge_version")}")
@@ -140,16 +136,10 @@ dependencies {
     annotationProcessor("org.spongepowered:mixin:0.8.5-SNAPSHOT:processor")
 }
 
-tasks.register<GradleBuild>("buildForCurseforge") {
-    startParameter.projectProperties = mapOf("curseforge" to "true")
-    group = "build"
-    tasks = listOf("build")
-}
-
 tasks.named<ProcessResources>("processResources") {
     from(project(":common").sourceSets["main"].resources)
     val buildProps = project.properties.toMap()
-
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
     filesMatching("META-INF/mods.toml") {
         expand(buildProps)
     }
@@ -171,6 +161,12 @@ tasks.withType<KotlinCompile>().configureEach {
     source(project(":common").sourceSets["main"].kotlin)
 }
 
+tasks.register<GradleBuild>("buildForCurseforge") {
+    startParameter.projectProperties = mapOf("curseforge" to "true")
+    group = "build"
+    tasks = listOf("build")
+}
+
 tasks.register<GradleBuild>("cleanAll") {
     group = "build"
     tasks = listOf(":common:clean", ":forge:clean")
@@ -179,10 +175,6 @@ tasks.register<GradleBuild>("cleanAll") {
 val curseforgeExcludes = project(":common").extra["curseforgeExcludes"] as List<*>
 
 tasks.named<Jar>("jar") {
-    finalizedBy("reobfJar")
-
-    from(configurations["shadow"].map { if (it.isDirectory) it else zipTree(it) })
-
     manifest.attributes(
         "MixinConfigs" to "$modId.mixins.json,createharmonics.common.mixins.json",
     )
@@ -190,6 +182,24 @@ tasks.named<Jar>("jar") {
         curseforgeExcludes.forEach { exclude(it.toString()) }
     }
 }
+
+tasks.named("build") {
+    dependsOn("shadowJar")
+}
+
+tasks.named<ShadowJar>("shadowJar") {
+    configurations = listOf(project.configurations.getByName("shadow"))
+    dependencies {
+        include(dependency("org.tukaani:xz:1.11"))
+    }
+
+    relocate("org.tukaani.xz", "me.mochibit.createharmonics.libs.tukaani.xz")
+
+    archiveClassifier = ""
+
+    finalizedBy("reobfJar")
+}
+
 val compileKotlin: KotlinCompile by tasks
 compileKotlin.compilerOptions {
     freeCompilerArgs.set(listOf("-XXLanguage:+WhenGuards"))
@@ -211,10 +221,7 @@ val prodModsDir: String =
 tasks.register<Copy>("deployToProd") {
     group = "build"
     dependsOn("reobfJar")
-    from(layout.buildDirectory.dir("libs")) {
-        include("*.jar")
-        exclude("*-sources.jar", "*-dev.jar")
-    }
+    from(tasks.named("shadowJar"))
 
     into(file(prodModsDir))
 }

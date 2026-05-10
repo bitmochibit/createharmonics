@@ -4,23 +4,38 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.io.File
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 
 object FFMPEGProvider : BinProvider("ffmpeg") {
-    val ffprobePath: String? by lazy {
-        val ffmpegPath = getExecutablePath() ?: return@lazy null
-        val ffmpegFile = java.io.File(ffmpegPath)
-        val probeName = if (isWindows) "ffprobe.exe" else "ffprobe"
-        val probe = java.io.File(ffmpegFile.parentFile, probeName)
-        return@lazy if (probe.exists()) {
-            ensureExecutable(probe)
-            probe.absolutePath
-        } else {
-            null
+    @Volatile
+    private var cachedFfprobePath: String? = null
+    private var ffprobeChecked = false
+
+    val ffprobePath: String?
+        get() {
+            if (ffprobeChecked) {
+                cachedFfprobePath?.let { cached ->
+                    if (File(cached).exists()) return cached
+                }
+            }
+            ffprobeChecked = true
+            cachedFfprobePath = findBinary("ffprobe")?.absolutePath
+            return cachedFfprobePath
         }
+
+    fun isProbeAvailable(): Boolean {
+        val execPath = ffprobePath
+        return execPath != null && File(execPath).let { it.exists() && it.canExecute() }
+    }
+
+    override fun clearCache() {
+        super.clearCache()
+        cachedFfprobePath = null
+        ffprobeChecked = false
     }
 
     override fun getDownloadUrl(): String =
@@ -30,6 +45,13 @@ object FFMPEGProvider : BinProvider("ffmpeg") {
             }
 
             isMac -> {
+                if (isMacSilicon) {
+                    throw LibraryDownloadUrlUnavailable(
+                        "No static FFmpeg builds available for Apple Silicon. " +
+                            "Please install ffmpeg manually (e.g. via Homebrew: brew install ffmpeg) " +
+                            "and place it in ${directory.absolutePath}",
+                    )
+                }
                 "https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip"
             }
 
@@ -69,7 +91,7 @@ object FFMPEGProvider : BinProvider("ffmpeg") {
         val asset =
             assets.firstOrNull { element ->
                 val name = element.jsonObject["name"]?.jsonPrimitive?.content ?: ""
-                name.contains(variant) && name.endsWith(".$extension")
+                name.endsWith("-$variant.$extension")
             } ?: error("No asset found for variant='$variant', extension='$extension'")
 
         return asset.jsonObject["browser_download_url"]!!.jsonPrimitive.content

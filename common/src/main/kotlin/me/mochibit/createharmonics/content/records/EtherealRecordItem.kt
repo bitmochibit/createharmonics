@@ -18,6 +18,7 @@ import net.minecraft.world.level.Level
 class EtherealRecordItem(
     val recordType: RecordType,
     props: Properties,
+    private val brokenVariant: Boolean = false,
 ) : Item(
         props.apply {
             val maxDamage =
@@ -39,7 +40,9 @@ class EtherealRecordItem(
         }
     }
 
-    override fun canBeDepleted(): Boolean = recordType.uses > 0
+    fun isRecordBroken(): Boolean = brokenVariant
+
+    override fun canBeDepleted(): Boolean = recordType.uses > 0 && !isRecordBroken()
 
     override fun getDefaultInstance(): ItemStack {
         val default = super.getDefaultInstance()

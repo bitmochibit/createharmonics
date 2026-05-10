@@ -2,7 +2,7 @@
   "required": true,
   "minVersion": "0.8.5",
   "priority": 1500,
-  "package": "mixin",
+  "package": "me.mochibit.createharmonics.mixin",
   "compatibilityLevel": "JAVA_17",
   "refmap": "createharmonics.refmap.json",
   "injectors": {

@@ -4,6 +4,10 @@ import me.mochibit.createharmonics.foundation.locale.ModLang
 import net.minecraft.client.Minecraft
 import java.io.File
 
+class LibraryDownloadUrlUnavailable(
+    message: String,
+) : Exception(message)
+
 abstract class BinProvider(
     private val providerName: String,
     val directory: File =
@@ -34,6 +38,7 @@ abstract class BinProvider(
         val isMac: Boolean = OS_NAME.contains("mac") || OS_NAME.contains("darwin")
         val isLinux: Boolean = OS_NAME.contains("linux")
         val isArm: Boolean = OS_ARCH.contains("aarch64") || OS_ARCH.contains("arm")
+        val isMacSilicon: Boolean = isMac && isArm
 
         val providersFolder: File =
             Minecraft
@@ -55,18 +60,25 @@ abstract class BinProvider(
         }
 
         val instructionFile = File(directory, "$providerName-instructions.md")
-        if (!instructionFile.exists()) {
+        if (!instructionFile.exists() || instructionFile.readText().trim() != providerInstructions.trim()) {
             instructionFile.writeText(providerInstructions)
         }
     }
 
     val providerInstructions: String
         get() {
+            val downloadUrl: String =
+                try {
+                    getDownloadUrl()
+                } catch (e: LibraryDownloadUrlUnavailable) {
+                    e.message ?: "No download URL was found for $providerName"
+                }
+
             return ModLang
                 .translate(
                     "audio.binary.instructions",
                     providerName,
-                    getDownloadUrl(),
+                    downloadUrl,
                     directory.absoluteFile.path,
                 ).string()
         }
@@ -101,11 +113,16 @@ abstract class BinProvider(
     /**
      * Clear the cached executable path (useful after installation)
      */
-    internal fun clearCache() {
+    internal open fun clearCache() {
         cachedExecutablePath = null
     }
 
     private fun getExecutableName(): String = if (isWindows) "$providerName.exe" else providerName
+
+    internal fun findBinary(name: String): File? {
+        val exeName = if (isWindows) "$name.exe" else name
+        return findExecutable(directory, exeName)
+    }
 
     private fun findExecutable(
         dir: File,

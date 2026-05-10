@@ -137,6 +137,12 @@ object ModCreativeTabs : ForgeRegistry {
             }
         }
 
+        ModItems.BROKEN_ETHEREAL_RECORDS.forEach { (_, entry) ->
+            factories[entry.get()] = { item ->
+                item.defaultInstance
+            }
+        }
+
         return { item -> factories[item]?.invoke(item) ?: ItemStack(item) }
     }
 

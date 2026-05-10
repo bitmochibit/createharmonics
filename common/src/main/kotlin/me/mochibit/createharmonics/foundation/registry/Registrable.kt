@@ -1,5 +1,8 @@
 package me.mochibit.createharmonics.foundation.registry
 
+import me.mochibit.createharmonics.foundation.services.PlatformService
+import me.mochibit.createharmonics.foundation.services.platformService
+
 interface Registrable {
     /**
      * The registration order priority. Lower values are registered first.
@@ -8,6 +11,13 @@ interface Registrable {
      */
     val registrationOrder: Int
         get() = 0
+
+    /**
+     * If set, this registrable will only be executed on the specified environment.
+     * Null means "any environment" (default).
+     */
+    val targetEnvironment: PlatformService.Environment?
+        get() = null
 
     fun register()
 }
@@ -27,13 +37,20 @@ sealed interface CommonRegistry : Registrable
  */
 inline fun <reified AutoRegistrableMarker : Registrable> autoRegister() {
     if (!AutoRegistrableMarker::class.isSealed) {
-        throw IllegalArgumentException("The passed auto registrable marker must be a sealed interface to enable automatic registration")
+        throw IllegalArgumentException("The passed auto registrable marker must be a sealed interface")
     }
+
+    val platform = platformService
 
     AutoRegistrableMarker::class
         .sealedSubclasses
         .filter { AutoRegistrableMarker::class.java.isAssignableFrom(it.java) }
         .map { it.objectInstance as Registrable }
-        .sortedBy { it.registrationOrder }
+        .filter { registrable ->
+            val envMatch =
+                registrable.targetEnvironment == null ||
+                    registrable.targetEnvironment == platform.environment
+            envMatch
+        }.sortedBy { it.registrationOrder }
         .forEach { it.register() }
 }

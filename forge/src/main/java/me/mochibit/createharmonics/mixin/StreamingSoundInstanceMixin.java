@@ -1,4 +1,4 @@
-package mixin;
+package me.mochibit.createharmonics.mixin;
 
 import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance;
 import net.minecraft.client.resources.sounds.Sound;

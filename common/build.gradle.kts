@@ -1,7 +1,6 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id("com.gradleup.shadow")
     id("org.jetbrains.kotlin.jvm") version "2.1.21"
     id("org.jetbrains.kotlin.plugin.serialization") version "2.1.21"
     id("net.neoforged.moddev.legacyforge") version "2.0.140"
@@ -85,7 +84,6 @@ legacyForge {
 }
 
 dependencies {
-    shadow("org.tukaani:xz:1.11")
     compileOnly("org.tukaani:xz:1.11")
 
     modCompileOnly("net.minecraftforge:forge:1.20.1-47.1.0")
@@ -136,7 +134,6 @@ val curseforgeExcludes =
 extra["curseforgeExcludes"] = curseforgeExcludes
 
 tasks.named<Jar>("jar") {
-    from(project.configurations["shadow"].map { if (it.isDirectory) it else zipTree(it) })
     if (isCurseForge) {
         curseforgeExcludes.forEach { exclude(it) }
     }

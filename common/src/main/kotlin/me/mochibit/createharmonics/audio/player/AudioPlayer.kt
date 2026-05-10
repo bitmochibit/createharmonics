@@ -27,10 +27,12 @@ import me.mochibit.createharmonics.audio.instance.SuppliedSoundInstance
 import me.mochibit.createharmonics.audio.stream.AudioEffectInputStream
 import me.mochibit.createharmonics.audio.utils.pause
 import me.mochibit.createharmonics.audio.utils.unpause
+import me.mochibit.createharmonics.config.ClientConfig
 import me.mochibit.createharmonics.foundation.async.ClientCoroutineScope
 import me.mochibit.createharmonics.foundation.async.launchOnClient
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.async.withMainContext
+import me.mochibit.createharmonics.foundation.debug
 import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerStreamEndPacket
@@ -334,8 +336,15 @@ class AudioPlayer(
                         val source = AudioSourceResolver.resolve(request)
                         SourceStreamResolver.resolveInputStream(source, pos)
                     } catch (e: CancellationException) {
+                        if (ClientConfig.debugAudioPlayer.get()) {
+                            "Audio player cancellation was requested!".debug()
+                        }
                         throw e
                     } catch (e: Exception) {
+                        if (ClientConfig.debugAudioPlayer.get()) {
+                            "[AUDIO PLAYER FAIL] The player failed, and a retry will be requested\n cause:${e.message ?: "no explicit cause.. this is bad"}"
+                                .debug()
+                        }
                         if (isActive) intents.trySend(PlayerIntent.StreamFailed())
                         return@launch
                     }

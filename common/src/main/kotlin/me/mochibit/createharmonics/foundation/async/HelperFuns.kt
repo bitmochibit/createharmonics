@@ -8,7 +8,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.mochibit.createharmonics.foundation.services.PlatformService
 import me.mochibit.createharmonics.foundation.services.platformService
-import net.minecraftforge.fml.util.thread.EffectiveSide
 import kotlin.coroutines.CoroutineContext
 
 val currentMainDispatcher: CoroutineContext

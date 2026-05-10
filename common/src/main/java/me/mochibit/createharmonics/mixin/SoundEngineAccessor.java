@@ -1,4 +1,4 @@
-package mixin;
+package me.mochibit.createharmonics.mixin;
 
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.client.sounds.ChannelAccess;

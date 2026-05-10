@@ -1,28 +1,29 @@
 package me.mochibit.createharmonics.audio.instance
 
+import me.mochibit.createharmonics.compat.ModCompats
+import me.mochibit.createharmonics.compat.vs.VsCompat
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
-import mixin.SoundEngineAccessor
-import mixin.SoundManagerAccessor
+import me.mochibit.createharmonics.mixin.SoundEngineAccessor
+import me.mochibit.createharmonics.mixin.SoundManagerAccessor
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance
 import net.minecraft.client.resources.sounds.Sound
-import net.minecraft.client.resources.sounds.SoundInstance
-import net.minecraft.client.sounds.ChannelAccess
 import net.minecraft.client.sounds.SoundManager
 import net.minecraft.client.sounds.WeighedSoundEvents
-import net.minecraft.core.BlockPos
 import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
 import net.minecraft.util.valueproviders.ConstantFloat
-import kotlin.math.roundToInt
+import net.minecraft.world.level.Level
+import org.joml.Matrix4dc
+import org.joml.Vector3d
 
 abstract class SuppliedSoundInstance(
     soundEvent: SoundEvent,
     soundSource: SoundSource,
     randomSoundInstance: RandomSource,
     private val streamSound: Boolean,
-    val posSupplier: () -> BlockPos,
+    val posMutator: (vec: Vector3d) -> Unit,
     val volumeSupplier: FloatSupplier,
     val pitchSupplier: FloatSupplier,
     val radiusSupplier: FloatSupplier,
@@ -30,12 +31,18 @@ abstract class SuppliedSoundInstance(
     protected var currentRadius = radiusSupplier.getValue()
     protected var currentPitch = pitchSupplier.getValue()
     protected var currentVolume = volumeSupplier.getValue()
-    protected var currentPosition = posSupplier()
+    protected var currentPosition = Vector3d()
     private var resolvedSound: Sound? = null
 
     private val mc = Minecraft.getInstance()
     private val sm = mc.soundManager as SoundManagerAccessor
     protected val engine = sm.soundEngine as SoundEngineAccessor
+
+    protected val currentClientLevel: Level? = mc.level
+
+    protected var positionTransform: Matrix4dc? = null
+
+    private var vsChecked = false
 
     override fun tick() {
         if (this.isStopped) return
@@ -43,14 +50,26 @@ abstract class SuppliedSoundInstance(
         try {
             currentPitch = pitchSupplier.getValue()
             currentVolume = volumeSupplier.getValue()
-            currentPosition = posSupplier()
+            posMutator(currentPosition)
         } catch (e: Exception) {
             return
         }
 
-        this.x = currentPosition.x.toDouble()
-        this.y = currentPosition.y.toDouble()
-        this.z = currentPosition.z.toDouble()
+        if (vsChecked == false) {
+            vsChecked = true
+
+            currentClientLevel?.let {
+                positionTransform = ModCompats.vsCompat?.getShipTransform(it, currentPosition)
+            }
+        }
+
+        positionTransform?.let {
+            it.transformPosition(currentPosition)
+        }
+
+        this.x = currentPosition.x
+        this.y = currentPosition.y
+        this.z = currentPosition.z
 
         this.volume = currentVolume
         this.pitch = currentPitch

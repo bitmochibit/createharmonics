@@ -9,6 +9,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
+import org.joml.Vector3d
 import java.util.concurrent.CompletableFuture
 
 class SimpleTickableSoundInstance(
@@ -20,28 +21,24 @@ class SimpleTickableSoundInstance(
     attenuation: SoundInstance.Attenuation,
     relative: Boolean,
     needStream: Boolean,
+    posMutator: (vec: Vector3d) -> Unit,
     volumeSupplier: FloatSupplier = FloatSupplier { 1.0f },
     pitchSupplier: FloatSupplier = FloatSupplier { 1.0f },
-    posSupplier: () -> BlockPos = { BlockPos.ZERO },
     radiusSupplier: FloatSupplier = FloatSupplier { 64f },
 ) : SuppliedSoundInstance(
         soundEvent,
         soundSource,
         randomSource,
         needStream,
-        posSupplier,
+        posMutator,
         volumeSupplier,
         pitchSupplier,
         radiusSupplier,
-    ),
-    HasStreamAccess {
+    ) {
     init {
         this.looping = looping
         this.delay = delay
         this.attenuation = attenuation
         this.relative = relative
     }
-
-    override val audioStream: CompletableFuture<AudioStream>
-        get() = this.getStreamDirectly(this.looping)
 }

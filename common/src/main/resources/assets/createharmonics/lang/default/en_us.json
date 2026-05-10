@@ -29,6 +29,7 @@
   "createharmonics.gui.library_setup.status.single_lib.already_installed": "Already Installed",
   "createharmonics.gui.library_setup.status.single_lib.failed": "Failed",
   "createharmonics.gui.library_setup.status.single_lib.error": "Error",
+  "createharmonics.gui.library_setup.status.ffprobe_missing": "FFProbe is missing!",
   "createharmonics.gui.library_installer.toast.success_title": " Is ready to use!",
   "createharmonics.gui.library_installer.toast.success_desc": "The library has been installed successfully.",
   "createharmonics.gui.library_installer.toast.failure_title": " Installation Failed",

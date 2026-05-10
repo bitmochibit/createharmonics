@@ -231,7 +231,13 @@ class RecordPlayerBehaviour(
                         stream,
                         streamId,
                         SoundEvents.EMPTY,
-                        posSupplier = { be.blockPos },
+                        posMutator = { vec ->
+                            vec.set(
+                                be.blockPos.x.toDouble(),
+                                be.blockPos.y.toDouble(),
+                                be.blockPos.z.toDouble(),
+                            )
+                        },
                         radiusSupplier = radiusSupplierInterpolated,
                         volumeSupplier = volumeSupplierInterpolated,
                     )
@@ -317,15 +323,15 @@ class RecordPlayerBehaviour(
         val beLevel = be.level ?: return
         beLevel.onClient { level, virtual ->
             audioPlayer?.let {
-                reverberator.update(it, be.blockPos, level)
+                reverberator.update(it, be.blockPos.x.toDouble(), be.blockPos.y.toDouble(), be.blockPos.z.toDouble(), level)
             }
         }
     }
 
     override fun tick() {
         super.tick()
-
         val level = be.level ?: return
+        val blockPos = be.blockPos
 
         level.onServer {
             playtimeClock.tick()
@@ -426,8 +432,6 @@ class RecordPlayerBehaviour(
                                 PlaybackState.PLAYING -> {
                                     // Already playing, continue
                                 }
-
-                                else -> {}
                             }
                         }
                     } else {
@@ -465,7 +469,7 @@ class RecordPlayerBehaviour(
                 lastActiveVolume = volumeSupplierInterpolated.getValue()
             }
             audioPlayer?.let {
-                underwaterEffect.update(it, be.blockPos, level)
+                underwaterEffect.update(it, be.blockPos.x.toDouble(), be.blockPos.y.toDouble(), be.blockPos.z.toDouble(), level)
             }
         }
     }
@@ -522,6 +526,9 @@ class RecordPlayerBehaviour(
 
     fun insertRecord(discItem: ItemStack): Boolean {
         if (hasRecord()) return false
+        val item = discItem.item
+        if (item !is EtherealRecordItem) return false
+        if (item.isRecordBroken()) return false
         itemHandler.insertItem(MAIN_RECORD_SLOT, discItem.copy(), false)
         playbackEndedNaturally = false // Allow the newly inserted record to play
         return true
@@ -637,7 +644,7 @@ class RecordPlayerBehaviour(
             initialPos,
         )
 
-        underwaterEffect.update(player, be.blockPos, level)
+        underwaterEffect.update(player, be.blockPos.x.toDouble(), be.blockPos.y.toDouble(), be.blockPos.z.toDouble(), level)
     }
 
     private fun resumeClientPlayer() {
@@ -798,7 +805,7 @@ class RecordPlayerBehaviour(
 
         if (clientPacket && be.level?.isClientSide == true) {
             audioPlayer?.let {
-                underwaterEffect.update(it, be.blockPos, be.level!!)
+                underwaterEffect.update(it, be.blockPos.x.toDouble(), be.blockPos.y.toDouble(), be.blockPos.z.toDouble(), be.level!!)
             }
         }
     }

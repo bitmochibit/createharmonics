@@ -303,6 +303,7 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
         }
 
     override fun onStopTracking(blockEntityData: CompoundTag) {
+        if (!blockEntityData.contains(PLAYER_UUID_KEY)) return
         val playerId = blockEntityData.getUUID(PLAYER_UUID_KEY).toString()
         ModPackets.broadcast(AudioPlayerContextStopPacket(playerId))
     }
@@ -462,12 +463,12 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
 
             player.tick()
 
-            data.underwaterFilter.update(player, context.position, context.world)
+            data.underwaterFilter.update(player, context.position.x, context.position.y, context.position.z, context.world)
 
             data.ticksSinceReverberatorUpdate++
             if (data.ticksSinceReverberatorUpdate >= 40) {
                 data.ticksSinceReverberatorUpdate = 0
-                data.reverberator.update(player, context.position, context.world)
+                data.reverberator.update(player, context.position.x, context.position.y, context.position.z, context.world)
             }
 
             if (!data.isDirty) return
@@ -549,7 +550,13 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                     stream,
                     streamId,
                     SoundEvents.EMPTY,
-                    posSupplier = { BlockPos.containing(context.position) },
+                    posMutator = { vec ->
+                        vec.set(
+                            context.position.x,
+                            context.position.y,
+                            context.position.z,
+                        )
+                    },
                     radiusSupplier = data.radiusSupplier,
                     volumeSupplier = data.volumeSupplier,
                 )

@@ -62,7 +62,11 @@ class RecordPlayerMountedStorage(
     override fun isItemValid(
         slot: Int,
         stack: ItemStack,
-    ): Boolean = stack.item is EtherealRecordItem || stack.isEmpty
+    ): Boolean {
+        if (stack.isEmpty) return true
+        val recordItem = stack.item as? EtherealRecordItem ?: return false
+        return !recordItem.isRecordBroken()
+    }
 
     override fun unmount(
         level: Level?,
@@ -82,8 +86,9 @@ class RecordPlayerMountedStorage(
     ): Boolean {
         val itemInHand = player.mainHandItem
         val level = player.level() as ServerLevel
+        val itemInHandType = itemInHand.item
 
-        if (itemInHand.item is EtherealRecordItem && getRecord().isEmpty) {
+        if (itemInHandType is EtherealRecordItem && getRecord().isEmpty && !itemInHandType.isRecordBroken()) {
             // Click with record: insert and play
             setRecord(itemInHand.copy())
             itemInHand.shrink(1)

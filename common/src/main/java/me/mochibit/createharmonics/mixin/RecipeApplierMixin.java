@@ -1,4 +1,4 @@
-package mixin;
+package me.mochibit.createharmonics.mixin;
 
 import com.simibubi.create.foundation.recipe.RecipeApplier;
 import me.mochibit.createharmonics.event.crafting.RecipeAssembledEvent;

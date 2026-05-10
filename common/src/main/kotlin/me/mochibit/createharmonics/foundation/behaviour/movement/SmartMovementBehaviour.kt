@@ -12,7 +12,6 @@ import me.mochibit.createharmonics.foundation.registry.ModPackets
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.StructureBlockInfo
-import net.minecraftforge.network.PacketDistributor
 import kotlin.collections.set
 
 interface Stainable {
@@ -36,25 +35,21 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
     }
 
     init {
-        EventBus.onMcMain<ServerEvents.PlayerStartTrackingEntity> { event ->
+        EventBus.onSync<ServerEvents.PlayerStartTrackingEntity> { event ->
             val entity = event.entity
-            if (entity !is AbstractContraptionEntity) return@onMcMain
+            if (entity !is AbstractContraptionEntity) return@onSync
 
             entity.contraption.actors.forEach { (_, context) ->
-                if (context.contraption.entity.stringUUID == event.entity.stringUUID) {
-                    context.resync()
-                }
+                context.resync()
             }
         }
 
-        EventBus.onMcMain<ServerEvents.PlayerStopTrackingEntity> { event ->
+        EventBus.onSync<ServerEvents.PlayerStopTrackingEntity> { event ->
             val entity = event.entity
-            if (entity !is AbstractContraptionEntity) return@onMcMain
+            if (entity !is AbstractContraptionEntity) return@onSync
 
             entity.contraption.actors.forEach { (_, context) ->
-                if (context.contraption.entity.stringUUID == event.entity.stringUUID) {
-                    context.blockEntityData?.let { onStopTracking(it) }
-                }
+                context.blockEntityData?.let { onStopTracking(it) }
             }
         }
     }

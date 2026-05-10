@@ -1,20 +1,20 @@
 package me.mochibit.createharmonics.foundation.registry.platform
 
+import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
+import me.mochibit.createharmonics.ModRegistrate
+import me.mochibit.createharmonics.foundation.registry.platform.bridge.CommonAbstractRegistry
+import net.minecraft.core.registries.Registries
+import net.minecraft.resources.ResourceLocation
 import net.minecraft.sounds.SoundEvent
 
 /**
  * Interface for defining mod sound events that can be used across different platforms.
  */
-abstract class ModSoundRegistry<RegistryObjectType> : AbstractCrossPlatformRegistry<RegistryObjectType, SoundEvent>() {
-    abstract val slidingStoneSound: SoundEvent
-    abstract val glitterSoundEvent: SoundEvent
-
-    companion object {
-        lateinit var instance: ModSoundRegistry<*>
-            private set
+object ModSoundRegistry : CommonAbstractRegistry<SoundEvent>() {
+    val slidingStone by entry("sliding_stone") {
+        SoundEvent.createVariableRangeEvent(ResourceLocation(MOD_ID, "sliding_stone"))
     }
-
-    init {
-        instance = this
+    val glitter by entry("glitter") {
+        SoundEvent.createVariableRangeEvent(ResourceLocation(MOD_ID, "glitter"))
     }
 }
