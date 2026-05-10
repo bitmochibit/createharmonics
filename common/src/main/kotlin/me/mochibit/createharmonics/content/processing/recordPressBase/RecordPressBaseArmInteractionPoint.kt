@@ -26,7 +26,7 @@ class RecordPressBaseArmInteractionPoint(
             return ItemStack.EMPTY
         }
 
-        return super.extract(armBlockEntity, slot, simulate)
+        return super.extract(armBlockEntity, slot, amount, simulate)
     }
 
     override fun getInteractionPositionVector(): Vec3 =

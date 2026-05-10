@@ -147,14 +147,13 @@ abstract class DepotLikeBehaviour(
             }
             if (heldItem == null) {
                 heldItem = ts
+            }
+            val currentlyHeld = heldItem ?: continue
+            if (!ItemHelper.canItemStackAmountsStack(currentlyHeld.stack, ts.stack)) {
+                val vec = VecHelper.getCenterOf(blockEntity.blockPos)
+                Containers.dropItemStack(world, vec.x, vec.y + .5f, vec.z, ts.stack)
             } else {
-                val currentHeld = heldItem!!
-                if (!ItemHelper.canItemStackAmountsStack(currentHeld.stack, ts.stack)) {
-                    val vec = VecHelper.getCenterOf(blockEntity.blockPos)
-                    Containers.dropItemStack(world, vec.x, vec.y + .5f, vec.z, ts.stack)
-                } else {
-                    currentHeld.stack.grow(ts.stack.count)
-                }
+                currentlyHeld.stack.grow(ts.stack.count)
             }
             iterator.remove()
             blockEntity.notifyUpdate()
@@ -218,10 +217,11 @@ abstract class DepotLikeBehaviour(
             blockEntity.sendData()
             return
         }
-
-        heldItem!!.locked = result == ProcessingResult.HOLD
-        if (heldItem!!.locked != wasLocked || !previousItem.equals(heldItem!!.stack)) {
-            blockEntity.sendData()
+        heldItem?.let { held ->
+            held.locked = result == ProcessingResult.HOLD
+            if (held.locked != wasLocked || !previousItem.equals(held.stack)) {
+                blockEntity.sendData()
+            }
         }
     }
 
@@ -266,8 +266,8 @@ abstract class DepotLikeBehaviour(
                 return true
             }
         }
-
-        val previousItem = heldItem!!.stack
+        val currentHeld = heldItem ?: return false
+        val previousItem = currentHeld.stack
         val afterInsert =
             blockEntity
                 .getBehaviour(DirectBeltInputBehaviour.TYPE)
@@ -277,7 +277,7 @@ abstract class DepotLikeBehaviour(
             if (afterInsert.isEmpty) {
                 heldItem = null
             } else {
-                heldItem!!.stack = afterInsert
+                currentHeld.stack = afterInsert
             }
             blockEntity.notifyUpdate()
             return true
@@ -445,74 +445,96 @@ abstract class DepotLikeBehaviour(
         }
 
     fun insert(
-        heldItem: TransportedItemStack,
+        newHeldItem: TransportedItemStack,
         simulate: Boolean,
     ): ItemStack {
-        var heldItem = heldItem
-        if (!canAcceptItems()) return heldItem.stack
-        if (!acceptedItems(heldItem.stack)) return heldItem.stack
+        if (!canAcceptItems()) return newHeldItem.stack
+        if (!acceptedItems(newHeldItem.stack)) return newHeldItem.stack
 
-        if (canMergeItems()) {
-            val remainingSpace = this.remainingSpace
-            val inserted = heldItem.stack
-            if (remainingSpace <= 0) return inserted
-            if (this.heldItem != null &&
-                !ItemHelper.canItemStackAmountsStack(
-                    this.heldItem!!.stack,
-                    inserted,
-                )
-            ) {
-                return inserted
-            }
+        return if (canMergeItems()) {
+            insertMerging(newHeldItem, simulate)
+        } else {
+            insertSingle(newHeldItem, simulate)
+        }
+    }
 
-            var returned = ItemStack.EMPTY
-            if (remainingSpace < inserted.count) {
-                returned = heldItem.stack.copyWithCount(inserted.count - remainingSpace)
-                if (!simulate) {
-                    val copy = heldItem.copy()
-                    copy.stack.count = remainingSpace
-                    if (this.heldItem != null) {
-                        incoming.add(copy)
-                    } else {
-                        this.heldItem = copy
-                    }
-                }
+    private fun insertMerging(
+        newHeldItem: TransportedItemStack,
+        simulate: Boolean,
+    ): ItemStack {
+        val insertedStack = newHeldItem.stack
+        val space = remainingSpace
+
+        if (space <= 0) return insertedStack
+
+        val currentHeld = heldItem
+        if (currentHeld != null && !ItemHelper.canItemStackAmountsStack(currentHeld.stack, insertedStack)) {
+            return insertedStack
+        }
+
+        val overflow = insertedStack.count - space
+        val hasOverflow = overflow > 0
+        val returned =
+            if (hasOverflow) {
+                newHeldItem.stack.copyWithCount(overflow)
             } else {
-                if (!simulate) {
-                    if (this.heldItem != null) {
-                        incoming.add(heldItem)
-                    } else {
-                        this.heldItem = heldItem
-                    }
-                }
+                ItemStack.EMPTY
             }
-            return returned
+
+        if (!simulate) {
+            val toInsert =
+                if (hasOverflow) {
+                    newHeldItem.copy().also { it.stack.count = space }
+                } else {
+                    newHeldItem
+                }
+
+            if (currentHeld != null) {
+                incoming.add(toInsert)
+            } else {
+                heldItem = toInsert
+            }
         }
 
-        var returned = ItemStack.EMPTY
-        val maxCount = heldItem.stack.maxStackSize
-        val stackTooLarge = maxCount < heldItem.stack.count
-        if (stackTooLarge) {
-            returned = heldItem.stack.copyWithCount(heldItem.stack.count - maxCount)
-        }
+        return returned
+    }
+
+    private fun insertSingle(
+        newHeldItem: TransportedItemStack,
+        simulate: Boolean,
+    ): ItemStack {
+        val maxCount = newHeldItem.stack.maxStackSize
+        val overflow = newHeldItem.stack.count - maxCount
+        val hasOverflow = overflow > 0
+
+        val returned =
+            if (hasOverflow) {
+                newHeldItem.stack.copyWithCount(overflow)
+            } else {
+                ItemStack.EMPTY
+            }
 
         if (simulate) return returned
 
         if (isEmpty) {
-            if (heldItem.insertedFrom.axis.isHorizontal) {
-                AllSoundEvents.DEPOT_SLIDE.playOnServer(getWorld(), getPos())
+            val sound =
+                if (newHeldItem.insertedFrom.axis.isHorizontal) {
+                    AllSoundEvents.DEPOT_SLIDE
+                } else {
+                    AllSoundEvents.DEPOT_PLOP
+                }
+            sound.playOnServer(getWorld(), getPos())
+        }
+
+        val itemToStore =
+            if (hasOverflow) {
+                newHeldItem.copy().also { it.stack.count = maxCount }
             } else {
-                AllSoundEvents.DEPOT_PLOP.playOnServer(getWorld(), getPos())
+                newHeldItem
             }
-        }
 
-        if (stackTooLarge) {
-            heldItem = heldItem.copy()
-            heldItem.stack.count = maxCount
-        }
-
-        this.heldItem = heldItem
-        onHeldInserted(heldItem.stack)
+        heldItem = itemToStore
+        onHeldInserted(itemToStore.stack)
         return returned
     }
 
@@ -582,7 +604,8 @@ abstract class DepotLikeBehaviour(
             heldItem = null
             val remainder = ItemHandlerHelper.insertItemStacked(processingOutputBuffer, processedStack, false)
             val vec = VecHelper.getCenterOf(blockEntity.blockPos)
-            Containers.dropItemStack(blockEntity.level, vec.x, vec.y + 0.5f, vec.z, remainder)
+            val level = blockEntity.level ?: return
+            Containers.dropItemStack(level, vec.x, vec.y + 0.5f, vec.z, remainder)
             blockEntity.notifyUpdate()
             return
         }
@@ -603,7 +626,8 @@ abstract class DepotLikeBehaviour(
         result.outputs.forEach { added ->
             val remainder = ItemHandlerHelper.insertItemStacked(processingOutputBuffer, added.stack, false)
             val vec = VecHelper.getCenterOf(blockEntity.blockPos)
-            Containers.dropItemStack(blockEntity.level, vec.x, vec.y + 0.5f, vec.z, remainder)
+            val level = blockEntity.level ?: return
+            Containers.dropItemStack(level, vec.x, vec.y + 0.5f, vec.z, remainder)
         }
 
         blockEntity.notifyUpdate()
