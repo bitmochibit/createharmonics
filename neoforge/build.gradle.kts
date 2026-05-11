@@ -114,7 +114,7 @@ dependencies {
     compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-$minecraftVersionProp:$flywheelVersion")
     runtimeOnly("dev.engine-room.flywheel:flywheel-neoforge-$minecraftVersionProp:$flywheelVersion")
     implementation("com.tterrag.registrate:Registrate:$registrateVersion")
-    // JEI
+    compileOnly("mezz.jei:jei-$jeiMinecraftVersion-neoforge:$jeiVersion")
     runtimeOnly("mezz.jei:jei-$jeiMinecraftVersion-neoforge:$jeiVersion")
 
     api("dev.ryanhcode.sable:sable-common-$minecraftVersionProp:$sableVersion") {

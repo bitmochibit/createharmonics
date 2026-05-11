@@ -29,53 +29,53 @@ class ModDeployingRecipeGen(
         // </editor-fold>
 
         // <editor-fold desc="Ethereal record glue repair gen">
-        RecordType.entries.filter { it != RecordType.CREATIVE }.forEach {
-            val damagedStack = ModItems.getBrokenEtherealRecordItem(it)?.get()?.defaultInstance ?: return@forEach
-            create("ethereal_record/10_glue_repair/${it.name.lowercase()}") { builder ->
-                val repairedStack = ModItems.getEtherealRecordItem(it).get().defaultInstance
-                val costedGlue = ItemStack(AllItems.SUPER_GLUE.get())
-                costedGlue.damageValue = calculateGlueRepairCost(it, it.uses)
-                builder
-                    .require(Ingredient.of(damagedStack))
-                    .require(AllItems.SUPER_GLUE)
-                    .output(repairedStack)
-                    .output(costedGlue)
-            }
-        }
+//        RecordType.entries.filter { it != RecordType.CREATIVE }.forEach {
+//            val damagedStack = ModItems.getBrokenEtherealRecordItem(it)?.get()?.defaultInstance ?: return@forEach
+//            create("ethereal_record/10_glue_repair/${it.name.lowercase()}") { builder ->
+//                val repairedStack = ModItems.getEtherealRecordItem(it).get().defaultInstance
+//                val costedGlue = ItemStack(AllItems.SUPER_GLUE.get())
+//                costedGlue.damageValue = calculateGlueRepairCost(it, it.uses)
+//                builder
+//                    .require(Ingredient.of(damagedStack))
+//                    .require(AllItems.SUPER_GLUE)
+//                    .output(repairedStack)
+//                    .output(costedGlue)
+//            }
+//        }
         // </editor-fold>
 
         // <editor-fold desc="Ethereal record material repair gen">
-        RecordType.entries.filter { it.properties.repair != null }.forEach { recordType ->
-            val damagedStack =
-                ModItems
-                    .getBrokenEtherealRecordItem(recordType)
-                    ?.get()
-                    ?.defaultInstance ?: return@forEach
-            val repairedStack = ModItems.getEtherealRecordItem(recordType).get().defaultInstance
-
-            recordType.properties.repair?.fullRepairIngredientProvider?.invoke()?.let { ingredient ->
-                create("ethereal_record/20_full_repair/${recordType.name.lowercase()}") { builder ->
-                    builder
-                        .require(Ingredient.of(damagedStack))
-                        .require(ingredient)
-                        .output(repairedStack)
-                }
-            }
-
-            recordType.properties.repair
-                ?.partialRepairIngredientProvider
-                ?.invoke()
-                ?.let { (ingredient, repairFraction) ->
-                    val partialStack = repairedStack.copy()
-                    partialStack.damageValue = ((1 - repairFraction) * partialStack.maxDamage).toInt()
-                    create("ethereal_record/30_partial_repair/${recordType.name.lowercase()}") { builder ->
-                        builder
-                            .require(Ingredient.of(damagedStack))
-                            .require(ingredient)
-                            .output(partialStack)
-                    }
-                }
-        }
+//        RecordType.entries.filter { it.properties.repair != null }.forEach { recordType ->
+//            val damagedStack =
+//                ModItems
+//                    .getBrokenEtherealRecordItem(recordType)
+//                    ?.get()
+//                    ?.defaultInstance ?: return@forEach
+//            val repairedStack = ModItems.getEtherealRecordItem(recordType).get().defaultInstance
+//
+//            recordType.properties.repair?.fullRepairIngredientProvider?.invoke()?.let { ingredient ->
+//                create("ethereal_record/20_full_repair/${recordType.name.lowercase()}") { builder ->
+//                    builder
+//                        .require(Ingredient.of(damagedStack))
+//                        .require(ingredient)
+//                        .output(repairedStack)
+//                }
+//            }
+//
+//            recordType.properties.repair
+//                ?.partialRepairIngredientProvider
+//                ?.invoke()
+//                ?.let { (ingredient, repairFraction) ->
+//                    val partialStack = repairedStack.copy()
+//                    partialStack.damageValue = ((1 - repairFraction) * partialStack.maxDamage).toInt()
+//                    create("ethereal_record/30_partial_repair/${recordType.name.lowercase()}") { builder ->
+//                        builder
+//                            .require(Ingredient.of(damagedStack))
+//                            .require(ingredient)
+//                            .output(partialStack)
+//                    }
+//                }
+//        }
         // </editor-fold>
     }
 }

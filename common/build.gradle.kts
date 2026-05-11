@@ -30,6 +30,9 @@ val registrateVersion = rootProject.property("registrate_version").toString()
 val sableVersion = rootProject.property("sable_version").toString()
 val veilVersion = rootProject.property("veil_version").toString()
 
+val jeiMinecraftVersion = rootProject.property("jei_minecraft_version").toString()
+val jeiVersion = rootProject.property("jei_version").toString()
+
 val neoForgeVersion = rootProject.property("neo_version").toString()
 val generateBuildConfigTask =
     tasks.register("generateBuildConfig") {
@@ -119,6 +122,8 @@ dependencies {
 //        exclude("cc.tweaked")
 //        exclude("maven.modrinth")
 //    }
+
+    compileOnly("mezz.jei:jei-$jeiMinecraftVersion-common-api:$jeiVersion")
 
     api("dev.ryanhcode.sable:sable-common-$minecraftVersionProp:$sableVersion") {
         exclude("foundry.veil")

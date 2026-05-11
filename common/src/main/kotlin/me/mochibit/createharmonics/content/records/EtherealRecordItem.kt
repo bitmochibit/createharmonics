@@ -42,7 +42,7 @@ class EtherealRecordItem(
 
     fun isRecordBroken(): Boolean = brokenVariant
 
-    override fun isDamageable(stack: ItemStack): Boolean = recordType.uses > 0
+    override fun isDamageable(stack: ItemStack): Boolean = recordType.uses > 0 && !isRecordBroken()
 
     override fun getDefaultInstance(): ItemStack {
         val default = super.getDefaultInstance()

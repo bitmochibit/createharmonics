@@ -1,0 +1,251 @@
+package me.mochibit.createharmonics.compat.jei
+
+import com.simibubi.create.AllBlocks
+import com.simibubi.create.AllItems
+import com.simibubi.create.compat.jei.category.CreateRecipeCategory
+import com.simibubi.create.compat.jei.category.DeployingCategory
+import com.simibubi.create.compat.jei.category.animations.AnimatedDeployer
+import com.simibubi.create.content.kinetics.deployer.DeployerApplicationRecipe
+import com.simibubi.create.content.kinetics.deployer.ItemApplicationRecipeParams
+import com.simibubi.create.content.processing.recipe.ProcessingOutput
+import com.simibubi.create.foundation.gui.AllGuiTextures
+import com.simibubi.create.foundation.utility.CreateLang
+import me.mochibit.createharmonics.content.records.RecordType
+import me.mochibit.createharmonics.foundation.extension.asResource
+import me.mochibit.createharmonics.foundation.registry.ModItems
+import me.mochibit.createharmonics.foundation.registry.ModRecipeTypes
+import me.mochibit.createharmonics.handler.RecordRepairHandler.calculateGlueRepairCost
+import mezz.jei.api.IModPlugin
+import mezz.jei.api.JeiPlugin
+import mezz.jei.api.constants.VanillaTypes
+import mezz.jei.api.gui.builder.IRecipeLayoutBuilder
+import mezz.jei.api.gui.ingredient.IRecipeSlotsView
+import mezz.jei.api.recipe.IFocusGroup
+import mezz.jei.api.recipe.RecipeIngredientRole
+import mezz.jei.api.recipe.RecipeType
+import mezz.jei.api.registration.IRecipeCatalystRegistration
+import mezz.jei.api.registration.IRecipeCategoryRegistration
+import mezz.jei.api.registration.IRecipeRegistration
+import net.minecraft.ChatFormatting
+import net.minecraft.client.gui.GuiGraphics
+import net.minecraft.resources.ResourceLocation
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.crafting.Ingredient
+import net.minecraft.world.item.crafting.RecipeHolder
+
+@JeiPlugin
+class ModJeiPlugin : IModPlugin {
+    private var recordRepairCategory: CreateRecipeCategory<DeployerApplicationRecipe>? = null
+
+    override fun getPluginUid(): ResourceLocation = "jei_plugin".asResource()
+
+    override fun registerCategories(registration: IRecipeCategoryRegistration) {
+        buildRecordRepairCategory().also {
+            recordRepairCategory = it
+            registration.addRecipeCategories(it)
+        }
+    }
+
+    override fun registerRecipes(registration: IRecipeRegistration) {
+        recordRepairCategory?.registerRecipes(registration)
+    }
+
+    override fun registerRecipeCatalysts(registration: IRecipeCatalystRegistration) {
+        recordRepairCategory?.let { category ->
+            registration.addRecipeCatalyst(
+                ItemStack(AllBlocks.DEPLOYER.get()),
+                category.recipeType,
+            )
+        }
+    }
+
+    private fun buildRecordRepairCategory(): CreateRecipeCategory<DeployerApplicationRecipe> =
+        CreateRecipeCategory
+            .Builder(DeployerApplicationRecipe::class.java)
+            .emptyBackground(177, 70)
+            .doubleItemIcon(AllBlocks.DEPLOYER.get(), AllItems.SUPER_GLUE.get())
+            .addRecipes { RecordRepairJEIRecipes.buildDisplayHolders() }
+            .build("record_repair".asResource()) { info -> RecordRepairCategory(info) }
+}
+
+object RecordRepairJEIRecipes {
+    fun buildDisplayHolders(): List<RecipeHolder<DeployerApplicationRecipe>> =
+        buildList {
+            RecordType.entries.filter { it != RecordType.CREATIVE }.forEach { recordType ->
+                val brokenRecordItem = ModItems.getBrokenEtherealRecordItem(recordType)?.get() ?: return@forEach
+                val repairedRecordItem = ModItems.getEtherealRecordItem(recordType).get()
+
+                val brokenIngredient = Ingredient.of(brokenRecordItem)
+                val damagedIngredient = Ingredient.of(repairedRecordItem)
+                val repairedStack = repairedRecordItem.defaultInstance
+
+                val costedGlue =
+                    ItemStack(AllItems.SUPER_GLUE.get()).also {
+                        it.damageValue = calculateGlueRepairCost(recordType, recordType.uses)
+                    }
+
+                add(
+                    makeHolder(
+                        id = "jei/glue_repair/broken/${recordType.name.lowercase()}",
+                        processedItem = brokenIngredient,
+                        heldItem = Ingredient.of(AllItems.SUPER_GLUE.get()),
+                        results = listOf(ProcessingOutput(repairedStack, 1f), ProcessingOutput(costedGlue, 1f)),
+                    ),
+                )
+
+                add(
+                    makeHolder(
+                        id = "jei/glue_repair/damaged/${recordType.name.lowercase()}",
+                        processedItem = damagedIngredient,
+                        heldItem = Ingredient.of(AllItems.SUPER_GLUE.get()),
+                        results = listOf(ProcessingOutput(repairedStack, 1f), ProcessingOutput(costedGlue, 1f)),
+                    ),
+                )
+
+                recordType.properties.repair?.fullRepairIngredientProvider?.invoke()?.let { ingredient ->
+                    add(
+                        makeHolder(
+                            id = "jei/full_repair/broken/${recordType.name.lowercase()}",
+                            processedItem = brokenIngredient,
+                            heldItem = ingredient,
+                            results = listOf(ProcessingOutput(repairedStack, 1f)),
+                        ),
+                    )
+                    add(
+                        makeHolder(
+                            id = "jei/full_repair/damaged/${recordType.name.lowercase()}",
+                            processedItem = damagedIngredient,
+                            heldItem = ingredient,
+                            results = listOf(ProcessingOutput(repairedStack, 1f)),
+                        ),
+                    )
+                }
+
+                recordType.properties.repair
+                    ?.partialRepairIngredientProvider
+                    ?.invoke()
+                    ?.let { (ingredient, repairFraction) ->
+                        val partialStack =
+                            repairedRecordItem.defaultInstance.also {
+                                it.damageValue = ((1 - repairFraction) * it.maxDamage).toInt()
+                            }
+                        add(
+                            makeHolder(
+                                id = "jei/partial_repair/broken/${recordType.name.lowercase()}",
+                                processedItem = brokenIngredient,
+                                heldItem = ingredient,
+                                results = listOf(ProcessingOutput(partialStack, 1f)),
+                            ),
+                        )
+                        add(
+                            makeHolder(
+                                id = "jei/partial_repair/damaged/${recordType.name.lowercase()}",
+                                processedItem = damagedIngredient,
+                                heldItem = ingredient,
+                                results = listOf(ProcessingOutput(partialStack, 1f)),
+                            ),
+                        )
+                    }
+            }
+        }
+
+    private fun makeHolder(
+        id: String,
+        processedItem: Ingredient,
+        heldItem: Ingredient,
+        results: List<ProcessingOutput>,
+        keepHeldItem: Boolean = false,
+        duration: Int = 40,
+    ): RecipeHolder<DeployerApplicationRecipe> {
+        val params = DisplayRecipeParams(processedItem, heldItem, results, keepHeldItem, duration)
+        val recipe =
+            object : DeployerApplicationRecipe(params) {
+                override fun getType() = ModRecipeTypes.RECORD_REPAIR.get()
+            }
+        return RecipeHolder(id.asResource(), recipe)
+    }
+}
+
+private class DisplayRecipeParams(
+    processedItem: Ingredient,
+    heldItem: Ingredient,
+    displayResults: List<ProcessingOutput>,
+    keepHeld: Boolean = false,
+    duration: Int = 40,
+) : ItemApplicationRecipeParams() {
+    init {
+        ingredients.add(processedItem)
+        ingredients.add(heldItem)
+        displayResults.forEach { results.add(it) }
+        processingDuration = duration
+        keepHeldItem = keepHeld
+    }
+}
+
+class RecordRepairCategory(
+    info: Info<DeployerApplicationRecipe>,
+) : CreateRecipeCategory<DeployerApplicationRecipe>(info) {
+    private val deployer = AnimatedDeployer()
+
+    override fun setRecipe(
+        builder: IRecipeLayoutBuilder,
+        recipe: DeployerApplicationRecipe,
+        focuses: IFocusGroup,
+    ) {
+        val focusedDamagedStack =
+            focuses
+                .getFocuses(VanillaTypes.ITEM_STACK)
+                .filter { it.role == RecipeIngredientRole.INPUT }
+                .map { it.typedValue.ingredient }
+                .filter { stack -> stack.damageValue > 0 && recipe.processedItem.test(stack) }
+                .findFirst()
+                .orElse(null)
+
+        val processedSlot =
+            builder
+                .addSlot(RecipeIngredientRole.INPUT, 27, 51)
+                .setBackground(getRenderedSlot(), -1, -1)
+
+        if (focusedDamagedStack != null) {
+            processedSlot.addItemStack(focusedDamagedStack)
+        } else {
+            processedSlot.addIngredients(recipe.processedItem)
+        }
+
+        val handSlot =
+            builder
+                .addSlot(RecipeIngredientRole.INPUT, 51, 5)
+                .setBackground(getRenderedSlot(), -1, -1)
+                .addIngredients(recipe.requiredHeldItem)
+
+        val results = recipe.getRollableResults()
+        val single = results.size == 1
+        results.forEachIndexed { i, output ->
+            val xOffset = if (i % 2 == 0) 0 else 19
+            val yOffset = (i / 2) * -19
+            builder
+                .addSlot(RecipeIngredientRole.OUTPUT, if (single) 132 else 132 + xOffset, 51 + yOffset)
+                .setBackground(getRenderedSlot(output), -1, -1)
+                .addItemStack(output.stack)
+                .addRichTooltipCallback(addStochasticTooltip(output))
+        }
+
+        if (recipe.shouldKeepHeldItem()) {
+            handSlot.addTooltipCallback { _, tooltip ->
+                tooltip.add(1, CreateLang.translateDirect("recipe.deploying.not_consumed").withStyle(ChatFormatting.GOLD))
+            }
+        }
+    }
+
+    override fun draw(
+        recipe: DeployerApplicationRecipe,
+        recipeSlotsView: IRecipeSlotsView,
+        graphics: GuiGraphics,
+        mouseX: Double,
+        mouseY: Double,
+    ) {
+        AllGuiTextures.JEI_SHADOW.render(graphics, 62, 57)
+        AllGuiTextures.JEI_DOWN_ARROW.render(graphics, 126, 29 + if (recipe.getRollableResults().size > 2) -19 else 0)
+        deployer.draw(graphics, background.width / 2 - 13, 22)
+    }
+}

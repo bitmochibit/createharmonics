@@ -70,6 +70,7 @@
   "createharmonics.record_player.playback_mode.play_static_pitch": "Play (Static Pitch)",
   "createharmonics.record_player.playback_mode.pause_static_pitch": "Pause (Static Pitch)",
   "createharmonics.item_group": "Create Harmonics",
+  "createharmonics.recipe.record_repair": "Repairing",
   "createharmonics.tooltips.item.ethereal_record.url_bound": "Ethereal source bound",
   "createharmonics.tooltips.item.ethereal_record.qualities": "Qualities:"
 }
