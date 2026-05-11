@@ -106,24 +106,24 @@ dependencies {
     compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-$minecraftVersionProp:$flywheelVersion")
     compileOnly("com.tterrag.registrate:Registrate:$registrateVersion")
 
-    implementation("dev.eriksonn.aeronautics:aeronautics-neoforge-1.21.1:1.2.1") {
-        exclude("foundry.veil")
-        exclude("com.tterrag.registrate")
-        exclude("cc.tweaked")
-        exclude("maven.modrinth")
-    }
-
-    implementation("dev.simulated_team.simulated:simulated-neoforge-1.21.1:1.2.1") {
-        exclude("foundry.veil")
-        exclude("com.tterrag.registrate")
-        exclude("cc.tweaked")
-        exclude("maven.modrinth")
-    }
-
-//    api("dev.ryanhcode.sable:sable-common-$minecraftVersionProp:$sableVersion") {
+//    implementation("dev.eriksonn.aeronautics:aeronautics-neoforge-1.21.1:1.2.1") {
 //        exclude("foundry.veil")
 //        exclude("com.tterrag.registrate")
+//        exclude("cc.tweaked")
+//        exclude("maven.modrinth")
 //    }
+//
+//    implementation("dev.simulated_team.simulated:simulated-neoforge-1.21.1:1.2.1") {
+//        exclude("foundry.veil")
+//        exclude("com.tterrag.registrate")
+//        exclude("cc.tweaked")
+//        exclude("maven.modrinth")
+//    }
+
+    api("dev.ryanhcode.sable:sable-common-$minecraftVersionProp:$sableVersion") {
+        exclude("foundry.veil")
+        exclude("com.tterrag.registrate")
+    }
 }
 
 // ── Artifact publication for submodules ───────────────────────────────────────

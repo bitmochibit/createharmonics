@@ -1,11 +1,9 @@
 package me.mochibit.createharmonics.foundation.registry
 
-import com.simibubi.create.foundation.data.CreateRegistrate
 import com.tterrag.registrate.util.entry.RegistryEntry
-import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
-import me.mochibit.createharmonics.ModEventBus
 import me.mochibit.createharmonics.ModRegistrate
 import me.mochibit.createharmonics.content.records.RecordType
+import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.locale.ModLang
 import me.mochibit.createharmonics.foundation.registry.ModItems.etherealRecord
 import net.createmod.catnip.platform.CatnipServices
@@ -16,37 +14,33 @@ import net.minecraft.world.item.CreativeModeTab
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
-import net.neoforged.neoforge.registries.DeferredHolder
-import net.neoforged.neoforge.registries.DeferredRegister
 import java.util.function.Predicate
-import java.util.function.Supplier
 
-object ModCreativeTabs : NeoforgeRegistry {
-    override val registrationOrder = 4
-
-    private val CREATIVE_MODE_TABS: DeferredRegister<CreativeModeTab> =
-        DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MOD_ID)
-
-    val MAIN_TAB: DeferredHolder<CreativeModeTab, CreativeModeTab> =
-        CREATIVE_MODE_TABS.register(
+object ModCreativeTabs : CommonRegistry {
+    val MAIN_TAB: RegistryEntry<CreativeModeTab, CreativeModeTab> =
+        creativeTab(
             "main",
-            Supplier {
-                CreativeModeTab
-                    .builder()
-                    .title(ModLang.translate("item_group").component())
-                    .icon { ItemStack(ModItems.etherealRecord(RecordType.BRASS)) }
-                    .displayItems(DisplayItemsGenerator(MAIN_TAB))
-                    .build()
-            },
+            CreativeModeTab
+                .builder()
+                .title(ModLang.translate("item_group").component())
+                .icon { ItemStack(ModItems.etherealRecord(RecordType.BRASS)) }
+                .displayItems(DisplayItemsGenerator())
+                .build(),
         )
 
     override fun register() {
-        CREATIVE_MODE_TABS.register(ModEventBus)
+        "Registering creative tabs".info()
     }
 
-    private class DisplayItemsGenerator(
-        private val tab: DeferredHolder<CreativeModeTab, CreativeModeTab>,
-    ) : CreativeModeTab.DisplayItemsGenerator {
+    fun creativeTab(
+        name: String,
+        tab: CreativeModeTab,
+    ): RegistryEntry<CreativeModeTab, CreativeModeTab> =
+        ModRegistrate.simple(name, Registries.CREATIVE_MODE_TAB) {
+            tab
+        }
+
+    private class DisplayItemsGenerator : CreativeModeTab.DisplayItemsGenerator {
         override fun accept(
             params: CreativeModeTab.ItemDisplayParameters,
             output: CreativeModeTab.Output,

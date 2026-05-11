@@ -3,8 +3,8 @@ package me.mochibit.createharmonics.handler
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.event.crafting.RecipeAssembledEvent
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
+import me.mochibit.createharmonics.foundation.registry.ModDataComponents
 import me.mochibit.createharmonics.foundation.registry.ModItems
-import me.mochibit.createharmonics.foundation.registry.platform.ModDataComponents
 import net.minecraft.core.component.DataComponents
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.resources.ResourceLocation
@@ -34,11 +34,11 @@ object RecordCraftingHandler : CommonEventHandler {
     ) {
         if (!isBaseRecord(stack) && !isEtherealRecord(stack)) return
         val resLoc = BuiltInRegistries.ITEM.getKey(withDisc.item)
-        stack.set(ModDataComponents.craftedWith, resLoc.toString())
+        stack.set(ModDataComponents.CRAFTED_WITH, resLoc.toString())
     }
 
     private fun getOrMigrateCraftedWith(stack: ItemStack): String? {
-        stack.get(ModDataComponents.craftedWith)?.let { return it }
+        stack.get(ModDataComponents.CRAFTED_WITH)?.let { return it }
 
         val legacyValue =
             stack
@@ -47,7 +47,7 @@ object RecordCraftingHandler : CommonEventHandler {
                 ?.getString(CRAFTED_WITH_DISC_KEY)
                 ?.takeIf { it.isNotEmpty() } ?: return null
 
-        stack.set(ModDataComponents.craftedWith, legacyValue)
+        stack.set(ModDataComponents.CRAFTED_WITH, legacyValue)
         stack.update(DataComponents.CUSTOM_DATA, CustomData.EMPTY) { data ->
             data.update { tag -> tag.remove(CRAFTED_WITH_DISC_KEY) }
         }
@@ -60,7 +60,7 @@ object RecordCraftingHandler : CommonEventHandler {
         baseStack: ItemStack,
     ) {
         val resLocStr = getOrMigrateCraftedWith(baseStack) ?: return
-        etherealStack.set(ModDataComponents.craftedWith, resLocStr)
+        etherealStack.set(ModDataComponents.CRAFTED_WITH, resLocStr)
     }
 
     override fun setupEvents() {

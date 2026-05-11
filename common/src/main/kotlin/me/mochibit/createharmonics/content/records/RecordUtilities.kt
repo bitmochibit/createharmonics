@@ -10,8 +10,8 @@ import me.mochibit.createharmonics.audio.stream.Ogg2PcmInputStream
 import me.mochibit.createharmonics.audio.utils.getStreamDirectly
 import me.mochibit.createharmonics.config.ClientConfig
 import me.mochibit.createharmonics.foundation.debug
+import me.mochibit.createharmonics.foundation.registry.ModDataComponents
 import me.mochibit.createharmonics.foundation.registry.ModItems
-import me.mochibit.createharmonics.foundation.registry.platform.ModDataComponents
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import me.mochibit.createharmonics.foundation.warn
 import me.mochibit.createharmonics.handler.RecordCraftingHandler
@@ -26,7 +26,7 @@ object RecordUtilities {
     fun getAudioUrl(stack: ItemStack): String? {
         if (stack.item !is EtherealRecordItem) return null
 
-        stack.get(ModDataComponents.recordUrl)?.let { return it }
+        stack.get(ModDataComponents.RECORD_URL)?.let { return it }
 
         val legacyValue =
             stack
@@ -34,7 +34,7 @@ object RecordUtilities {
                 ?.copyTag()
                 ?.getString("audio_url")
                 ?.takeIf { it.isNotEmpty() } ?: return null
-        stack.set(ModDataComponents.recordUrl, legacyValue)
+        stack.set(ModDataComponents.RECORD_URL, legacyValue)
         stack.update(DataComponents.CUSTOM_DATA, CustomData.EMPTY) { data ->
             data.update { tag -> tag.remove("audio_url") }
         }
@@ -47,7 +47,7 @@ object RecordUtilities {
     ) {
         if (stack.item !is EtherealRecordItem) return
 
-        stack.set(ModDataComponents.recordUrl, url)
+        stack.set(ModDataComponents.RECORD_URL, url)
     }
 
     /**

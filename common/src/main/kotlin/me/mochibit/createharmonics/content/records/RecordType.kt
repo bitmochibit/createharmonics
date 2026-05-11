@@ -12,8 +12,7 @@ import me.mochibit.createharmonics.foundation.extension.withPath
 import me.mochibit.createharmonics.foundation.locale.LangProvider
 import me.mochibit.createharmonics.foundation.locale.ModLang
 import me.mochibit.createharmonics.foundation.registry.ModItems
-import me.mochibit.createharmonics.foundation.registry.platform.ModSoundRegistry
-import mezz.jei.library.ingredients.IngredientInfo
+import me.mochibit.createharmonics.foundation.registry.ModSounds
 import net.minecraft.network.chat.MutableComponent
 import net.minecraft.network.chat.Style
 import net.minecraft.network.chat.TextColor
@@ -53,7 +52,7 @@ enum class RecordType(
             createSoundEventComps = {
                 listOf(
                     SoundEventComposition.SoundEventDef(
-                        ModSoundRegistry.slidingStone,
+                        ModSounds.SLIDING_STONE.get(),
                         looping = true,
                         relative = false,
                         volumeSupplier = { 0.25f },
@@ -160,7 +159,7 @@ enum class RecordType(
             createSoundEventComps = {
                 listOf(
                     SoundEventComposition.SoundEventDef(
-                        ModSoundRegistry.glitter,
+                        ModSounds.GLITTER.get(),
                         looping = false,
                         relative = false,
                         volumeSupplier = { 0.7f },

@@ -117,24 +117,24 @@ dependencies {
     // JEI
     runtimeOnly("mezz.jei:jei-$jeiMinecraftVersion-neoforge:$jeiVersion")
 
-//    api("dev.ryanhcode.sable:sable-common-$minecraftVersionProp:$sableVersion") {
+    api("dev.ryanhcode.sable:sable-common-$minecraftVersionProp:$sableVersion") {
+        exclude("foundry.veil")
+        exclude("com.tterrag.registrate")
+    }
+
+//    implementation("dev.eriksonn.aeronautics:aeronautics-neoforge-1.21.1:1.2.1") {
 //        exclude("foundry.veil")
 //        exclude("com.tterrag.registrate")
+//        exclude("cc.tweaked")
+//        exclude("maven.modrinth")
 //    }
-
-    implementation("dev.eriksonn.aeronautics:aeronautics-neoforge-1.21.1:1.2.1") {
-        exclude("foundry.veil")
-        exclude("com.tterrag.registrate")
-        exclude("cc.tweaked")
-        exclude("maven.modrinth")
-    }
-
-    implementation("dev.simulated_team.simulated:simulated-neoforge-1.21.1:1.2.1") {
-        exclude("foundry.veil")
-        exclude("com.tterrag.registrate")
-        exclude("cc.tweaked")
-        exclude("maven.modrinth")
-    }
+//
+//    implementation("dev.simulated_team.simulated:simulated-neoforge-1.21.1:1.2.1") {
+//        exclude("foundry.veil")
+//        exclude("com.tterrag.registrate")
+//        exclude("cc.tweaked")
+//        exclude("maven.modrinth")
+//    }
 
     compileOnly(project(":common"))
     shadow("org.tukaani:xz:1.11")
