@@ -15,6 +15,7 @@ import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
 import me.mochibit.createharmonics.audio.player.AudioPlayer
+import me.mochibit.createharmonics.audio.player.ContraptionAudioContext
 import me.mochibit.createharmonics.audio.player.PlayerState
 import me.mochibit.createharmonics.audio.player.PlaytimeClock
 import me.mochibit.createharmonics.audio.player.putClock
@@ -43,7 +44,6 @@ import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextS
 import me.mochibit.createharmonics.foundation.registry.ModPackets
 import me.mochibit.createharmonics.foundation.signals.SignalBox
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
-import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos
@@ -71,9 +71,6 @@ data class RecordPlayerContextData(
     var heldItemStack: ItemStack = ItemStack.EMPTY,
     val playtimeClock: PlaytimeClock,
     var playbackState: PlaybackState = PlaybackState.STOPPED,
-    val underwaterFilter: EffectPreset.UnderwaterFilter = EffectPreset.UnderwaterFilter(),
-    val reverberator: EffectPreset.Reverberator = EffectPreset.Reverberator(),
-    var ticksSinceReverberatorUpdate: Int = 0,
     var gracefulStopJob: Job? = null,
     var ticksSinceLastClockSave: Int = 0,
     override var isDirty: Boolean = false,
@@ -194,7 +191,7 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                     return FloatSupplier { 1.0f }
                 }
 
-                return FloatSupplierInterpolated({
+                return FloatSupplier {
                     when (context.contraption.entity) {
                         is ControlledContraptionEntity -> {
                             calculateControlledContraptionPitch(context)
@@ -205,23 +202,23 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                             calculateDefaultPitch(context.animationSpeed)
                         }
                     }
-                }, 500)
+                }
             }
 
             fun volumeSupplierFactory(context: MovementContext): FloatSupplier {
                 val redstonePower = context.blockEntityData.getInt("RedstonePower")
-                return FloatSupplierInterpolated({
-                    if (redstonePower <= 0) return@FloatSupplierInterpolated 1f
+                return FloatSupplier {
+                    if (redstonePower <= 0) return@FloatSupplier 1f
                     redstonePower.toFloat().remapTo(1f, 15f, 0.1f, 1.0f)
-                }, 500)
+                }
             }
 
             fun radiusSupplierFactory(context: MovementContext): FloatSupplier {
                 val redstonePower = context.blockEntityData.getInt("RedstonePower")
-                return FloatSupplierInterpolated({
-                    if (redstonePower <= 0) return@FloatSupplierInterpolated 16f
+                return FloatSupplier {
+                    if (redstonePower <= 0) return@FloatSupplier 16f
                     redstonePower.remapTo(0, 15, 4, ServerConfig.maxJukeboxSoundRange.get()).toFloat()
-                }, 500)
+                }
             }
         }
 
@@ -483,14 +480,6 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
 
             player.tick()
 
-            data.underwaterFilter.update(player, context.position.x, context.position.y, context.position.z, context.world)
-
-            data.ticksSinceReverberatorUpdate++
-            if (data.ticksSinceReverberatorUpdate >= 40) {
-                data.ticksSinceReverberatorUpdate = 0
-                data.reverberator.update(player, context.position.x, context.position.y, context.position.z, context.world)
-            }
-
             if (!data.isDirty) return
             data.clean()
 
@@ -512,9 +501,6 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                             val record = getRecordItem(context)
                             player.playFromRecord(
                                 record,
-                                data.pitchSupplier,
-                                data.radiusSupplier,
-                                data.volumeSupplier,
                                 data.playtimeClock.currentPlaytime,
                                 context.world,
                             )
@@ -572,48 +558,31 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                 playerId,
                 provider = { streamId, stream ->
                     StreamingSoundInstance.simpleFactory(
+                        this,
                         stream,
                         streamId,
                         SoundEvents.EMPTY,
-                        posMutator = { vec ->
-                            vec.set(
-                                context.position.x,
-                                context.position.y,
-                                context.position.z,
-                            )
-                        },
-                        radiusSupplier = data.radiusSupplier,
-                        volumeSupplier = data.volumeSupplier,
                     )
                 },
-                effectChainConfiguration = {
+                effectChainConfiguration = { player ->
                     val effects = this.getEffects()
                     if (effects.none { it is PitchShiftEffect }) {
                         this.addEffectAt(
                             0,
-                            PitchShiftEffect(data.pitchSupplier, scope = AudioEffect.Scope.MACHINE_CONTROLLED_PITCH),
+                            PitchShiftEffect(player.masterPitchInterpolator, scope = AudioEffect.Scope.MACHINE_CONTROLLED_PITCH),
                         )
                     }
                 },
             )
 
-        player.whenContextChanged(data) {
-            player.redirectSuppliers(
-                { vec ->
-                    vec.set(
-                        context.position.x,
-                        context.position.y,
-                        context.position.z,
-                    )
-                },
-                radiusSupplier = data.radiusSupplier,
-                volumeSupplier = data.volumeSupplier,
-            )
-            effectChain.cleanOnlyScopes(AudioEffect.Scope.MACHINE_CONTROLLED_PITCH)
-            effectChain.addBeforeScope(
-                AudioEffect.Scope.MACHINE_CONTROLLED_PITCH,
-                PitchShiftEffect(data.pitchSupplier, scope = AudioEffect.Scope.MACHINE_CONTROLLED_PITCH),
-            )
+        if (player.context !is ContraptionAudioContext) {
+            player.context =
+                ContraptionAudioContext(
+                    context,
+                    data.volumeSupplier,
+                    data.pitchSupplier,
+                    data.radiusSupplier,
+                )
         }
 
         return player

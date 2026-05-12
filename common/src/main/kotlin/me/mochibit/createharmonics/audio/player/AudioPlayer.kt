@@ -9,7 +9,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.onClosed
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,38 +19,33 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
+import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.MixerEffect
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.SampleRatedInstance
-import me.mochibit.createharmonics.audio.instance.SuppliedSoundInstance
 import me.mochibit.createharmonics.audio.stream.AudioEffectInputStream
 import me.mochibit.createharmonics.audio.utils.pause
 import me.mochibit.createharmonics.audio.utils.unpause
 import me.mochibit.createharmonics.config.ClientConfig
 import me.mochibit.createharmonics.foundation.async.ClientCoroutineScope
-import me.mochibit.createharmonics.foundation.async.launchOnClient
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.async.withMainContext
 import me.mochibit.createharmonics.foundation.debug
-import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerStreamEndPacket
 import me.mochibit.createharmonics.foundation.network.packet.UpdateAudioNamePacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
-import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
-import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
+import me.mochibit.createharmonics.foundation.supplier.values.FloatInterpolator
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
-import net.minecraft.client.sounds.AudioStream
-import org.joml.Vector3d
 import java.io.InputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
-import kotlin.math.abs
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
-typealias SoundInstanceFactory = (streamId: String, stream: InputStream) -> SoundInstance
+typealias SoundInstanceFactory = AudioPlayer.(streamId: String, stream: InputStream) -> SoundInstance
 
 /**
  * Audio player with the following features:
@@ -62,7 +56,7 @@ typealias SoundInstanceFactory = (streamId: String, stream: InputStream) -> Soun
  */
 class AudioPlayer(
     val playerId: String,
-    val soundInstanceFactory: (streamId: String, stream: InputStream) -> SoundInstance,
+    val soundInstanceFactory: SoundInstanceFactory,
 ) {
     private val playerScope =
         CoroutineScope(
@@ -110,21 +104,14 @@ class AudioPlayer(
     private val resyncCooldown = 10.seconds
 
     @Volatile
-    private var contextKey: Any? = null
+    var context: AudioSpatialContext? = null
 
-    /**
-     * When called this audio player gets linked to a context, pass anything that is context-specific to link.
-     * On the first time it will simply be assigned, but for next calls it will detect if the context changes, and if so execute [block]
-     */
-    fun whenContextChanged(
-        key: Any,
-        block: AudioPlayer.() -> Unit,
-    ) {
-        if (contextKey !== key) {
-            contextKey = key
-            this.block()
-        }
-    }
+    val masterVolumeInterpolator = FloatInterpolator(1f, 4.0.seconds)
+    val masterPitchInterpolator = FloatInterpolator(1f, 4.0.seconds)
+    val masterRadiusInterpolator = FloatInterpolator(1f, 4.0.seconds)
+
+    val underwaterFilter = EffectPreset.UnderwaterFilter()
+    val reverberator = EffectPreset.Reverberator()
 
     init {
         startStateMachine()
@@ -400,7 +387,7 @@ class AudioPlayer(
                         onStreamHang = { handleStreamHang() },
                     )
 
-                val soundInstance = soundInstanceFactory(playerId, stream)
+                val soundInstance = soundInstanceFactory(this@AudioPlayer, playerId, stream)
                 if (soundInstance is SampleRatedInstance) {
                     soundInstance.sampleRate = resolvedStream.audioInfo.sampleRate.toInt()
                 }
@@ -590,30 +577,22 @@ class AudioPlayer(
         }
     }
 
-    fun tick() = clock.tick()
+    fun tick() {
+        clock.tick()
 
-    fun redirectSuppliers(
-        mutator: (Vector3d) -> Unit,
-        volumeSupplier: FloatSupplier = FloatSupplier { 1.0f },
-        pitchSupplier: FloatSupplier = FloatSupplier { 1.0f },
-        radiusSupplier: FloatSupplier = FloatSupplier { 1.0f },
-    ) {
-        val soundInstance = this.currentSoundInstance as? SuppliedSoundInstance ?: return
-        soundInstance.supplyPaused = true
-        if (volumeSupplier is FloatSupplierInterpolated) {
-            volumeSupplier.seedFrom(soundInstance.volumeSupplier.getValue())
-        }
-        if (pitchSupplier is FloatSupplierInterpolated) {
-            pitchSupplier.seedFrom(soundInstance.pitchSupplier.getValue())
-        }
-        if (radiusSupplier is FloatSupplierInterpolated) {
-            radiusSupplier.seedFrom(soundInstance.radiusSupplier.getValue())
-        }
-        soundInstance.posMutator = mutator
-        soundInstance.volumeSupplier = volumeSupplier
-        soundInstance.pitchSupplier = pitchSupplier
-        soundInstance.radiusSupplier = radiusSupplier
-        soundInstance.supplyPaused = false
+        val ctx = context ?: return
+        val level = ctx.level() ?: return
+
+        masterPitchInterpolator.setTarget(ctx.targetPitch())
+        masterVolumeInterpolator.setTarget(ctx.targetVolume())
+        masterRadiusInterpolator.setTarget(ctx.targetRadius())
+
+        masterPitchInterpolator.tick()
+        masterVolumeInterpolator.tick()
+        masterRadiusInterpolator.tick()
+
+        underwaterFilter.update(this)
+        reverberator.update(this)
     }
 
     fun close(shouldCancelTails: Boolean = false) {

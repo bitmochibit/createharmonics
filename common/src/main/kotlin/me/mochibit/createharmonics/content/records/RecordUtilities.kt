@@ -143,9 +143,6 @@ object RecordUtilities {
 
     fun AudioPlayer.playFromRecord(
         etherealRecord: ItemStack,
-        compPitchSupplier: FloatSupplier = FloatSupplier { 1f },
-        compRadiusSupplier: FloatSupplier = FloatSupplier { 1f },
-        compVolumeSupplier: FloatSupplier = FloatSupplier { 1f },
         initialPos: Double = 0.0,
         level: Level,
     ) {
@@ -162,9 +159,9 @@ object RecordUtilities {
 
         val soundEvents = recordProps.properties.createSoundEventComps()
         for (event in soundEvents) {
-            event.pitchSupplier = compPitchSupplier
-            event.radiusSupplier = compRadiusSupplier
-            event.volumeSupplier = compVolumeSupplier
+            event.pitchSupplier = this.masterPitchInterpolator
+            event.radiusSupplier = this.masterRadiusInterpolator
+            event.volumeSupplier = this.masterVolumeInterpolator
             this.soundEventComposition.add(event)
         }
 

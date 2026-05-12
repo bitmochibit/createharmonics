@@ -18,7 +18,7 @@ object AudioPlayerManager {
     fun getOrCreate(
         id: String,
         provider: SoundInstanceFactory,
-        effectChainConfiguration: EffectChain.() -> Unit,
+        effectChainConfiguration: EffectChain.(player: AudioPlayer) -> Unit,
     ): AudioPlayer {
         require(id.isNotBlank()) { "Player ID cannot be blank" }
 
@@ -28,7 +28,7 @@ object AudioPlayerManager {
                     playerId = key,
                     soundInstanceFactory = provider,
                 ).also { newPlayer ->
-                    newPlayer.effectChain.effectChainConfiguration()
+                    newPlayer.effectChain.effectChainConfiguration(newPlayer)
                 }
             }
 

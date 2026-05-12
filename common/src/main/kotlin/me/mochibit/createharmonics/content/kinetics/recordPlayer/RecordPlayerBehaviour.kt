@@ -9,6 +9,7 @@ import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
 import me.mochibit.createharmonics.audio.player.AudioPlayer
+import me.mochibit.createharmonics.audio.player.BlockEntityAudioContext
 import me.mochibit.createharmonics.audio.player.PlayerState
 import me.mochibit.createharmonics.audio.player.PlaytimeClock
 import me.mochibit.createharmonics.audio.player.putClock
@@ -27,7 +28,6 @@ import me.mochibit.createharmonics.foundation.extension.remapTo
 import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
-import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.core.HolderLookup
 import net.minecraft.core.particles.ParticleTypes
@@ -150,12 +150,13 @@ class RecordPlayerBehaviour(
     val currentVolume: Float
         get() {
             val playerState = audioPlayer?.state?.value
+            val currentlyActiveReverberator = audioPlayer?.reverberator?.currentlyActive ?: false
             val isDecaying =
                 playbackState == PlaybackState.PAUSED ||
                     playerState == PlayerState.TAILING
 
             if (isDecaying || (
-                    reverberator.currentlyActive &&
+                    currentlyActiveReverberator &&
                         playerState != PlayerState.PLAYING &&
                         playerState != PlayerState.LOADING
                 )
@@ -207,13 +208,6 @@ class RecordPlayerBehaviour(
 
     val itemHandler = RecordPlayerItemHandler(this, 1)
 
-    val pitchSupplierInterpolated = FloatSupplierInterpolated({ currentPitch }, 500)
-    val volumeSupplierInterpolated = FloatSupplierInterpolated({ currentVolume }, 500)
-    val radiusSupplierInterpolated = FloatSupplierInterpolated({ soundRadius.toFloat() }, 500)
-
-    private val underwaterEffect = EffectPreset.UnderwaterFilter()
-    private val reverberator = EffectPreset.Reverberator()
-
     private var ticksSinceLastClockSave = 0
 
     private val audioPlayer: AudioPlayer?
@@ -224,49 +218,32 @@ class RecordPlayerBehaviour(
                     id = uuid.toString(),
                     provider = { streamId, stream ->
                         StreamingSoundInstance.simpleFactory(
+                            this,
                             stream,
                             streamId,
                             SoundEvents.EMPTY,
-                            posMutator = { vec ->
-                                vec.set(
-                                    be.blockPos.x.toDouble(),
-                                    be.blockPos.y.toDouble(),
-                                    be.blockPos.z.toDouble(),
-                                )
-                            },
-                            radiusSupplier = radiusSupplierInterpolated,
-                            volumeSupplier = volumeSupplierInterpolated,
                         )
                     },
-                    effectChainConfiguration = {
+                    effectChainConfiguration = { player ->
                         val effects = this.getEffects()
                         // Add a pitch shift effect to handle pitch changes based on speed, at 0 index in the chain
                         if (effects.none { it is PitchShiftEffect }) {
                             this.addEffectAt(
                                 0,
-                                PitchShiftEffect(pitchSupplierInterpolated, scope = AudioEffect.Scope.MACHINE_CONTROLLED_PITCH),
+                                PitchShiftEffect(player.masterPitchInterpolator, scope = AudioEffect.Scope.MACHINE_CONTROLLED_PITCH),
                             )
                         }
                     },
                 )
 
-            player.whenContextChanged(this.be) {
-                player.redirectSuppliers(
-                    { vec ->
-                        vec.set(
-                            be.blockPos.x.toDouble(),
-                            be.blockPos.y.toDouble(),
-                            be.blockPos.z.toDouble(),
-                        )
-                    },
-                    volumeSupplierInterpolated,
-                    radiusSupplier = radiusSupplierInterpolated,
-                )
-                effectChain.cleanOnlyScopes(AudioEffect.Scope.MACHINE_CONTROLLED_PITCH)
-                effectChain.addBeforeScope(
-                    AudioEffect.Scope.MACHINE_CONTROLLED_PITCH,
-                    PitchShiftEffect(pitchSupplierInterpolated, scope = AudioEffect.Scope.MACHINE_CONTROLLED_PITCH),
-                )
+            if (player.context !is BlockEntityAudioContext) {
+                player.context =
+                    BlockEntityAudioContext(
+                        this.be,
+                        { currentVolume },
+                        { currentPitch },
+                        { soundRadius.toFloat() },
+                    )
             }
 
             return player
@@ -338,12 +315,6 @@ class RecordPlayerBehaviour(
 
     override fun lazyTick() {
         super.lazyTick()
-        val beLevel = be.level ?: return
-        beLevel.onClient { level, virtual ->
-            audioPlayer?.let {
-                reverberator.update(it, be.blockPos.x.toDouble(), be.blockPos.y.toDouble(), be.blockPos.z.toDouble(), level)
-            }
-        }
     }
 
     override fun tick() {
@@ -486,10 +457,7 @@ class RecordPlayerBehaviour(
             audioPlayer?.tick()
             if (playbackState == PlaybackState.PLAYING) {
                 audioPlayer?.syncWith(playtimeClock)
-                lastActiveVolume = volumeSupplierInterpolated.getValue()
-            }
-            audioPlayer?.let {
-                underwaterEffect.update(it, be.blockPos.x.toDouble(), be.blockPos.y.toDouble(), be.blockPos.z.toDouble(), level)
+                lastActiveVolume = currentVolume
             }
         }
     }
@@ -660,14 +628,9 @@ class RecordPlayerBehaviour(
 
         player.playFromRecord(
             currentRecord,
-            { pitchSupplierInterpolated.getValue() },
-            { radiusSupplierInterpolated.getValue() },
-            { volumeSupplierInterpolated.getValue() },
             initialPos,
             level,
         )
-
-        underwaterEffect.update(player, be.blockPos.x.toDouble(), be.blockPos.y.toDouble(), be.blockPos.z.toDouble(), level)
     }
 
     private fun resumeClientPlayer() {
@@ -809,7 +772,7 @@ class RecordPlayerBehaviour(
                     }
 
                     PlaybackState.PAUSED -> {
-                        lastActiveVolume = volumeSupplierInterpolated.getValue()
+                        lastActiveVolume = currentVolume
                         pauseClientPlayer()
                     }
 
@@ -826,12 +789,6 @@ class RecordPlayerBehaviour(
         if (compound.contains("AudioPlayCount")) {
             val newPlayCount = compound.getLong("AudioPlayCount")
             audioPlayCount = newPlayCount
-        }
-
-        if (clientPacket && be.level?.isClientSide == true) {
-            audioPlayer?.let {
-                underwaterEffect.update(it, be.blockPos.x.toDouble(), be.blockPos.y.toDouble(), be.blockPos.z.toDouble(), be.level!!)
-            }
         }
     }
 

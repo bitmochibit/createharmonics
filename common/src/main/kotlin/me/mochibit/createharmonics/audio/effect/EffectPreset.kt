@@ -8,7 +8,7 @@ import me.mochibit.createharmonics.foundation.extension.getBlockState
 import me.mochibit.createharmonics.foundation.extension.getFluidState
 import me.mochibit.createharmonics.foundation.extension.lerpTo
 import me.mochibit.createharmonics.foundation.services.contentService
-import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
+import me.mochibit.createharmonics.foundation.supplier.values.FloatInterpolator
 import net.minecraft.core.Direction
 import net.minecraft.tags.FluidTags
 import net.minecraft.world.level.Level
@@ -16,9 +16,7 @@ import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.material.FluidState
 import org.joml.Vector3d
-import kotlin.math.ceil
-import kotlin.math.floor
-import kotlin.math.round
+import kotlin.time.Duration.Companion.milliseconds
 
 @JvmInline
 value class PositionVector(
@@ -31,13 +29,7 @@ value class CursorVector(
 )
 
 sealed interface EffectPreset {
-    fun update(
-        audioPlayer: AudioPlayer,
-        x: Double,
-        y: Double,
-        z: Double,
-        level: Level,
-    )
+    fun update(audioPlayer: AudioPlayer)
 
     abstract class AbstractEffectPreset : EffectPreset {
         protected val positionVec = PositionVector(Vector3d())
@@ -47,15 +39,33 @@ sealed interface EffectPreset {
          */
         protected val cursorVec = CursorVector(Vector3d())
 
-        override fun update(
-            audioPlayer: AudioPlayer,
-            x: Double,
-            y: Double,
-            z: Double,
-            level: Level,
-        ) {
-            positionVec.value.set(x, y, z)
+        private var heavyUpdateCooldown = 0
+        protected open val heavyUpdateRate = 20
+
+        final override fun update(audioPlayer: AudioPlayer) {
+            val ctx = audioPlayer.context ?: return
+            val level = ctx.level() ?: return
+
+            ctx.mutatePosition(positionVec.value)
+
+            tick()
+
+            if (--heavyUpdateCooldown <= 0) {
+                heavyUpdateCooldown = heavyUpdateRate
+
+                heavyUpdate(
+                    audioPlayer,
+                    level,
+                )
+            }
         }
+
+        protected open fun tick() {}
+
+        protected abstract fun heavyUpdate(
+            audioPlayer: AudioPlayer,
+            level: Level,
+        )
     }
 
     class UnderwaterFilter : AbstractEffectPreset() {
@@ -69,11 +79,8 @@ sealed interface EffectPreset {
                 )
         }
 
-        private var targetCutoffFrequency = 20000f
-        private var targetResonance = 0.707f
-
-        val cutoffFrequencyInterpolated = FloatSupplierInterpolated({ targetCutoffFrequency }, 900)
-        val resonanceInterpolated = FloatSupplierInterpolated({ targetResonance }, 900)
+        val cutoffFrequencyInterpolated = FloatInterpolator(20000f, 900.milliseconds)
+        val resonanceInterpolated = FloatInterpolator(0.707f, 900.milliseconds)
 
         private fun applyLowPassFilter(
             audioPlayer: AudioPlayer,
@@ -85,10 +92,8 @@ sealed interface EffectPreset {
             val existingFilter = effects.firstOrNull { it.scope == effectScope && it is LowPassFilterEffect }
 
             if (existingFilter == null) {
-                cutoffFrequencyInterpolated.getValue()
-                resonanceInterpolated.getValue()
-                targetCutoffFrequency = cutoffFrequency
-                targetResonance = resonance
+                cutoffFrequencyInterpolated.setTarget(cutoffFrequency)
+                resonanceInterpolated.setTarget(resonance)
                 effectChain.addEffect(
                     LowPassFilterEffect(
                         cutoffFrequencyInterpolated,
@@ -97,8 +102,8 @@ sealed interface EffectPreset {
                     ),
                 )
             } else {
-                targetCutoffFrequency = cutoffFrequency
-                targetResonance = resonance
+                cutoffFrequencyInterpolated.setTarget(cutoffFrequency)
+                resonanceInterpolated.setTarget(resonance)
             }
         }
 
@@ -107,22 +112,15 @@ sealed interface EffectPreset {
             val effects = effectChain.getEffects()
             val lowPassIndex = effects.indexOfFirst { it.scope == effectScope && it is LowPassFilterEffect }
             if (lowPassIndex < 0) return
-
-            cutoffFrequencyInterpolated.getValue()
-            resonanceInterpolated.getValue()
-            targetCutoffFrequency = 20000f
-            targetResonance = 0.707f
+            cutoffFrequencyInterpolated.setTarget(20000f)
+            resonanceInterpolated.setTarget(0.707f)
             effectChain.removeEffectAt(lowPassIndex, true)
         }
 
-        override fun update(
+        override fun heavyUpdate(
             audioPlayer: AudioPlayer,
-            x: Double,
-            y: Double,
-            z: Double,
             level: Level,
         ) {
-            super.update(audioPlayer, x, y, z, level)
             if (level is VirtualRenderWorld) return
             if (!level.isClientSide) return
 
@@ -142,6 +140,11 @@ sealed interface EffectPreset {
                 removeLowPassFilter(audioPlayer)
             }
         }
+
+        override fun tick() {
+            cutoffFrequencyInterpolated.tick()
+            resonanceInterpolated.tick()
+        }
     }
 
     /**
@@ -151,17 +154,12 @@ sealed interface EffectPreset {
         private val scanRadiusProvider: () -> Int = { ModConfigs.client.reverberatorScanRadius.get() },
         private val maxEffectiveBlocks: Int = 8,
     ) : AbstractEffectPreset() {
-        // Base values when no blocks are present (near-dry, subtle room)
-        private var targetRoomSize = BASE_ROOM_SIZE
-        private var targetDamping = BASE_DAMPING
-        private var targetWetMix = BASE_WET_MIX
-
         var currentlyActive: Boolean = false
             private set
 
-        val roomSizeInterpolated = FloatSupplierInterpolated({ targetRoomSize }, INTERPOLATION_STEPS)
-        val dampingInterpolated = FloatSupplierInterpolated({ targetDamping }, INTERPOLATION_STEPS)
-        val wetMixInterpolated = FloatSupplierInterpolated({ targetWetMix }, INTERPOLATION_STEPS)
+        val roomSizeInterpolated = FloatInterpolator(BASE_ROOM_SIZE, 900.milliseconds)
+        val dampingInterpolated = FloatInterpolator(BASE_DAMPING, 900.milliseconds)
+        val wetMixInterpolated = FloatInterpolator(BASE_WET_MIX, 900.milliseconds)
 
         companion object {
             val effectScope: AudioEffect.Scope =
@@ -171,8 +169,6 @@ sealed interface EffectPreset {
                         130,
                     ),
                 )
-
-            private const val INTERPOLATION_STEPS = 900L
 
             private const val BASE_ROOM_SIZE = 0.25f
             private const val BASE_DAMPING = 0.6f
@@ -208,10 +204,6 @@ sealed interface EffectPreset {
             val existing = effects.firstOrNull { it.scope == effectScope && it is ReverbEffect }
 
             if (existing == null) {
-                roomSizeInterpolated.getValue()
-                dampingInterpolated.getValue()
-                wetMixInterpolated.getValue()
-
                 currentlyActive = true
 
                 effectChain.addEffect(
@@ -231,27 +223,25 @@ sealed interface EffectPreset {
             val reverbIndex = effects.indexOfFirst { it.scope == effectScope && it is ReverbEffect }
             if (reverbIndex < 0) return
 
-            roomSizeInterpolated.getValue()
-            dampingInterpolated.getValue()
-            wetMixInterpolated.getValue()
-
-            targetRoomSize = BASE_ROOM_SIZE
-            targetDamping = BASE_DAMPING
-            targetWetMix = BASE_WET_MIX
+            roomSizeInterpolated.setTarget(BASE_ROOM_SIZE)
+            dampingInterpolated.setTarget(BASE_DAMPING)
+            wetMixInterpolated.setTarget(BASE_WET_MIX)
 
             effectChain.removeEffectAt(reverbIndex, true)
 
             currentlyActive = false
         }
 
-        override fun update(
+        override fun tick() {
+            this.roomSizeInterpolated.tick()
+            this.dampingInterpolated.tick()
+            this.wetMixInterpolated.tick()
+        }
+
+        override fun heavyUpdate(
             audioPlayer: AudioPlayer,
-            x: Double,
-            y: Double,
-            z: Double,
             level: Level,
         ) {
-            super.update(audioPlayer, x, y, z, level)
             if (level is VirtualRenderWorld) return
             if (!level.isClientSide) return
 
@@ -267,9 +257,9 @@ sealed interface EffectPreset {
             val dampingIncreasersT = (counts.dampingIncreasers.coerceAtMost(maxEffectiveBlocks)) / cap
             val wetIncreasersT = (counts.wetIncreasers.coerceAtMost(maxEffectiveBlocks)) / cap
 
-            targetRoomSize = BASE_ROOM_SIZE.lerpTo(MAX_ROOM_SIZE, roomIncreasersT)
-            targetDamping = BASE_DAMPING.lerpTo(MAX_DAMPING, dampingIncreasersT)
-            targetWetMix = BASE_WET_MIX.lerpTo(MAX_WET_MIX, wetIncreasersT)
+            roomSizeInterpolated.setTarget(BASE_ROOM_SIZE.lerpTo(MAX_ROOM_SIZE, roomIncreasersT))
+            dampingInterpolated.setTarget(BASE_DAMPING.lerpTo(MAX_DAMPING, dampingIncreasersT))
+            wetMixInterpolated.setTarget(BASE_WET_MIX.lerpTo(MAX_WET_MIX, wetIncreasersT))
 
             applyReverb(audioPlayer)
         }
