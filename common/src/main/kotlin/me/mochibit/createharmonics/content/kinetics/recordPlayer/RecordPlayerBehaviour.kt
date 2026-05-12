@@ -100,15 +100,14 @@ class RecordPlayerBehaviour(
 
     private var _recordPlayerUUID: UUID? = null
     val recordPlayerUUID: UUID?
-        get() {
-            return _recordPlayerUUID ?: run {
-                if (be.level?.isClientSide != false) return@run null
-                UUID.randomUUID().also {
-                    _recordPlayerUUID = it
-                    be.notifyUpdate()
-                }
-            }
-        }
+        get() = _recordPlayerUUID
+
+    private fun ensureUUID() {
+        if (_recordPlayerUUID != null) return
+        if (be.level?.isClientSide != false) return
+        _recordPlayerUUID = UUID.randomUUID()
+        be.notifyUpdate()
+    }
 
     private val currentPitch: Float
         get() {
@@ -220,35 +219,57 @@ class RecordPlayerBehaviour(
     private val audioPlayer: AudioPlayer?
         get() {
             val uuid = _recordPlayerUUID ?: return null
-            return AudioPlayerManager.getOrCreate(
-                id = uuid.toString(),
-                provider = { streamId, stream ->
-                    StreamingSoundInstance.simpleFactory(
-                        stream,
-                        streamId,
-                        SoundEvents.EMPTY,
-                        posMutator = { vec ->
-                            vec.set(
-                                be.blockPos.x.toDouble(),
-                                be.blockPos.y.toDouble(),
-                                be.blockPos.z.toDouble(),
-                            )
-                        },
-                        radiusSupplier = radiusSupplierInterpolated,
-                        volumeSupplier = volumeSupplierInterpolated,
-                    )
-                },
-                effectChainConfiguration = {
-                    val effects = this.getEffects()
-                    // Add a pitch shift effect to handle pitch changes based on speed, at 0 index in the chain
-                    if (effects.none { it is PitchShiftEffect }) {
-                        this.addEffectAt(
-                            0,
-                            PitchShiftEffect(pitchSupplierInterpolated, scope = AudioEffect.Scope.MACHINE_CONTROLLED_PITCH),
+            val player =
+                AudioPlayerManager.getOrCreate(
+                    id = uuid.toString(),
+                    provider = { streamId, stream ->
+                        StreamingSoundInstance.simpleFactory(
+                            stream,
+                            streamId,
+                            SoundEvents.EMPTY,
+                            posMutator = { vec ->
+                                vec.set(
+                                    be.blockPos.x.toDouble(),
+                                    be.blockPos.y.toDouble(),
+                                    be.blockPos.z.toDouble(),
+                                )
+                            },
+                            radiusSupplier = radiusSupplierInterpolated,
+                            volumeSupplier = volumeSupplierInterpolated,
                         )
-                    }
-                },
-            )
+                    },
+                    effectChainConfiguration = {
+                        val effects = this.getEffects()
+                        // Add a pitch shift effect to handle pitch changes based on speed, at 0 index in the chain
+                        if (effects.none { it is PitchShiftEffect }) {
+                            this.addEffectAt(
+                                0,
+                                PitchShiftEffect(pitchSupplierInterpolated, scope = AudioEffect.Scope.MACHINE_CONTROLLED_PITCH),
+                            )
+                        }
+                    },
+                )
+
+            player.whenContextChanged(this.be) {
+                player.redirectSuppliers(
+                    { vec ->
+                        vec.set(
+                            be.blockPos.x.toDouble(),
+                            be.blockPos.y.toDouble(),
+                            be.blockPos.z.toDouble(),
+                        )
+                    },
+                    volumeSupplierInterpolated,
+                    radiusSupplier = radiusSupplierInterpolated,
+                )
+                effectChain.cleanOnlyScopes(AudioEffect.Scope.MACHINE_CONTROLLED_PITCH)
+                effectChain.addBeforeScope(
+                    AudioEffect.Scope.MACHINE_CONTROLLED_PITCH,
+                    PitchShiftEffect(pitchSupplierInterpolated, scope = AudioEffect.Scope.MACHINE_CONTROLLED_PITCH),
+                )
+            }
+
+            return player
         }
 
     private val particleRandom: RandomSource = RandomSource.create()
@@ -302,8 +323,9 @@ class RecordPlayerBehaviour(
         }
 
     private fun ensureTracking() {
-        if (activePlayersByUUID[recordPlayerUUID.toString()] == null) {
-            registerPlayer(recordPlayerUUID.toString(), be)
+        val uuid = _recordPlayerUUID?.toString() ?: return
+        if (activePlayersByUUID[uuid] == null) {
+            registerPlayer(uuid, be)
         }
     }
 
@@ -330,6 +352,7 @@ class RecordPlayerBehaviour(
         val blockPos = be.blockPos
 
         level.onServer {
+            ensureUUID()
             playtimeClock.tick()
             if (playtimeClock.isPlaying) {
                 ticksSinceLastClockSave++
@@ -462,6 +485,7 @@ class RecordPlayerBehaviour(
         level.onClient { level, virtual ->
             audioPlayer?.tick()
             if (playbackState == PlaybackState.PLAYING) {
+                audioPlayer?.syncWith(playtimeClock)
                 lastActiveVolume = volumeSupplierInterpolated.getValue()
             }
             audioPlayer?.let {
@@ -610,12 +634,14 @@ class RecordPlayerBehaviour(
 
         when (newState) {
             PlaybackState.PLAYING if oldState != PlaybackState.PLAYING -> {
-                registerPlayer(recordPlayerUUID.toString(), be)
+                val uuid = _recordPlayerUUID?.toString() ?: return
+                registerPlayer(uuid, be)
                 playtimeClock.play()
             }
 
             PlaybackState.STOPPED if oldState != PlaybackState.STOPPED -> {
-                unregisterPlayer(recordPlayerUUID.toString(), be)
+                val uuid = _recordPlayerUUID?.toString() ?: return
+                unregisterPlayer(uuid, be)
                 playtimeClock.stop()
             }
 
@@ -672,14 +698,14 @@ class RecordPlayerBehaviour(
 
         playerParticleJob.cancel()
 
-        be.onServer {
-            unregisterPlayer(uuidStr, be)
-        }
+        if (be.isChunkUnloaded) {
+            be.onServer {
+                unregisterPlayer(uuidStr, be)
+            }
 
-        // Release directly on client — don't wait for the server packet,
-        // which arrives too late and causes the new BE to grab the stale instance
-        be.level?.onClient { _, _ ->
-            AudioPlayerManager.release(uuidStr)
+            be.level?.onClient { _, _ ->
+                AudioPlayerManager.release(uuidStr)
+            }
         }
 
         be.level?.invalidateCapabilities(pos)
@@ -771,7 +797,7 @@ class RecordPlayerBehaviour(
                                 }
 
                                 PlayerState.PLAYING -> {
-                                    player.syncWith(playtimeClock)
+                                    playtimeClock.play(player.clock.currentPlaytime)
                                 }
 
                                 else -> {

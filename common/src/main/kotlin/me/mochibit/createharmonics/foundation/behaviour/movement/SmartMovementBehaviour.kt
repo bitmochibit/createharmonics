@@ -26,6 +26,10 @@ interface Stainable {
     }
 }
 
+interface StopAwareData {
+    var stopMovingCalled: Boolean
+}
+
 abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
     abstract fun contextDataFactory(context: MovementContext): Data
 
@@ -49,6 +53,11 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
             if (entity !is AbstractContraptionEntity) return@onSync
 
             entity.contraption.actors.forEach { (_, context) ->
+                val data = context.temporaryData as? Data ?: return@forEach
+                if (data is StopAwareData && data.stopMovingCalled) {
+                    return@forEach
+                }
+
                 context.blockEntityData?.let { onStopTracking(it) }
             }
         }

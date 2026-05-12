@@ -38,9 +38,12 @@ import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerStreamEndPacket
 import me.mochibit.createharmonics.foundation.network.packet.UpdateAudioNamePacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
+import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
+import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.client.sounds.AudioStream
+import org.joml.Vector3d
 import java.io.InputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -105,6 +108,23 @@ class AudioPlayer(
     @Volatile
     private var lastResyncAt: Long = -1L
     private val resyncCooldown = 10.seconds
+
+    @Volatile
+    private var contextKey: Any? = null
+
+    /**
+     * When called this audio player gets linked to a context, pass anything that is context-specific to link.
+     * On the first time it will simply be assigned, but for next calls it will detect if the context changes, and if so execute [block]
+     */
+    fun whenContextChanged(
+        key: Any,
+        block: AudioPlayer.() -> Unit,
+    ) {
+        if (contextKey !== key) {
+            contextKey = key
+            this.block()
+        }
+    }
 
     init {
         startStateMachine()
@@ -222,7 +242,7 @@ class AudioPlayer(
                 startPlaybackJob?.cancelAndJoin()
                 if (isSeekingDisabled.get()) return
                 if (_state.value == PlayerState.PLAYING || _state.value == PlayerState.PAUSED) {
-                    doStopPlayback(ignoreTail = true)
+                    doStopPlayback(ignoreTail = true, isSeek = true)
                     startPlayback(intent.position)
                 }
             }
@@ -247,6 +267,7 @@ class AudioPlayer(
                 val resolutionElapsed = (System.currentTimeMillis() - streamResolutionStartMillis.get()) / 1000.0
                 val adjustedPos = if (intent.audioInfo.isLive) 0.0 else intent.atPos + resolutionElapsed
                 clock.play(adjustedPos)
+                lastResyncAt = System.currentTimeMillis()
                 withMainContext { soundManager.play(intent.soundInstance) }
                 soundEventComposition.makeComposition(intent.soundInstance)
                 notifyAudioTitle(intent.audioInfo.title)
@@ -458,7 +479,10 @@ class AudioPlayer(
         }
     }
 
-    private suspend fun doStopPlayback(ignoreTail: Boolean = false) {
+    private suspend fun doStopPlayback(
+        ignoreTail: Boolean = false,
+        isSeek: Boolean = false,
+    ) {
         startPlaybackJob?.cancelAndJoin()
         startPlaybackJob = null
 
@@ -470,7 +494,7 @@ class AudioPlayer(
         soundEventComposition.stopComposition()
         clock.stop()
         isSeekingDisabled.set(false)
-        lastResyncAt = -1L
+        if (!isSeek) lastResyncAt = -1L
 
         if (capturedStream?.hasTail == true && !ignoreTail) {
             _state.value = PlayerState.TAILING
@@ -560,13 +584,37 @@ class AudioPlayer(
         if (!clock.isPlaying || !other.isPlaying) return
         val now = System.currentTimeMillis()
         if (lastResyncAt != -1L && now - lastResyncAt < resyncCooldown.inWholeMilliseconds) return
-        if (abs(other.currentPlaytime - clock.currentPlaytime) > 5.0) {
+        if (other.currentPlaytime - clock.currentPlaytime > 5.0) {
             lastResyncAt = now
             seek(other.currentPlaytime)
         }
     }
 
     fun tick() = clock.tick()
+
+    fun redirectSuppliers(
+        mutator: (Vector3d) -> Unit,
+        volumeSupplier: FloatSupplier = FloatSupplier { 1.0f },
+        pitchSupplier: FloatSupplier = FloatSupplier { 1.0f },
+        radiusSupplier: FloatSupplier = FloatSupplier { 1.0f },
+    ) {
+        val soundInstance = this.currentSoundInstance as? SuppliedSoundInstance ?: return
+        soundInstance.supplyPaused = true
+        if (volumeSupplier is FloatSupplierInterpolated) {
+            volumeSupplier.seedFrom(soundInstance.volumeSupplier.getValue())
+        }
+        if (pitchSupplier is FloatSupplierInterpolated) {
+            pitchSupplier.seedFrom(soundInstance.pitchSupplier.getValue())
+        }
+        if (radiusSupplier is FloatSupplierInterpolated) {
+            radiusSupplier.seedFrom(soundInstance.radiusSupplier.getValue())
+        }
+        soundInstance.posMutator = mutator
+        soundInstance.volumeSupplier = volumeSupplier
+        soundInstance.pitchSupplier = pitchSupplier
+        soundInstance.radiusSupplier = radiusSupplier
+        soundInstance.supplyPaused = false
+    }
 
     fun close(shouldCancelTails: Boolean = false) {
         playerTerminated.set(true)

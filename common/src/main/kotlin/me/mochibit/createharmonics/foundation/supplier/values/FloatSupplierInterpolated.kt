@@ -80,4 +80,18 @@ class FloatSupplierInterpolated(
         lastUpdateTime = currentTime
         return initialValue
     }
+
+    /**
+     * Seeds this supplier with an initial value so the first getValue()
+     * interpolates *from* that value rather than jumping from 0.
+     * Call this before the supplier is handed to anything that reads it.
+     */
+    fun seedFrom(value: Float) {
+        val now = System.currentTimeMillis()
+        lastValue = value
+        targetValue = value
+        lastUpdateTime = now
+        cachedTime = now
+        cachedResult = value
+    }
 }

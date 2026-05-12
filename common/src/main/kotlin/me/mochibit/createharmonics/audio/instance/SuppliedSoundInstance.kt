@@ -21,10 +21,10 @@ abstract class SuppliedSoundInstance(
     soundSource: SoundSource,
     randomSoundInstance: RandomSource,
     private val streamSound: Boolean,
-    val posMutator: (vec: Vector3d) -> Unit,
-    val volumeSupplier: FloatSupplier,
-    val pitchSupplier: FloatSupplier,
-    val radiusSupplier: FloatSupplier,
+    var posMutator: (vec: Vector3d) -> Unit,
+    var volumeSupplier: FloatSupplier,
+    var pitchSupplier: FloatSupplier,
+    var radiusSupplier: FloatSupplier,
 ) : AbstractTickableSoundInstance(soundEvent, soundSource, randomSoundInstance) {
     protected var currentRadius = radiusSupplier.getValue()
     protected var currentPitch = pitchSupplier.getValue()
@@ -38,13 +38,17 @@ abstract class SuppliedSoundInstance(
 
     private val currentClientLevel: Level? = mc.level
 
+    var supplyPaused = false
+
     override fun tick() {
         if (this.isStopped) return
 
         try {
-            currentPitch = pitchSupplier.getValue()
-            currentVolume = volumeSupplier.getValue()
-            posMutator(currentPosition)
+            if (!supplyPaused) {
+                currentPitch = pitchSupplier.getValue()
+                currentVolume = volumeSupplier.getValue()
+                posMutator(currentPosition)
+            }
         } catch (e: Exception) {
             return
         }
@@ -61,11 +65,12 @@ abstract class SuppliedSoundInstance(
         this.pitch = currentPitch
 
         try {
-            val newRadius = radiusSupplier.getValue()
-
-            currentRadius = newRadius
-            engine.instanceToChannel[this]?.execute { channel ->
-                channel.linearAttenuation(this.currentRadius)
+            if (!supplyPaused) {
+                val newRadius = radiusSupplier.getValue()
+                currentRadius = newRadius
+                engine.instanceToChannel[this]?.execute { channel ->
+                    channel.linearAttenuation(this.currentRadius)
+                }
             }
         } catch (e: Exception) {
             // If supplier throws, don't crash the audio system

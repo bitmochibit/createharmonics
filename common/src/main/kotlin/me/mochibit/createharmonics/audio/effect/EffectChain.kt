@@ -210,6 +210,13 @@ class EffectChain(
         toRemove.forEach { runCatching { it.reset() } }
     }
 
+    @Synchronized
+    fun cleanOnlyScopes(vararg scopes: AudioEffect.Scope) {
+        val toRemove = effects.filter { it.scope in scopes }
+        effects = effects - toRemove.toSet()
+        toRemove.forEach { runCatching { it.reset() } }
+    }
+
     fun addWithAnchor(
         effect: AudioEffect,
         anchor: ScopeAnchor?,
