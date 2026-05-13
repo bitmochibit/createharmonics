@@ -3,7 +3,6 @@ package me.mochibit.createharmonics.compat.jei
 import com.simibubi.create.AllBlocks
 import com.simibubi.create.AllItems
 import com.simibubi.create.compat.jei.category.CreateRecipeCategory
-import com.simibubi.create.compat.jei.category.DeployingCategory
 import com.simibubi.create.compat.jei.category.animations.AnimatedDeployer
 import com.simibubi.create.content.kinetics.deployer.DeployerApplicationRecipe
 import com.simibubi.create.content.kinetics.deployer.ItemApplicationRecipeParams
@@ -32,6 +31,29 @@ import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.crafting.Ingredient
 import net.minecraft.world.item.crafting.RecipeHolder
+
+private class DynamicRepairRecipe(
+    params: ItemApplicationRecipeParams,
+    val dynamicOutputs: ((inputDamage: Int, maxDamage: Int) -> List<ProcessingOutput>)? = null,
+) : DeployerApplicationRecipe(params) {
+    override fun getType() = ModRecipeTypes.RECORD_REPAIR.get()
+}
+
+private class DisplayRecipeParams(
+    processedItem: Ingredient,
+    heldItem: Ingredient,
+    displayResults: List<ProcessingOutput>,
+    keepHeld: Boolean = false,
+    duration: Int = 40,
+) : ItemApplicationRecipeParams() {
+    init {
+        ingredients.add(processedItem)
+        ingredients.add(heldItem)
+        displayResults.forEach { results.add(it) }
+        processingDuration = duration
+        keepHeldItem = keepHeld
+    }
+}
 
 @JeiPlugin
 class ModJeiPlugin : IModPlugin {
@@ -92,7 +114,6 @@ object RecordRepairJEIRecipes {
                         results = listOf(ProcessingOutput(repairedStack, 1f), ProcessingOutput(costedGlue, 1f)),
                     ),
                 )
-
                 add(
                     makeHolder(
                         id = "jei/glue_repair/damaged/${recordType.name.lowercase()}",
@@ -125,24 +146,42 @@ object RecordRepairJEIRecipes {
                     ?.partialRepairIngredientProvider
                     ?.invoke()
                     ?.let { (ingredient, repairFraction) ->
-                        val partialStack =
+
+                        val maxDamage = repairedRecordItem.defaultInstance.maxDamage
+                        val staticPartialStack =
                             repairedRecordItem.defaultInstance.also {
-                                it.damageValue = ((1 - repairFraction) * it.maxDamage).toInt()
+                                it.damageValue = ((1f - repairFraction) * maxDamage).toInt()
                             }
+
+                        val dynamicOutputs: (Int, Int) -> List<ProcessingOutput> = { inputDamage, itemMaxDamage ->
+                            val resultDamage =
+                                (inputDamage - repairFraction * itemMaxDamage)
+                                    .toInt()
+                                    .coerceAtLeast(0)
+                            listOf(
+                                ProcessingOutput(
+                                    repairedRecordItem.defaultInstance.also { it.damageValue = resultDamage },
+                                    1f,
+                                ),
+                            )
+                        }
+
                         add(
                             makeHolder(
                                 id = "jei/partial_repair/broken/${recordType.name.lowercase()}",
                                 processedItem = brokenIngredient,
                                 heldItem = ingredient,
-                                results = listOf(ProcessingOutput(partialStack, 1f)),
+                                results = listOf(ProcessingOutput(staticPartialStack, 1f)),
                             ),
                         )
+
                         add(
                             makeHolder(
                                 id = "jei/partial_repair/damaged/${recordType.name.lowercase()}",
                                 processedItem = damagedIngredient,
                                 heldItem = ingredient,
-                                results = listOf(ProcessingOutput(partialStack, 1f)),
+                                results = listOf(ProcessingOutput(staticPartialStack, 1f)),
+                                dynamicOutputs = dynamicOutputs,
                             ),
                         )
                     }
@@ -154,31 +193,13 @@ object RecordRepairJEIRecipes {
         processedItem: Ingredient,
         heldItem: Ingredient,
         results: List<ProcessingOutput>,
+        dynamicOutputs: ((inputDamage: Int, maxDamage: Int) -> List<ProcessingOutput>)? = null,
         keepHeldItem: Boolean = false,
         duration: Int = 40,
     ): RecipeHolder<DeployerApplicationRecipe> {
         val params = DisplayRecipeParams(processedItem, heldItem, results, keepHeldItem, duration)
-        val recipe =
-            object : DeployerApplicationRecipe(params) {
-                override fun getType() = ModRecipeTypes.RECORD_REPAIR.get()
-            }
+        val recipe = DynamicRepairRecipe(params, dynamicOutputs)
         return RecipeHolder(id.asResource(), recipe)
-    }
-}
-
-private class DisplayRecipeParams(
-    processedItem: Ingredient,
-    heldItem: Ingredient,
-    displayResults: List<ProcessingOutput>,
-    keepHeld: Boolean = false,
-    duration: Int = 40,
-) : ItemApplicationRecipeParams() {
-    init {
-        ingredients.add(processedItem)
-        ingredients.add(heldItem)
-        displayResults.forEach { results.add(it) }
-        processingDuration = duration
-        keepHeldItem = keepHeld
     }
 }
 
@@ -218,7 +239,19 @@ class RecordRepairCategory(
                 .setBackground(getRenderedSlot(), -1, -1)
                 .addIngredients(recipe.requiredHeldItem)
 
-        val results = recipe.getRollableResults()
+        val results: List<ProcessingOutput> =
+            if (recipe is DynamicRepairRecipe &&
+                recipe.dynamicOutputs != null &&
+                focusedDamagedStack != null
+            ) {
+                recipe.dynamicOutputs.invoke(
+                    focusedDamagedStack.damageValue,
+                    focusedDamagedStack.maxDamage,
+                )
+            } else {
+                recipe.getRollableResults()
+            }
+
         val single = results.size == 1
         results.forEachIndexed { i, output ->
             val xOffset = if (i % 2 == 0) 0 else 19
@@ -231,8 +264,10 @@ class RecordRepairCategory(
         }
 
         if (recipe.shouldKeepHeldItem()) {
-            handSlot.addTooltipCallback { _, tooltip ->
-                tooltip.add(1, CreateLang.translateDirect("recipe.deploying.not_consumed").withStyle(ChatFormatting.GOLD))
+            handSlot.addRichTooltipCallback { view, tooltip ->
+                tooltip.add(
+                    CreateLang.translateDirect("recipe.deploying.not_consumed").withStyle(ChatFormatting.GOLD),
+                )
             }
         }
     }
@@ -245,7 +280,11 @@ class RecordRepairCategory(
         mouseY: Double,
     ) {
         AllGuiTextures.JEI_SHADOW.render(graphics, 62, 57)
-        AllGuiTextures.JEI_DOWN_ARROW.render(graphics, 126, 29 + if (recipe.getRollableResults().size > 2) -19 else 0)
+        AllGuiTextures.JEI_DOWN_ARROW.render(
+            graphics,
+            126,
+            29 + if (recipe.getRollableResults().size > 2) -19 else 0,
+        )
         deployer.draw(graphics, background.width / 2 - 13, 22)
     }
 }

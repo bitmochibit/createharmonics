@@ -1,22 +1,10 @@
 package me.mochibit.createharmonics.audio.player
 
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.effect.EffectPreset
@@ -42,10 +30,13 @@ import java.io.InputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 typealias SoundInstanceFactory = AudioPlayer.(streamId: String, stream: InputStream) -> SoundInstance
+
+// TODO: This class is very big now and needs some cleanup ASAP
+// TODO: Split tail jobs with a proper manager
+// TODO: Preload next stream so loop works without gaps (loop can set true or false externally)
 
 /**
  * Audio player with the following features:
@@ -397,7 +388,15 @@ class AudioPlayer(
                     return@launch
                 }
 
-                intents.trySend(PlayerIntent.StreamReady(stream, soundInstance, resolvedStream.audioInfo, pos, currentGeneration))
+                intents.trySend(
+                    PlayerIntent.StreamReady(
+                        stream,
+                        soundInstance,
+                        resolvedStream.audioInfo,
+                        pos,
+                        currentGeneration,
+                    ),
+                )
             }
     }
 
