@@ -116,6 +116,7 @@ class AudioEffectInputStream(
                 when (val bytesRead = readFromStreamSync()) {
                     -1 -> {
                         streamEnded = true
+                        if (!isReady) isReady = true
                         break
                     }
 

@@ -581,7 +581,6 @@ class AudioPlayer(
         clock.tick()
 
         val ctx = context ?: return
-        val level = ctx.level() ?: return
 
         masterPitchInterpolator.setTarget(ctx.targetPitch())
         masterVolumeInterpolator.setTarget(ctx.targetVolume())
