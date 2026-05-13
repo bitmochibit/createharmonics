@@ -339,9 +339,9 @@ class AudioPlayer(
         startPlaybackJob =
             playerScope.launch(Dispatchers.IO) {
                 streamResolutionStartMillis.set(System.currentTimeMillis())
+                val source = AudioSourceResolver.resolve(request)
                 val resolvedStream =
                     try {
-                        val source = AudioSourceResolver.resolve(request)
                         SourceStreamResolver.resolveInputStream(source, pos)
                     } catch (e: CancellationException) {
                         if (ClientConfig.debugAudioPlayer.get()) {
