@@ -48,7 +48,7 @@ object AudioPlayerManager {
         players.remove(id)?.close(cancelTail)
     }
 
-    fun closeAllBlocking(cancelTails: Boolean = false) {
+    fun closeAll(cancelTails: Boolean = false) {
         val snapshot = players.values.toList().also { players.clear() }
         snapshot.forEach { player ->
             runCatching { player.close(cancelTails) }
@@ -56,13 +56,6 @@ object AudioPlayerManager {
         }
     }
 
-    suspend fun closeAll(cancelTails: Boolean = false) {
-        val snapshot = players.values.toList().also { players.clear() }
-        snapshot.forEach { player ->
-            runCatching { player.closeSuspending(cancelTails) }
-                .onFailure { "Error disposing ${player.playerId}: ${it.message}".err() }
-        }
-    }
 
     fun exists(id: String): Boolean = players.containsKey(id)
 }

@@ -53,25 +53,18 @@ object ProcessLifecycleManager {
             }
         }
 
-    private suspend fun destroyProcessBlockingSuspend(id: Long) {
-        processes.remove(id)?.let { process ->
-            try {
-                if (process.isAlive) {
-                    process.destroyForcibly()
-
-                    withContext(Dispatchers.IO) {
+    fun shutdownAll() {
+        processes.keys.toList().forEach { id ->
+            processes.remove(id)?.let { process ->
+                try {
+                    if (process.isAlive) {
+                        process.destroyForcibly()
                         process.waitFor()
                     }
+                } catch (e: Exception) {
+                    "Error destroying process $id: ${e.message}".err()
                 }
-            } catch (e: Exception) {
-                "Error destroying process $id: ${e.message}".err()
             }
-        }
-    }
-
-    suspend fun shutdownAll() {
-        processes.keys.toList().forEach { id ->
-            destroyProcessBlockingSuspend(id)
         }
         processes.clear()
     }

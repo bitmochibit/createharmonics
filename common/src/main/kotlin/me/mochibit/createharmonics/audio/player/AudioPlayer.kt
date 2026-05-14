@@ -598,14 +598,4 @@ class AudioPlayer(
         intents.trySend(PlayerIntent.Shutdown(shouldCancelTails))
         intents.close()
     }
-
-    suspend fun closeSuspending(shouldCancelTails: Boolean = false) {
-        playerTerminated.set(true)
-        intents.close()
-        withContext(NonCancellable) { doStopPlayback(ignoreTail = shouldCancelTails) }
-        if (shouldCancelTails) {
-            cancelTail()
-        }
-        playerScope.cancel()
-    }
 }

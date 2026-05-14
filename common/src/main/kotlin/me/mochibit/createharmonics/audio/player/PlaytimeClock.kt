@@ -38,7 +38,7 @@ class PlaytimeClock() {
         this.lastTickNano = if (isPlaying) System.nanoTime() else -1L
     }
 
-    fun getValues(): Pair<Double, Boolean> = offset to _isPlaying
+    fun getValues(): Pair<Double, Boolean> = currentPlaytime to _isPlaying
 
     fun play(from: Double = offset) {
         offset = from
@@ -60,14 +60,20 @@ class PlaytimeClock() {
 }
 
 fun CompoundTag.putClock(clock: PlaytimeClock) {
-    val (offset, isPlaying) = clock.getValues()
-    putDouble("ClockOffset", offset)
-    putBoolean("ClockWasPlaying", isPlaying)
+    putDouble("ClockOffset", clock.currentPlaytime)
+    putBoolean("ClockWasPlaying", clock.isPlaying)
+    putLong("ClockSerializedAt", System.currentTimeMillis())
 }
 
 fun CompoundTag.updateClock(clock: PlaytimeClock) {
-    clock.updateValues(
-        offset = getDouble("ClockOffset"),
-        isPlaying = getBoolean("ClockWasPlaying"),
-    )
+    val offset = getDouble("ClockOffset")
+    val playing = getBoolean("ClockWasPlaying")
+    val serializedAt = if (contains("ClockSerializedAt")) getLong("ClockSerializedAt") else -1L
+    val transitSec =
+        if (playing && serializedAt != -1L) {
+            ((System.currentTimeMillis() - serializedAt) / 1000.0).coerceIn(0.0, 5.0)
+        } else {
+            0.0
+        }
+    clock.updateValues(offset + transitSec, playing)
 }
