@@ -30,6 +30,7 @@ import java.io.InputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.abs
 import kotlin.time.Duration.Companion.seconds
 
 typealias SoundInstanceFactory = AudioPlayer.(streamId: String, stream: InputStream) -> SoundInstance
@@ -573,7 +574,8 @@ class AudioPlayer(
         if (!clock.isPlaying || !other.isPlaying) return
         val now = System.currentTimeMillis()
         if (lastResyncAt != -1L && now - lastResyncAt < resyncCooldown.inWholeMilliseconds) return
-        if (other.currentPlaytime - clock.currentPlaytime > 5.0) {
+        val drift = other.currentPlaytime - clock.currentPlaytime
+        if (abs(drift) > 2.0) {
             lastResyncAt = now
             seek(other.currentPlaytime)
         }

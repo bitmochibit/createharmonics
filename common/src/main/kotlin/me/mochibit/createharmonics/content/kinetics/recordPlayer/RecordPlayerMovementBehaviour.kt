@@ -532,16 +532,6 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
         context.world.onServer {
             val data = getContextData(context)
             data.stopMovingCalled = true
-//            .1.seconds.thenLaunch {
-//                val contraptionEntity = context.contraption?.entity ?: return@thenLaunch
-//                if (!contraptionEntity.isAlive) {
-//                    ModPackets.broadcast(
-//                        AudioPlayerHandoffPacket(
-//                            getPlayerUUID(context),
-//                        ),
-//                    )
-//                }
-//            }
         }
     }
 
