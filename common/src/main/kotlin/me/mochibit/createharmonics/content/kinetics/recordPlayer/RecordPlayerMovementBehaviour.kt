@@ -575,7 +575,8 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                 },
             )
 
-        if (player.context !is ContraptionAudioContext) {
+        if (player.contextKey !== context) {
+            player.contextKey = context
             player.context =
                 ContraptionAudioContext(
                     context,

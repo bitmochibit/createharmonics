@@ -97,6 +97,9 @@ class AudioPlayer(
     @Volatile
     var context: AudioSpatialContext? = null
 
+    @Volatile
+    var contextKey: Any? = null
+
     val masterVolumeInterpolator = FloatInterpolator(1f, 4.0.seconds)
     val masterPitchInterpolator = FloatInterpolator(1f, 4.0.seconds)
     val masterRadiusInterpolator = FloatInterpolator(1f, 4.0.seconds)

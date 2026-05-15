@@ -236,7 +236,8 @@ class RecordPlayerBehaviour(
                     },
                 )
 
-            if (player.context !is BlockEntityAudioContext) {
+            if (player.contextKey !== this.be) {
+                player.contextKey = this.be
                 player.context =
                     BlockEntityAudioContext(
                         this.be,
