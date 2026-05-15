@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.audio.instance
 
 import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.compat.ModCompats
+import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.mixin.SoundEngineAccessor
 import me.mochibit.createharmonics.mixin.SoundManagerAccessor
 import net.minecraft.client.Minecraft
@@ -15,6 +16,8 @@ import net.minecraft.util.RandomSource
 import net.minecraft.util.valueproviders.ConstantFloat
 import net.minecraft.world.level.Level
 import org.joml.Vector3d
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 abstract class AudioPlayerSoundInstance(
     private val audioPlayer: AudioPlayer,
@@ -54,6 +57,7 @@ abstract class AudioPlayerSoundInstance(
         this.z = currentPosition.z
 
         this.volume = currentVolume
+
 //        this.pitch = currentPitch
 
         try {

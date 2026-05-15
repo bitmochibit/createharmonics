@@ -12,6 +12,8 @@ import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.StructureBlockInfo
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.collections.set
 
 interface Stainable {
@@ -33,6 +35,10 @@ interface StopAwareData {
 abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
     abstract fun contextDataFactory(context: MovementContext): Data
 
+    companion object {
+        private val trackingCounts = ConcurrentHashMap<Int, AtomicInteger>()
+    }
+
     enum class SyncType {
         NET,
         DISK,
@@ -43,6 +49,8 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
             val entity = event.entity
             if (entity !is AbstractContraptionEntity) return@onSync
 
+            trackingCounts.getOrPut(entity.id) { AtomicInteger(0) }.incrementAndGet()
+
             entity.contraption.actors.forEach { (_, context) ->
                 context.resync()
             }
@@ -52,13 +60,17 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
             val entity = event.entity
             if (entity !is AbstractContraptionEntity) return@onSync
 
-            entity.contraption.actors.forEach { (_, context) ->
-                val data = context.temporaryData as? Data ?: return@forEach
-                if (data is StopAwareData && data.stopMovingCalled) {
-                    return@forEach
-                }
+            val remaining = trackingCounts[entity.id]?.decrementAndGet() ?: 0
+            if (remaining <= 0) {
+                trackingCounts.remove(entity.id)
 
-                context.blockEntityData?.let { onStopTracking(it) }
+                entity.contraption.actors.forEach { (_, context) ->
+                    val data = context.temporaryData as? Data ?: return@forEach
+                    if (data is StopAwareData && data.stopMovingCalled) {
+                        return@forEach
+                    }
+                    context.blockEntityData?.let { onStopTracking(it) }
+                }
             }
         }
     }
