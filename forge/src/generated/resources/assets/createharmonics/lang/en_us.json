@@ -106,6 +106,7 @@
   "createharmonics.ponder.record_press_base.text_4": "Right-Click to open the configuration interface",
   "createharmonics.ponder.record_press_base.text_5": "You can create a list of urls to be set, and choose the mode of selection",
   "createharmonics.ponder.record_press_base.text_6": "When a record is present, a mechanical press must be used to inprint the url onto it",
+  "createharmonics.recipe.record_repair": "Repairing",
   "createharmonics.record_player.playback_mode": "Playback Mode",
   "createharmonics.record_player.playback_mode.pause": "Pause",
   "createharmonics.record_player.playback_mode.pause_static_pitch": "Pause (Static Pitch)",

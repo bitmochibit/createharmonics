@@ -1,8 +1,7 @@
 package me.mochibit.createharmonics.audio.instance
 
+import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.compat.ModCompats
-import me.mochibit.createharmonics.compat.vs.VsCompat
-import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import me.mochibit.createharmonics.mixin.SoundEngineAccessor
 import me.mochibit.createharmonics.mixin.SoundManagerAccessor
 import net.minecraft.client.Minecraft
@@ -15,22 +14,18 @@ import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
 import net.minecraft.util.valueproviders.ConstantFloat
 import net.minecraft.world.level.Level
-import org.joml.Matrix4dc
 import org.joml.Vector3d
 
-abstract class SuppliedSoundInstance(
+abstract class AudioPlayerSoundInstance(
+    private val audioPlayer: AudioPlayer,
     soundEvent: SoundEvent,
     soundSource: SoundSource,
     randomSoundInstance: RandomSource,
     private val streamSound: Boolean,
-    val posMutator: (vec: Vector3d) -> Unit,
-    val volumeSupplier: FloatSupplier,
-    val pitchSupplier: FloatSupplier,
-    val radiusSupplier: FloatSupplier,
 ) : AbstractTickableSoundInstance(soundEvent, soundSource, randomSoundInstance) {
-    protected var currentRadius = radiusSupplier.getValue()
-    protected var currentPitch = pitchSupplier.getValue()
-    protected var currentVolume = volumeSupplier.getValue()
+    protected var currentRadius = audioPlayer.masterRadiusInterpolator.getValue()
+    protected var currentPitch = audioPlayer.masterPitchInterpolator.getValue()
+    protected var currentVolume = audioPlayer.masterVolumeInterpolator.getValue()
     protected var currentPosition = Vector3d()
     private var resolvedSound: Sound? = null
 
@@ -38,33 +33,20 @@ abstract class SuppliedSoundInstance(
     private val sm = mc.soundManager as SoundManagerAccessor
     protected val engine = sm.soundEngine as SoundEngineAccessor
 
-    protected val currentClientLevel: Level? = mc.level
-
-    protected var positionTransform: Matrix4dc? = null
-
-    private var vsChecked = false
+    private val currentClientLevel: Level? = mc.level
 
     override fun tick() {
         if (this.isStopped) return
 
-        try {
-            currentPitch = pitchSupplier.getValue()
-            currentVolume = volumeSupplier.getValue()
-            posMutator(currentPosition)
-        } catch (e: Exception) {
-            return
-        }
+        val ctx = audioPlayer.context ?: return
 
-        if (vsChecked == false) {
-            vsChecked = true
+        ctx.mutatePosition(currentPosition)
+        currentPitch = audioPlayer.masterPitchInterpolator.getValue()
+        currentVolume = audioPlayer.masterVolumeInterpolator.getValue()
+        currentRadius = audioPlayer.masterRadiusInterpolator.getValue()
 
-            currentClientLevel?.let {
-                positionTransform = ModCompats.vsCompat?.getShipTransform(it, currentPosition)
-            }
-        }
-
-        positionTransform?.let {
-            it.transformPosition(currentPosition)
+        if (currentClientLevel != null) {
+            ModCompats.vsCompat?.projectOutOfShip(currentClientLevel, currentPosition)
         }
 
         this.x = currentPosition.x
@@ -72,17 +54,14 @@ abstract class SuppliedSoundInstance(
         this.z = currentPosition.z
 
         this.volume = currentVolume
-        this.pitch = currentPitch
+
+//        this.pitch = currentPitch
 
         try {
-            val newRadius = radiusSupplier.getValue()
-
-            currentRadius = newRadius
             engine.instanceToChannel[this]?.execute { channel ->
                 channel.linearAttenuation(this.currentRadius)
             }
         } catch (e: Exception) {
-            // If supplier throws, don't crash the audio system
         }
     }
 

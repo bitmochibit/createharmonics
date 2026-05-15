@@ -21,13 +21,15 @@ class EtherealRecordItem(
     private val brokenVariant: Boolean = false,
 ) : Item(
         props.apply {
-            val maxDamage =
-                if (recordType.uses > 0) {
-                    recordType.uses + 1
-                } else {
-                    0
-                }
-            this.defaultDurability(maxDamage)
+            if (brokenVariant == false) {
+                val maxDamage =
+                    if (recordType.uses > 0) {
+                        recordType.uses + 1
+                    } else {
+                        0
+                    }
+                this.defaultDurability(maxDamage)
+            }
         },
     ) {
     companion object {

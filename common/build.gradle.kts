@@ -33,6 +33,9 @@ val registrateVersion = rootProject.property("registrate_version").toString()
 val vs2Version = rootProject.property("vs2_version").toString()
 val vsCoreVersion = rootProject.property("vs_core_version").toString()
 
+val jeiMinecraftVersion = rootProject.property("jei_minecraft_version").toString()
+val jeiVersion = rootProject.property("jei_version").toString()
+
 val generateBuildConfigTask =
     tasks.register("generateBuildConfig") {
         print("Generating BuildConfig.kt")
@@ -105,6 +108,8 @@ dependencies {
     modCompileOnly("org.valkyrienskies.core:api:$vsCoreVersion") { exclude(group = "org.joml") }
     modCompileOnly("org.valkyrienskies.core:internal:$vsCoreVersion") { exclude(group = "org.joml") }
     modCompileOnly("org.valkyrienskies.core:util:$vsCoreVersion") { exclude(group = "org.joml") }
+
+    modCompileOnly("mezz.jei:jei-$jeiMinecraftVersion-common-api:$jeiVersion")
 }
 
 project.configurations.create("commonJava").apply {

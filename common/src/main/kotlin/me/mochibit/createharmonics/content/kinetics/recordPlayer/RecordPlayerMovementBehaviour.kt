@@ -15,6 +15,7 @@ import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
 import me.mochibit.createharmonics.audio.player.AudioPlayer
+import me.mochibit.createharmonics.audio.player.ContraptionAudioContext
 import me.mochibit.createharmonics.audio.player.PlayerState
 import me.mochibit.createharmonics.audio.player.PlaytimeClock
 import me.mochibit.createharmonics.audio.player.putClock
@@ -31,6 +32,7 @@ import me.mochibit.createharmonics.foundation.async.every
 import me.mochibit.createharmonics.foundation.async.thenLaunch
 import me.mochibit.createharmonics.foundation.behaviour.movement.SmartMovementBehaviour
 import me.mochibit.createharmonics.foundation.behaviour.movement.Stainable
+import me.mochibit.createharmonics.foundation.behaviour.movement.StopAwareData
 import me.mochibit.createharmonics.foundation.extension.onClient
 import me.mochibit.createharmonics.foundation.extension.onServer
 import me.mochibit.createharmonics.foundation.extension.readEnum
@@ -40,10 +42,9 @@ import me.mochibit.createharmonics.foundation.extension.toNBT
 import me.mochibit.createharmonics.foundation.extension.writeEnum
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
-import me.mochibit.createharmonics.foundation.services.contentService
 import me.mochibit.createharmonics.foundation.signals.SignalBox
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
-import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
+import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ParticleTypes
@@ -58,6 +59,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
 import kotlin.math.abs
 import kotlin.random.Random
+import kotlin.text.set
 import kotlin.time.Duration.Companion.seconds
 
 data class RecordPlayerContextData(
@@ -67,15 +69,14 @@ data class RecordPlayerContextData(
     var particleJob: Job? = null,
     var movementPlayerInitialized: Boolean = false,
     var heldItemStack: ItemStack = ItemStack.EMPTY,
-    val playtimeClock: PlaytimeClock = PlaytimeClock(),
+    val playtimeClock: PlaytimeClock,
     var playbackState: PlaybackState = PlaybackState.STOPPED,
-    val underwaterFilter: EffectPreset.UnderwaterFilter = EffectPreset.UnderwaterFilter(),
-    val reverberator: EffectPreset.Reverberator = EffectPreset.Reverberator(),
-    var ticksSinceReverberatorUpdate: Int = 0,
     var gracefulStopJob: Job? = null,
     var ticksSinceLastClockSave: Int = 0,
     override var isDirty: Boolean = false,
-) : Stainable
+    override var stopMovingCalled: Boolean = false,
+) : Stainable,
+    StopAwareData
 
 object GlobalRecordPlayerMovementBehaviourTracker {
     val canRestart = SignalBox<String>()
@@ -190,7 +191,7 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                     return FloatSupplier { 1.0f }
                 }
 
-                return FloatSupplierInterpolated({
+                return FloatSupplier {
                     when (context.contraption.entity) {
                         is ControlledContraptionEntity -> {
                             calculateControlledContraptionPitch(context)
@@ -201,23 +202,23 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                             calculateDefaultPitch(context.animationSpeed)
                         }
                     }
-                }, 500)
+                }
             }
 
             fun volumeSupplierFactory(context: MovementContext): FloatSupplier {
                 val redstonePower = context.blockEntityData.getInt("RedstonePower")
-                return FloatSupplierInterpolated({
-                    if (redstonePower <= 0) return@FloatSupplierInterpolated 1f
+                return FloatSupplier {
+                    if (redstonePower <= 0) return@FloatSupplier 1f
                     redstonePower.toFloat().remapTo(1f, 15f, 0.1f, 1.0f)
-                }, 500)
+                }
             }
 
             fun radiusSupplierFactory(context: MovementContext): FloatSupplier {
                 val redstonePower = context.blockEntityData.getInt("RedstonePower")
-                return FloatSupplierInterpolated({
-                    if (redstonePower <= 0) return@FloatSupplierInterpolated 16f
+                return FloatSupplier {
+                    if (redstonePower <= 0) return@FloatSupplier 16f
                     redstonePower.remapTo(0, 15, 4, ServerConfig.maxJukeboxSoundRange.get()).toFloat()
-                }, 500)
+                }
             }
         }
 
@@ -240,6 +241,14 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             pitchSupplier = pitchSupplierFactory(context),
             volumeSupplier = volumeSupplierFactory(context),
             radiusSupplier = radiusSupplierFactory(context),
+            playbackState =
+                if (context.blockEntityData.contains("PlaybackState")) {
+                    val state = NBTHelper.readEnum(context.blockEntityData, "PlaybackState", PlaybackState::class.java)
+                    state
+                } else {
+                    PlaybackState.STOPPED
+                },
+            playtimeClock = PlaytimeClock(context.blockEntityData),
         ).apply {
             context.world.onClient { level, virtual ->
                 this.particleJob =
@@ -331,9 +340,15 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
         syncType: SyncType,
     ) {
         target.apply {
-            from.updateClock(this.playtimeClock)
-            heldItemStack = ItemStack.of(from.getCompound("HeldRecordItem"))
-            if (syncType != SyncType.DISK) {
+            if (from.contains("ClockOffset")) {
+                from.updateClock(this.playtimeClock)
+            }
+
+            if (from.contains("HeldRecordItem")) {
+                heldItemStack = ItemStack.of(from.getCompound("HeldRecordItem"))
+            }
+
+            if (syncType != SyncType.DISK && from.contains("PlaybackStateMoving")) {
                 playbackState = from.readEnum("PlaybackStateMoving")
             }
         }
@@ -463,14 +478,6 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
 
             player.tick()
 
-            data.underwaterFilter.update(player, context.position.x, context.position.y, context.position.z, context.world)
-
-            data.ticksSinceReverberatorUpdate++
-            if (data.ticksSinceReverberatorUpdate >= 40) {
-                data.ticksSinceReverberatorUpdate = 0
-                data.reverberator.update(player, context.position.x, context.position.y, context.position.z, context.world)
-            }
-
             if (!data.isDirty) return
             data.clean()
 
@@ -479,22 +486,19 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             val newState = data.playbackState
             when (newState) {
                 PlaybackState.PLAYING -> {
-                    if (player.state.value == PlayerState.PLAYING) {
-                        return
-                    }
+                    if (player.state.value == PlayerState.PLAYING) return
 
                     when (player.state.value) {
                         PlayerState.PAUSED -> {
                             player.play()
                         }
 
-                        PlayerState.STOPPED -> {
+                        PlayerState.STOPPED,
+                        PlayerState.TAILING,
+                        -> {
                             val record = getRecordItem(context)
                             player.playFromRecord(
                                 record,
-                                data.pitchSupplier,
-                                data.radiusSupplier,
-                                data.volumeSupplier,
                                 data.playtimeClock.currentPlaytime,
                             )
                         }
@@ -512,7 +516,7 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                 }
 
                 PlaybackState.STOPPED -> {
-                    if (player.state.value == PlayerState.STOPPED) {
+                    if (player.state.value == PlayerState.STOPPED || player.state.value == PlayerState.TAILING) {
                         return
                     }
                     player.stop()
@@ -523,12 +527,8 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
 
     override fun stopMoving(context: MovementContext) {
         context.world.onServer {
-            .1.seconds.thenLaunch {
-                val contraptionEntity = context.contraption?.entity ?: return@thenLaunch
-                if (!contraptionEntity.isAlive) {
-                    stopClientAudio(context)
-                }
-            }
+            val data = getContextData(context)
+            data.stopMovingCalled = true
         }
     }
 
@@ -537,40 +537,43 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
         val data = getContextData(context)
 
         if (!data.movementPlayerInitialized) {
-            if (AudioPlayerManager.exists(playerId)) {
-                AudioPlayerManager.release(playerId)
-            }
             data.movementPlayerInitialized = true
         }
 
-        return AudioPlayerManager.getOrCreate(
-            playerId,
-            provider = { streamId, stream ->
-                StreamingSoundInstance.simpleFactory(
-                    stream,
-                    streamId,
-                    SoundEvents.EMPTY,
-                    posMutator = { vec ->
-                        vec.set(
-                            context.position.x,
-                            context.position.y,
-                            context.position.z,
-                        )
-                    },
-                    radiusSupplier = data.radiusSupplier,
-                    volumeSupplier = data.volumeSupplier,
-                )
-            },
-            effectChainConfiguration = {
-                val effects = this.getEffects()
-                if (effects.none { it is PitchShiftEffect }) {
-                    this.addEffectAt(
-                        0,
-                        PitchShiftEffect(data.pitchSupplier, scope = AudioEffect.Scope.MACHINE_CONTROLLED_PITCH),
+        val player =
+            AudioPlayerManager.getOrCreate(
+                playerId,
+                provider = { streamId, stream ->
+                    StreamingSoundInstance.simpleFactory(
+                        this,
+                        stream,
+                        streamId,
+                        SoundEvents.EMPTY,
                     )
-                }
-            },
-        )
+                },
+                effectChainConfiguration = { player ->
+                    val effects = this.getEffects()
+                    if (effects.none { it is PitchShiftEffect }) {
+                        this.addEffectAt(
+                            0,
+                            PitchShiftEffect(player.masterPitchInterpolator, scope = AudioEffect.Scope.MACHINE_CONTROLLED_PITCH),
+                        )
+                    }
+                },
+            )
+
+        if (player.contextKey !== context) {
+            player.contextKey = context
+            player.context =
+                ContraptionAudioContext(
+                    context,
+                    data.volumeSupplier,
+                    data.pitchSupplier,
+                    data.radiusSupplier,
+                )
+        }
+
+        return player
     }
 
     fun getPlayerUUID(context: MovementContext): String {

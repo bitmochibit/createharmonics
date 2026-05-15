@@ -17,14 +17,15 @@ class RecordPressBaseArmInteractionPoint(
 ) : ArmInteractionPoint(type, level, pos, state) {
     override fun extract(
         slot: Int,
+        amount: Int,
         simulate: Boolean,
-    ): ItemStack? {
+    ): ItemStack {
         // Extract only from the outgoing slot (0 is held item, 1-8 are outgoing)
         if (slot == 0) {
             return ItemStack.EMPTY
         }
 
-        return super.extract(slot, simulate)
+        return super.extract(slot, amount, simulate)
     }
 
     override fun getInteractionPositionVector(): Vec3 =

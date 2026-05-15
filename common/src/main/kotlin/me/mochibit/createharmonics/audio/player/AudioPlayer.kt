@@ -1,46 +1,31 @@
 package me.mochibit.createharmonics.audio.player
 
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.onClosed
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
+import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.MixerEffect
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.SampleRatedInstance
-import me.mochibit.createharmonics.audio.instance.SuppliedSoundInstance
 import me.mochibit.createharmonics.audio.stream.AudioEffectInputStream
 import me.mochibit.createharmonics.audio.utils.pause
 import me.mochibit.createharmonics.audio.utils.unpause
 import me.mochibit.createharmonics.config.ClientConfig
 import me.mochibit.createharmonics.foundation.async.ClientCoroutineScope
-import me.mochibit.createharmonics.foundation.async.launchOnClient
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.async.withMainContext
 import me.mochibit.createharmonics.foundation.debug
-import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerStreamEndPacket
 import me.mochibit.createharmonics.foundation.network.packet.UpdateAudioNamePacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
+import me.mochibit.createharmonics.foundation.supplier.values.FloatInterpolator
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
-import net.minecraft.client.sounds.AudioStream
 import java.io.InputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -48,7 +33,11 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.seconds
 
-typealias SoundInstanceFactory = (streamId: String, stream: InputStream) -> SoundInstance
+typealias SoundInstanceFactory = AudioPlayer.(streamId: String, stream: InputStream) -> SoundInstance
+
+// TODO: This class is very big now and needs some cleanup ASAP
+// TODO: Split tail jobs with a proper manager
+// TODO: Preload next stream so loop works without gaps (loop can set true or false externally)
 
 /**
  * Audio player with the following features:
@@ -59,7 +48,7 @@ typealias SoundInstanceFactory = (streamId: String, stream: InputStream) -> Soun
  */
 class AudioPlayer(
     val playerId: String,
-    val soundInstanceFactory: (streamId: String, stream: InputStream) -> SoundInstance,
+    val soundInstanceFactory: SoundInstanceFactory,
 ) {
     private val playerScope =
         CoroutineScope(
@@ -105,6 +94,19 @@ class AudioPlayer(
     @Volatile
     private var lastResyncAt: Long = -1L
     private val resyncCooldown = 10.seconds
+
+    @Volatile
+    var context: AudioSpatialContext? = null
+
+    @Volatile
+    var contextKey: Any? = null
+
+    val masterVolumeInterpolator = FloatInterpolator(1f, 4.0.seconds)
+    val masterPitchInterpolator = FloatInterpolator(1f, 4.0.seconds)
+    val masterRadiusInterpolator = FloatInterpolator(1f, 4.0.seconds)
+
+    val underwaterFilter = EffectPreset.UnderwaterFilter()
+    val reverberator = EffectPreset.Reverberator()
 
     init {
         startStateMachine()
@@ -222,7 +224,7 @@ class AudioPlayer(
                 startPlaybackJob?.cancelAndJoin()
                 if (isSeekingDisabled.get()) return
                 if (_state.value == PlayerState.PLAYING || _state.value == PlayerState.PAUSED) {
-                    doStopPlayback(ignoreTail = true)
+                    doStopPlayback(ignoreTail = true, isSeek = true)
                     startPlayback(intent.position)
                 }
             }
@@ -247,6 +249,7 @@ class AudioPlayer(
                 val resolutionElapsed = (System.currentTimeMillis() - streamResolutionStartMillis.get()) / 1000.0
                 val adjustedPos = if (intent.audioInfo.isLive) 0.0 else intent.atPos + resolutionElapsed
                 clock.play(adjustedPos)
+                lastResyncAt = System.currentTimeMillis()
                 withMainContext { soundManager.play(intent.soundInstance) }
                 soundEventComposition.makeComposition(intent.soundInstance)
                 notifyAudioTitle(intent.audioInfo.title)
@@ -331,9 +334,9 @@ class AudioPlayer(
         startPlaybackJob =
             playerScope.launch(Dispatchers.IO) {
                 streamResolutionStartMillis.set(System.currentTimeMillis())
+                val source = AudioSourceResolver.resolve(request)
                 val resolvedStream =
                     try {
-                        val source = AudioSourceResolver.resolve(request)
                         SourceStreamResolver.resolveInputStream(source, pos)
                     } catch (e: CancellationException) {
                         if (ClientConfig.debugAudioPlayer.get()) {
@@ -379,7 +382,7 @@ class AudioPlayer(
                         onStreamHang = { handleStreamHang() },
                     )
 
-                val soundInstance = soundInstanceFactory(playerId, stream)
+                val soundInstance = soundInstanceFactory(this@AudioPlayer, playerId, stream)
                 if (soundInstance is SampleRatedInstance) {
                     soundInstance.sampleRate = resolvedStream.audioInfo.sampleRate.toInt()
                 }
@@ -389,7 +392,15 @@ class AudioPlayer(
                     return@launch
                 }
 
-                intents.trySend(PlayerIntent.StreamReady(stream, soundInstance, resolvedStream.audioInfo, pos, currentGeneration))
+                intents.trySend(
+                    PlayerIntent.StreamReady(
+                        stream,
+                        soundInstance,
+                        resolvedStream.audioInfo,
+                        pos,
+                        currentGeneration,
+                    ),
+                )
             }
     }
 
@@ -458,7 +469,10 @@ class AudioPlayer(
         }
     }
 
-    private suspend fun doStopPlayback(ignoreTail: Boolean = false) {
+    private suspend fun doStopPlayback(
+        ignoreTail: Boolean = false,
+        isSeek: Boolean = false,
+    ) {
         startPlaybackJob?.cancelAndJoin()
         startPlaybackJob = null
 
@@ -470,7 +484,7 @@ class AudioPlayer(
         soundEventComposition.stopComposition()
         clock.stop()
         isSeekingDisabled.set(false)
-        lastResyncAt = -1L
+        if (!isSeek) lastResyncAt = -1L
 
         if (capturedStream?.hasTail == true && !ignoreTail) {
             _state.value = PlayerState.TAILING
@@ -560,27 +574,33 @@ class AudioPlayer(
         if (!clock.isPlaying || !other.isPlaying) return
         val now = System.currentTimeMillis()
         if (lastResyncAt != -1L && now - lastResyncAt < resyncCooldown.inWholeMilliseconds) return
-        if (abs(other.currentPlaytime - clock.currentPlaytime) > 5.0) {
+        val drift = other.currentPlaytime - clock.currentPlaytime
+        if (abs(drift) > 2.0) {
             lastResyncAt = now
             seek(other.currentPlaytime)
         }
     }
 
-    fun tick() = clock.tick()
+    fun tick() {
+        clock.tick()
+
+        val ctx = context ?: return
+
+        masterPitchInterpolator.setTarget(ctx.targetPitch())
+        masterVolumeInterpolator.setTarget(ctx.targetVolume())
+        masterRadiusInterpolator.setTarget(ctx.targetRadius())
+
+        masterPitchInterpolator.tick()
+        masterVolumeInterpolator.tick()
+        masterRadiusInterpolator.tick()
+
+        underwaterFilter.update(this)
+        reverberator.update(this)
+    }
 
     fun close(shouldCancelTails: Boolean = false) {
         playerTerminated.set(true)
         intents.trySend(PlayerIntent.Shutdown(shouldCancelTails))
         intents.close()
-    }
-
-    suspend fun closeSuspending(shouldCancelTails: Boolean = false) {
-        playerTerminated.set(true)
-        intents.close()
-        withContext(NonCancellable) { doStopPlayback(ignoreTail = shouldCancelTails) }
-        if (shouldCancelTails) {
-            cancelTail()
-        }
-        playerScope.cancel()
     }
 }

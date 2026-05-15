@@ -13,7 +13,6 @@ import me.mochibit.createharmonics.gui.CommonGuiEventHandler
 import me.mochibit.createharmonics.handler.CommonEventHandler
 import net.createmod.catnip.lang.FontHelper
 import net.minecraft.resources.ResourceKey
-import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.item.CreativeModeTab
 
 object CreateHarmonicsMod {

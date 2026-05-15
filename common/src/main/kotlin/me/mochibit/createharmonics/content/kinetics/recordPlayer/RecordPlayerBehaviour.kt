@@ -1,6 +1,5 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
-import com.simibubi.create.content.contraptions.render.ClientContraption
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
@@ -10,6 +9,7 @@ import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
 import me.mochibit.createharmonics.audio.player.AudioPlayer
+import me.mochibit.createharmonics.audio.player.BlockEntityAudioContext
 import me.mochibit.createharmonics.audio.player.PlayerState
 import me.mochibit.createharmonics.audio.player.PlaytimeClock
 import me.mochibit.createharmonics.audio.player.putClock
@@ -28,8 +28,6 @@ import me.mochibit.createharmonics.foundation.extension.remapTo
 import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
-import me.mochibit.createharmonics.foundation.services.contentService
-import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplierInterpolated
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.core.particles.ParticleTypes
@@ -45,7 +43,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
 import net.minecraftforge.common.util.LazyOptional
-import java.io.InputStream
+import org.joml.Vector3d
 import java.util.UUID
 import kotlin.math.abs
 
@@ -103,15 +101,14 @@ class RecordPlayerBehaviour(
 
     private var _recordPlayerUUID: UUID? = null
     val recordPlayerUUID: UUID?
-        get() {
-            return _recordPlayerUUID ?: run {
-                if (be.level?.isClientSide != false) return@run null
-                UUID.randomUUID().also {
-                    _recordPlayerUUID = it
-                    be.notifyUpdate()
-                }
-            }
-        }
+        get() = _recordPlayerUUID
+
+    private fun ensureUUID() {
+        if (_recordPlayerUUID != null) return
+        if (be.level?.isClientSide != false) return
+        _recordPlayerUUID = UUID.randomUUID()
+        be.notifyUpdate()
+    }
 
     private val currentPitch: Float
         get() {
@@ -154,12 +151,13 @@ class RecordPlayerBehaviour(
     val currentVolume: Float
         get() {
             val playerState = audioPlayer?.state?.value
+            val currentlyActiveReverberator = audioPlayer?.reverberator?.currentlyActive ?: false
             val isDecaying =
                 playbackState == PlaybackState.PAUSED ||
                     playerState == PlayerState.TAILING
 
             if (isDecaying || (
-                    reverberator.currentlyActive &&
+                    currentlyActiveReverberator &&
                         playerState != PlayerState.PLAYING &&
                         playerState != PlayerState.LOADING
                 )
@@ -209,50 +207,49 @@ class RecordPlayerBehaviour(
     // Flag to request restart on next tick (for redstone looping)
     private var shouldRestartOnNextTick = false
 
-    val itemHandler = RecordPlayerItemHandler(this, 1)
     val lazyItemHandler: LazyOptional<RecordPlayerItemHandler> = LazyOptional.of { itemHandler }
-
-    val pitchSupplierInterpolated = FloatSupplierInterpolated({ currentPitch }, 500)
-    val volumeSupplierInterpolated = FloatSupplierInterpolated({ currentVolume }, 500)
-    val radiusSupplierInterpolated = FloatSupplierInterpolated({ soundRadius.toFloat() }, 500)
-
-    private val underwaterEffect = EffectPreset.UnderwaterFilter()
-    private val reverberator = EffectPreset.Reverberator()
+    val itemHandler = RecordPlayerItemHandler(this, 1)
 
     private var ticksSinceLastClockSave = 0
 
     private val audioPlayer: AudioPlayer?
         get() {
             val uuid = _recordPlayerUUID ?: return null
-            return AudioPlayerManager.getOrCreate(
-                id = uuid.toString(),
-                provider = { streamId, stream ->
-                    StreamingSoundInstance.simpleFactory(
-                        stream,
-                        streamId,
-                        SoundEvents.EMPTY,
-                        posMutator = { vec ->
-                            vec.set(
-                                be.blockPos.x.toDouble(),
-                                be.blockPos.y.toDouble(),
-                                be.blockPos.z.toDouble(),
-                            )
-                        },
-                        radiusSupplier = radiusSupplierInterpolated,
-                        volumeSupplier = volumeSupplierInterpolated,
-                    )
-                },
-                effectChainConfiguration = {
-                    val effects = this.getEffects()
-                    // Add a pitch shift effect to handle pitch changes based on speed, at 0 index in the chain
-                    if (effects.none { it is PitchShiftEffect }) {
-                        this.addEffectAt(
-                            0,
-                            PitchShiftEffect(pitchSupplierInterpolated, scope = AudioEffect.Scope.MACHINE_CONTROLLED_PITCH),
+            val player =
+                AudioPlayerManager.getOrCreate(
+                    id = uuid.toString(),
+                    provider = { streamId, stream ->
+                        StreamingSoundInstance.simpleFactory(
+                            this,
+                            stream,
+                            streamId,
+                            SoundEvents.EMPTY,
                         )
-                    }
-                },
-            )
+                    },
+                    effectChainConfiguration = { player ->
+                        val effects = this.getEffects()
+                        // Add a pitch shift effect to handle pitch changes based on speed, at 0 index in the chain
+                        if (effects.none { it is PitchShiftEffect }) {
+                            this.addEffectAt(
+                                0,
+                                PitchShiftEffect(player.masterPitchInterpolator, scope = AudioEffect.Scope.MACHINE_CONTROLLED_PITCH),
+                            )
+                        }
+                    },
+                )
+
+            if (player.contextKey !== this.be) {
+                player.contextKey = this.be
+                player.context =
+                    BlockEntityAudioContext(
+                        this.be,
+                        { currentVolume },
+                        { currentPitch },
+                        { soundRadius.toFloat() },
+                    )
+            }
+
+            return player
         }
 
     private val particleRandom: RandomSource = RandomSource.create()
@@ -306,8 +303,9 @@ class RecordPlayerBehaviour(
         }
 
     private fun ensureTracking() {
-        if (activePlayersByUUID[recordPlayerUUID.toString()] == null) {
-            registerPlayer(recordPlayerUUID.toString(), be)
+        val uuid = _recordPlayerUUID?.toString() ?: return
+        if (activePlayersByUUID[uuid] == null) {
+            registerPlayer(uuid, be)
         }
     }
 
@@ -320,12 +318,6 @@ class RecordPlayerBehaviour(
 
     override fun lazyTick() {
         super.lazyTick()
-        val beLevel = be.level ?: return
-        beLevel.onClient { level, virtual ->
-            audioPlayer?.let {
-                reverberator.update(it, be.blockPos.x.toDouble(), be.blockPos.y.toDouble(), be.blockPos.z.toDouble(), level)
-            }
-        }
     }
 
     override fun tick() {
@@ -334,6 +326,7 @@ class RecordPlayerBehaviour(
         val blockPos = be.blockPos
 
         level.onServer {
+            ensureUUID()
             playtimeClock.tick()
             if (playtimeClock.isPlaying) {
                 ticksSinceLastClockSave++
@@ -466,10 +459,8 @@ class RecordPlayerBehaviour(
         level.onClient { level, virtual ->
             audioPlayer?.tick()
             if (playbackState == PlaybackState.PLAYING) {
-                lastActiveVolume = volumeSupplierInterpolated.getValue()
-            }
-            audioPlayer?.let {
-                underwaterEffect.update(it, be.blockPos.x.toDouble(), be.blockPos.y.toDouble(), be.blockPos.z.toDouble(), level)
+                audioPlayer?.syncWith(playtimeClock)
+                lastActiveVolume = currentVolume
             }
         }
     }
@@ -614,12 +605,14 @@ class RecordPlayerBehaviour(
 
         when (newState) {
             PlaybackState.PLAYING if oldState != PlaybackState.PLAYING -> {
-                registerPlayer(recordPlayerUUID.toString(), be)
+                val uuid = _recordPlayerUUID?.toString() ?: return
+                registerPlayer(uuid, be)
                 playtimeClock.play()
             }
 
             PlaybackState.STOPPED if oldState != PlaybackState.STOPPED -> {
-                unregisterPlayer(recordPlayerUUID.toString(), be)
+                val uuid = _recordPlayerUUID?.toString() ?: return
+                unregisterPlayer(uuid, be)
                 playtimeClock.stop()
             }
 
@@ -638,13 +631,8 @@ class RecordPlayerBehaviour(
 
         player.playFromRecord(
             currentRecord,
-            { pitchSupplierInterpolated.getValue() },
-            { radiusSupplierInterpolated.getValue() },
-            { volumeSupplierInterpolated.getValue() },
             initialPos,
         )
-
-        underwaterEffect.update(player, be.blockPos.x.toDouble(), be.blockPos.y.toDouble(), be.blockPos.z.toDouble(), level)
     }
 
     private fun resumeClientPlayer() {
@@ -675,14 +663,14 @@ class RecordPlayerBehaviour(
 
         playerParticleJob.cancel()
 
-        be.onServer {
-            unregisterPlayer(uuidStr, be)
-        }
+        if (be.isChunkUnloaded) {
+            be.onServer {
+                unregisterPlayer(uuidStr, be)
+            }
 
-        // Release directly on client — don't wait for the server packet,
-        // which arrives too late and causes the new BE to grab the stale instance
-        be.level?.onClient { _, _ ->
-            AudioPlayerManager.release(uuidStr)
+            be.level?.onClient { _, _ ->
+                AudioPlayerManager.release(uuidStr)
+            }
         }
 
         lazyItemHandler.invalidate()
@@ -772,7 +760,7 @@ class RecordPlayerBehaviour(
                                 }
 
                                 PlayerState.PLAYING -> {
-                                    player.syncWith(playtimeClock)
+                                    playtimeClock.play(player.clock.currentPlaytime)
                                 }
 
                                 else -> {
@@ -784,7 +772,7 @@ class RecordPlayerBehaviour(
                     }
 
                     PlaybackState.PAUSED -> {
-                        lastActiveVolume = volumeSupplierInterpolated.getValue()
+                        lastActiveVolume = currentVolume
                         pauseClientPlayer()
                     }
 
@@ -801,12 +789,6 @@ class RecordPlayerBehaviour(
         if (compound.contains("AudioPlayCount")) {
             val newPlayCount = compound.getLong("AudioPlayCount")
             audioPlayCount = newPlayCount
-        }
-
-        if (clientPacket && be.level?.isClientSide == true) {
-            audioPlayer?.let {
-                underwaterEffect.update(it, be.blockPos.x.toDouble(), be.blockPos.y.toDouble(), be.blockPos.z.toDouble(), be.level!!)
-            }
         }
     }
 

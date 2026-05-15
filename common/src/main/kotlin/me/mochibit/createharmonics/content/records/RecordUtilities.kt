@@ -8,8 +8,11 @@ import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.audio.player.AudioRequest
 import me.mochibit.createharmonics.audio.stream.Ogg2PcmInputStream
 import me.mochibit.createharmonics.audio.utils.getStreamDirectly
+import me.mochibit.createharmonics.config.ClientConfig
+import me.mochibit.createharmonics.foundation.debug
 import me.mochibit.createharmonics.foundation.registry.ModItems
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
+import me.mochibit.createharmonics.foundation.warn
 import me.mochibit.createharmonics.handler.RecordCraftingHandler
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.util.RandomSource
@@ -46,9 +49,10 @@ object RecordUtilities {
         stack: ItemStack,
         random: RandomSource,
     ): RecordUseResult {
-        if (stack.item !is EtherealRecordItem) return RecordUseResult.Invalid
+        val itemType = stack.item
+        if (itemType !is EtherealRecordItem) return RecordUseResult.Invalid
 
-        if (!stack.item.canBeDepleted()) {
+        if (!itemType.canBeDepleted()) {
             return RecordUseResult.NotDamageable(stack)
         }
 
@@ -70,11 +74,9 @@ object RecordUtilities {
 
         val craftedWithDisc = RecordCraftingHandler.getCraftedWithDisc(stack)
         val brokenItemStack = ItemStack(brokenItemType)
-
         if (!craftedWithDisc.isEmpty) {
             RecordCraftingHandler.setCraftedWithDisc(brokenItemStack, craftedWithDisc)
         }
-
         return brokenItemStack
     }
 
@@ -126,9 +128,6 @@ object RecordUtilities {
 
     fun AudioPlayer.playFromRecord(
         etherealRecord: ItemStack,
-        compPitchSupplier: FloatSupplier = FloatSupplier { 1f },
-        compRadiusSupplier: FloatSupplier = FloatSupplier { 1f },
-        compVolumeSupplier: FloatSupplier = FloatSupplier { 1f },
         initialPos: Double = 0.0,
     ) {
         val etherealRecordItem = etherealRecord.item
@@ -144,9 +143,9 @@ object RecordUtilities {
 
         val soundEvents = recordProps.properties.createSoundEventComps()
         for (event in soundEvents) {
-            event.pitchSupplier = compPitchSupplier
-            event.radiusSupplier = compRadiusSupplier
-            event.volumeSupplier = compVolumeSupplier
+            event.pitchSupplier = this.masterPitchInterpolator
+            event.radiusSupplier = this.masterRadiusInterpolator
+            event.volumeSupplier = this.masterVolumeInterpolator
             this.soundEventComposition.add(event)
         }
 
@@ -157,11 +156,30 @@ object RecordUtilities {
         }
 
         if (url.isNotBlank() && FFMPEGProvider.isAvailable() && YTDLProvider.isAvailable()) {
-            this.request(
-                AudioRequest.Url(url),
-            )
-            this.play(initialPos)
-            return
+            if (FFMPEGProvider.isProbeAvailable()) {
+                this.request(
+                    AudioRequest.Url(url),
+                )
+                this.play(initialPos)
+                return
+            } else {
+                (
+                    "FFmpeg is correctly installed but it seems ffprobe is missing! \nIf it was installed by the mod" +
+                        " please report this here https://github.com/bitmochibit/createharmonics/issues.\n" +
+                        "If it was installed manually, make sure ffprobe executable is in the same folder as ffmpeg"
+                ).warn()
+            }
+        }
+
+        if (ClientConfig.debugAudioPlayer.get()) {
+            (
+                "Url play request was ignored! Is it intended?\n" +
+                    "current url = $url\n" +
+                    "ffmpeg available = ${FFMPEGProvider.isAvailable()}\n" +
+                    "ytdlp available = ${YTDLProvider.isAvailable()}\n" +
+                    "ffprobe available = ${FFMPEGProvider.isProbeAvailable()}\n\n" +
+                    "Generally if this is intended, you shouldn't see any AudioPlayer fail notices!"
+            ).debug()
         }
 
         // Try to play audio from the crafted-from record

@@ -2,7 +2,7 @@ package me.mochibit.createharmonics.audio.player
 
 import net.minecraft.nbt.CompoundTag
 
-class PlaytimeClock {
+class PlaytimeClock() {
     private var offset: Double = 0.0
     private var _isPlaying: Boolean = false
     private var lastTickNano: Long = -1L
@@ -10,6 +10,12 @@ class PlaytimeClock {
     val currentPlaytime: Double get() {
         if (!_isPlaying || lastTickNano == -1L) return offset
         return offset + (System.nanoTime() - lastTickNano) / 1_000_000_000.0
+    }
+
+    constructor(nbt: CompoundTag) : this() {
+        val offset = if (nbt.contains("ClockOffset")) nbt.getDouble("ClockOffset") else 0.0
+        val playing = if (nbt.contains("ClockWasPlaying")) nbt.getBoolean("ClockWasPlaying") else false
+        updateValues(offset, playing)
     }
 
     val isPlaying: Boolean get() = _isPlaying
@@ -32,7 +38,7 @@ class PlaytimeClock {
         this.lastTickNano = if (isPlaying) System.nanoTime() else -1L
     }
 
-    fun getValues(): Pair<Double, Boolean> = offset to _isPlaying
+    fun getValues(): Pair<Double, Boolean> = currentPlaytime to _isPlaying
 
     fun play(from: Double = offset) {
         offset = from
@@ -54,14 +60,20 @@ class PlaytimeClock {
 }
 
 fun CompoundTag.putClock(clock: PlaytimeClock) {
-    val (offset, isPlaying) = clock.getValues()
-    putDouble("ClockOffset", offset)
-    putBoolean("ClockWasPlaying", isPlaying)
+    putDouble("ClockOffset", clock.currentPlaytime)
+    putBoolean("ClockWasPlaying", clock.isPlaying)
+    putLong("ClockSerializedAt", System.currentTimeMillis())
 }
 
 fun CompoundTag.updateClock(clock: PlaytimeClock) {
-    clock.updateValues(
-        offset = getDouble("ClockOffset"),
-        isPlaying = getBoolean("ClockWasPlaying"),
-    )
+    val offset = getDouble("ClockOffset")
+    val playing = getBoolean("ClockWasPlaying")
+    val serializedAt = if (contains("ClockSerializedAt")) getLong("ClockSerializedAt") else -1L
+    val transitSec =
+        if (playing && serializedAt != -1L) {
+            ((System.currentTimeMillis() - serializedAt) / 1000.0).coerceIn(0.0, 5.0)
+        } else {
+            0.0
+        }
+    clock.updateValues(offset + transitSec, playing)
 }

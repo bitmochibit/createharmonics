@@ -7,6 +7,13 @@ import net.minecraft.core.registries.Registries
 import net.minecraft.world.item.crafting.RecipeType
 
 object ModRecipeTypes : CommonRegistry {
+    val RECORD_REPAIR_GENERIC =
+        ModRegistrate.simple("record_repair_generic", Registries.RECIPE_TYPE) {
+            object : RecipeType<DeployerRecordRepairRecipe.FullMaterialRepair> {
+                override fun toString() = "record_repair_generic"
+            }
+        }
+
     val RECORD_FULL_MATERIAL_REPAIR =
         ModRegistrate.simple("record_full_mat_repair", Registries.RECIPE_TYPE) {
             object : RecipeType<DeployerRecordRepairRecipe.FullMaterialRepair> {

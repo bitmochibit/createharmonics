@@ -7,7 +7,6 @@ import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.world.Container
 import net.minecraft.world.entity.Entity
-import net.minecraft.world.inventory.RecipeHolder
 import net.minecraft.world.item.crafting.Recipe
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelAccessor

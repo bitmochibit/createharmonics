@@ -3,25 +3,17 @@ package me.mochibit.createharmonics.audio.comp
 import kotlinx.coroutines.Job
 import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.audio.effect.LowPassFilterEffect
 import me.mochibit.createharmonics.audio.effect.MixerEffect
-import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.effect.ScopeAnchor
-import me.mochibit.createharmonics.audio.instance.SimpleTickableSoundInstance
-import me.mochibit.createharmonics.audio.instance.SuppliedSoundInstance
 import me.mochibit.createharmonics.audio.utils.getStreamDirectly
 import me.mochibit.createharmonics.foundation.async.every
-import me.mochibit.createharmonics.foundation.async.modLaunch
-import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
-import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.core.BlockPos
 import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
 import java.util.UUID
-import kotlin.concurrent.atomics.AtomicReference
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
 

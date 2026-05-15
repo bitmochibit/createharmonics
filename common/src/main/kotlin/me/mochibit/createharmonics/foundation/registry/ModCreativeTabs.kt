@@ -1,9 +1,9 @@
 package me.mochibit.createharmonics.foundation.registry
 
-import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
-import me.mochibit.createharmonics.ModEventBus
+import com.tterrag.registrate.util.entry.RegistryEntry
 import me.mochibit.createharmonics.ModRegistrate
 import me.mochibit.createharmonics.content.records.RecordType
+import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.locale.ModLang
 import me.mochibit.createharmonics.foundation.registry.ModItems.etherealRecord
 import net.createmod.catnip.platform.CatnipServices
@@ -14,37 +14,33 @@ import net.minecraft.world.item.CreativeModeTab
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
-import net.minecraftforge.registries.DeferredRegister
-import net.minecraftforge.registries.RegistryObject
 import java.util.function.Predicate
-import java.util.function.Supplier
 
-object ModCreativeTabs : ForgeRegistry {
-    override val registrationOrder = 4
-
-    private val CREATIVE_MODE_TABS: DeferredRegister<CreativeModeTab> =
-        DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MOD_ID)
-
-    val MAIN_TAB: RegistryObject<CreativeModeTab> =
-        CREATIVE_MODE_TABS.register(
+object ModCreativeTabs : CommonRegistry {
+    val MAIN_TAB: RegistryEntry<CreativeModeTab> =
+        creativeTab(
             "main",
-            Supplier {
-                CreativeModeTab
-                    .builder()
-                    .title(ModLang.translate("item_group").component())
-                    .icon { ItemStack(ModItems.etherealRecord(RecordType.BRASS)) }
-                    .displayItems(DisplayItemsGenerator(MAIN_TAB))
-                    .build()
-            },
+            CreativeModeTab
+                .builder(CreativeModeTab.Row.TOP, 0)
+                .title(ModLang.translate("item_group").component())
+                .icon { ItemStack(ModItems.etherealRecord(RecordType.BRASS)) }
+                .displayItems(DisplayItemsGenerator())
+                .build(),
         )
 
     override fun register() {
-        CREATIVE_MODE_TABS.register(ModEventBus)
+        "Registering creative tabs".info()
     }
 
-    private class DisplayItemsGenerator(
-        private val tab: RegistryObject<CreativeModeTab>,
-    ) : CreativeModeTab.DisplayItemsGenerator {
+    fun creativeTab(
+        name: String,
+        tab: CreativeModeTab,
+    ): RegistryEntry<CreativeModeTab> =
+        ModRegistrate.simple(name, Registries.CREATIVE_MODE_TAB) {
+            tab
+        }
+
+    private class DisplayItemsGenerator : CreativeModeTab.DisplayItemsGenerator {
         override fun accept(
             params: CreativeModeTab.ItemDisplayParameters,
             output: CreativeModeTab.Output,
@@ -52,16 +48,14 @@ object ModCreativeTabs : ForgeRegistry {
             val exclusionPredicate = makeExclusionPredicate()
             val orderings = makeOrderings()
             val stackFunc = makeStackFunc()
-            val visibilityFunc = makeVisibilityFunc()
 
             val items = mutableListOf<Item>()
-
             items += collectItems(exclusionPredicate.or(IS_ITEM_3D.negate()))
             items += collectBlocks(exclusionPredicate)
             items += collectItems(exclusionPredicate.or(IS_ITEM_3D))
 
             applyOrderings(items, orderings)
-            outputAll(output, items, stackFunc, visibilityFunc)
+            outputAll(output, items, stackFunc)
         }
 
         private fun collectBlocks(exclusionPredicate: Predicate<Item>): List<Item> =
@@ -99,10 +93,9 @@ object ModCreativeTabs : ForgeRegistry {
             output: CreativeModeTab.Output,
             items: List<Item>,
             stackFunc: (Item) -> ItemStack,
-            visibilityFunc: (Item) -> CreativeModeTab.TabVisibility,
         ) {
             for (item in items) {
-                output.accept(stackFunc(item), visibilityFunc(item))
+                output.accept(stackFunc(item))
             }
         }
     }
@@ -144,20 +137,6 @@ object ModCreativeTabs : ForgeRegistry {
         }
 
         return { item -> factories[item]?.invoke(item) ?: ItemStack(item) }
-    }
-
-    private fun makeVisibilityFunc(): (Item) -> CreativeModeTab.TabVisibility {
-        val visibilities = mutableMapOf<Item, CreativeModeTab.TabVisibility>()
-
-        // Example — hide colour variants beyond the default from the main tab:
-        // ModBlocks.DYED_SPEAKERS.forEach { entry ->
-        //     if (entry.get().color != DyeColor.WHITE)
-        //         visibilities[entry.asItem()] = CreativeModeTab.TabVisibility.SEARCH_TAB_ONLY
-        // }
-
-        return { item ->
-            visibilities[item] ?: CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS
-        }
     }
 
     private val IS_ITEM_3D: Predicate<Item> by lazy {

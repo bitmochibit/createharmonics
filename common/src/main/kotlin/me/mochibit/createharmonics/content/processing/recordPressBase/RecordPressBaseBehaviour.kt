@@ -1,24 +1,16 @@
 package me.mochibit.createharmonics.content.processing.recordPressBase
 
-import com.simibubi.create.AllBlocks
-import com.simibubi.create.content.kinetics.belt.behaviour.BeltProcessingBehaviour
 import com.simibubi.create.content.kinetics.belt.behaviour.DirectBeltInputBehaviour
 import com.simibubi.create.content.kinetics.belt.behaviour.TransportedItemStackHandlerBehaviour
-import com.simibubi.create.content.kinetics.belt.behaviour.TransportedItemStackHandlerBehaviour.TransportedResult
 import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import me.mochibit.createharmonics.content.processing.DepotLikeBehaviour
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordUtilities
-import net.createmod.catnip.math.VecHelper
 import net.minecraft.core.Direction
 import net.minecraft.nbt.CompoundTag
-import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.phys.Vec3
-import net.minecraftforge.common.util.LazyOptional
-import net.minecraftforge.items.IItemHandler
 
 /**
  *
@@ -139,7 +131,8 @@ class RecordPressBaseBehaviour(
             }
     }
 
-    override fun processOnlyData(input: TransportedItemStack): Boolean = input.stack.item is EtherealRecordItem
+    override fun processOnlyData(input: TransportedItemStack): Boolean =
+        (input.stack.item as? EtherealRecordItem)?.isRecordBroken()?.not() == true
 
     override fun processData(input: TransportedItemStack): ItemStack {
         input.stack.let {

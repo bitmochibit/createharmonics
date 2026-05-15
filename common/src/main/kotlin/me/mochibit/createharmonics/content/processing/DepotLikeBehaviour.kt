@@ -148,11 +148,9 @@ abstract class DepotLikeBehaviour(
             if (world.isClientSide && !blockEntity.isVirtual) {
                 continue
             }
-
             if (heldItem == null) {
                 heldItem = ts
             }
-
             val currentlyHeld = heldItem ?: continue
             if (!ItemHelper.canItemStackAmountsStack(currentlyHeld.stack, ts.stack)) {
                 val vec = VecHelper.getCenterOf(blockEntity.blockPos)
@@ -222,7 +220,6 @@ abstract class DepotLikeBehaviour(
             blockEntity.sendData()
             return
         }
-
         heldItem?.let { held ->
             held.locked = result == ProcessingResult.HOLD
             if (held.locked != wasLocked || !previousItem.equals(held.stack)) {
@@ -553,11 +550,6 @@ abstract class DepotLikeBehaviour(
             it.prevBeltPosition = 0.5f
         }
     }
-
-    fun <T> getItemCapability(
-        cap: Capability<T?>?,
-        side: Direction?,
-    ): LazyOptional<T?> = lazyItemHandler.cast()
 
     fun isOccupied(side: Direction?): Boolean {
         if (!heldItemStack.isEmpty && !canMergeItems()) return true

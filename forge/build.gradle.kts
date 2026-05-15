@@ -129,6 +129,7 @@ dependencies {
 
     // JEI
     modRuntimeOnly("mezz.jei:jei-$jeiMinecraftVersion-forge:$jeiVersion")
+    modCompileOnly("mezz.jei:jei-$jeiMinecraftVersion-forge:$jeiVersion")
 
     compileOnly(project(":common"))
     shadow("org.tukaani:xz:1.11")

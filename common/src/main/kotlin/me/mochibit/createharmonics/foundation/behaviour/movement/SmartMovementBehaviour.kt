@@ -4,14 +4,15 @@ import com.simibubi.create.api.behaviour.movement.MovementBehaviour
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity
 import com.simibubi.create.content.contraptions.behaviour.MovementContext
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
-import me.mochibit.createharmonics.foundation.eventbus.ProxyEvent
 import me.mochibit.createharmonics.foundation.eventbus.ServerEvents
 import me.mochibit.createharmonics.foundation.network.packet.ContraptionBlockDataChangedPacket
-import me.mochibit.createharmonics.foundation.network.packet.ModPacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.StructureBlockInfo
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.collections.set
 
 interface Stainable {
@@ -26,8 +27,16 @@ interface Stainable {
     }
 }
 
+interface StopAwareData {
+    var stopMovingCalled: Boolean
+}
+
 abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
     abstract fun contextDataFactory(context: MovementContext): Data
+
+    companion object {
+        private val trackingCounts = ConcurrentHashMap<Int, AtomicInteger>()
+    }
 
     enum class SyncType {
         NET,
@@ -39,6 +48,8 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
             val entity = event.entity
             if (entity !is AbstractContraptionEntity) return@onSync
 
+            trackingCounts.getOrPut(entity.id) { AtomicInteger(0) }.incrementAndGet()
+
             entity.contraption.actors.forEach { (_, context) ->
                 context.resync()
             }
@@ -48,8 +59,17 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
             val entity = event.entity
             if (entity !is AbstractContraptionEntity) return@onSync
 
-            entity.contraption.actors.forEach { (_, context) ->
-                context.blockEntityData?.let { onStopTracking(it) }
+            val remaining = trackingCounts[entity.id]?.decrementAndGet() ?: 0
+            if (remaining <= 0) {
+                trackingCounts.remove(entity.id)
+
+                entity.contraption.actors.forEach { (_, context) ->
+                    val data = context.temporaryData as? Data ?: return@forEach
+                    if (data is StopAwareData && data.stopMovingCalled) {
+                        return@forEach
+                    }
+                    context.blockEntityData?.let { onStopTracking(it) }
+                }
             }
         }
     }

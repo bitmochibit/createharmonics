@@ -18,7 +18,7 @@ object AudioPlayerManager {
     fun getOrCreate(
         id: String,
         provider: SoundInstanceFactory,
-        effectChainConfiguration: EffectChain.() -> Unit,
+        effectChainConfiguration: EffectChain.(player: AudioPlayer) -> Unit,
     ): AudioPlayer {
         require(id.isNotBlank()) { "Player ID cannot be blank" }
 
@@ -28,7 +28,7 @@ object AudioPlayerManager {
                     playerId = key,
                     soundInstanceFactory = provider,
                 ).also { newPlayer ->
-                    newPlayer.effectChain.effectChainConfiguration()
+                    newPlayer.effectChain.effectChainConfiguration(newPlayer)
                 }
             }
 
@@ -48,18 +48,10 @@ object AudioPlayerManager {
         players.remove(id)?.close(cancelTail)
     }
 
-    fun closeAllBlocking(cancelTails: Boolean = false) {
+    fun closeAll(cancelTails: Boolean = false) {
         val snapshot = players.values.toList().also { players.clear() }
         snapshot.forEach { player ->
             runCatching { player.close(cancelTails) }
-                .onFailure { "Error disposing ${player.playerId}: ${it.message}".err() }
-        }
-    }
-
-    suspend fun closeAll(cancelTails: Boolean = false) {
-        val snapshot = players.values.toList().also { players.clear() }
-        snapshot.forEach { player ->
-            runCatching { player.closeSuspending(cancelTails) }
                 .onFailure { "Error disposing ${player.playerId}: ${it.message}".err() }
         }
     }

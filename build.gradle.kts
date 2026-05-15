@@ -26,11 +26,18 @@ subprojects {
             url = uri("https://thedarkcolour.github.io/KotlinForForge/")
         }
         maven {
-            name = "Progwml6 maven (JEI)"
+            // location of the maven that hosts JEI files before January 2023
+            name = "Progwml6's maven"
             url = uri("https://dvs1.progwml6.com/files/maven/")
         }
         maven {
-            name = "ModMaven (JEI mirror)"
+            // location of the maven that hosts JEI files since January 2023
+            name = "Jared's maven"
+            url = uri("https://maven.blamejared.com/")
+        }
+        maven {
+            // location of a maven mirror for JEI files, as a fallback
+            name = "ModMaven"
             url = uri("https://modmaven.dev")
         }
         maven {
