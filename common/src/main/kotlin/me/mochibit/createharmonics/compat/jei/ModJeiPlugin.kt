@@ -120,6 +120,16 @@ object RecordRepairJEIRecipes {
                         processedItem = damagedIngredient,
                         heldItem = Ingredient.of(AllItems.SUPER_GLUE.get()),
                         results = listOf(ProcessingOutput(repairedStack, 1f), ProcessingOutput(costedGlue, 1f)),
+                        dynamicOutputs = { inputDamage, _ ->
+                            val dynamicGlue =
+                                ItemStack(AllItems.SUPER_GLUE.get()).also {
+                                    it.damageValue = calculateGlueRepairCost(recordType, inputDamage)
+                                }
+                            listOf(
+                                ProcessingOutput(repairedStack.copy(), 1f),
+                                ProcessingOutput(dynamicGlue, 1f),
+                            )
+                        },
                     ),
                 )
 
