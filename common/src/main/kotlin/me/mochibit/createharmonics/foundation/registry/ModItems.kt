@@ -5,14 +5,9 @@ import me.mochibit.createharmonics.ModRegistrate
 import me.mochibit.createharmonics.content.records.BaseRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordType
-import me.mochibit.createharmonics.foundation.extension.asResource
 import me.mochibit.createharmonics.foundation.info
-import me.mochibit.createharmonics.foundation.services.PlatformService
-import me.mochibit.createharmonics.foundation.services.platformService
-import net.minecraft.client.renderer.item.ItemProperties
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.Rarity
-import net.neoforged.neoforge.client.model.generators.ModelFile
 import java.util.EnumMap
 
 object ModItems : CommonRegistry {
@@ -42,6 +37,8 @@ object ModItems : CommonRegistry {
         return ModRegistrate
             .item("broken_${typeName}_ethereal_record") {
                 EtherealRecordItem(recordType, Item.Properties().stacksTo(1), true)
+            }.apply {
+                recordType.properties.materialDisplayName?.let { lang("Broken $it Ethereal Record") }
             }.model { ctx, prov ->
                 prov.generated(ctx, prov.modLoc("item/ethereal_record/${typeName}_broken"))
             }.register()
@@ -54,8 +51,9 @@ object ModItems : CommonRegistry {
                 val properties = Item.Properties().stacksTo(1)
                 if (recordType == RecordType.CREATIVE) properties.rarity(Rarity.EPIC)
                 EtherealRecordItem(recordType, properties)
+            }.apply {
+                recordType.properties.materialDisplayName?.let { lang("$it Ethereal Record") }
             }.model { ctx, prov ->
-                // Niente più override — il modello è pulito
                 prov.generated(ctx, prov.modLoc("item/ethereal_record/$typeName"))
             }.register()
     }

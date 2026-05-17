@@ -70,6 +70,7 @@ enum class RecordType(
 
     GOLD(
         Properties(
+            materialDisplayName = "Golden",
             recipe =
                 Properties.Recipe(
                     secondaryIngredientProvider = {
@@ -266,6 +267,7 @@ enum class RecordType(
             ModConfigs.server.getRecordDurability(this) ?: this.properties.defaultDurability
 
     class Properties(
+        val materialDisplayName: String? = null,
         val recipe: Recipe? = null,
         val repair: Repair? = null,
         val createAudioEffects: () -> List<AudioEffect> = { listOf() },

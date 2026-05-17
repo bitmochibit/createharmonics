@@ -13,9 +13,9 @@ data class BlockEntityAudioContext(
 ) : AudioSpatialContext {
     override fun mutatePosition(vec: Vector3d) {
         vec.set(
-            be.blockPos.x.toDouble(),
-            be.blockPos.y.toDouble(),
-            be.blockPos.z.toDouble(),
+            be.blockPos.x.toDouble() + 0.5f,
+            be.blockPos.y.toDouble() + 0.5f,
+            be.blockPos.z.toDouble() + 0.5f,
         )
     }
 

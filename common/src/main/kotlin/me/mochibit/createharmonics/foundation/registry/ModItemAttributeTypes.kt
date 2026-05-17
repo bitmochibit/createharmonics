@@ -15,7 +15,7 @@ import java.util.function.BiPredicate
 
 object ModItemAttributeTypes : PreFreezeCommonRegistry {
     val ETHEREAL_RECORD_DESTROYED =
-        singleton("record_is_destroyed") { stack, _ ->
+        singleton("record_is_broken") { stack, _ ->
             stack.isBrokenEtherealRecord()
         }
 
