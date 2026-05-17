@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.content.kinetics.base.KineticBlock
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
+import com.simibubi.create.content.kinetics.belt.behaviour.DirectBeltInputBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.INamedIconOptions
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollOptionBehaviour
@@ -102,6 +103,7 @@ abstract class RecordPlayerBlockEntity(
     override fun addBehaviours(behaviours: MutableList<BlockEntityBehaviour>) {
         playerBehaviour = RecordPlayerBehaviour(this)
         behaviours.add(playerBehaviour)
+        behaviours.add(DirectBeltInputBehaviour(this).allowingBeltFunnels())
 
         playbackMode =
             ScrollOptionBehaviour(

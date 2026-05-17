@@ -7,10 +7,11 @@ import net.neoforged.neoforge.items.ItemStackHandler
 
 class RecordPlayerItemHandler(
     val behaviour: RecordPlayerBehaviour,
-    slotCount: Int = 1,
+    slotCount: Int = 2,
 ) : ItemStackHandler(slotCount) {
     companion object {
         const val MAIN_RECORD_SLOT = 0
+        const val RECORD_OUTPUT_SLOT = 1
     }
 
     override fun onLoad() {
@@ -40,6 +41,16 @@ class RecordPlayerItemHandler(
     ): Boolean {
         if (stack.isEmpty) return true
         val item = stack.item as? EtherealRecordItem ?: return false
-        return !item.isRecordBroken()
+        val validForSlot =
+            when (slot) {
+                MAIN_RECORD_SLOT -> {
+                    !item.isRecordBroken()
+                }
+
+                else -> {
+                    true
+                }
+            }
+        return validForSlot
     }
 }

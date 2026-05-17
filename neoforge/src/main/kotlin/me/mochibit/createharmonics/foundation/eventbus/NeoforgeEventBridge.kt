@@ -13,6 +13,7 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent
 import net.neoforged.neoforge.event.level.LevelEvent
 import net.neoforged.neoforge.event.server.ServerStartedEvent
 import net.neoforged.neoforge.event.server.ServerStoppedEvent
+import net.neoforged.neoforge.registries.RegisterEvent
 import kotlin.reflect.KClass
 
 object NeoforgeEventBridge : CommonEventBridge<Event>() {

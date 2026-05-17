@@ -15,6 +15,7 @@ import net.neoforged.fml.common.EventBusSubscriber
 import net.neoforged.fml.common.Mod
 import net.neoforged.neoforge.capabilities.Capabilities
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent
+import net.neoforged.neoforge.registries.RegisterEvent
 
 @Mod(MOD_ID)
 class NeoforgeModEntryPoint(
@@ -24,6 +25,10 @@ class NeoforgeModEntryPoint(
         @JvmStatic
         lateinit var instance: NeoforgeModEntryPoint
             private set
+
+        fun onRegister(event: RegisterEvent) {
+            CreateHarmonicsMod.commonPreFreezeSetup(event.registry)
+        }
     }
 
     init {
@@ -49,6 +54,8 @@ class NeoforgeModEntryPoint(
     }
 
     private fun initialize() {
+        ModEventBus.addListener(NeoforgeModEntryPoint::onRegister)
+
         CreateHarmonicsMod.commonSetup {
             registerEventListeners(this@NeoforgeModEntryPoint.modEventBus)
         }
@@ -56,7 +63,6 @@ class NeoforgeModEntryPoint(
         provideLang()
 
         autoRegister<NeoforgeRegistry>()
-
         ModEventBus.addListener(NeoforgeModPackets::registerPayloads)
     }
 }

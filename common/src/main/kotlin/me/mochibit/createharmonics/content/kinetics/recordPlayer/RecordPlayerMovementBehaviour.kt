@@ -5,21 +5,16 @@ import com.simibubi.create.content.contraptions.behaviour.MovementContext
 import com.simibubi.create.content.contraptions.render.ActorVisual
 import com.simibubi.create.content.contraptions.render.ContraptionMatrices
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
+import com.simibubi.create.infrastructure.config.AllConfigs
 import dev.engine_room.flywheel.api.visualization.VisualizationContext
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import me.mochibit.createharmonics.audio.AudioPlayerManager
 import me.mochibit.createharmonics.audio.effect.AudioEffect
-import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
-import me.mochibit.createharmonics.audio.player.AudioPlayer
-import me.mochibit.createharmonics.audio.player.ContraptionAudioContext
-import me.mochibit.createharmonics.audio.player.PlayerState
-import me.mochibit.createharmonics.audio.player.PlaytimeClock
-import me.mochibit.createharmonics.audio.player.putClock
-import me.mochibit.createharmonics.audio.player.updateClock
+import me.mochibit.createharmonics.audio.player.*
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.config.ServerConfig
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour.Companion.Suppliers.pitchSupplierFactory
@@ -33,13 +28,7 @@ import me.mochibit.createharmonics.foundation.async.thenLaunch
 import me.mochibit.createharmonics.foundation.behaviour.movement.SmartMovementBehaviour
 import me.mochibit.createharmonics.foundation.behaviour.movement.Stainable
 import me.mochibit.createharmonics.foundation.behaviour.movement.StopAwareData
-import me.mochibit.createharmonics.foundation.extension.onClient
-import me.mochibit.createharmonics.foundation.extension.onServer
-import me.mochibit.createharmonics.foundation.extension.readEnum
-import me.mochibit.createharmonics.foundation.extension.remapTo
-import me.mochibit.createharmonics.foundation.extension.ticks
-import me.mochibit.createharmonics.foundation.extension.toNBT
-import me.mochibit.createharmonics.foundation.extension.writeEnum
+import me.mochibit.createharmonics.foundation.extension.*
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
 import me.mochibit.createharmonics.foundation.signals.SignalBox
@@ -48,6 +37,7 @@ import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
+import net.minecraft.core.particles.ItemParticleOption
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.core.particles.ShriekParticleOption
 import net.minecraft.nbt.CompoundTag
@@ -57,9 +47,10 @@ import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
+import net.neoforged.neoforge.items.ItemHandlerHelper
+import net.neoforged.neoforge.items.wrapper.CombinedInvWrapper
 import kotlin.math.abs
 import kotlin.random.Random
-import kotlin.text.set
 import kotlin.time.Duration.Companion.seconds
 
 data class RecordPlayerContextData(
@@ -604,23 +595,58 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                     storage.setRecord(ItemStack.EMPTY)
                     val itemStack = (result as RecordUtilities.RecordUseResult.Broken).dropStack.copy()
 
-                    val pos = BlockPos.containing(context.position)
-                    val facing = context.state.getValue(BlockStateProperties.FACING)
+                    val remainder: ItemStack =
+                        if (AllConfigs
+                                .server()
+                                .kinetics.moveItemsToStorage
+                                .get()
+                        ) {
+                            val otherStorages =
+                                context.contraption.storage.allItemStorages
+                                    .filterKeys { it != context.localPos }
+                                    .values
+                                    .toTypedArray()
 
-                    // Transform the facing direction through the contraption's rotation
-                    val localDirection = Vec3(facing.stepX.toDouble(), facing.stepY.toDouble(), facing.stepZ.toDouble())
-                    val worldDirection = context.rotation.apply(localDirection).normalize()
+                            if (otherStorages.isNotEmpty()) {
+                                ItemHandlerHelper.insertItem(
+                                    CombinedInvWrapper(*otherStorages),
+                                    itemStack,
+                                    false,
+                                )
+                            } else {
+                                itemStack
+                            }
+                        } else {
+                            itemStack
+                        }
 
-                    val dropPos = Vec3.atCenterOf(pos).add(worldDirection.scale(0.7))
+                    val vec = context.position ?: return
+                    val pos = BlockPos.containing(vec)
 
-                    val itemEntity = ItemEntity(level, dropPos.x, dropPos.y, dropPos.z, itemStack)
-
-                    // Launch in the rotated facing direction
-                    itemEntity.deltaMovement = worldDirection.scale(0.3)
-
-                    level.addFreshEntity(itemEntity)
                     level.playSound(null, pos, SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, .7f, 1.7f)
                     level.playSound(null, pos, SoundEvents.SMALL_AMETHYST_BUD_BREAK, SoundSource.PLAYERS)
+                    level.sendParticles(
+                        ItemParticleOption(ParticleTypes.ITEM, itemStack),
+                        pos.x.toDouble(),
+                        pos.y.toDouble(),
+                        pos.z.toDouble(),
+                        16,
+                        0.15,
+                        0.15,
+                        0.15,
+                        0.08,
+                    )
+
+                    if (remainder.isEmpty) return
+
+                    val facing = context.state.getValue(BlockStateProperties.FACING)
+                    val localDirection = Vec3(facing.stepX.toDouble(), facing.stepY.toDouble(), facing.stepZ.toDouble())
+                    val worldDirection = context.rotation.apply(localDirection).normalize()
+                    val dropPos = Vec3.atCenterOf(pos).add(worldDirection.scale(0.7))
+
+                    val itemEntity = ItemEntity(level, dropPos.x, dropPos.y, dropPos.z, remainder)
+                    itemEntity.deltaMovement = worldDirection.scale(0.3)
+                    level.addFreshEntity(itemEntity)
                 }
             }
         }

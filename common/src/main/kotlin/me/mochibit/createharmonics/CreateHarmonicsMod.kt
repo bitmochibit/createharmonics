@@ -6,12 +6,16 @@ import com.simibubi.create.foundation.item.KineticStats
 import com.simibubi.create.foundation.item.TooltipModifier
 import me.mochibit.createharmonics.foundation.async.ModDispatchers
 import me.mochibit.createharmonics.foundation.err
+import me.mochibit.createharmonics.foundation.eventbus.CommonEvents
+import me.mochibit.createharmonics.foundation.eventbus.EventBus
 import me.mochibit.createharmonics.foundation.eventbus.autoHandler
 import me.mochibit.createharmonics.foundation.registry.CommonRegistry
+import me.mochibit.createharmonics.foundation.registry.PreFreezeCommonRegistry
 import me.mochibit.createharmonics.foundation.registry.autoRegister
 import me.mochibit.createharmonics.gui.CommonGuiEventHandler
 import me.mochibit.createharmonics.handler.CommonEventHandler
 import net.createmod.catnip.lang.FontHelper
+import net.minecraft.core.Registry
 import net.minecraft.resources.ResourceKey
 import net.minecraft.world.item.CreativeModeTab
 
@@ -35,6 +39,10 @@ object CreateHarmonicsMod {
             throw IllegalStateException("Create registrate was not initialized!")
         }
         return _registrate
+    }
+
+    fun commonPreFreezeSetup(registry: Registry<*>) {
+        autoRegister<PreFreezeCommonRegistry>()
     }
 
     fun commonSetup(registrateConfiguration: CreateRegistrate.() -> Unit) {

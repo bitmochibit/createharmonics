@@ -1,11 +1,15 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
+import com.simibubi.create.content.kinetics.belt.behaviour.DirectBeltInputBehaviour
+import com.simibubi.create.content.logistics.chute.AbstractChuteBlock
+import com.simibubi.create.content.logistics.funnel.AbstractFunnelBlock
+import com.simibubi.create.content.logistics.funnel.FunnelBlock
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
+import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import me.mochibit.createharmonics.audio.AudioPlayerManager
 import me.mochibit.createharmonics.audio.effect.AudioEffect
-import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
 import me.mochibit.createharmonics.audio.player.AudioPlayer
@@ -17,9 +21,9 @@ import me.mochibit.createharmonics.audio.player.updateClock
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.config.ServerConfig
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.RECORD_OUTPUT_SLOT
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordUtilities
-import me.mochibit.createharmonics.content.records.RecordUtilities.handleRecordUse
 import me.mochibit.createharmonics.content.records.RecordUtilities.playFromRecord
 import me.mochibit.createharmonics.foundation.async.every
 import me.mochibit.createharmonics.foundation.extension.onClient
@@ -29,20 +33,23 @@ import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
 import net.createmod.catnip.nbt.NBTHelper
+import net.minecraft.core.Direction
 import net.minecraft.core.HolderLookup
+import net.minecraft.core.particles.ItemParticleOption
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.core.particles.ShriekParticleOption
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
 import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.entity.item.ItemEntity
+import net.minecraft.world.item.AirItem
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
-import org.joml.Vector3d
 import java.util.UUID
 import kotlin.math.abs
 
@@ -206,7 +213,7 @@ class RecordPlayerBehaviour(
     // Flag to request restart on next tick (for redstone looping)
     private var shouldRestartOnNextTick = false
 
-    val itemHandler = RecordPlayerItemHandler(this, 1)
+    val itemHandler = RecordPlayerItemHandler(this)
 
     private var ticksSinceLastClockSave = 0
 
@@ -466,7 +473,8 @@ class RecordPlayerBehaviour(
     fun handleRecordUse() {
         be.level?.onServer { level ->
             val record = getRecord()
-            val result = handleRecordUse(record, level)
+            if (tryEjectRecord(record.copy(), level)) return@onServer
+            val result = RecordUtilities.handleRecordUse(record, level)
 
             when {
                 result.shouldReplace -> {
@@ -475,9 +483,9 @@ class RecordPlayerBehaviour(
 
                 result.isBroken -> {
                     setRecord(ItemStack.EMPTY)
+                    val itemStack = (result as RecordUtilities.RecordUseResult.Broken).dropStack.copy()
 
                     val facing = be.blockState.getValue(BlockStateProperties.FACING)
-
                     val dropPos =
                         Vec3.atCenterOf(be.blockPos).add(
                             facing.stepX * 0.7,
@@ -485,25 +493,59 @@ class RecordPlayerBehaviour(
                             facing.stepZ * 0.7,
                         )
 
-                    for (i in 0 until itemHandler.slots) {
-                        val itemStack = (result as RecordUtilities.RecordUseResult.Broken).dropStack.copy()
-                        val itemEntity = ItemEntity(level, dropPos.x, dropPos.y, dropPos.z, itemStack)
-
-                        // Launch in the facing direction
-                        itemEntity.setDeltaMovement(
-                            facing.stepX * 0.3,
-                            facing.stepY * 0.3,
-                            facing.stepZ * 0.3,
-                        )
-
-                        level.addFreshEntity(itemEntity)
-                    }
-
                     level.playSound(null, be.blockPos, SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, .7f, 1.7f)
                     level.playSound(null, be.blockPos, SoundEvents.SMALL_AMETHYST_BUD_BREAK, SoundSource.PLAYERS)
+                    level.sendParticles(
+                        ItemParticleOption(ParticleTypes.ITEM, itemStack),
+                        dropPos.x,
+                        dropPos.y,
+                        dropPos.z,
+                        16,
+                        0.15,
+                        0.15,
+                        0.15,
+                        0.08,
+                    )
+
+                    if (tryEjectRecord(itemStack.copy(), level)) {
+                        itemHandler.setStackInSlot(MAIN_RECORD_SLOT, ItemStack.EMPTY)
+                        itemHandler.setStackInSlot(RECORD_OUTPUT_SLOT, itemStack)
+                        be.notifyUpdate()
+                        return@onServer
+                    }
+
+                    val itemEntity = ItemEntity(level, dropPos.x, dropPos.y, dropPos.z, itemStack)
+                    itemEntity.setDeltaMovement(facing.stepX * 0.3, facing.stepY * 0.3, facing.stepZ * 0.3)
+                    level.addFreshEntity(itemEntity)
                 }
             }
         }
+    }
+
+    private fun tryEjectRecord(
+        stack: ItemStack,
+        level: ServerLevel,
+    ): Boolean {
+        if (!itemHandler.getStackInSlot(RECORD_OUTPUT_SLOT).isEmpty) return false
+
+        for (direction in Direction.entries) {
+            val neighborPos = be.blockPos.relative(direction)
+            val neighborState = level.getBlockState(neighborPos)
+
+            val filter = get(level, neighborPos, FilteringBehaviour.TYPE)
+            if (filter != null && !filter.test(stack)) continue
+
+            if (neighborState.getOptionalValue(BlockStateProperties.POWERED).orElse(false) == true) continue
+
+            val chuteInput =
+                get(level, neighborPos, DirectBeltInputBehaviour.TYPE)
+                    ?: continue
+            val remainder = chuteInput.handleInsertion(stack, direction, true)
+            if (remainder == null) return false
+            return true
+        }
+
+        return false
     }
 
     fun redstonePowerChanged(power: Int) {
