@@ -22,6 +22,8 @@ interface Registrable {
     fun register()
 }
 
+sealed interface PreFreezeCommonRegistry : Registrable
+
 sealed interface CommonRegistry : Registrable
 
 /**

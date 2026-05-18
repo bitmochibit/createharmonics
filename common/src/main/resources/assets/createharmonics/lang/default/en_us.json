@@ -72,6 +72,10 @@
   "createharmonics.item_group": "Create Harmonics",
   "createharmonics.recipe.record_repair": "Repairing",
   "createharmonics.tooltips.item.ethereal_record.url_bound": "Ethereal source bound",
-  "createharmonics.tooltips.item.ethereal_record.qualities": "Qualities:"
+  "createharmonics.tooltips.item.ethereal_record.qualities": "Qualities:",
+  "create.item_attributes.record_is_broken": "Record is broken",
+  "create.item_attributes.record_is_broken.inverted": "Record is not broken",
+  "create.item_attributes.has_url_assigned": "Ethereal source is bound",
+  "create.item_attributes.has_url_assigned.inverted": "Ethereal source is not bound"
 }
 

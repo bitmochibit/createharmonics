@@ -27,6 +27,7 @@ import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent
 import net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext
+import net.minecraftforge.registries.RegisterEvent
 
 @Mod(MOD_ID)
 class ForgeModEntryPoint(
@@ -36,6 +37,11 @@ class ForgeModEntryPoint(
         @JvmStatic
         lateinit var instance: ForgeModEntryPoint
             private set
+
+        fun onRegister(event: RegisterEvent) {
+            val registry = event.getVanillaRegistry<Any>()
+            CreateHarmonicsMod.commonPreFreezeSetup(registry)
+        }
     }
 
     init {
@@ -106,6 +112,8 @@ class ForgeModEntryPoint(
 
     private fun initialize() {
         MinecraftForge.EVENT_BUS.register(this)
+
+        context.modEventBus.addListener(::onRegister)
 
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT) {
             Runnable {

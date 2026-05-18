@@ -1,7 +1,10 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
+import com.simibubi.create.AllBlocks
+import com.simibubi.create.content.kinetics.belt.behaviour.DirectBeltInputBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
+import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import me.mochibit.createharmonics.audio.AudioPlayerManager
 import me.mochibit.createharmonics.audio.effect.AudioEffect
@@ -17,6 +20,7 @@ import me.mochibit.createharmonics.audio.player.updateClock
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.config.ServerConfig
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.RECORD_OUTPUT_SLOT
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordUtilities
 import me.mochibit.createharmonics.content.records.RecordUtilities.handleRecordUse
@@ -30,9 +34,12 @@ import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextS
 import me.mochibit.createharmonics.foundation.registry.ModPackets
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.client.resources.sounds.SoundInstance
+import net.minecraft.core.Direction
+import net.minecraft.core.particles.ItemParticleOption
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.core.particles.ShriekParticleOption
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
@@ -208,8 +215,8 @@ class RecordPlayerBehaviour(
     private var shouldRestartOnNextTick = false
 
     val lazyItemHandler: LazyOptional<RecordPlayerItemHandler> = LazyOptional.of { itemHandler }
-    val itemHandler = RecordPlayerItemHandler(this, 1)
-
+    val itemHandler = RecordPlayerItemHandler(this)
+    private var pendingRecordUse = false
     private var ticksSinceLastClockSave = 0
 
     private val audioPlayer: AudioPlayer?
@@ -325,7 +332,7 @@ class RecordPlayerBehaviour(
         val level = be.level ?: return
         val blockPos = be.blockPos
 
-        level.onServer {
+        level.onServer { serverLevel ->
             ensureUUID()
             playtimeClock.tick()
             if (playtimeClock.isPlaying) {
@@ -339,6 +346,18 @@ class RecordPlayerBehaviour(
             }
             ensureTracking()
 
+            val outputStack = itemHandler.getStackInSlot(RECORD_OUTPUT_SLOT)
+            if (!outputStack.isEmpty) {
+                tryEjectOutputSlot(outputStack, serverLevel)
+            }
+
+            if (pendingRecordUse) {
+                pendingRecordUse = false
+                if (hasRecord()) {
+                    handleRecordUse()
+                }
+            }
+
             val currentSpeed = abs(be.speed)
             val hasDisc = hasRecord()
             val isPowered = redstonePower > 0
@@ -351,7 +370,7 @@ class RecordPlayerBehaviour(
                     // Start playing from the beginning
                     updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = true)
                     audioPlayCount += 1
-                    handleRecordUse()
+                    pendingRecordUse = true
                 }
                 return@onServer
             }
@@ -393,7 +412,7 @@ class RecordPlayerBehaviour(
                             if (playbackState != PlaybackState.PLAYING) {
                                 updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = true)
                                 audioPlayCount += 1
-                                handleRecordUse()
+                                pendingRecordUse = true
                             }
                         } else {
                             currentlyLooping = false
@@ -404,7 +423,7 @@ class RecordPlayerBehaviour(
                                     if (!playbackEndedNaturally) {
                                         updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = true)
                                         audioPlayCount += 1
-                                        handleRecordUse()
+                                        pendingRecordUse = true
                                     }
                                 }
 
@@ -439,7 +458,7 @@ class RecordPlayerBehaviour(
                                 updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = shouldResetTime)
                                 if (shouldResetTime) {
                                     audioPlayCount += 1
-                                    handleRecordUse()
+                                    pendingRecordUse = true
                                 }
                             }
                         } else {
@@ -477,6 +496,7 @@ class RecordPlayerBehaviour(
 
                 result.isBroken -> {
                     setRecord(ItemStack.EMPTY)
+                    val itemStack = (result as RecordUtilities.RecordUseResult.Broken).dropStack.copy()
 
                     val facing = be.blockState.getValue(BlockStateProperties.FACING)
 
@@ -487,25 +507,68 @@ class RecordPlayerBehaviour(
                             facing.stepZ * 0.7,
                         )
 
-                    for (i in 0 until itemHandler.slots) {
-                        val itemStack = (result as RecordUtilities.RecordUseResult.Broken).dropStack.copy()
-                        val itemEntity = ItemEntity(level, dropPos.x, dropPos.y, dropPos.z, itemStack)
-
-                        // Launch in the facing direction
-                        itemEntity.setDeltaMovement(
-                            facing.stepX * 0.3,
-                            facing.stepY * 0.3,
-                            facing.stepZ * 0.3,
-                        )
-
-                        level.addFreshEntity(itemEntity)
-                    }
-
                     level.playSound(null, be.blockPos, SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, .7f, 1.7f)
                     level.playSound(null, be.blockPos, SoundEvents.SMALL_AMETHYST_BUD_BREAK, SoundSource.PLAYERS)
+                    level.sendParticles(
+                        ItemParticleOption(ParticleTypes.ITEM, itemStack),
+                        dropPos.x,
+                        dropPos.y,
+                        dropPos.z,
+                        16,
+                        0.15,
+                        0.15,
+                        0.15,
+                        0.08,
+                    )
+
+                    itemHandler.setStackInSlot(RECORD_OUTPUT_SLOT, itemStack)
+                    be.notifyUpdate()
                 }
             }
         }
+    }
+
+    private fun tryEjectOutputSlot(
+        stack: ItemStack,
+        level: ServerLevel,
+    ) {
+        val facing = be.blockState.getValue(BlockStateProperties.FACING)
+
+        val funnelResult =
+            this.be
+                .getBehaviour(DirectBeltInputBehaviour.TYPE)
+                ?.tryExportingToBeltFunnel(stack, facing.opposite, false)
+        if (funnelResult != null && funnelResult.count != stack.count) {
+            itemHandler.setStackInSlot(RECORD_OUTPUT_SLOT, funnelResult)
+            be.notifyUpdate()
+            return
+        }
+
+        for (direction in Direction.entries) {
+            if (direction == Direction.UP) continue
+
+            val neighbourPos = be.blockPos.relative(direction)
+            val behaviour = get(level, neighbourPos, DirectBeltInputBehaviour.TYPE) ?: continue
+            if (!behaviour.canInsertFromSide(direction)) continue
+            val remainder = behaviour.handleInsertion(stack, direction, false)
+            if (!ItemStack.matches(remainder, stack)) {
+                itemHandler.setStackInSlot(RECORD_OUTPUT_SLOT, remainder)
+                be.notifyUpdate()
+                return
+            }
+        }
+
+        val dropPos =
+            Vec3.atCenterOf(be.blockPos).add(
+                facing.stepX * 0.7,
+                facing.stepY * 0.7,
+                facing.stepZ * 0.7,
+            )
+        itemHandler.setStackInSlot(RECORD_OUTPUT_SLOT, ItemStack.EMPTY)
+        val itemEntity = ItemEntity(level, dropPos.x, dropPos.y, dropPos.z, stack)
+        itemEntity.setDeltaMovement(facing.stepX * 0.2, 0.2, facing.stepZ * 0.2)
+        level.addFreshEntity(itemEntity)
+        be.notifyUpdate()
     }
 
     fun redstonePowerChanged(power: Int) {
@@ -520,14 +583,15 @@ class RecordPlayerBehaviour(
         val item = discItem.item
         if (item !is EtherealRecordItem) return false
         if (item.isRecordBroken()) return false
-        itemHandler.insertItem(MAIN_RECORD_SLOT, discItem.copy(), false)
-        playbackEndedNaturally = false // Allow the newly inserted record to play
+        itemHandler.setStackInSlot(MAIN_RECORD_SLOT, discItem.copy())
+        playbackEndedNaturally = false
         return true
     }
 
     fun popRecord(): ItemStack? {
         if (!hasRecord()) return null
-        val item = itemHandler.extractItem(MAIN_RECORD_SLOT, 1, false)
+        val item = itemHandler.getStackInSlot(MAIN_RECORD_SLOT).copy()
+        itemHandler.setStackInSlot(MAIN_RECORD_SLOT, ItemStack.EMPTY)
         return item
     }
 
@@ -560,7 +624,7 @@ class RecordPlayerBehaviour(
             else -> {
                 updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = true)
                 audioPlayCount += 1
-                handleRecordUse()
+                pendingRecordUse = true
             }
         }
     }

@@ -5,6 +5,7 @@ import com.simibubi.create.content.contraptions.behaviour.MovementContext
 import com.simibubi.create.content.contraptions.render.ActorVisual
 import com.simibubi.create.content.contraptions.render.ContraptionMatrices
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
+import com.simibubi.create.infrastructure.config.AllConfigs
 import dev.engine_room.flywheel.api.visualization.VisualizationContext
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
 import kotlinx.coroutines.Job
@@ -47,6 +48,7 @@ import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos
+import net.minecraft.core.particles.ItemParticleOption
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.core.particles.ShriekParticleOption
 import net.minecraft.nbt.CompoundTag
@@ -57,6 +59,8 @@ import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
+import net.minecraftforge.items.ItemHandlerHelper
+import net.minecraftforge.items.wrapper.CombinedInvWrapper
 import kotlin.math.abs
 import kotlin.random.Random
 import kotlin.text.set
@@ -601,23 +605,60 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                     storage.setRecord(ItemStack.EMPTY)
                     val itemStack = (result as RecordUtilities.RecordUseResult.Broken).dropStack.copy()
 
-                    val pos = BlockPos.containing(context.position)
+                    val remainder: ItemStack =
+                        if (AllConfigs
+                                .server()
+                                .kinetics.moveItemsToStorage
+                                .get()
+                        ) {
+                            val otherStorages =
+                                context.contraption.storage.allItemStorages
+                                    .filterKeys { it != context.localPos }
+                                    .values
+                                    .toTypedArray()
+
+                            if (otherStorages.isNotEmpty()) {
+                                ItemHandlerHelper.insertItem(
+                                    CombinedInvWrapper(*otherStorages),
+                                    itemStack,
+                                    false,
+                                )
+                            } else {
+                                itemStack
+                            }
+                        } else {
+                            itemStack
+                        }
+
+                    val vec = context.position ?: return
+                    val pos = BlockPos.containing(vec)
+
+                    level.playSound(null, pos, SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, .7f, 1.7f)
+                    level.playSound(null, pos, SoundEvents.SMALL_AMETHYST_BUD_BREAK, SoundSource.PLAYERS)
+                    level.sendParticles(
+                        ItemParticleOption(ParticleTypes.ITEM, itemStack),
+                        pos.x.toDouble(),
+                        pos.y.toDouble(),
+                        pos.z.toDouble(),
+                        16,
+                        0.15,
+                        0.15,
+                        0.15,
+                        0.08,
+                    )
+
+                    if (remainder.isEmpty) return
                     val facing = context.state.getValue(BlockStateProperties.FACING)
 
-                    // Transform the facing direction through the contraption's rotation
                     val localDirection = Vec3(facing.stepX.toDouble(), facing.stepY.toDouble(), facing.stepZ.toDouble())
                     val worldDirection = context.rotation.apply(localDirection).normalize()
 
                     val dropPos = Vec3.atCenterOf(pos).add(worldDirection.scale(0.7))
 
-                    val itemEntity = ItemEntity(level, dropPos.x, dropPos.y, dropPos.z, itemStack)
-
-                    // Launch in the rotated facing direction
+                    val itemEntity = ItemEntity(level, dropPos.x, dropPos.y, dropPos.z, remainder)
                     itemEntity.deltaMovement = worldDirection.scale(0.3)
 
                     level.addFreshEntity(itemEntity)
-                    level.playSound(null, pos, SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, .7f, 1.7f)
-                    level.playSound(null, pos, SoundEvents.SMALL_AMETHYST_BUD_BREAK, SoundSource.PLAYERS)
                 }
             }
         }

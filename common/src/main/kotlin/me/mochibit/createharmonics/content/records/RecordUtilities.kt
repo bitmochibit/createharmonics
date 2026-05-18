@@ -208,3 +208,9 @@ object RecordUtilities {
         this.play(initialPos)
     }
 }
+
+fun ItemStack.isEtherealRecord(): Boolean = item is EtherealRecordItem
+
+fun ItemStack.isBrokenEtherealRecord(): Boolean = (item as? EtherealRecordItem)?.isRecordBroken() == true
+
+fun ItemStack.hasAssignedUrl(): Boolean = !RecordUtilities.getAudioUrl(this).isNullOrEmpty()

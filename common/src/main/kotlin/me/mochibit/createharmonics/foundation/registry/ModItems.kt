@@ -37,6 +37,8 @@ object ModItems : CommonRegistry {
         return ModRegistrate
             .item("broken_${typeName}_ethereal_record") {
                 EtherealRecordItem(recordType, Item.Properties().stacksTo(1), true)
+            }.apply {
+                recordType.properties.materialDisplayName?.let { lang("Broken $it Ethereal Record") }
             }.model { ctx, prov ->
                 prov.generated(ctx, prov.modLoc("item/ethereal_record/${typeName}_broken"))
             }.register()
@@ -49,6 +51,8 @@ object ModItems : CommonRegistry {
                 val properties = Item.Properties().stacksTo(1)
                 if (recordType == RecordType.CREATIVE) properties.rarity(Rarity.EPIC)
                 EtherealRecordItem(recordType, properties)
+            }.apply {
+                recordType.properties.materialDisplayName?.let { lang("$it Ethereal Record") }
             }.model { ctx, prov ->
                 prov.generated(ctx, prov.modLoc("item/ethereal_record/$typeName"))
             }.register()
