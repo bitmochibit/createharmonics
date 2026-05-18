@@ -2,16 +2,28 @@ package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.foundation.extension.onServer
+import net.minecraft.core.HolderLookup
+import net.minecraft.core.NonNullList
+import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.item.ItemStack
 import net.neoforged.neoforge.items.ItemStackHandler
 
 class RecordPlayerItemHandler(
     val behaviour: RecordPlayerBehaviour,
-    slotCount: Int = 2,
-) : ItemStackHandler(slotCount) {
+    private val targetSlotCount: Int = 2,
+) : ItemStackHandler(targetSlotCount) {
     companion object {
         const val MAIN_RECORD_SLOT = 0
         const val RECORD_OUTPUT_SLOT = 1
+    }
+
+    override fun insertItem(
+        slot: Int,
+        stack: ItemStack,
+        simulate: Boolean,
+    ): ItemStack {
+        if (slot == RECORD_OUTPUT_SLOT) return stack
+        return super.insertItem(slot, stack, simulate)
     }
 
     override fun onLoad() {
@@ -52,5 +64,17 @@ class RecordPlayerItemHandler(
                 }
             }
         return validForSlot
+    }
+
+    override fun deserializeNBT(
+        provider: HolderLookup.Provider,
+        nbt: CompoundTag,
+    ) {
+        super.deserializeNBT(provider, nbt)
+        if (stacks.size < targetSlotCount) {
+            val expanded = NonNullList.withSize(targetSlotCount, ItemStack.EMPTY)
+            for (i in stacks.indices) expanded[i] = stacks[i]
+            stacks = expanded
+        }
     }
 }
