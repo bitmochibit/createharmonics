@@ -4,9 +4,9 @@
 - **Sable** (_Create Aeronautics_) now supported!
 - Ethereal records have now a broken state, and can be repaired in various ways, available on JEI.
 - Now when rotational power is supplied before assembly, and after, the sound is continuous, and the speaker will transition to the new state without interrupting.
-- New attribute filters for detecting if a record has a url, or if its broken.
-- Now jukeboxes do fully support all funnel configurations.
-- When a record breaks in a contraption, the broken record will be put in the first container it finds, otherwise it will be dropped on the ground.
+- New attribute filters for detecting if a record has a url, or if it's broken.
+- Now jukeboxes fully support all funnel configurations.
+- When a record breaks, the broken record will be put in any container or create input near of it, otherwise it will be dropped on the ground. This also applies on contraptions.
 ### Optimizations
 - Optimized audio players management and contexts are handled efficiently.
 - Removed useless wrappers for registers.
@@ -17,6 +17,7 @@
 - Fixed random player kicking, and contraptions not being able to pick up loot.
 - Fixed crashes with the record press base.
 - Very short audio now will work normally.
+- Fixed wrong ffmpeg installation (especially for Linux users) but it affected OSes without specific libraries, required by ffmpeg.
 ### Translations
 - Swedish translation by @Torktumlaren
 ---
