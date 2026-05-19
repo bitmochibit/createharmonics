@@ -1,6 +1,10 @@
 {
   "block.createharmonics.andesite_jukebox": "Andesite Jukebox",
   "block.createharmonics.record_press_base": "Record Press Base",
+  "create.item_attributes.has_url_assigned": "Ethereal source is bound",
+  "create.item_attributes.has_url_assigned.inverted": "Ethereal source is not bound",
+  "create.item_attributes.record_is_broken": "Record is broken",
+  "create.item_attributes.record_is_broken.inverted": "Record is not broken",
   "createharmonics.audio.binary.instructions": "Download Instructions for %1$s\n\nPlease download %1$s binary from this link: %2$s\nThe link is specific to your operating system and architecture, but double-check to ensure compatibility\n\nExtract the contents of the archive in this folder: %3$s\n(If the file is just a single executable place it directly in the folder)",
   "createharmonics.display_source.audio_name.display": "Text Display Mode",
   "createharmonics.display_source.audio_name.full": "Full",
@@ -125,14 +129,14 @@
   "item.createharmonics.broken_brass_ethereal_record": "Broken Brass Ethereal Record",
   "item.createharmonics.broken_diamond_ethereal_record": "Broken Diamond Ethereal Record",
   "item.createharmonics.broken_emerald_ethereal_record": "Broken Emerald Ethereal Record",
-  "item.createharmonics.broken_gold_ethereal_record": "Broken Gold Ethereal Record",
+  "item.createharmonics.broken_gold_ethereal_record": "Broken Golden Ethereal Record",
   "item.createharmonics.broken_netherite_ethereal_record": "Broken Netherite Ethereal Record",
   "item.createharmonics.broken_stone_ethereal_record": "Broken Stone Ethereal Record",
   "item.createharmonics.creative_ethereal_record": "Creative Ethereal Record",
   "item.createharmonics.diamond_ethereal_record": "Diamond Ethereal Record",
   "item.createharmonics.emerald_ethereal_record": "Emerald Ethereal Record",
   "item.createharmonics.ethereal_record_base": "Ethereal Record Base",
-  "item.createharmonics.gold_ethereal_record": "Gold Ethereal Record",
+  "item.createharmonics.gold_ethereal_record": "Golden Ethereal Record",
   "item.createharmonics.netherite_ethereal_record": "Netherite Ethereal Record",
   "item.createharmonics.stone_ethereal_record": "Stone Ethereal Record"
 }
