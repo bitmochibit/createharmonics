@@ -176,6 +176,9 @@ tasks.register<GradleBuild>("cleanAll") {
 val curseforgeExcludes = project(":common").extra["curseforgeExcludes"] as List<*>
 
 tasks.named<Jar>("jar") {
+    dependsOn("shadowJar")
+    from(tasks.named<ShadowJar>("shadowJar").map { zipTree(it.archiveFile) })
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest.attributes(
         "MixinConfigs" to "$modId.mixins.json,createharmonics.common.mixins.json",
     )
@@ -183,12 +186,9 @@ tasks.named<Jar>("jar") {
         curseforgeExcludes.forEach { exclude(it.toString()) }
     }
 }
-
-tasks.named("build") {
-    dependsOn("shadowJar")
-}
-
 tasks.named<ShadowJar>("shadowJar") {
+    archiveClassifier = "shadow"
+
     configurations = listOf(project.configurations.getByName("shadow"))
     dependencies {
         include(dependency("org.tukaani:xz:1.11"))
@@ -196,9 +196,7 @@ tasks.named<ShadowJar>("shadowJar") {
 
     relocate("org.tukaani.xz", "me.mochibit.createharmonics.libs.tukaani.xz")
 
-    archiveClassifier = ""
-
-    finalizedBy("reobfJar")
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 val compileKotlin: KotlinCompile by tasks
@@ -222,7 +220,7 @@ val prodModsDir: String =
 tasks.register<Copy>("deployToProd") {
     group = "build"
     dependsOn("reobfJar")
-    from(tasks.named("shadowJar"))
+    from(tasks.named("reobfJar"))
 
     into(file(prodModsDir))
 }
