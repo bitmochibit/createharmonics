@@ -196,6 +196,10 @@ tasks.named("build") {
 }
 
 tasks.named<ShadowJar>("shadowJar") {
+    manifest.attributes(
+        "MixinConfigs" to "$modId.mixins.json,createharmonics.common.mixins.json",
+    )
+
     configurations = listOf(project.configurations.getByName("shadow"))
     dependencies {
         include(dependency("org.tukaani:xz:1.11"))
@@ -204,6 +208,10 @@ tasks.named<ShadowJar>("shadowJar") {
     relocate("org.tukaani.xz", "me.mochibit.createharmonics.libs.tukaani.xz")
 
     archiveClassifier = ""
+
+    if (project.hasProperty("curseforge")) {
+        curseforgeExcludes.forEach { exclude(it.toString()) }
+    }
 }
 
 val compileKotlin: KotlinCompile by tasks
