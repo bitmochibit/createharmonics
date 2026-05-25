@@ -6,12 +6,17 @@ import me.mochibit.createharmonics.content.records.BaseRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.foundation.info
+import me.mochibit.createharmonics.foundation.services.contentService
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.Rarity
 import java.util.EnumMap
 
 object ModItems : CommonRegistry {
     override val registrationOrder = 3
+
+    val recordItemFactory by lazy {
+        contentService.etherealRecordItemFactory
+    }
 
     val BASE_RECORD: ItemEntry<BaseRecordItem> =
         ModRegistrate
@@ -36,7 +41,7 @@ object ModItems : CommonRegistry {
         val typeName = recordType.name.lowercase()
         return ModRegistrate
             .item("broken_${typeName}_ethereal_record") {
-                EtherealRecordItem(recordType, Item.Properties().stacksTo(1), true)
+                recordItemFactory.create(recordType, Item.Properties().stacksTo(1), true)
             }.apply {
                 recordType.properties.materialDisplayName?.let { lang("Broken $it Ethereal Record") }
             }.model { ctx, prov ->
@@ -50,7 +55,7 @@ object ModItems : CommonRegistry {
             .item("${typeName}_ethereal_record") {
                 val properties = Item.Properties().stacksTo(1)
                 if (recordType == RecordType.CREATIVE) properties.rarity(Rarity.EPIC)
-                EtherealRecordItem(recordType, properties)
+                recordItemFactory.create(recordType, properties, false)
             }.apply {
                 recordType.properties.materialDisplayName?.let { lang("$it Ethereal Record") }
             }.model { ctx, prov ->

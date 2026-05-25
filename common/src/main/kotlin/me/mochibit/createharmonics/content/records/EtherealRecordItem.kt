@@ -15,20 +15,14 @@ import net.minecraft.world.item.RecordItem
 import net.minecraft.world.item.TooltipFlag
 import net.minecraft.world.level.Level
 
-class EtherealRecordItem(
+open class EtherealRecordItem(
     val recordType: RecordType,
     props: Properties,
     private val brokenVariant: Boolean = false,
 ) : Item(
         props.apply {
             if (brokenVariant == false) {
-                val maxDamage =
-                    if (recordType.uses > 0) {
-                        recordType.uses + 1
-                    } else {
-                        0
-                    }
-                this.defaultDurability(maxDamage)
+                this.defaultDurability(1)
             }
         },
     ) {
