@@ -21,13 +21,7 @@ class EtherealRecordItem(
 ) : Item(
         props.apply {
             if (brokenVariant == false) {
-                val maxDamage =
-                    if (recordType.uses > 0) {
-                        recordType.uses + 1
-                    } else {
-                        0
-                    }
-                this.durability(maxDamage)
+                this.durability(1)
             }
         },
     ) {
@@ -40,6 +34,11 @@ class EtherealRecordItem(
                     stack.has(DataComponents.JUKEBOX_PLAYABLE)
                 }.toList()
         }
+    }
+
+    override fun getMaxDamage(stack: ItemStack): Int {
+        val uses = recordType.uses
+        return if (uses > 0) uses + 1 else 0
     }
 
     fun isRecordBroken(): Boolean = brokenVariant
