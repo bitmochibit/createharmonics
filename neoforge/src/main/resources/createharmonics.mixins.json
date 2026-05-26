@@ -4,6 +4,7 @@
   "package": "me.mochibit.createharmonics.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "content.record.EtherealRecordItemMixin"
   ],
   "client": [
     "StreamingSoundInstanceMixin"
