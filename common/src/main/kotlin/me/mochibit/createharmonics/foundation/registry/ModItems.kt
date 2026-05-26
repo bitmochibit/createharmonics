@@ -14,10 +14,6 @@ import java.util.EnumMap
 object ModItems : CommonRegistry {
     override val registrationOrder = 3
 
-    val recordItemFactory by lazy {
-        contentService.etherealRecordItemFactory
-    }
-
     val BASE_RECORD: ItemEntry<BaseRecordItem> =
         ModRegistrate
             .item("ethereal_record_base") { BaseRecordItem(Item.Properties().stacksTo(16)) }
@@ -41,7 +37,7 @@ object ModItems : CommonRegistry {
         val typeName = recordType.name.lowercase()
         return ModRegistrate
             .item("broken_${typeName}_ethereal_record") {
-                recordItemFactory.create(recordType, Item.Properties().stacksTo(1), true)
+                EtherealRecordItem(recordType, Item.Properties().stacksTo(1), true)
             }.apply {
                 recordType.properties.materialDisplayName?.let { lang("Broken $it Ethereal Record") }
             }.model { ctx, prov ->
@@ -55,7 +51,7 @@ object ModItems : CommonRegistry {
             .item("${typeName}_ethereal_record") {
                 val properties = Item.Properties().stacksTo(1)
                 if (recordType == RecordType.CREATIVE) properties.rarity(Rarity.EPIC)
-                recordItemFactory.create(recordType, properties, false)
+                EtherealRecordItem(recordType, properties, false)
             }.apply {
                 recordType.properties.materialDisplayName?.let { lang("$it Ethereal Record") }
             }.model { ctx, prov ->
