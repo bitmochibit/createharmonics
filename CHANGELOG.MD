@@ -1,3 +1,10 @@
+# Create: Harmonics - 1.1.6
+### Bug fixes
+- Fixed record durabilities not updating correctly
+- Fixed record press base not updating on sable and valkyrien skies plots
+### Translations
+- Updated Russian translation @J0phie
+
 # Create: Harmonics - 1.1.5
 
 ### Features
