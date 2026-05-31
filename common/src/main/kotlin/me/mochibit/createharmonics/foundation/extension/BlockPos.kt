@@ -3,6 +3,7 @@ package me.mochibit.createharmonics.foundation.extension
 import net.minecraft.CrashReport
 import net.minecraft.CrashReportCategory
 import net.minecraft.ReportedException
+import net.minecraft.core.BlockPos
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.state.BlockState
@@ -10,6 +11,7 @@ import net.minecraft.world.level.chunk.LevelChunk
 import net.minecraft.world.level.chunk.LevelChunkSection
 import net.minecraft.world.level.material.FluidState
 import net.minecraft.world.level.material.Fluids
+import org.joml.Vector3d
 
 fun Level.getFluidState(
     x: Int,
@@ -49,3 +51,5 @@ fun Level.getBlockState(
         throw ReportedException(crashReport)
     }
 }
+
+fun BlockPos.toVector3d(): Vector3d = Vector3d(this.x.toDouble(), this.y.toDouble(), this.z.toDouble())

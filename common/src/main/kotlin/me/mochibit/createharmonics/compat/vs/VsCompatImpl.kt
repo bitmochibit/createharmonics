@@ -1,9 +1,12 @@
 package me.mochibit.createharmonics.compat.vs
 
+import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.level.Level
 import org.joml.Matrix4dc
 import org.joml.Vector3d
+import org.valkyrienskies.mod.common.VSClientGameUtils
 import org.valkyrienskies.mod.common.getShipManagingPos
+import org.valkyrienskies.mod.common.squaredDistanceToInclShips
 
 internal object VsCompatImpl : VsCompat {
     override fun projectOutOfShip(
@@ -22,6 +25,13 @@ internal object VsCompatImpl : VsCompat {
         val ship = level.getShipManagingPos(currentPosition) ?: return null
         return ship.shipToWorld
     }
+
+    override fun squaredDistanceToShipIncl(
+        serverPlayer: ServerPlayer,
+        x: Double,
+        y: Double,
+        z: Double,
+    ): Double = serverPlayer.squaredDistanceToInclShips(x, y, z)
 
     override fun isInShip(
         level: Level,
