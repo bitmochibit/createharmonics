@@ -14,6 +14,10 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
+      target_ref:
+        description: "Branch/tag/SHA to build (e.g. 1.21.1/master or 1.20.1/master)"
+        type: string
+        required: true
       dry_run:
         description: "Dry run (build & parse changelog but do NOT publish)"
         type: boolean
@@ -28,8 +32,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout (target ref)
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_ref }}
 
       - name: Set up JDK 21 (Temurin)
         uses: actions/setup-java@v4
@@ -54,26 +60,16 @@ jobs:
           echo "version=${VERSION}"           >> "$GITHUB_OUTPUT"
           echo "mc_version=${MC}"             >> "$GITHUB_OUTPUT"
           echo "mod_id=${MOD_ID}"             >> "$GITHUB_OUTPUT"
-          echo "tag=v${VERSION}"              >> "$GITHUB_OUTPUT"
+          echo "tag=mc${MC}-v${VERSION}"      >> "$GITHUB_OUTPUT"
           echo "jar_base=${MOD_ID}-neoforge-${MC}" >> "$GITHUB_OUTPUT"
 
       # ── Extract changelog for this version ───────────────────────────────────
-      # Format expected in CHANGELOG.md:
-      #   # Create: Harmonics - 1.1.6
-      #   ### Bug fixes
-      #   - ...
-      #   # Create: Harmonics - 1.1.5
-      #   ...
-      #
-      # The script grabs everything between the first heading that matches the
-      # current version and the next top-level heading (or EOF).
       - name: Extract changelog entry
         id: changelog
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           CHANGELOG_FILE="CHANGELOG.md"
 
-          # Use awk: print lines between the version header and the next # header
           ENTRY=$(awk "
             /^# .*${VERSION}/ { found=1; next }
             found && /^# /    { exit }
@@ -85,7 +81,6 @@ jobs:
             ENTRY="See CHANGELOG.md for details."
           fi
 
-          # Write to a file to safely pass multiline content between steps
           printf '%s' "$ENTRY" > /tmp/changelog_entry.md
           echo "Changelog entry:"
           cat /tmp/changelog_entry.md
@@ -109,8 +104,6 @@ jobs:
         run: |
           BASE="${{ steps.version.outputs.jar_base }}"
           VERSION="${{ steps.version.outputs.version }}"
-          # buildForCurseforge overwrites the same archive name — copy to a
-          # distinct name so both artefacts survive side by side.
           cp "neoforge/build/libs/${BASE}.jar" \
              "neoforge/build/libs/${BASE}-${VERSION}-cf.jar"
 
@@ -173,7 +166,7 @@ jobs:
             kotlin-for-forge | depends | *
             jei | optional | *
 
-      # ── Summary ───────────────────────────────────────────────────────────────
+      # ── Summary ──────────────────────────────────────────────────────────────
       - name: Job summary
         run: |
           VERSION="${{ steps.version.outputs.version }}"
