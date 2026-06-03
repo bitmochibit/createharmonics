@@ -93,6 +93,9 @@ jobs:
           mv "neoforge/build/libs/${BASE}.jar" \
              "neoforge/build/libs/${BASE}-${VERSION}.jar"
 
+      - name: List built jars
+        run: ls -la neoforge/build/libs
+
       # ── Build CurseForge JAR ──────────────────────────────────────────────────
       - name: Build (CurseForge)
         run: ./gradlew :neoforge:buildForCurseforge --stacktrace
