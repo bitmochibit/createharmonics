@@ -23,5 +23,4 @@ plugins {
 rootProject.name = "createharmonics"
 
 include("common")
-// include("forge")
 include("neoforge")

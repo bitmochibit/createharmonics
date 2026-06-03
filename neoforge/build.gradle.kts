@@ -1,60 +1,26 @@
+import buildsrc.chVersions
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.util.Properties
 
 plugins {
+    id("createharmonics.neoforge-base")
+    id("createharmonics.curseforge")
     id("com.gradleup.shadow")
-    id("net.neoforged.moddev") version "2.0.78"
 }
 
-kotlin {
-    jvmToolchain {
-        languageVersion = JavaLanguageVersion.of(21)
-        vendor = JvmVendorSpec.ADOPTIUM
-    }
-}
-
-base.archivesName.set("${rootProject.property("mod_id")}-neoforge-${rootProject.property("minecraft_version")}")
-
-val minecraftVersionProp = rootProject.property("minecraft_version").toString() // e.g. "1.21.1"
-val parchmentMinecraftProp = rootProject.property("parchment_minecraft").toString()
-val parchmentVersionProp = rootProject.property("parchment_version").toString()
-
-val jeiMinecraftVersion = rootProject.property("jei_minecraft_version").toString()
-val jeiVersion = rootProject.property("jei_version").toString()
-
-val createVersion = rootProject.property("create_version").toString()
-val ponderVersion = rootProject.property("ponder_version").toString()
-val flywheelVersion = rootProject.property("flywheel_version").toString()
-val registrateVersion = rootProject.property("registrate_version").toString()
-
-val modId = rootProject.property("mod_id").toString()
-val neoForgeVersion = rootProject.property("neo_version").toString() // e.g. "21.1.86"
-
-val kotlinVersion = rootProject.property("kotlin_version").toString()
-val kotlinCoroutinesVersion = rootProject.property("kotlin_coroutines_version").toString()
-val kotlinSerializationVersion = rootProject.property("kotlin_serialization_version").toString()
-
-val sableVersion = rootProject.property("sable_version").toString()
-val veilVersion = rootProject.property("veil_version").toString()
-
-val neoProject = project
+val v = chVersions
 val commonProject = project(":common")
+val curseforgeExcludes = commonProject.extra["curseforgeExcludes"] as List<*>
+
+base.archivesName = "${v.modId}-neoforge-${v.minecraft}"
 
 neoForge {
-    version = neoForgeVersion
-
+    version = v.neoForge
     validateAccessTransformers = true
 
-    val at = commonProject.file("src/main/resources/META-INF/accesstransformer.cfg")
-    if (at.exists()) {
-        accessTransformers.from(at)
-    }
-
-    parchment {
-        enabled = true
-        minecraftVersion = parchmentMinecraftProp
-        mappingsVersion = parchmentVersionProp
+    commonProject.file("src/main/resources/META-INF/accesstransformer.cfg").takeIf { it.exists() }?.let {
+        accessTransformers.from(it)
     }
 
     runs {
@@ -71,23 +37,21 @@ neoForge {
             data()
             programArguments.addAll(
                 "--mod",
-                modId,
+                v.modId,
                 "--all",
                 "--output",
-                neoProject.file("src/generated/resources/").absolutePath,
+                project.file("src/generated/resources/").absolutePath,
                 "--existing",
-                neoProject.file("src/main/resources/").absolutePath,
+                project.file("src/main/resources/").absolutePath,
                 "--existing",
                 commonProject.file("src/main/resources/").absolutePath,
             )
         }
-        register("server") {
-            server()
-        }
+        register("server") { server() }
     }
 
     mods {
-        create(modId) {
+        create(v.modId) {
             sourceSet(sourceSets["main"])
         }
     }
@@ -100,134 +64,63 @@ sourceSets.main {
 }
 
 dependencies {
-    // Kotlin for NeoForge
-    implementation("thedarkcolour:kotlinforforge-neoforge:${rootProject.property("kotlin_for_neoforge_version")}")
+    implementation("thedarkcolour:kotlinforforge-neoforge:${v.kotlinForNeoForge}")
 
-    compileOnly("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
-    compileOnly(kotlin("reflect"))
-    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutinesVersion")
-    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion")
+    implementation("com.simibubi.create:create-${v.minecraft}:${v.create}:slim") { isTransitive = false }
+    implementation("net.createmod.ponder:ponder-neoforge:${v.ponder}+mc${v.minecraft}")
+    compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-${v.minecraft}:${v.flywheel}")
+    runtimeOnly("dev.engine-room.flywheel:flywheel-neoforge-${v.minecraft}:${v.flywheel}")
+    implementation("com.tterrag.registrate:Registrate:${v.registrate}")
+    compileOnly("mezz.jei:jei-${v.jeiMc}-neoforge:${v.jei}")
+    runtimeOnly("mezz.jei:jei-${v.jeiMc}-neoforge:${v.jei}")
 
-    // Create for NeoForge
-    implementation("com.simibubi.create:create-$minecraftVersionProp:$createVersion:slim") { isTransitive = false }
-    implementation("net.createmod.ponder:ponder-neoforge:$ponderVersion+mc$minecraftVersionProp")
-    compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-$minecraftVersionProp:$flywheelVersion")
-    runtimeOnly("dev.engine-room.flywheel:flywheel-neoforge-$minecraftVersionProp:$flywheelVersion")
-    implementation("com.tterrag.registrate:Registrate:$registrateVersion")
-    compileOnly("mezz.jei:jei-$jeiMinecraftVersion-neoforge:$jeiVersion")
-    runtimeOnly("mezz.jei:jei-$jeiMinecraftVersion-neoforge:$jeiVersion")
-
-    api("dev.ryanhcode.sable:sable-common-$minecraftVersionProp:$sableVersion") {
+    api("dev.ryanhcode.sable:sable-common-${v.minecraft}:${v.sable}") {
         exclude("foundry.veil")
         exclude("com.tterrag.registrate")
     }
 
-//    implementation("dev.eriksonn.aeronautics:aeronautics-neoforge-1.21.1:1.2.1") {
-//        exclude("foundry.veil")
-//        exclude("com.tterrag.registrate")
-//        exclude("cc.tweaked")
-//        exclude("maven.modrinth")
-//    }
-//
-//    implementation("dev.simulated_team.simulated:simulated-neoforge-1.21.1:1.2.1") {
-//        exclude("foundry.veil")
-//        exclude("com.tterrag.registrate")
-//        exclude("cc.tweaked")
-//        exclude("maven.modrinth")
-//    }
-
-    compileOnly(project(":common"))
+    compileOnly(commonProject)
     shadow("org.tukaani:xz:1.11")
     compileOnly("org.tukaani:xz:1.11")
 }
 
-tasks.named<ProcessResources>("processResources") {
-    from(commonProject.sourceSets["main"].resources)
-    val buildProps = project.properties.toMap()
-
-    duplicatesStrategy = DuplicatesStrategy.INCLUDE
-
-    // NeoForge uses neoforge.mods.toml instead of META-INF/mods.toml
-    filesMatching("META-INF/neoforge.mods.toml") {
-        expand(buildProps)
-    }
-}
-
-tasks.named<JavaCompile>("compileTestJava") {
-    enabled = false
-}
-
-tasks.named<KotlinCompile>("compileTestKotlin") {
-    enabled = false
-}
-
-tasks.withType<JavaCompile>().configureEach {
-    source(commonProject.sourceSets["main"].allSource)
-}
-
-tasks.withType<KotlinCompile>().configureEach {
+tasks.withType<JavaCompile>().configureEach { source(commonProject.sourceSets["main"].allSource) }
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     source(commonProject.sourceSets["main"].kotlin)
 }
 
-tasks.register<GradleBuild>("buildForCurseforge") {
-    startParameter.projectProperties = mapOf("curseforge" to "true")
-    group = "build"
-    tasks = listOf("build")
+tasks.named<ProcessResources>("processResources") {
+    from(commonProject.sourceSets["main"].resources)
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    filesMatching("META-INF/neoforge.mods.toml") { expand(project.properties) }
 }
 
-tasks.register<GradleBuild>("cleanAll") {
-    group = "build"
-    tasks = listOf(":common:clean", ":neoforge:clean")
-}
-
-val curseforgeExcludes = commonProject.extra["curseforgeExcludes"] as List<*>
+val mixinConfigs = "${v.modId}.mixins.json,createharmonics.common.mixins.json"
 
 tasks.named<Jar>("jar") {
-    manifest.attributes(
-        "MixinConfigs" to "$modId.mixins.json,createharmonics.common.mixins.json",
-    )
-    if (project.hasProperty("curseforge")) {
-        curseforgeExcludes.forEach { exclude(it.toString()) }
-    }
-}
-
-tasks.named("build") {
-    dependsOn("shadowJar")
+    manifest.attributes("MixinConfigs" to mixinConfigs)
 }
 
 tasks.named<ShadowJar>("shadowJar") {
-    manifest.attributes(
-        "MixinConfigs" to "$modId.mixins.json,createharmonics.common.mixins.json",
-    )
-
+    manifest.attributes("MixinConfigs" to mixinConfigs)
     configurations = listOf(project.configurations.getByName("shadow"))
-    dependencies {
-        include(dependency("org.tukaani:xz:1.11"))
-    }
-
+    dependencies { include(dependency("org.tukaani:xz:1.11")) }
     relocate("org.tukaani.xz", "me.mochibit.createharmonics.libs.tukaani.xz")
-
     archiveClassifier = ""
-
-    if (project.hasProperty("curseforge")) {
-        curseforgeExcludes.forEach { exclude(it.toString()) }
-    }
 }
 
-val compileKotlin: KotlinCompile by tasks
-compileKotlin.compilerOptions {
-    freeCompilerArgs.set(listOf("-XXLanguage:+WhenGuards"))
-}
+tasks.named("build") { dependsOn("shadowJar") }
 
 val localProperties =
     Properties().apply {
-        val file = rootProject.file("local.properties")
-        if (file.exists()) {
-            file.inputStream().use { load(it) }
-        }
+        rootProject
+            .file("local.properties")
+            .takeIf { it.exists() }
+            ?.inputStream()
+            ?.use { load(it) }
     }
 
-val prodModsDir: String =
+val prodModsDir =
     localProperties.getProperty("prodModsDir")
         ?: providers.gradleProperty("prodModsDir").orNull
         ?: "build/deploy"
@@ -235,19 +128,23 @@ val prodModsDir: String =
 tasks.register<Copy>("deployToProd") {
     group = "build"
     dependsOn("build")
-
     from(tasks.named("shadowJar"))
-
     into(file(prodModsDir))
 }
 
-tasks.register<GradleBuild>("buildAndDeployToProd") {
+tasks.register<GradleBuild>("buildForCurseforge") {
     group = "build"
-    tasks = listOf("build", ":neoforge:deployToProd")
+    startParameter.projectProperties = mapOf("curseforge" to "true")
+    tasks = listOf("build")
 }
 
 tasks.register<GradleBuild>("buildCfAndDeployToProd") {
     group = "build"
     startParameter.projectProperties = mapOf("curseforge" to "true")
     tasks = listOf("build", ":neoforge:deployToProd")
+}
+
+tasks.register<GradleBuild>("cleanAll") {
+    group = "build"
+    tasks = listOf(":common:clean", ":neoforge:clean")
 }

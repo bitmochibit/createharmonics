@@ -2,8 +2,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 plugins {
-    id("org.jetbrains.gradle.plugin.idea-ext") version "1.4.1"
-    id("org.jetbrains.kotlin.jvm") version "2.2.20" apply false
+    id("org.jetbrains.gradle.plugin.idea-ext")
+    id("org.jetbrains.kotlin.jvm") apply false
     id("org.jetbrains.kotlin.plugin.serialization") version "2.2.20" apply false
 }
 
