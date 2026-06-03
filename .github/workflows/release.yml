@@ -14,13 +14,6 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
-      target_ref:
-        description: "Branch/tag/SHA to build (e.g. 1.21.1/master or 1.20.1/master)"
-        type: choice
-        required: true
-        options:
-          - 1.21.1/master
-          - 1.20.1/master
       dry_run:
         description: "Dry run (build & parse changelog but do NOT publish)"
         type: boolean
@@ -37,8 +30,6 @@ jobs:
     steps:
       - name: Checkout (target ref)
         uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.target_ref }}
 
       - name: Set up JDK 21 (Temurin)
         uses: actions/setup-java@v4
