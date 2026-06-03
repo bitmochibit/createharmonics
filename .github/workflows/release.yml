@@ -93,13 +93,6 @@ jobs:
       - name: Build (CurseForge)
         run: ./gradlew :neoforge:buildForCurseforge --stacktrace
 
-      - name: Rename CurseForge JAR
-        run: |
-          BASE="${{ steps.version.outputs.jar_base }}"
-          VERSION="${{ steps.version.outputs.version }}"
-          cp "neoforge/build/libs/${BASE}.jar" \
-             "neoforge/build/libs/${BASE}-${VERSION}-cf.jar"
-
       # ── GitHub Release ────────────────────────────────────────────────────────
       - name: Create GitHub Release
         if: ${{ !inputs.dry_run }}
