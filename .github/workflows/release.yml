@@ -86,15 +86,15 @@ jobs:
       - name: Build (Modrinth)
         run: ./gradlew :neoforge:build --stacktrace
 
+      - name: List built jars
+        run: ls -la neoforge/build/libs
+
       - name: Rename Modrinth JAR
         run: |
           BASE="${{ steps.version.outputs.jar_base }}"
           VERSION="${{ steps.version.outputs.version }}"
           mv "neoforge/build/libs/${BASE}.jar" \
              "neoforge/build/libs/${BASE}-${VERSION}.jar"
-
-      - name: List built jars
-        run: ls -la neoforge/build/libs
 
       # ── Build CurseForge JAR ──────────────────────────────────────────────────
       - name: Build (CurseForge)
