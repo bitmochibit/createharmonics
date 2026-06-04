@@ -1,7 +1,16 @@
 import java.text.SimpleDateFormat
 import java.util.Date
 
+plugins {
+    id("org.jetbrains.gradle.plugin.idea-ext")
+    id("org.jetbrains.kotlin.jvm") apply false
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.2.21" apply false
+}
+
 subprojects {
+    pluginManager.apply("org.jetbrains.kotlin.jvm")
+    pluginManager.apply("org.jetbrains.kotlin.plugin.serialization")
+
     group = rootProject.property("mod_group_id").toString()
     version = "${rootProject.property("version_major")}.${rootProject.property("version_minor")}.${
         rootProject.property("version_patch")

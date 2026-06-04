@@ -1,63 +1,34 @@
+import buildsrc.chVersions
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.util.Properties
 
 plugins {
+    id("createharmonics.neoforge-base")
+    id("createharmonics.curseforge")
     id("com.gradleup.shadow")
-    id("org.jetbrains.kotlin.jvm") version "2.1.21"
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.1.21"
-    id("net.neoforged.moddev.legacyforge") version "2.0.140"
 }
 
-kotlin {
-    jvmToolchain {
-        languageVersion = JavaLanguageVersion.of(17)
-        vendor = JvmVendorSpec.ADOPTIUM
-    }
-}
-
-base.archivesName.set("${rootProject.property("mod_id")}-forge-${rootProject.property("minecraft_version")}")
-
-val minecraftVersionProp = rootProject.property("minecraft_version").toString()
-val parchmentMinecraftProp = rootProject.property("parchment_minecraft").toString()
-val parchmentVersionProp = rootProject.property("parchment_version").toString()
-
-val jeiMinecraftVersion = rootProject.property("jei_minecraft_version").toString()
-val jeiVersion = rootProject.property("jei_version").toString()
-val vs2Version = rootProject.property("vs2_version").toString()
-val vsCoreVersion = rootProject.property("vs_core_version").toString()
-
-val createVersion = rootProject.property("create_version").toString()
-val ponderVersion = rootProject.property("ponder_version").toString()
-val flywheelVersion = rootProject.property("flywheel_version").toString()
-val registrateVersion = rootProject.property("registrate_version").toString()
-
-val modId = rootProject.property("mod_id").toString()
-val forgeVersion = rootProject.property("forge_version").toString()
-
-val forgeProject = project
+val v = chVersions
 val commonProject = project(":common")
+val curseforgeExcludes = commonProject.extra["curseforgeExcludes"] as List<*>
+
+base.archivesName = "${v.modId}-forge-${v.minecraft}"
 
 mixin {
-    add(sourceSets["main"], "$modId.refmap.json")
-    config("$modId.mixins.json")
+    add(sourceSets["main"], "${v.modId}.refmap.json")
+    config("${v.modId}.mixins.json")
     config("createharmonics.common.mixins.json")
 }
 
 legacyForge {
-    version = "$minecraftVersionProp-$forgeVersion"
+    version = "${v.minecraft}-${v.forge}"
 
     validateAccessTransformers = true
 
     val at = project(":common").file("src/main/resources/META-INF/accesstransformer.cfg")
     if (at.exists()) {
         accessTransformers.from(at)
-    }
-
-    parchment {
-        enabled = true
-        minecraftVersion = parchmentMinecraftProp
-        mappingsVersion = parchmentVersionProp
     }
 
     runs {
@@ -76,12 +47,12 @@ legacyForge {
             data()
             programArguments.addAll(
                 "--mod",
-                modId,
+                v.modId,
                 "--all",
                 "--output",
-                forgeProject.file("src/generated/resources/").absolutePath,
+                project.file("src/generated/resources/").absolutePath,
                 "--existing",
-                forgeProject.file("src/main/resources/").absolutePath,
+                project.file("src/main/resources/").absolutePath,
                 "--existing",
                 commonProject.file("src/main/resources/").absolutePath,
             )
@@ -92,7 +63,7 @@ legacyForge {
     }
 
     mods {
-        create(modId) {
+        create(v.modId) {
             sourceSet(sourceSets["main"])
         }
     }
@@ -106,30 +77,30 @@ sourceSets.main {
 
 dependencies {
     // Kotlin for Forge
-    implementation("thedarkcolour:kotlinforforge:${rootProject.property("kotlin_for_forge_version")}")
+    implementation("thedarkcolour:kotlinforforge:${v.kotlinForForge}")
 
     // Create for Forge
-    modImplementation("com.simibubi.create:create-$minecraftVersionProp:$createVersion:slim")
-    modImplementation("net.createmod.ponder:Ponder-Forge-$minecraftVersionProp:$ponderVersion")
-    modCompileOnly("dev.engine-room.flywheel:flywheel-forge-api-$minecraftVersionProp:$flywheelVersion")
-    modRuntimeOnly("dev.engine-room.flywheel:flywheel-forge-$minecraftVersionProp:$flywheelVersion")
-    modImplementation("com.tterrag.registrate:Registrate:$registrateVersion")
+    modImplementation("com.simibubi.create:create-${v.minecraft}:${v.create}:slim")
+    modImplementation("net.createmod.ponder:Ponder-Forge-${v.minecraft}:${v.ponder}")
+    modCompileOnly("dev.engine-room.flywheel:flywheel-forge-api-${v.minecraft}:${v.flywheel}")
+    modRuntimeOnly("dev.engine-room.flywheel:flywheel-forge-${v.minecraft}:${v.flywheel}")
+    modImplementation("com.tterrag.registrate:Registrate:${v.registrate}")
 
     // VS2
-    modImplementation("org.valkyrienskies:valkyrienskies-120-forge:$vs2Version")
-    modImplementation("org.valkyrienskies.core:api:$vsCoreVersion") {
+    modImplementation("org.valkyrienskies:valkyrienskies-120-forge:${v.vs2}")
+    modImplementation("org.valkyrienskies.core:api:${v.vs2Core}") {
         exclude(group = "org.joml")
     }
-    modImplementation("org.valkyrienskies.core:internal:$vsCoreVersion") {
+    modImplementation("org.valkyrienskies.core:internal:${v.vs2Core}") {
         exclude(group = "org.joml")
     }
-    modImplementation("org.valkyrienskies.core:util:$vsCoreVersion") {
+    modImplementation("org.valkyrienskies.core:util:${v.vs2Core}") {
         exclude(group = "org.joml")
     }
 
     // JEI
-    modRuntimeOnly("mezz.jei:jei-$jeiMinecraftVersion-forge:$jeiVersion")
-    modCompileOnly("mezz.jei:jei-$jeiMinecraftVersion-forge:$jeiVersion")
+    modRuntimeOnly("mezz.jei:jei-${v.jeiMc}-forge:${v.jei}")
+    modCompileOnly("mezz.jei:jei-${v.jeiMc}-forge:${v.jei}")
 
     compileOnly(project(":common"))
     shadow("org.tukaani:xz:1.11")
@@ -146,14 +117,6 @@ tasks.named<ProcessResources>("processResources") {
     }
 }
 
-tasks.named<JavaCompile>("compileTestJava") {
-    enabled = false
-}
-
-tasks.named<KotlinCompile>("compileTestKotlin") {
-    enabled = false
-}
-
 tasks.withType<JavaCompile>().configureEach {
     source(project(":common").sourceSets["main"].allSource)
 }
@@ -162,25 +125,12 @@ tasks.withType<KotlinCompile>().configureEach {
     source(project(":common").sourceSets["main"].kotlin)
 }
 
-tasks.register<GradleBuild>("buildForCurseforge") {
-    startParameter.projectProperties = mapOf("curseforge" to "true")
-    group = "build"
-    tasks = listOf("build")
-}
-
-tasks.register<GradleBuild>("cleanAll") {
-    group = "build"
-    tasks = listOf(":common:clean", ":forge:clean")
-}
-
-val curseforgeExcludes = project(":common").extra["curseforgeExcludes"] as List<*>
-
 tasks.named<Jar>("jar") {
     dependsOn("shadowJar")
     from(tasks.named<ShadowJar>("shadowJar").map { zipTree(it.archiveFile) })
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest.attributes(
-        "MixinConfigs" to "$modId.mixins.json,createharmonics.common.mixins.json",
+        "MixinConfigs" to "${v.modId}.mixins.json,createharmonics.common.mixins.json",
     )
     if (project.hasProperty("curseforge")) {
         curseforgeExcludes.forEach { exclude(it.toString()) }
@@ -199,9 +149,15 @@ tasks.named<ShadowJar>("shadowJar") {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
-val compileKotlin: KotlinCompile by tasks
-compileKotlin.compilerOptions {
-    freeCompilerArgs.set(listOf("-XXLanguage:+WhenGuards"))
+tasks.register<GradleBuild>("buildForCurseforge") {
+    startParameter.projectProperties = mapOf("curseforge" to "true")
+    group = "build"
+    tasks = listOf("build")
+}
+
+tasks.register<GradleBuild>("cleanAll") {
+    group = "build"
+    tasks = listOf(":common:clean", ":forge:clean")
 }
 
 val localProperties =

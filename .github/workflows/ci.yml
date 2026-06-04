@@ -1,0 +1,70 @@
+
+
+name: CI
+
+on:
+  push:
+    branches: [1.20.1/master]
+  pull_request:
+    branches: [1.20.1/master]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & Test (Forge 1.20.1)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: temurin
+          cache: gradle
+
+      - name: Grant execute permission for Gradle wrapper
+        run: chmod +x ./gradlew
+
+      - name: Build
+        run: ./gradlew :forge:build --stacktrace
+
+      - name: Run data generation
+        run: >
+          ./gradlew :forge:runData
+          --stacktrace
+          -Porg.gradle.jvmargs="-Xmx2g"
+        timeout-minutes: 10
+        env:
+          CI: true
+
+      - name: Run unit tests
+        run: ./gradlew test --stacktrace
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-forge
+          path: "**/build/reports/tests/"
+          retention-days: 14
+
+      - name: Read mod version
+        id: mod_version
+        run: |
+          MAJOR=$(grep '^version_major' gradle.properties | cut -d= -f2 | tr -d ' ')
+          MINOR=$(grep '^version_minor' gradle.properties | cut -d= -f2 | tr -d ' ')
+          PATCH=$(grep '^version_patch' gradle.properties | cut -d= -f2 | tr -d ' ')
+          echo "version=${MAJOR}.${MINOR}.${PATCH}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: createharmonics-forge-1.20.1-${{ steps.mod_version.outputs.version }}
+          path: forge/build/libs/createharmonics-forge-*.jar
+          if-no-files-found: error
+          retention-days: 30
