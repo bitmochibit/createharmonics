@@ -46,6 +46,7 @@ import me.mochibit.createharmonics.foundation.registry.ModPackets
 import me.mochibit.createharmonics.foundation.signals.SignalBox
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import net.createmod.catnip.nbt.NBTHelper
+import net.minecraft.client.Minecraft
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ItemParticleOption
@@ -257,6 +258,8 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             context.world.onClient { level, virtual ->
                 this.particleJob =
                     10.ticks().every {
+                        if (!level.isClientSide) return@every
+                        if (Minecraft.getInstance().isPaused) return@every
                         val playerUID = getPlayerUUID(context)
                         val audioPlayer = AudioPlayerManager.get(playerUID) ?: return@every
                         val displacement = Random.nextInt(4) / 24f

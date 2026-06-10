@@ -33,6 +33,7 @@ import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
 import net.createmod.catnip.nbt.NBTHelper
+import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.core.Direction
 import net.minecraft.core.particles.ItemParticleOption
@@ -262,11 +263,14 @@ class RecordPlayerBehaviour(
     private val particleRandom: RandomSource = RandomSource.create()
     private val playerParticleJob =
         10.ticks().every {
+            val level = this@RecordPlayerBehaviour.be.level ?: return@every
+            if (!level.isClientSide) return@every
+            if (Minecraft.getInstance().isPaused) return@every
+            if (!level.isLoaded(be.blockPos)) return@every
             val player = AudioPlayerManager.get(recordPlayerUUID.toString()) ?: return@every
             if (playbackState != PlaybackState.PLAYING || this@RecordPlayerBehaviour.be.level is VirtualRenderWorld) {
                 return@every
             }
-            val level = this@RecordPlayerBehaviour.be.level ?: return@every
             val be = this@RecordPlayerBehaviour.be
             val pos = Vec3.atBottomCenterOf(be.blockPos).add(0.0, 1.2, 0.0)
             val displacement = particleRandom.nextInt(4) / 24f
