@@ -4,7 +4,6 @@ import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import me.mochibit.createharmonics.BuildConfig
 import me.mochibit.createharmonics.audio.bin.BackgroundBinInstaller
 import me.mochibit.createharmonics.audio.bin.BinProvider
 import me.mochibit.createharmonics.audio.bin.BinStatusManager
@@ -147,37 +146,25 @@ class LibraryDisclaimerScreen(
         val cx = width / 2
         val bottomY = height - 40
 
-        if (BuildConfig.IS_CURSEFORGE) {
-            addCenteredButton(
-                ModLang.translate("gui.library_setup.manual_installation_btn").component(),
-                cx,
-                bottomY,
-            ) {
-                ModConfigs.client.neverShowLibraryDisclaimer.set(true)
-                currentState = State.SKIPPED
-                rebuildWidgets()
-            }
-        } else {
-            addButtonPair(
-                cx,
-                bottomY,
-                left =
-                    ButtonData(
-                        ModLang
-                            .translate("gui.library_setup.install_in_background_btn")
-                            .component()
-                            .withStyle(ChatFormatting.AQUA),
-                    ) { startBackgroundInstallation() },
-                right =
-                    ButtonData(
-                        ModLang.translate("gui.library_setup.manual_installation_btn").component(),
-                    ) {
-                        ModConfigs.client.neverShowLibraryDisclaimer.set(true)
-                        currentState = State.SKIPPED
-                        rebuildWidgets()
-                    },
-            )
-        }
+        addButtonPair(
+            cx,
+            bottomY,
+            left =
+                ButtonData(
+                    ModLang
+                        .translate("gui.library_setup.install_in_background_btn")
+                        .component()
+                        .withStyle(ChatFormatting.AQUA),
+                ) { startBackgroundInstallation() },
+            right =
+                ButtonData(
+                    ModLang.translate("gui.library_setup.manual_installation_btn").component(),
+                ) {
+                    ModConfigs.client.neverShowLibraryDisclaimer.set(true)
+                    currentState = State.SKIPPED
+                    rebuildWidgets()
+                },
+        )
     }
 
     private fun buildStatusButtons() {
@@ -189,7 +176,7 @@ class LibraryDisclaimerScreen(
         // Add delete buttons for installed libraries
         addDeleteButtonsForLibraries()
 
-        val showInstallButton = !allInstalled && !isInstalling && !BuildConfig.IS_CURSEFORGE
+        val showInstallButton = !allInstalled && !isInstalling
 
         if (showInstallButton) {
             val margin = 20
@@ -361,11 +348,9 @@ class LibraryDisclaimerScreen(
     }
 
     private fun startBackgroundInstallation() {
-        if (!BuildConfig.IS_CURSEFORGE) {
-            BackgroundBinInstaller.startBackgroundInstallation()
-            currentState = State.STATUS
-            rebuildWidgets()
-        }
+        BackgroundBinInstaller.startBackgroundInstallation()
+        currentState = State.STATUS
+        rebuildWidgets()
     }
 
     // Rendering
@@ -415,12 +400,8 @@ class LibraryDisclaimerScreen(
         val cx = width / 2
 
         // Subtitle
-        val subtitleKey =
-            if (BuildConfig.IS_CURSEFORGE) {
-                "gui.library_setup.library_disclaimer_subtitle_curseforge"
-            } else {
-                "gui.library_setup.library_disclaimer_subtitle"
-            }
+        val subtitleKey = "gui.library_setup.library_disclaimer_subtitle"
+
         gfx.drawCenteredString(
             font,
             ModLang.translate(subtitleKey).component(),
@@ -431,12 +412,8 @@ class LibraryDisclaimerScreen(
         )
 
         // Info text
-        val infoKey =
-            if (BuildConfig.IS_CURSEFORGE) {
-                "gui.library_setup.library_disclaimer_info_curseforge"
-            } else {
-                "gui.library_setup.library_disclaimer_info"
-            }
+        val infoKey = "gui.library_setup.library_disclaimer_info"
+
         renderWrappedText(gfx, ModLang.translate(infoKey).component(), cx, 68, 400, Theme.GRAY)
 
         // Library cards

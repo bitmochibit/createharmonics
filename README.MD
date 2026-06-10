@@ -2,18 +2,17 @@
     <img src="https://github.com/bitmochibit/createharmonics/blob/1.20.1/master/common/src/main/resources/assets/createharmonics/textures/gui/logo_small.png?raw=true" alt="Logo">
 </p>
 <h1 align="center"> Create: Harmonics <br><br>
-    <a href="https://www.curseforge.com/minecraft/mc-mods/create-harmonics"><img alt="Curseforge Page" src="https://img.shields.io/badge/Harmonics-Curseforge?logo=curseforge&label=CurseForge&color=ff5277&style=for-the-badge"></a>
     <a href="https://modrinth.com/mod/create-harmonics"><img alt="Modrinth Page" src="https://img.shields.io/badge/Harmonics-Modrinth?logo=modrinth&label=Modrinth&color=%2300AF5C&style=for-the-badge"></a>
     <a href=""><img alt="Github Page" src="https://img.shields.io/badge/GitHub-Source_Code-blue?logo=github&style=for-the-badge"></a>
 </h1>
 
 <h4 align="center"> Required dependencies 
 <br><br>
-    <a href="https://www.curseforge.com/minecraft/mc-mods/kotlin-for-forge">
+    <a href="https://modrinth.com/mod/kotlin-for-forge">
         <img alt="KotlinForForgeDependency" src="https://img.shields.io/badge/KOTLIN%20FOR%20FORGE-REQUIRED-7f52ff?logo=kotlin&labelColor=white&style=for-the-badge">
     </a>
-    <a href="https://www.curseforge.com/minecraft/mc-mods/create">
-        <img alt="CreateModDependency" src="https://img.shields.io/badge/Create Mod-REQUIRED-ecaf89?logo=CurseForge&labelColor=white&style=for-the-badge">
+    <a href="https://modrinth.com/mod/create">
+        <img alt="CreateModDependency" src="https://img.shields.io/badge/Create Mod-REQUIRED-ecaf89?logo=Modrinth&labelColor=white&style=for-the-badge">
     </a>
 </h4>
 

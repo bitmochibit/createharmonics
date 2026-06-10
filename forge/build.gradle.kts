@@ -5,13 +5,11 @@ import java.util.Properties
 
 plugins {
     id("createharmonics.neoforge-base")
-    id("createharmonics.curseforge")
     id("com.gradleup.shadow")
 }
 
 val v = chVersions
 val commonProject = project(":common")
-val curseforgeExcludes = commonProject.extra["curseforgeExcludes"] as List<*>
 
 base.archivesName = "${v.modId}-forge-${v.minecraft}"
 
@@ -132,9 +130,6 @@ tasks.named<Jar>("jar") {
     manifest.attributes(
         "MixinConfigs" to "${v.modId}.mixins.json,createharmonics.common.mixins.json",
     )
-    if (project.hasProperty("curseforge")) {
-        curseforgeExcludes.forEach { exclude(it.toString()) }
-    }
 }
 tasks.named<ShadowJar>("shadowJar") {
     archiveClassifier = "shadow"
@@ -149,11 +144,6 @@ tasks.named<ShadowJar>("shadowJar") {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
-tasks.register<GradleBuild>("buildForCurseforge") {
-    startParameter.projectProperties = mapOf("curseforge" to "true")
-    group = "build"
-    tasks = listOf("build")
-}
 
 tasks.register<GradleBuild>("cleanAll") {
     group = "build"
@@ -186,8 +176,3 @@ tasks.register<GradleBuild>("buildAndDeployToProd") {
     tasks = listOf("build", ":forge:deployToProd")
 }
 
-tasks.register<GradleBuild>("buildCfAndDeployToProd") {
-    group = "build"
-    startParameter.projectProperties = mapOf("curseforge" to "true")
-    tasks = listOf("build", ":forge:deployToProd")
-}

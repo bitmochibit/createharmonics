@@ -2,12 +2,10 @@
 #
 # Triggered manually from the GitHub Actions UI ("Run workflow" button).
 # Steps:
-#   1. Build the Modrinth JAR  (no `curseforge` property → includes bin installer)
-#   2. Build the CurseForge JAR (with `curseforge` property → excludes it)
+#   1. Build
 #   3. Extract the changelog for the current version from CHANGELOG.md
 #   4. Create a GitHub Release with both JARs attached
 #   5. Publish to Modrinth
-#   6. Publish to CurseForge
 
 name: Release
 
@@ -90,17 +88,6 @@ jobs:
           mv "neoforge/build/libs/${BASE}.jar" \
              "neoforge/build/libs/${BASE}-${VERSION}.jar"
 
-      # ── Build CurseForge JAR ──────────────────────────────────────────────────
-      - name: Build (CurseForge)
-        run: ./gradlew :neoforge:buildForCurseforge --stacktrace
-
-      - name: Rename CurseForge JAR
-        run: |
-          BASE="${{ steps.version.outputs.jar_base }}"
-          VERSION="${{ steps.version.outputs.version }}"
-          cp "neoforge/build/libs/${BASE}.jar" \
-             "neoforge/build/libs/${BASE}-${VERSION}-cf.jar"
-
       # ── GitHub Release ────────────────────────────────────────────────────────
       - name: Create GitHub Release
         if: ${{ !inputs.dry_run }}
@@ -138,28 +125,6 @@ jobs:
             kotlin-for-forge | depends | *
             jei | optional | *
 
-      # ── Publish to CurseForge ─────────────────────────────────────────────────
-      - name: Publish to CurseForge
-        if: ${{ !inputs.dry_run }}
-        uses: Kir-Antipov/mc-publish@v3.3
-        with:
-          curseforge-id: ${{ secrets.CURSEFORGE_PROJECT_ID }}
-          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
-
-          name: "Create: Harmonics ${{ steps.version.outputs.version }} for Minecraft ${{ steps.version.outputs.mc_version }}"
-          version: ${{ steps.version.outputs.version }}
-          version-type: release
-          changelog-file: /tmp/changelog_entry.md
-
-          files: neoforge/build/libs/${{ steps.version.outputs.jar_base }}-${{ steps.version.outputs.version }}-cf.jar
-
-          game-versions: ${{ steps.version.outputs.mc_version }}
-          loaders: neoforge
-          dependencies: |
-            create | depends | *
-            kotlin-for-forge | depends | *
-            jei | optional | *
-
       # ── Summary ──────────────────────────────────────────────────────────────
       - name: Job summary
         run: |
@@ -170,7 +135,7 @@ jobs:
             if [ "$DRY" = "true" ]; then
               echo "> **Dry run** — nothing was published."
             else
-              echo "✅ Published to GitHub Releases, Modrinth, and CurseForge."
+              echo "✅ Published to GitHub Releases and Modrinth"
             fi
             echo ""
             echo "### Changelog"
