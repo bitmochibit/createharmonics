@@ -1,9 +1,7 @@
 import buildsrc.chVersions
-import buildsrc.isCurseForge
 
 plugins {
     id("createharmonics.neoforge-base")
-    id("createharmonics.curseforge")
 }
 
 val v = chVersions
@@ -17,34 +15,6 @@ neoForge {
         accessTransformers.from(it)
     }
 }
-
-val generateBuildConfig by tasks.registering {
-    val outputDir = layout.buildDirectory.dir("generated/sources/buildConfig")
-    outputs.dir(outputDir)
-    doLast {
-        val out = outputDir.get().asFile
-        val file = out.resolve("me/mochibit/createharmonics/BuildConfig.kt")
-        file.parentFile.mkdirs()
-        file.writeText(
-            """
-            @file:Suppress("MayBeConstant")
-
-            package me.mochibit.createharmonics
-
-            object BuildConfig {
-                val IS_CURSEFORGE = $isCurseForge
-                val PLATFORM = "${if (isCurseForge) "CurseForge" else "Modrinth"}"
-            }
-            """.trimIndent(),
-        )
-    }
-}
-
-sourceSets["main"].kotlin.srcDir(
-    generateBuildConfig.map { layout.buildDirectory.dir("generated/sources/buildConfig").get() },
-)
-
-tasks.named("compileKotlin") { dependsOn(generateBuildConfig) }
 
 dependencies {
 

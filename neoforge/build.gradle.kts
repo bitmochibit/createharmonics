@@ -5,13 +5,11 @@ import java.util.Properties
 
 plugins {
     id("createharmonics.neoforge-base")
-    id("createharmonics.curseforge")
     id("com.gradleup.shadow")
 }
 
 val v = chVersions
 val commonProject = project(":common")
-val curseforgeExcludes = commonProject.extra["curseforgeExcludes"] as List<*>
 
 base.archivesName = "${v.modId}-neoforge-${v.minecraft}"
 
@@ -130,18 +128,6 @@ tasks.register<Copy>("deployToProd") {
     dependsOn("build")
     from(tasks.named("shadowJar"))
     into(file(prodModsDir))
-}
-
-tasks.register<GradleBuild>("buildForCurseforge") {
-    group = "build"
-    startParameter.projectProperties = mapOf("curseforge" to "true")
-    tasks = listOf("build")
-}
-
-tasks.register<GradleBuild>("buildCfAndDeployToProd") {
-    group = "build"
-    startParameter.projectProperties = mapOf("curseforge" to "true")
-    tasks = listOf("build", ":neoforge:deployToProd")
 }
 
 tasks.register<GradleBuild>("cleanAll") {

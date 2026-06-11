@@ -13,8 +13,6 @@
   "createharmonics.gui.library_setup.open_folder_btn": "打开§e音频提供程序§r文件夹",
   "createharmonics.gui.library_setup.library_disclaimer_subtitle": "所需库",
   "createharmonics.gui.library_setup.library_disclaimer_info": "本模组需要外部库实现功能，是否自动下载？",
-  "createharmonics.gui.library_setup.library_disclaimer_subtitle_curseforge": "手动安装所需库",
-  "createharmonics.gui.library_setup.library_disclaimer_info_curseforge": "CurseForge上无法自动安装外部库，请根据说明手动安装",
   "createharmonics.gui.library_setup.card_tooltip.click_to_open_site": "点击打开网站",
   "createharmonics.gui.library_setup.delete_library_tooltip": "删除设备上的库文件",
   "createharmonics.gui.library_setup.status.all_lib_installed": "已安装所有库！",

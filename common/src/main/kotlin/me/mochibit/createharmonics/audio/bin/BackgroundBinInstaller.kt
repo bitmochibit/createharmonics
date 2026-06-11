@@ -1,7 +1,6 @@
 package me.mochibit.createharmonics.audio.bin
 
 import kotlinx.coroutines.Dispatchers
-import me.mochibit.createharmonics.BuildConfig
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.info
@@ -9,15 +8,11 @@ import me.mochibit.createharmonics.foundation.locale.ModLang
 import me.mochibit.createharmonics.foundation.warn
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.components.toasts.SystemToast
-import net.minecraft.client.gui.components.toasts.TutorialToast
 import net.minecraft.network.chat.Component
 import java.util.concurrent.atomic.AtomicBoolean
 
-@Suppress("KotlinConstantConditions")
 object BackgroundBinInstaller {
     private val installationInProgress = AtomicBoolean(false)
-
-    fun isAutoInstallAllowed(): Boolean = !BuildConfig.IS_CURSEFORGE
 
     /**
      * Check if installation is currently in progress
@@ -28,11 +23,6 @@ object BackgroundBinInstaller {
      * Start background installation of missing libraries
      */
     fun startBackgroundInstallation() {
-        if (!isAutoInstallAllowed()) {
-            "Automatic installation is disabled on ${BuildConfig.PLATFORM}".warn()
-            return
-        }
-
         if (!installationInProgress.compareAndSet(false, true)) {
             "Library installation already in progress".warn()
             return
