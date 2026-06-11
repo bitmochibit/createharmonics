@@ -773,6 +773,8 @@ class RecordPlayerBehaviour(
             compound.putUUID("RecordPlayerUUID", it)
         }
 
+        compound.putBoolean("PlaybackEndedNaturally", playbackEndedNaturally)
+
         compound.putClock(playtimeClock)
 
         compound.putLong("AudioPlayCount", audioPlayCount)
@@ -794,6 +796,10 @@ class RecordPlayerBehaviour(
 
         if (compound.contains("RedstonePower")) {
             redstonePower = compound.getInt("RedstonePower")
+        }
+
+        if (compound.contains("PlaybackEndedNaturally")) {
+            playbackEndedNaturally = compound.getBoolean("PlaybackEndedNaturally")
         }
 
         if (compound.contains("RecordPlayerUUID")) {
