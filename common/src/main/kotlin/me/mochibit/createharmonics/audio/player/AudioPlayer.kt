@@ -262,7 +262,6 @@ class AudioPlayer(
                 isSeekingDisabled.set(intent.shouldDisableSeek)
                 if (intent.shouldRetry) {
                     intents.trySend(PlayerIntent.Play(0.0))
-                    "Restarting failing stream..".info()
                 }
             }
 
@@ -524,7 +523,6 @@ class AudioPlayer(
         isSeekingDisabled.set(shouldDisableSeek)
         if (shouldRetry) {
             intents.trySend(PlayerIntent.Play(0.0))
-            "Restarting failing stream..".info()
         }
     }
 
