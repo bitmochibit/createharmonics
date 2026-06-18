@@ -3,6 +3,11 @@ package me.mochibit.createharmonics.audio.bin
 object YTDLProvider : BinProvider(
     "yt-dlp",
 ) {
+    override fun getExecutableBaseName(): String = when {
+        isMac -> providerName + "_macos"
+        else -> providerName
+    }
+
     override fun getDownloadUrl(): String =
         when {
             isWindows -> {
