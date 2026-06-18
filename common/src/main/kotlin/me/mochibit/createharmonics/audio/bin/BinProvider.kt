@@ -9,7 +9,8 @@ class LibraryDownloadUrlUnavailable(
 ) : Exception(message)
 
 abstract class BinProvider(
-    private val providerName: String,
+    protected val providerName: String,
+
     val directory: File =
         Minecraft
             .getInstance()
@@ -117,7 +118,8 @@ abstract class BinProvider(
         cachedExecutablePath = null
     }
 
-    private fun getExecutableName(): String = if (isWindows) "$providerName.exe" else providerName
+    protected open fun getExecutableBaseName(): String = providerName
+    private fun getExecutableName(): String = if (isWindows) "$providerName.exe" else getExecutableBaseName()
 
     internal fun findBinary(name: String): File? {
         val exeName = if (isWindows) "$name.exe" else name
