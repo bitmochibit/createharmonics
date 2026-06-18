@@ -4,6 +4,7 @@ import com.mojang.serialization.Codec
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.ModEventBus
 import me.mochibit.createharmonics.data.lootModifier.AddItemModifier
+import net.minecraft.core.Registry
 import net.minecraftforge.common.loot.IGlobalLootModifier
 import net.minecraftforge.registries.DeferredRegister
 import net.minecraftforge.registries.ForgeRegistries
@@ -19,7 +20,7 @@ object ModLootModifiers : ForgeRegistry {
     val ADD_ITEM: RegistryObject<Codec<AddItemModifier>> =
         LOOT_MODIFIERS.register("add_record_to_end_ship") { AddItemModifier.CODEC }
 
-    override fun register() {
+    override fun register(registry: Registry<in Any>?) {
         LOOT_MODIFIERS.register(ModEventBus)
     }
 }

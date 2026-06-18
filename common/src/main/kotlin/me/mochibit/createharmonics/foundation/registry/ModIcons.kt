@@ -12,6 +12,7 @@ import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.renderer.LightTexture
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.client.renderer.RenderType
+import net.minecraft.core.Registry
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.phys.Vec3
 import org.joml.Matrix4f
@@ -104,7 +105,7 @@ object ModIcons : CommonRegistry {
     @JvmField
     val I_PAUSE_PITCH_STATIC: AllIcons = ModIcon(1, 0, ATLAS)
 
-    override fun register() {
+    override fun register(registry: Registry<in Any>?) {
         "Loading Mod Icons".info()
     }
 }

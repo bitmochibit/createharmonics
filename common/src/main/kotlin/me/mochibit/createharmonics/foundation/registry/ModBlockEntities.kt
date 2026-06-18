@@ -11,6 +11,7 @@ import me.mochibit.createharmonics.content.kinetics.recordPlayer.brassJukebox.Br
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseRenderer
 import me.mochibit.createharmonics.foundation.info
+import net.minecraft.core.Registry
 
 object ModBlockEntities : CommonRegistry {
     override val registrationOrder = 3
@@ -55,7 +56,7 @@ object ModBlockEntities : CommonRegistry {
                 }
             }.register()
 
-    override fun register() {
+    override fun register(registry: Registry<in Any>?) {
         "Registering block entities".info()
     }
 }

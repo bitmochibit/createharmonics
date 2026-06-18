@@ -7,6 +7,7 @@ import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlo
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMountedStorage
 import me.mochibit.createharmonics.foundation.info
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Registry
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
@@ -19,7 +20,7 @@ object ModMountedStorages : CommonRegistry {
             .mountedItemStorage("simple_record_player_storage", ::RecordPlayerMountedStorageType)
             .register()
 
-    override fun register() {
+    override fun register(registry: Registry<in Any>?) {
         "Registering mounted storages".info()
     }
 

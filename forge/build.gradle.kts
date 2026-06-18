@@ -58,6 +58,14 @@ legacyForge {
         register("server") {
             server()
         }
+        register("gameTestServer") {
+            server()
+            jvmArguments.addAll(
+                "-Dforge.enableGameTest=true",
+                "-Dforge.gameTestServer=true",
+                "-Dforge.enabledGameTestNamespaces=createharmonics"
+            )
+        }
     }
 
     mods {

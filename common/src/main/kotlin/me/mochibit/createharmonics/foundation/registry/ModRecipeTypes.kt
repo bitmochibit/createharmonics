@@ -3,6 +3,7 @@ package me.mochibit.createharmonics.foundation.registry
 import me.mochibit.createharmonics.ModRegistrate
 import me.mochibit.createharmonics.content.records.DeployerRecordRepairRecipe
 import me.mochibit.createharmonics.foundation.info
+import net.minecraft.core.Registry
 import net.minecraft.core.registries.Registries
 import net.minecraft.world.item.crafting.RecipeType
 
@@ -35,7 +36,7 @@ object ModRecipeTypes : CommonRegistry {
             }
         }
 
-    override fun register() {
+    override fun register(registry: Registry<in Any>?) {
         "Registering recipe types".info()
     }
 }

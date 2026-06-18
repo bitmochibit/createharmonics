@@ -30,7 +30,7 @@ object ModItemAttributeTypes : PreFreezeCommonRegistry {
         id: String,
         predicate: BiPredicate<ItemStack, Level>,
     ): ItemAttributeType =
-        register(
+        make(
             id,
             SingletonItemAttribute.Type { type ->
                 SingletonItemAttribute(
@@ -49,7 +49,7 @@ object ModItemAttributeTypes : PreFreezeCommonRegistry {
             predicate(stack)
         }
 
-    private fun register(
+    private fun make(
         id: String,
         type: ItemAttributeType,
     ): ItemAttributeType =
@@ -59,7 +59,8 @@ object ModItemAttributeTypes : PreFreezeCommonRegistry {
             type,
         )
 
-    override fun register() {
+    override fun register(registry: Registry<in Any>?) {
+        if (registry != CreateBuiltInRegistries.ITEM_ATTRIBUTE_TYPE) return
         "Registering item attributes".info()
     }
 }

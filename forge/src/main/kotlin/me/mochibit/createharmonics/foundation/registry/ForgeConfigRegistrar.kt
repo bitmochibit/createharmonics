@@ -5,6 +5,7 @@ import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
 import me.mochibit.createharmonics.ModLoadingContext
 import me.mochibit.createharmonics.config.ModConfigs.configs
 import me.mochibit.createharmonics.config.ModConfigs.server
+import net.minecraft.core.Registry
 import net.minecraftforge.eventbus.api.SubscribeEvent
 import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.fml.event.config.ModConfigEvent
@@ -13,7 +14,7 @@ import net.minecraftforge.fml.event.config.ModConfigEvent
 object ForgeConfigRegistrar : ForgeRegistry {
     override val registrationOrder: Int = 1
 
-    override fun register() {
+    override fun register(registry: Registry<in Any>?) {
         configs.forEach { (type, config) ->
             ModLoadingContext.registerConfig(type, config.specification)
         }

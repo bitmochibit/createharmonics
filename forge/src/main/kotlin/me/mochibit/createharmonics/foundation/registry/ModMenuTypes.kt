@@ -2,13 +2,14 @@ package me.mochibit.createharmonics.foundation.registry
 
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.ModEventBus
+import net.minecraft.core.Registry
 import net.minecraft.core.registries.Registries
 import net.minecraftforge.registries.DeferredRegister
 
 object ModMenuTypes : ForgeRegistry {
     private val MENUS = DeferredRegister.create(Registries.MENU, CreateHarmonicsMod.MOD_ID)
 
-    override fun register() {
+    override fun register(registry: Registry<in Any>?) {
         MENUS.register(ModEventBus)
     }
 }

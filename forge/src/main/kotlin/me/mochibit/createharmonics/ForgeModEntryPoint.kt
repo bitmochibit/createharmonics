@@ -23,6 +23,7 @@ import net.minecraftforge.event.AttachCapabilitiesEvent
 import net.minecraftforge.eventbus.api.IEventBus
 import net.minecraftforge.eventbus.api.SubscribeEvent
 import net.minecraftforge.fml.DistExecutor
+import net.minecraftforge.fml.ModList
 import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent
 import net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent
@@ -84,6 +85,7 @@ class ForgeModEntryPoint(
         fun onAttachCapabilities(event: AttachCapabilitiesEvent<BlockEntity>) {
             when (val be = event.`object`) {
                 is RecordPlayerBlockEntity -> {
+                    ModList.get().allScanData
                     event.addCapability(
                         "item_handler".asResource(),
                         object : ICapabilityProvider {

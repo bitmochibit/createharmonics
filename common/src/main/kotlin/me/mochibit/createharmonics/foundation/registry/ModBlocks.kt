@@ -17,6 +17,7 @@ import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlock
 import me.mochibit.createharmonics.foundation.info
 import net.minecraft.client.renderer.RenderType
+import net.minecraft.core.Registry
 import net.minecraft.world.level.block.SoundType
 import java.util.function.Supplier
 
@@ -83,7 +84,7 @@ object ModBlocks : CommonRegistry {
             .transform(customItemModel())
             .register()
 
-    override fun register() {
+    override fun register(registry: Registry<in Any>?) {
         "Registering blocks".info()
     }
 }

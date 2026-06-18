@@ -7,6 +7,7 @@ import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.ponder.PonderScenes
 import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper
+import net.minecraft.core.Registry
 import net.minecraft.resources.ResourceLocation
 
 object ModPonders : CommonRegistry {
@@ -46,7 +47,7 @@ object ModPonders : CommonRegistry {
         )
     }
 
-    override fun register() {
+    override fun register(registry: Registry<in Any>?) {
         "Lazily loading ponders".info()
     }
 }
