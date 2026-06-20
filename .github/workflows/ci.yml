@@ -42,6 +42,15 @@ jobs:
         env:
           CI: true
 
+      - name: Run game tests
+        run: >
+          ./gradlew :forge:runGameTestServer
+          --stacktrace
+          -Porg.gradle.jvmargs="-Xmx2g"
+        timeout-minutes: 10
+        env:
+          CI: true
+
       - name: Run unit tests
         run: ./gradlew test --stacktrace
 

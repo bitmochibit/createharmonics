@@ -88,6 +88,15 @@ jobs:
       - name: Build jar
         run: ./gradlew :forge:build --stacktrace
 
+      - name: Run data generation
+        run: >
+          ./gradlew :forge:runData
+          --stacktrace
+          -Porg.gradle.jvmargs="-Xmx2g"
+        timeout-minutes: 10
+        env:
+          CI: true
+
       # ── GitHub Release ────────────────────────────────────────────────────────────
       - name: Create GitHub Release
         if: ${{ !inputs.dry_run }}
