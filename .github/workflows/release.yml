@@ -70,7 +70,7 @@ jobs:
         id: changelog
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          CHANGELOG_FILE="$GITHUB_WORKSPACE/CHANGELOG.md"
+          CHANGELOG_FILE="$GITHUB_WORKSPACE/CHANGELOG.MD"
           
           ENTRY=$(awk "
             /^# .*${VERSION}/ { found=1; next }
