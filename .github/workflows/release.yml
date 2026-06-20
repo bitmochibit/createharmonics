@@ -2,9 +2,9 @@
 #
 # Triggered manually from the GitHub Actions UI ("Run workflow" button).
 # Steps:
-#   1. Build the jar
+#   1. Build
 #   3. Extract the changelog for the current version from CHANGELOG.md
-#   4. Create a GitHub Release
+#   4. Create a GitHub Release with both JARs attached
 #   5. Publish to Modrinth
 
 name: Release
@@ -84,18 +84,11 @@ jobs:
           echo "Changelog entry:"
           cat /tmp/changelog_entry.md
 
-      # ── Build Modrinth JAR ────────────────────────────────────────────────────
-      - name: Build (Modrinth)
+      # ── Build Mod JAR ────────────────────────────────────────────────────
+      - name: Build jar
         run: ./gradlew :neoforge:build --stacktrace
 
-      - name: Rename Modrinth JAR
-        run: |
-          BASE="${{ steps.version.outputs.jar_base }}"
-          VERSION="${{ steps.version.outputs.version }}"
-          mv "neoforge/build/libs/${BASE}.jar" \
-             "neoforge/build/libs/${BASE}-${VERSION}.jar"
-
-      # ── GitHub Release ────────────────────────────────────────────────────────
+      # ── GitHub Release ────────────────────────────────────────────────────────────
       - name: Create GitHub Release
         if: ${{ !inputs.dry_run }}
         uses: softprops/action-gh-release@v2
@@ -107,9 +100,8 @@ jobs:
           prerelease: false
           files: |
             neoforge/build/libs/${{ steps.version.outputs.jar_base }}-${{ steps.version.outputs.version }}.jar
-            neoforge/build/libs/${{ steps.version.outputs.jar_base }}-${{ steps.version.outputs.version }}-cf.jar
 
-      # ── Publish to Modrinth ───────────────────────────────────────────────────
+      # ── Publish to Modrinth ───────────────────────────────────────────────────────
       - name: Publish to Modrinth
         if: ${{ !inputs.dry_run }}
         uses: Kir-Antipov/mc-publish@v3.3
