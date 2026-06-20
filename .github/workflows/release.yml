@@ -43,12 +43,14 @@ jobs:
       - name: Read mod version
         id: version
         run: |
-          MAJOR=$(grep '^version_major' gradle.properties | cut -d= -f2 | tr -d ' ')
-          MINOR=$(grep '^version_minor' gradle.properties | cut -d= -f2 | tr -d ' ')
-          PATCH=$(grep '^version_patch' gradle.properties | cut -d= -f2 | tr -d ' ')
-          MC=$(grep '^minecraft_version' gradle.properties | cut -d= -f2 | tr -d ' ')
-          MOD_ID=$(grep '^mod_id' gradle.properties | cut -d= -f2 | tr -d ' ')
+          MAJOR=$(grep -m1 '^version_major' gradle.properties | cut -d= -f2 | tr -d ' \r')
+          MINOR=$(grep -m1 '^version_minor' gradle.properties | cut -d= -f2 | tr -d ' \r')
+          PATCH=$(grep -m1 '^version_patch' gradle.properties | cut -d= -f2 | tr -d ' \r')
+          MC=$(grep -m1 '^minecraft_version=' gradle.properties | cut -d= -f2 | tr -d ' \r')
+          MOD_ID=$(grep -m1 '^mod_id=' gradle.properties | cut -d= -f2 | tr -d ' \r')
           VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          
+          echo "DEBUG: MC='${MC}' VERSION='${VERSION}' MOD_ID='${MOD_ID}'"
           
           {
             echo "version=${VERSION}"
