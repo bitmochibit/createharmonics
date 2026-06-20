@@ -84,21 +84,11 @@ jobs:
           echo "Changelog entry:"
           cat /tmp/changelog_entry.md
 
-      # ── Build Modrinth JAR ────────────────────────────────────────────────────
-      - name: Build (Modrinth)
+      # ── Build Mod JAR ────────────────────────────────────────────────────
+      - name: Build jar
         run: ./gradlew :forge:build --stacktrace
 
-      - name: Debug build output
-        run: ls -la forge/build/libs/
-
-      - name: Rename Modrinth JAR
-        run: |
-          BASE="${{ steps.version.outputs.jar_base }}"
-          VERSION="${{ steps.version.outputs.version }}"
-          mv "forge/build/libs/${BASE}.jar" \
-             "forge/build/libs/${BASE}-${VERSION}.jar"
-
-      # ── GitHub Release ────────────────────────────────────────────────────────
+      # ── GitHub Release ────────────────────────────────────────────────────────────
       - name: Create GitHub Release
         if: ${{ !inputs.dry_run }}
         uses: softprops/action-gh-release@v2
@@ -110,9 +100,8 @@ jobs:
           prerelease: false
           files: |
             forge/build/libs/${{ steps.version.outputs.jar_base }}-${{ steps.version.outputs.version }}.jar
-            forge/build/libs/${{ steps.version.outputs.jar_base }}-${{ steps.version.outputs.version }}-cf.jar
 
-      # ── Publish to Modrinth ───────────────────────────────────────────────────
+      # ── Publish to Modrinth ───────────────────────────────────────────────────────
       - name: Publish to Modrinth
         if: ${{ !inputs.dry_run }}
         uses: Kir-Antipov/mc-publish@v3.3
@@ -120,14 +109,11 @@ jobs:
           modrinth-id: ${{ secrets.MODRINTH_PROJECT_ID || steps.version.outputs.mod_id }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           modrinth-featured: true
-
           name: "Create: Harmonics ${{ steps.version.outputs.version }} for Minecraft ${{ steps.version.outputs.mc_version }}"
           version: ${{ steps.version.outputs.version }}
           version-type: release
           changelog-file: /tmp/changelog_entry.md
-
           files: forge/build/libs/${{ steps.version.outputs.jar_base }}-${{ steps.version.outputs.version }}.jar
-
           game-versions: ${{ steps.version.outputs.mc_version }}
           loaders: forge
           dependencies: |
