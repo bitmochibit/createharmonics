@@ -57,6 +57,16 @@ jobs:
           # Needed for NeoForge's headless data run
           CI: true
 
+      # ── GameTests ───────────────────────────────────────────────────────────
+      - name: Run game tests
+        run: >
+          ./gradlew :neoforge:runGameTestServer
+          --stacktrace
+          -Porg.gradle.jvmargs="-Xmx2g"
+        timeout-minutes: 10
+        env:
+          CI: true
+
       # ── Unit tests ───────────────────────────────────────────────────────────
       # JUnit tests in :common or :neoforge are run here.
       # This step is intentionally lenient: if no tests exist Gradle exits 0.

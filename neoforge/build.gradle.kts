@@ -46,6 +46,11 @@ neoForge {
             )
         }
         register("server") { server() }
+
+        register("gameTestServer") {
+            type = "gameTestServer"
+            systemProperty("neoforge.enabledGameTestNamespaces", v.modId)
+        }
     }
 
     mods {
