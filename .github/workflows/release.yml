@@ -42,14 +42,14 @@ jobs:
       # ── Read version from gradle.properties ──────────────────────────────────
       - name: Read mod version
         id: version
-        shell: bash
         run: |
-          MAJOR=$(grep -m1 -E '^version_major=' gradle.properties | cut -d= -f2- | tr -d '[:space:]')
-          MINOR=$(grep -m1 -E '^version_minor=' gradle.properties | cut -d= -f2- | tr -d '[:space:]')
-          PATCH=$(grep -m1 -E '^version_patch=' gradle.properties | cut -d= -f2- | tr -d '[:space:]')
-          MC=$(grep -m1 -E '^minecraft_version=' gradle.properties | cut -d= -f2- | tr -d '[:space:]')
-          MOD_ID=$(grep -m1 -E '^mod_id=' gradle.properties | cut -d= -f2- | tr -d '[:space:]')
+          MAJOR=$(grep '^version_major' gradle.properties | cut -d= -f2 | tr -d ' ')
+          MINOR=$(grep '^version_minor' gradle.properties | cut -d= -f2 | tr -d ' ')
+          PATCH=$(grep '^version_patch' gradle.properties | cut -d= -f2 | tr -d ' ')
+          MC=$(grep '^minecraft_version' gradle.properties | cut -d= -f2 | tr -d ' ')
+          MOD_ID=$(grep '^mod_id' gradle.properties | cut -d= -f2 | tr -d ' ')
           VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          
           {
             echo "version=${VERSION}"
             echo "mc_version=${MC}"
@@ -64,19 +64,21 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           CHANGELOG_FILE="CHANGELOG.md"
-
+          
           ENTRY=$(awk "
             /^# .*${VERSION}/ { found=1; next }
+            found && /^## /   { next }
             found && /^# /    { exit }
+            found && /^---/   { exit }
             found             { print }
-          " "${CHANGELOG_FILE}" | sed '/^[[:space:]]*$/d' | head -200)
-
+          " "${CHANGELOG_FILE}")
+          
           if [ -z "$ENTRY" ]; then
             echo "::warning::No changelog entry found for version ${VERSION}"
             ENTRY="See CHANGELOG.md for details."
           fi
-
-          printf '%s' "$ENTRY" > /tmp/changelog_entry.md
+          
+          printf '%s\n' "$ENTRY" > /tmp/changelog_entry.md
           echo "Changelog entry:"
           cat /tmp/changelog_entry.md
 
@@ -84,8 +86,12 @@ jobs:
       - name: Build (Modrinth)
         run: ./gradlew :neoforge:build --stacktrace
 
-      - name: List built jars
-        run: ls -la neoforge/build/libs
+      - name: Rename Modrinth JAR
+        run: |
+          BASE="${{ steps.version.outputs.jar_base }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          mv "neoforge/build/libs/${BASE}.jar" \
+             "neoforge/build/libs/${BASE}-${VERSION}.jar"
 
       # ── GitHub Release ────────────────────────────────────────────────────────
       - name: Create GitHub Release
