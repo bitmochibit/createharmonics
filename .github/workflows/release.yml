@@ -61,19 +61,21 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           CHANGELOG_FILE="CHANGELOG.md"
-
+          
           ENTRY=$(awk "
             /^# .*${VERSION}/ { found=1; next }
+            found && /^## /   { next }
             found && /^# /    { exit }
+            found && /^---/   { exit }
             found             { print }
-          " "${CHANGELOG_FILE}" | sed '/^[[:space:]]*$/d' | head -200)
-
+          " "${CHANGELOG_FILE}")
+          
           if [ -z "$ENTRY" ]; then
             echo "::warning::No changelog entry found for version ${VERSION}"
             ENTRY="See CHANGELOG.md for details."
           fi
-
-          printf '%s' "$ENTRY" > /tmp/changelog_entry.md
+          
+          printf '%s\n' "$ENTRY" > /tmp/changelog_entry.md
           echo "Changelog entry:"
           cat /tmp/changelog_entry.md
 
