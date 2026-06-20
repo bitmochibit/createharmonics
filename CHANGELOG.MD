@@ -1,3 +1,14 @@
+# Create: Harmonics - 1.1.7
+
+### Bug fixes
+- Fixed console spamming under certain conditions
+- Jukebox restarts not being synchronized
+- Jukebox particle buildup when game is paused
+
+### Translations
+- Updated Italian translation
+
+
 # Create: Harmonics - 1.1.6
 ### Bug fixes
 - Fixed record durabilities not updating correctly
