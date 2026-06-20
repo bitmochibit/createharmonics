@@ -12,9 +12,10 @@ import me.mochibit.createharmonics.foundation.eventbus.EventBus
 import me.mochibit.createharmonics.foundation.eventbus.LogicalSide
 import me.mochibit.createharmonics.foundation.eventbus.ServerEvents
 import me.mochibit.createharmonics.foundation.info
+import net.minecraft.core.Registry
 
 object ModLifecycleHandlers : CommonRegistry {
-    override fun register() {
+    override fun register(registry: Registry<*>?) {
         // Client disconnects from a server (including leaving singleplayer/LAN)
         EventBus.onSync<ClientEvents.ClientDisconnectedEvent> { _ ->
             AudioPlayerManager.closeAll(true)

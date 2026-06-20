@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.foundation.registry
 
 import me.mochibit.createharmonics.foundation.services.PlatformService
 import me.mochibit.createharmonics.foundation.services.platformService
+import net.minecraft.core.Registry
 
 interface Registrable {
     /**
@@ -18,8 +19,7 @@ interface Registrable {
      */
     val targetEnvironment: PlatformService.Environment?
         get() = null
-
-    fun register()
+    fun register(registry: Registry<*>? = null)
 }
 
 sealed interface PreFreezeCommonRegistry : Registrable
@@ -37,7 +37,7 @@ sealed interface CommonRegistry : Registrable
  *
  * It is platform-agnostic
  */
-inline fun <reified AutoRegistrableMarker : Registrable> autoRegister() {
+inline fun <reified AutoRegistrableMarker : Registrable> autoRegister(registry: Registry<*>? = null) {
     if (!AutoRegistrableMarker::class.isSealed) {
         throw IllegalArgumentException("The passed auto registrable marker must be a sealed interface")
     }
@@ -54,5 +54,5 @@ inline fun <reified AutoRegistrableMarker : Registrable> autoRegister() {
                     registrable.targetEnvironment == platform.environment
             envMatch
         }.sortedBy { it.registrationOrder }
-        .forEach { it.register() }
+        .forEach { it.register(registry) }
 }

@@ -5,6 +5,7 @@ import com.simibubi.create.foundation.data.CreateRegistrate
 import com.tterrag.registrate.util.entry.RegistryEntry
 import me.mochibit.createharmonics.ModRegistrate
 import me.mochibit.createharmonics.foundation.info
+import net.minecraft.core.Registry
 import net.minecraft.core.component.DataComponentType
 import net.minecraft.core.registries.Registries
 
@@ -12,7 +13,7 @@ object ModDataComponents : CommonRegistry {
     val RECORD_URL = ModRegistrate.dataComponent("record_url", Codec.STRING)
     val CRAFTED_WITH = ModRegistrate.dataComponent("crafted_with", Codec.STRING)
 
-    override fun register() {
+    override fun register(registry: Registry<*>?) {
         "Registering data components..".info()
     }
 

@@ -4,6 +4,7 @@ import dev.engine_room.flywheel.lib.model.baked.PartialModel
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.foundation.extension.asResource
 import me.mochibit.createharmonics.foundation.info
+import net.minecraft.core.Registry
 import java.util.EnumMap
 import kotlin.collections.set
 
@@ -21,7 +22,7 @@ object ModPartialModels : CommonRegistry {
 
     private fun entity(path: String): PartialModel = PartialModel.of("entity/$path".asResource())
 
-    override fun register() {
+    override fun register(registry: Registry<*>?) {
         "Lazily loading partial models".info()
     }
 }

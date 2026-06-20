@@ -8,6 +8,7 @@ import me.mochibit.createharmonics.foundation.locale.ModLang
 import me.mochibit.createharmonics.foundation.registry.ModItems.etherealRecord
 import net.createmod.catnip.platform.CatnipServices
 import net.minecraft.client.Minecraft
+import net.minecraft.core.Registry
 import net.minecraft.core.registries.Registries
 import net.minecraft.world.item.BlockItem
 import net.minecraft.world.item.CreativeModeTab
@@ -28,7 +29,7 @@ object ModCreativeTabs : CommonRegistry {
                 .build(),
         )
 
-    override fun register() {
+    override fun register(registry: Registry<*>?) {
         "Registering creative tabs".info()
     }
 

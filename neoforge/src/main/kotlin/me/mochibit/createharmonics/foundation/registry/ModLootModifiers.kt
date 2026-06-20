@@ -5,6 +5,7 @@ import com.mojang.serialization.MapCodec
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import me.mochibit.createharmonics.ModEventBus
 import me.mochibit.createharmonics.data.lootModifier.AddItemModifier
+import net.minecraft.core.Registry
 import net.neoforged.neoforge.common.loot.IGlobalLootModifier
 import net.neoforged.neoforge.registries.DeferredHolder
 import net.neoforged.neoforge.registries.DeferredRegister
@@ -26,7 +27,7 @@ object ModLootModifiers : NeoforgeRegistry {
             },
         )
 
-    override fun register() {
+    override fun register(registry: Registry<*>?) {
         LOOT_MODIFIERS.register(ModEventBus)
     }
 }

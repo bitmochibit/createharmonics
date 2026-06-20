@@ -4,6 +4,7 @@ import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.network.packet.ModPacket
 import me.mochibit.createharmonics.foundation.services.NetworkService
 import me.mochibit.createharmonics.foundation.services.networkService
+import net.minecraft.core.Registry
 import kotlin.reflect.KClass
 
 object ModPackets : CommonRegistry, NetworkService by networkService {
@@ -20,7 +21,7 @@ object ModPackets : CommonRegistry, NetworkService by networkService {
             collectSubclasses(ModPacket::class)
         }
 
-    override fun register() {
+    override fun register(registry: Registry<*>?) {
         "Loading Mod Packets".info()
     }
 }

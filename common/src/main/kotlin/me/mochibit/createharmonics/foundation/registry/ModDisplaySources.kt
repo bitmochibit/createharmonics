@@ -6,6 +6,7 @@ import me.mochibit.createharmonics.ModRegistrate
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.displaySource.AudioNameDisplaySource
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.displaySource.PlayerStatusDisplaySource
 import me.mochibit.createharmonics.foundation.info
+import net.minecraft.core.Registry
 
 object ModDisplaySources : CommonRegistry {
     override val registrationOrder = 1
@@ -20,7 +21,7 @@ object ModDisplaySources : CommonRegistry {
             .displaySource("record_player_status", ::PlayerStatusDisplaySource)
             .register()
 
-    override fun register() {
+    override fun register(registry: Registry<*>?) {
         "Registering display sources".info()
     }
 }

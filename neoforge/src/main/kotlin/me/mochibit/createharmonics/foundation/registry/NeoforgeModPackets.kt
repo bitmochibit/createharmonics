@@ -8,6 +8,7 @@ import me.mochibit.createharmonics.foundation.network.FriendlyByteBufEncoder
 import me.mochibit.createharmonics.foundation.network.packet.C2SPacket
 import me.mochibit.createharmonics.foundation.network.packet.ModPacket
 import me.mochibit.createharmonics.foundation.network.packet.S2CPacket
+import net.minecraft.core.Registry
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
@@ -99,7 +100,7 @@ object NeoforgeModPackets : NeoforgeRegistry {
         return ModPacketPayload(packet, entry.type)
     }
 
-    override fun register() {
+    override fun register(registry: Registry<*>?) {
         // modBus.addListener(NeoforgeModPackets::registerPayloads)
     }
 }

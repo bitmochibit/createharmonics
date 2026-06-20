@@ -6,6 +6,7 @@ import me.mochibit.createharmonics.content.records.BaseRecordItem
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.foundation.info
+import net.minecraft.core.Registry
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.Rarity
 import java.util.EnumMap
@@ -64,7 +65,7 @@ object ModItems : CommonRegistry {
 
     fun brokenVariantOf(recordType: RecordType): Item? = BROKEN_ETHEREAL_RECORDS[recordType]?.get()
 
-    override fun register() {
+    override fun register(registry: Registry<*>?) {
         "Registering items".info()
     }
 

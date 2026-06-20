@@ -4,6 +4,7 @@ import com.simibubi.create.api.stress.BlockStressValues
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
 import me.mochibit.createharmonics.config.ModConfigs.configs
 import me.mochibit.createharmonics.config.ModConfigs.server
+import net.minecraft.core.Registry
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.fml.ModLoadingContext
 import net.neoforged.fml.common.EventBusSubscriber
@@ -13,7 +14,7 @@ import net.neoforged.fml.event.config.ModConfigEvent
 object NeoforgeConfigRegistrar : NeoforgeRegistry {
     override val registrationOrder: Int = 1
 
-    override fun register() {
+    override fun register(registry: Registry<*>?) {
         configs.forEach { (type, config) ->
             ModLoadingContext.get().activeContainer.registerConfig(type, config.specification)
         }

@@ -42,7 +42,7 @@ object CreateHarmonicsMod {
     }
 
     fun commonPreFreezeSetup(registry: Registry<*>) {
-        autoRegister<PreFreezeCommonRegistry>()
+        autoRegister<PreFreezeCommonRegistry>(registry)
     }
 
     fun commonSetup(registrateConfiguration: CreateRegistrate.() -> Unit) {

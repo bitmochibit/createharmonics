@@ -59,7 +59,8 @@ object ModItemAttributeTypes : PreFreezeCommonRegistry {
             type,
         )
 
-    override fun register() {
+    override fun register(registry: Registry<*>?) {
+        if (registry != CreateBuiltInRegistries.ITEM_ATTRIBUTE_TYPE) return
         "Registering item attributes".info()
     }
 }

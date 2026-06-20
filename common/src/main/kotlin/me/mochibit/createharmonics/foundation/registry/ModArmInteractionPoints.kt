@@ -9,6 +9,7 @@ import me.mochibit.createharmonics.ModRegistrate
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerArmPoint
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseArmInteractionPoint
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Registry
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.state.BlockState
 
@@ -27,7 +28,7 @@ object ModArmInteractionPoints : CommonRegistry {
                 RecordPressBaseType()
             }.register()
 
-    override fun register() {
+    override fun register(registry: Registry<*>?) {
     }
 
     class RecordPressBaseType : ArmInteractionPointType() {
