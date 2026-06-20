@@ -49,11 +49,14 @@ jobs:
           MC=$(grep '^minecraft_version' gradle.properties | cut -d= -f2 | tr -d ' ')
           MOD_ID=$(grep '^mod_id' gradle.properties | cut -d= -f2 | tr -d ' ')
           VERSION="${MAJOR}.${MINOR}.${PATCH}"
-          echo "version=${VERSION}"           >> "$GITHUB_OUTPUT"
-          echo "mc_version=${MC}"             >> "$GITHUB_OUTPUT"
-          echo "mod_id=${MOD_ID}"             >> "$GITHUB_OUTPUT"
-          echo "tag=mc${MC}-v${VERSION}"      >> "$GITHUB_OUTPUT"
-          echo "jar_base=${MOD_ID}-neoforge-${MC}" >> "$GITHUB_OUTPUT"
+          
+          {
+            echo "version=${VERSION}"
+            echo "mc_version=${MC}"
+            echo "mod_id=${MOD_ID}"
+            echo "tag=mc${MC}-v${VERSION}"
+            echo "jar_base=${MOD_ID}-neoforge-${MC}"
+          } >> "$GITHUB_OUTPUT"
 
       # ── Extract changelog for this version ───────────────────────────────────
       - name: Extract changelog entry
