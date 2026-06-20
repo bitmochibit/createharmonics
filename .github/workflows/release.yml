@@ -57,7 +57,7 @@ jobs:
             echo "mc_version=${MC}"
             echo "mod_id=${MOD_ID}"
             echo "tag=mc${MC}-v${VERSION}"
-            echo "jar_base=${MOD_ID}-forge-${MC}"
+            echo "jar_base=${MOD_ID}-neoforge-${MC}"
           } >> "$GITHUB_OUTPUT"
 
       # ── Extract changelog for this version ───────────────────────────────────
@@ -86,14 +86,14 @@ jobs:
 
       # ── Build Modrinth JAR ────────────────────────────────────────────────────
       - name: Build (Modrinth)
-        run: ./gradlew :forge:build --stacktrace
+        run: ./gradlew :neoforge:build --stacktrace
 
       - name: Rename Modrinth JAR
         run: |
           BASE="${{ steps.version.outputs.jar_base }}"
           VERSION="${{ steps.version.outputs.version }}"
-          mv "forge/build/libs/${BASE}.jar" \
-             "forge/build/libs/${BASE}-${VERSION}.jar"
+          mv "neoforge/build/libs/${BASE}.jar" \
+             "neoforge/build/libs/${BASE}-${VERSION}.jar"
 
       # ── GitHub Release ────────────────────────────────────────────────────────
       - name: Create GitHub Release
@@ -106,8 +106,8 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            forge/build/libs/${{ steps.version.outputs.jar_base }}-${{ steps.version.outputs.version }}.jar
-            forge/build/libs/${{ steps.version.outputs.jar_base }}-${{ steps.version.outputs.version }}-cf.jar
+            neoforge/build/libs/${{ steps.version.outputs.jar_base }}-${{ steps.version.outputs.version }}.jar
+            neoforge/build/libs/${{ steps.version.outputs.jar_base }}-${{ steps.version.outputs.version }}-cf.jar
 
       # ── Publish to Modrinth ───────────────────────────────────────────────────
       - name: Publish to Modrinth
@@ -123,10 +123,10 @@ jobs:
           version-type: release
           changelog-file: /tmp/changelog_entry.md
 
-          files: forge/build/libs/${{ steps.version.outputs.jar_base }}-${{ steps.version.outputs.version }}.jar
+          files: neoforge/build/libs/${{ steps.version.outputs.jar_base }}-${{ steps.version.outputs.version }}.jar
 
           game-versions: ${{ steps.version.outputs.mc_version }}
-          loaders: forge
+          loaders: neoforge
           dependencies: |
             create | depends | *
             kotlin-for-forge | depends | *
