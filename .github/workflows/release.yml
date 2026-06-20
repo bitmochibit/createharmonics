@@ -61,6 +61,11 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       # ── Extract changelog for this version ───────────────────────────────────
+      - name: Debug workspace
+        run: |
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          ls -la "$GITHUB_WORKSPACE"
+          find "$GITHUB_WORKSPACE" -name "*.md" | head -20
       - name: Extract changelog entry
         id: changelog
         run: |
