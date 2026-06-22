@@ -85,9 +85,6 @@ jobs:
           cat /tmp/changelog_entry.md
 
       # ── Build Mod JAR ────────────────────────────────────────────────────
-      - name: Build jar
-        run: ./gradlew :forge:build --stacktrace
-
       - name: Run data generation
         run: >
           ./gradlew :forge:runData
@@ -96,6 +93,10 @@ jobs:
         timeout-minutes: 10
         env:
           CI: true
+
+      - name: Build jar
+        run: ./gradlew :forge:build --stacktrace
+
 
       # ── GitHub Release ────────────────────────────────────────────────────────────
       - name: Create GitHub Release
