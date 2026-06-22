@@ -85,9 +85,6 @@ jobs:
           cat /tmp/changelog_entry.md
 
       # ── Build Mod JAR ────────────────────────────────────────────────────
-      - name: Build jar
-        run: ./gradlew :neoforge:build --stacktrace
-
       - name: Run data generation
         run: >
           ./gradlew :neoforge:runData
@@ -96,6 +93,9 @@ jobs:
         timeout-minutes: 10
         env:
           CI: true
+
+      - name: Build jar
+        run: ./gradlew :neoforge:build --stacktrace
 
       # ── GitHub Release ────────────────────────────────────────────────────────────
       - name: Create GitHub Release
