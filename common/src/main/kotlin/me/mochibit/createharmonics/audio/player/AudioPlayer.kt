@@ -320,6 +320,7 @@ class AudioPlayer(
 
         startPlaybackJob?.cancelAndJoin()
         loadingGeneration.incrementAndGet()
+        streamResolutionStartMillis.set(System.currentTimeMillis())
         transition(PlayerState.LOADING)
 
         launchStreamResolution(request, pos)
@@ -332,7 +333,6 @@ class AudioPlayer(
         val currentGeneration = loadingGeneration.get()
         startPlaybackJob =
             playerScope.launch(Dispatchers.IO) {
-                streamResolutionStartMillis.set(System.currentTimeMillis())
                 val source = AudioSourceResolver.resolve(request)
                 val resolvedStream =
                     try {
