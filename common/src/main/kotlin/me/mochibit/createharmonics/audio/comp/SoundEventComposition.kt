@@ -1,7 +1,6 @@
 package me.mochibit.createharmonics.audio.comp
 
 import kotlinx.coroutines.Job
-import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.effect.MixerEffect
 import me.mochibit.createharmonics.audio.effect.ScopeAnchor

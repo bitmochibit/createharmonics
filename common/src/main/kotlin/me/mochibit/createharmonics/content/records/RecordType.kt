@@ -2,7 +2,6 @@ package me.mochibit.createharmonics.content.records
 
 import com.simibubi.create.AllItems
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
-import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.effect.BitCrushEffect
 import me.mochibit.createharmonics.audio.effect.EQBand
 import me.mochibit.createharmonics.audio.effect.EqualizerEffect

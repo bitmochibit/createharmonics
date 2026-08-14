@@ -378,3 +378,5 @@ private fun Level.countLiquidCoveredFaces(
     val isThick = viscousCount >= waterCount && viscousCount > 0
     return liquidCount to isThick
 }
+
+

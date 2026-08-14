@@ -63,16 +63,6 @@ class AudioEffectInputStream(
         return flushSamplesRemaining > 0
     }
 
-    @Volatile var isFrozen: Boolean = false
-        set(value) {
-            field = value
-            effectChain.setFrozen(value)
-        }
-
-    fun freezeEffects(frozen: Boolean) {
-        effectChain.setFrozen(frozen)
-    }
-
     @Volatile var isClosed = false
         private set
 

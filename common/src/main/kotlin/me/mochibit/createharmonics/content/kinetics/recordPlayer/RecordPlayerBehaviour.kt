@@ -1,16 +1,10 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
 import com.simibubi.create.content.kinetics.belt.behaviour.DirectBeltInputBehaviour
-import com.simibubi.create.content.logistics.chute.AbstractChuteBlock
-import com.simibubi.create.content.logistics.funnel.AbstractFunnelBlock
-import com.simibubi.create.content.logistics.funnel.FunnelBlock
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
-import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import me.mochibit.createharmonics.audio.AudioPlayerManager
-import me.mochibit.createharmonics.audio.effect.AudioEffect
-import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
 import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.audio.player.BlockEntityAudioContext
@@ -47,7 +41,6 @@ import net.minecraft.util.RandomSource
 import net.minecraft.world.Containers
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.entity.item.ItemEntity
-import net.minecraft.world.item.AirItem
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
