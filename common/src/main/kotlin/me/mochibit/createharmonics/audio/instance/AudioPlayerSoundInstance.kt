@@ -1,10 +1,8 @@
 package me.mochibit.createharmonics.audio.instance
 
-import me.mochibit.createharmonics.audio.effect.OpenALEffectBinder
 import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.compat.ModCompats
 import me.mochibit.createharmonics.foundation.info
-import me.mochibit.createharmonics.mixin.ChannelAccessor
 import me.mochibit.createharmonics.mixin.SoundEngineAccessor
 import me.mochibit.createharmonics.mixin.SoundManagerAccessor
 import net.minecraft.client.Minecraft
@@ -28,7 +26,6 @@ abstract class AudioPlayerSoundInstance(
     randomSoundInstance: RandomSource,
     private val streamSound: Boolean,
 ) : AbstractTickableSoundInstance(soundEvent, soundSource, randomSoundInstance) {
-
     protected var currentRadius = audioPlayer.masterRadiusInterpolator.getValue()
     protected var currentPitch = audioPlayer.masterPitchInterpolator.getValue()
     protected var currentVolume = audioPlayer.masterVolumeInterpolator.getValue()
@@ -39,7 +36,6 @@ abstract class AudioPlayerSoundInstance(
     private val sm = mc.soundManager as SoundManagerAccessor
     protected val engine = sm.soundEngine as SoundEngineAccessor
 
-    private var effectBinder: OpenALEffectBinder? = null
     private val currentClientLevel: Level? = mc.level
 
     override fun tick() {
@@ -61,15 +57,11 @@ abstract class AudioPlayerSoundInstance(
         this.z = currentPosition.z
 
         this.volume = currentVolume
-        this.pitch = currentPitch
+
+//        this.pitch = currentPitch
 
         try {
             engine.instanceToChannel[this]?.execute { channel ->
-                if (effectBinder == null) {
-                    effectBinder = OpenALEffectBinder((channel as ChannelAccessor).source)
-                }
-                effectBinder?.apply(audioPlayer.effectChain.snapshotNative())
-
                 channel.linearAttenuation(this.currentRadius)
             }
         } catch (e: Exception) {

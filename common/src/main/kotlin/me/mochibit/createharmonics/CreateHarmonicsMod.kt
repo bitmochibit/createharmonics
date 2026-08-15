@@ -18,7 +18,6 @@ import net.createmod.catnip.lang.FontHelper
 import net.minecraft.core.Registry
 import net.minecraft.resources.ResourceKey
 import net.minecraft.world.item.CreativeModeTab
-import org.lwjgl.openal.ALC10
 
 object CreateHarmonicsMod {
     const val MOD_ID = "createharmonics"
@@ -50,7 +49,6 @@ object CreateHarmonicsMod {
         if (initialized) {
             return "Common was already initialized".err()
         }
-
         initialized = true
         _registrate.registrateConfiguration()
         ModDispatchers.setupEvents()

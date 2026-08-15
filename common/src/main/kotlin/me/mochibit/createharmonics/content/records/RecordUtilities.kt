@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.content.records
 
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
+import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.info.AudioInfo
 import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.audio.player.AudioRequest
@@ -11,6 +12,7 @@ import me.mochibit.createharmonics.config.ClientConfig
 import me.mochibit.createharmonics.foundation.debug
 import me.mochibit.createharmonics.foundation.registry.ModDataComponents
 import me.mochibit.createharmonics.foundation.registry.ModItems
+import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import me.mochibit.createharmonics.foundation.warn
 import me.mochibit.createharmonics.handler.RecordCraftingHandler
 import net.minecraft.core.component.DataComponents
