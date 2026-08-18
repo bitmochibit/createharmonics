@@ -17,6 +17,7 @@
     "ChannelAccessor",
     "ChannelMixin",
     "SoundEngineAccessor",
+    "SoundEngineMixin",
     "SoundManagerAccessor"
   ],
   "server": [],

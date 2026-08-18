@@ -1,6 +1,5 @@
 package me.mochibit.createharmonics.audio.stream
 
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -9,7 +8,54 @@ import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import java.io.IOException
 import java.io.InputStream
-import kotlin.math.abs
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
+
+
+private class ChunkedByteBuffer {
+    private val lock = ReentrantLock()
+    private val chunks = ArrayDeque<ByteArray>()
+
+    @Volatile var size: Int = 0
+        private set
+
+    fun isEmpty(): Boolean = size == 0
+
+    fun add(chunk: ByteArray) = lock.withLock {
+        chunks.addLast(chunk)
+        size += chunk.size
+    }
+
+    /** Copies up to [length] bytes into [dest] starting at [offset]. Returns the number of bytes copied. */
+    fun drainInto(dest: ByteArray, offset: Int, length: Int): Int = lock.withLock {
+        var remaining = length
+        var pos = offset
+        while (remaining > 0 && chunks.isNotEmpty()) {
+            val head = chunks.first()
+            val take = minOf(remaining, head.size)
+            System.arraycopy(head, 0, dest, pos, take)
+            if (take == head.size) chunks.removeFirst() else chunks[0] = head.copyOfRange(take, head.size)
+            size -= take
+            pos += take
+            remaining -= take
+        }
+        length - remaining
+    }
+
+    /** Drains up to [maxBytes] into a freshly allocated array (used to move data between buffers). */
+    fun drainChunk(maxBytes: Int): ByteArray = lock.withLock {
+        val result = ByteArray(minOf(maxBytes, size))
+        drainInto(result, 0, result.size)
+        result
+    }
+
+    fun clear() = lock.withLock {
+        chunks.clear()
+        size = 0
+    }
+}
 
 class AudioEffectInputStream(
     private val audioStream: InputStream,
@@ -19,6 +65,7 @@ class AudioEffectInputStream(
     val onStreamHang: (() -> Unit)? = null,
     private val channels: Int = 1,
 ) : InputStream() {
+
     companion object {
         private const val RAW_BUFFER_SECONDS = 2.0
         private const val EFFECT_PROCESS_CHUNK_SIZE = 4096
@@ -30,80 +77,44 @@ class AudioEffectInputStream(
     private val rawBufferMin get() = (bytesPerSecond * 0.5).toInt()
     private val rawBufferMax get() = (bytesPerSecond * RAW_BUFFER_SECONDS * cachedMaxPitch).toInt()
     private val rawReadSize get() = (bytesPerSecond * 0.02).toInt().coerceAtLeast(4096)
+    private val maxLookaheadBytes get() = (bytesPerSecond * AudioLatencyConfig.MAX_DSP_LOOKAHEAD_SECONDS).toInt()
 
-    private val rawAudioBuffer = ArrayDeque<ByteArray>()
-    private var rawAudioBufferSize = 0
-    private val rawBufferLock = Any()
+    private val rawBuffer = ChunkedByteBuffer()
+    private val processedBuffer = ChunkedByteBuffer()
 
-    private val processedAudioBuffer = ArrayDeque<ByteArray>()
-    private var processedAudioBufferSize = 0
-    private val processedBufferLock = Any()
 
-    // Temporary buffers for processing
     private val rawReadBuffer = ByteArray(rawReadSize)
     private val shortBuffer = ShortArray(EFFECT_PROCESS_CHUNK_SIZE / 2)
     private val outputByteBuffer = ByteArray(EFFECT_PROCESS_CHUNK_SIZE * 4)
 
     private var samplesProcessed = 0L
 
-    @Volatile private var flushSamplesRemaining = 0
-
-    @Volatile private var flushUpdateCounter = 0
-
     @Volatile var isClosed = false
         private set
 
     @Volatile private var streamEnded = false
-
     @Volatile private var streamEndSignaled = false
-
     @Volatile private var isReady = false
 
-    private val maxLookaheadBytes get() = (bytesPerSecond * AudioLatencyConfig.MAX_DSP_LOOKAHEAD_SECONDS).toInt()
-
-    private var processingJob: Job? = null
-
-    init {
-        processingJob =
-            modLaunch(Dispatchers.IO) {
-                continuousRawBuffering()
-            }
-    }
-
-
+    private var bufferingJob: Job? = modLaunch(Dispatchers.IO) { continuousRawBuffering() }
 
     private suspend fun continuousRawBuffering() {
         try {
             while (!isClosed && !streamEnded) {
-                val currentBufferSize = synchronized(rawBufferLock) { rawAudioBufferSize }
-                val targetSize = calculateRawBufferTarget()
-
-                if (currentBufferSize >= targetSize) {
+                if (rawBuffer.size >= calculateRawBufferTarget()) {
                     delay(5)
                     continue
                 }
 
-                when (val bytesRead = readFromStreamSync()) {
+                when (val bytesRead = readFromStreamSafely()) {
                     -1 -> {
                         streamEnded = true
-                        if (!isReady) isReady = true
-                        break
+                        isReady = true
                     }
-
-                    0 -> {
-                        delay(5)
-                    }
-
+                    0 -> delay(5)
                     else -> {
-                        val chunk = rawReadBuffer.copyOf(bytesRead)
-                        synchronized(rawBufferLock) {
-                            rawAudioBuffer.addLast(chunk)
-                            rawAudioBufferSize += bytesRead
-                        }
-
-                        if (!isReady && synchronized(rawBufferLock) { rawAudioBufferSize } >= rawBufferMin) {
-                            isReady = true
-                        }
+                        rawBuffer.add(rawReadBuffer.copyOf(bytesRead))
+                        if (!isReady && rawBuffer.size >= rawBufferMin) isReady = true
                     }
                 }
             }
@@ -114,12 +125,10 @@ class AudioEffectInputStream(
 
     private fun calculateRawBufferTarget(): Int {
         val base = (bytesPerSecond * RAW_BUFFER_SECONDS).toInt()
-        return (base * effectChain.getSpeedMultiplier())
-            .toInt()
-            .coerceIn(rawBufferMin, rawBufferMax)
+        return (base * effectChain.getSpeedMultiplier()).toInt().coerceIn(rawBufferMin, rawBufferMax)
     }
 
-    private fun readFromStreamSync(): Int =
+    private fun readFromStreamSafely(): Int =
         try {
             audioStream.read(rawReadBuffer, 0, rawReadBuffer.size)
         } catch (_: Exception) {
@@ -127,17 +136,11 @@ class AudioEffectInputStream(
         }
 
     override fun read(): Int {
-        if (isClosed) return -1
-        val singleByte = ByteArray(1)
-        val result = read(singleByte, 0, 1)
-        return if (result == -1) -1 else singleByte[0].toInt() and 0xFF
+        val single = ByteArray(1)
+        return if (read(single, 0, 1) == -1) -1 else single[0].toInt() and 0xFF
     }
 
-    override fun read(
-        b: ByteArray,
-        off: Int,
-        len: Int,
-    ): Int {
+    override fun read(b: ByteArray, off: Int, len: Int): Int {
         if (isClosed) return -1
         if (len == 0) return 0
         if (!isReady) return 0
@@ -150,203 +153,93 @@ class AudioEffectInputStream(
         }
     }
 
-    private fun readWithProcessedBuffer(
-        b: ByteArray,
-        off: Int,
-        len: Int,
-    ): Int {
-        var bytesCopied = drainProcessedBuffer(b, off, len)
+    private fun readWithProcessedBuffer(b: ByteArray, off: Int, len: Int): Int {
+        var copied = processedBuffer.drainInto(b, off, len)
 
-        while (bytesCopied < len) {
-            val currentlyBuffered = synchronized(processedBufferLock) { processedAudioBufferSize }
-            if (currentlyBuffered >= maxLookaheadBytes) break
-            if (!ensureProcessedAudio()) {
-                if (!streamEnded) break
+        while (copied < len && processedBuffer.size < maxLookaheadBytes) {
+            if (!ensureProcessedAudio()) break
+            copied += processedBuffer.drainInto(b, off + copied, len - copied)
+        }
+
+        if (copied > 0) return copied
+
+        if (streamEnded) {
+            if (!streamEndSignaled) {
+                streamEndSignaled = true
+                onStreamEnd?.invoke()
             }
-            bytesCopied += drainProcessedBuffer(b, off + bytesCopied, len - bytesCopied)
+            return -1
         }
-
-        if (bytesCopied > 0) return bytesCopied
-
-        bytesCopied += drainProcessedBuffer(b, off + bytesCopied, len - bytesCopied)
-        if (bytesCopied > 0) return bytesCopied
-
-        if (streamEnded && !streamEndSignaled) {
-            streamEndSignaled = true
-            onStreamEnd?.invoke()
-        }
-        return if (streamEnded) -1 else 0
+        return 0
     }
 
+    /** Moves (and, if needed, processes) one chunk of audio from the raw buffer into the processed buffer. */
     private fun ensureProcessedAudio(): Boolean {
         if (effectChain.isEmpty()) {
-            val chunk =
-                synchronized(rawBufferLock) {
-                    if (rawAudioBuffer.isEmpty()) return false
-                    drainRawChunk(EFFECT_PROCESS_CHUNK_SIZE)
-                }
+            if (rawBuffer.isEmpty()) return false
+            val chunk = rawBuffer.drainChunk(EFFECT_PROCESS_CHUNK_SIZE)
             if (chunk.isEmpty()) return false
-
-            synchronized(processedBufferLock) {
-                processedAudioBuffer.addLast(chunk)
-                processedAudioBufferSize += chunk.size
-            }
+            processedBuffer.add(chunk)
             return true
         }
 
-        val rawBytesAvailable = synchronized(rawBufferLock) { rawAudioBufferSize }
-        if (rawBytesAvailable == 0) return false
+        if (rawBuffer.isEmpty()) return false
 
-        val bytesToProcess = minOf(EFFECT_PROCESS_CHUNK_SIZE, rawBytesAvailable) and 0xFFFFFFFE.toInt()
+        // Keep the chunk 16-bit aligned
+        val bytesToProcess = minOf(EFFECT_PROCESS_CHUNK_SIZE, rawBuffer.size) and 1.inv()
         if (bytesToProcess == 0) return false
 
-        val chunk = synchronized(rawBufferLock) { drainRawChunk(bytesToProcess) }
-
-        val sampleCount = bytesToShorts(chunk, chunk.size, shortBuffer)
+        val chunk = rawBuffer.drainChunk(bytesToProcess)
+        val sampleCount = chunk.readShortsInto(shortBuffer)
         val currentTime = samplesProcessed.toDouble() / sampleRate
 
-        val outputSamples =
-            effectChain.process(
-                if (sampleCount == shortBuffer.size) shortBuffer else shortBuffer.copyOf(sampleCount),
-                currentTime,
-                sampleRate,
-            )
+        val outputSamples = effectChain.process(
+            if (sampleCount == shortBuffer.size) shortBuffer else shortBuffer.copyOf(sampleCount),
+            currentTime,
+            sampleRate,
+        )
 
         if (outputSamples.isNotEmpty()) {
-            val outputByteCount = outputSamples.size * 2
-            shortsToBytes(outputSamples, outputSamples.size, outputByteBuffer)
-            val outputChunk = outputByteBuffer.copyOf(outputByteCount)
-
-            synchronized(processedBufferLock) {
-                processedAudioBuffer.addLast(outputChunk)
-                processedAudioBufferSize += outputByteCount
-            }
+            outputSamples.writeBytesInto(outputByteBuffer)
+            processedBuffer.add(outputByteBuffer.copyOf(outputSamples.size * 2))
         }
 
         samplesProcessed += sampleCount
         return true
     }
 
-
-    /**
-     * Drains up to [maxBytes] bytes from the raw buffer into a single ByteArray.
-     * Must be called while holding [rawBufferLock].
-     */
-    private fun drainRawChunk(maxBytes: Int): ByteArray {
-        val result = ByteArray(minOf(maxBytes, rawAudioBufferSize))
-        var remaining = result.size
-        var offset = 0
-
-        while (remaining > 0 && rawAudioBuffer.isNotEmpty()) {
-            val head = rawAudioBuffer.first()
-            val take = minOf(remaining, head.size)
-            System.arraycopy(head, 0, result, offset, take)
-
-            if (take == head.size) {
-                rawAudioBuffer.removeFirst()
-            } else {
-                // Partial consume — replace head with remainder
-                val leftover = head.copyOfRange(take, head.size)
-                rawAudioBuffer[0] = leftover
-            }
-
-            rawAudioBufferSize -= take
-            offset += take
-            remaining -= take
-        }
-
-        return result
-    }
-
-    /**
-     * Drains up to [len] bytes from the processed buffer directly into [b].
-     * Must be called while holding [processedBufferLock] only around size reads;
-     * actual drain is done under lock.
-     */
-    private fun drainProcessedBuffer(
-        b: ByteArray,
-        off: Int,
-        len: Int,
-    ): Int {
-        var remaining = len
-        var offset = off
-
-        synchronized(processedBufferLock) {
-            while (remaining > 0 && processedAudioBuffer.isNotEmpty()) {
-                val head = processedAudioBuffer.first()
-                val take = minOf(remaining, head.size)
-                System.arraycopy(head, 0, b, offset, take)
-
-                if (take == head.size) {
-                    processedAudioBuffer.removeFirst()
-                } else {
-                    processedAudioBuffer[0] = head.copyOfRange(take, head.size)
-                }
-
-                processedAudioBufferSize -= take
-                offset += take
-                remaining -= take
-            }
-        }
-
-        return len - remaining
-    }
-
-    private fun bytesToShorts(
-        bytes: ByteArray,
-        length: Int,
-        shorts: ShortArray,
-    ): Int {
-        val shortCount = length / 2
-        for (i in 0 until shortCount) {
-            val o = i * 2
-            shorts[i] = (((bytes[o + 1].toInt() and 0xFF) shl 8) or (bytes[o].toInt() and 0xFF)).toShort()
-        }
-        return shortCount
-    }
-
-    private fun shortsToBytes(
-        shorts: ShortArray,
-        length: Int,
-        bytes: ByteArray,
-    ) {
-        for (i in 0 until length) {
-            val o = i * 2
-            bytes[o] = (shorts[i].toInt() and 0xFF).toByte()
-            bytes[o + 1] = ((shorts[i].toInt() shr 8) and 0xFF).toByte()
-        }
-    }
-
     override fun close() {
         if (isClosed) return
         isClosed = true
 
-        processingJob?.cancel()
-        processingJob = null
+        bufferingJob?.cancel()
+        bufferingJob = null
 
         try {
             audioStream.close()
         } catch (_: Exception) {
         }
 
-        synchronized(rawBufferLock) {
-            rawAudioBuffer.clear()
-            rawAudioBufferSize = 0
-        }
-        synchronized(processedBufferLock) {
-            processedAudioBuffer.clear()
-            processedAudioBufferSize = 0
-        }
+        rawBuffer.clear()
+        processedBuffer.clear()
         effectChain.reset()
     }
 
     override fun available(): Int {
         if (isClosed) return 0
-
-        val processed = synchronized(processedBufferLock) { processedAudioBufferSize }
-        val rawBytes = synchronized(rawBufferLock) { rawAudioBufferSize }
         val speedMultiplier = effectChain.getSpeedMultiplier()
-
-        return processed + (rawBytes / speedMultiplier).toInt()
+        return processedBuffer.size + (rawBuffer.size / speedMultiplier).toInt()
     }
+}
+
+/** Reinterprets this byte array as little-endian 16-bit PCM samples, writing them into [dest]. Returns sample count. */
+private fun ByteArray.readShortsInto(dest: ShortArray): Int {
+    val sampleCount = size / 2
+    ByteBuffer.wrap(this, 0, sampleCount * 2).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(dest, 0, sampleCount)
+    return sampleCount
+}
+
+/** Writes this short array as little-endian 16-bit PCM bytes into [dest]. */
+private fun ShortArray.writeBytesInto(dest: ByteArray) {
+    ByteBuffer.wrap(dest, 0, size * 2).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().put(this)
 }
