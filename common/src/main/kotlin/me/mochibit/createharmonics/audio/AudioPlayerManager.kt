@@ -32,26 +32,21 @@ object AudioPlayerManager {
                 }
             }
 
-        // Ensure state machine is running in case it was a re-retrieved existing player
-        // that somehow had its state machine cancelled, though usually not expected unless stopped.
-        player.startStateMachine()
-
         return player
     }
 
     fun get(id: String): AudioPlayer? = players[id]
 
     fun release(
-        id: String,
-        cancelTail: Boolean = false,
+        id: String
     ) {
-        players.remove(id)?.close(cancelTail)
+        players.remove(id)?.close()
     }
 
-    fun closeAll(cancelTails: Boolean = false) {
+    fun closeAll() {
         val snapshot = players.values.toList().also { players.clear() }
         snapshot.forEach { player ->
-            runCatching { player.close(cancelTails) }
+            runCatching { player.close() }
                 .onFailure { "Error disposing ${player.playerId}: ${it.message}".err() }
         }
     }

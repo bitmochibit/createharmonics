@@ -14,7 +14,6 @@ import java.io.InputStream
 class SimpleStreamSoundInstance(
     audioPlayer: AudioPlayer,
     inStream: InputStream,
-    streamId: String,
     soundEvent: SoundEvent,
     randomSource: RandomSource = RandomSource.create(),
     soundSource: SoundSource = SoundSource.RECORDS,
@@ -25,7 +24,6 @@ class SimpleStreamSoundInstance(
     sampleRate: Int = 44100,
 ) : StreamingSoundInstance(
         inStream,
-        streamId,
         sampleRate,
         audioPlayer,
         soundEvent,

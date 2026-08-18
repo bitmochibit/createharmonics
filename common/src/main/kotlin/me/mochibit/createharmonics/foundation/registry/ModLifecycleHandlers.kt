@@ -18,7 +18,7 @@ object ModLifecycleHandlers : CommonRegistry {
     override fun register(registry: Registry<*>?) {
         // Client disconnects from a server (including leaving singleplayer/LAN)
         EventBus.onSync<ClientEvents.ClientDisconnectedEvent> { _ ->
-            AudioPlayerManager.closeAll(true)
+            AudioPlayerManager.closeAll()
         }
 
         EventBus.on<ClientEvents.ClientDisconnectedEvent> { _ ->
@@ -28,7 +28,7 @@ object ModLifecycleHandlers : CommonRegistry {
 
         EventBus.onSync<CommonEvents.LevelUnloadEvent> { event ->
             if (event.side == LogicalSide.CLIENT) {
-                AudioPlayerManager.closeAll(true)
+                AudioPlayerManager.closeAll()
                 ClientCoroutineScope.reset()
             }
         }
@@ -41,7 +41,7 @@ object ModLifecycleHandlers : CommonRegistry {
         // Game is fully closing
         EventBus.onSync<CommonEvents.GameShuttingDownEvent> { event ->
             if (event.side == LogicalSide.CLIENT) {
-                AudioPlayerManager.closeAll(true)
+                AudioPlayerManager.closeAll()
                 ProcessLifecycleManager.shutdownAll()
                 ClientCoroutineScope.reset()
             }

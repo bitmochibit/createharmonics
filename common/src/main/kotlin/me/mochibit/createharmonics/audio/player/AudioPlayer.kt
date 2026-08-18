@@ -1,51 +1,41 @@
 package me.mochibit.createharmonics.audio.player
 
-import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.audio.effect.EffectPreset
-import me.mochibit.createharmonics.audio.instance.SampleRatedInstance
 import me.mochibit.createharmonics.audio.stream.AudioEffectInputStream
 import me.mochibit.createharmonics.audio.utils.pause
 import me.mochibit.createharmonics.audio.utils.unpause
-import me.mochibit.createharmonics.config.ClientConfig
 import me.mochibit.createharmonics.foundation.async.ClientCoroutineScope
 import me.mochibit.createharmonics.foundation.async.withMainContext
-import me.mochibit.createharmonics.foundation.debug
 import me.mochibit.createharmonics.foundation.info
-import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerStreamEndPacket
-import me.mochibit.createharmonics.foundation.network.packet.UpdateAudioNamePacket
-import me.mochibit.createharmonics.foundation.registry.ModPackets
-import me.mochibit.createharmonics.foundation.supplier.values.FloatInterpolator
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
-import java.io.InputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.seconds
 
-typealias SoundInstanceFactory = AudioPlayer.(streamId: String, stream: InputStream) -> SoundInstance
-
-// TODO: This class is very big now and needs some cleanup ASAP
-// TODO: Preload next stream so loop works without gaps (loop can set true or false externally)
+typealias SoundInstanceFactory = AudioPlayer.(stream: java.io.InputStream) -> SoundInstance
 
 
 class AudioPlayer(
     val playerId: String,
-    val soundInstanceFactory: SoundInstanceFactory,
-) {
+    private val soundInstanceFactory: SoundInstanceFactory,
+) : PlaybackActions {
     private val playerScope =
         CoroutineScope(
             ClientCoroutineScope.coroutineContext + SupervisorJob(ClientCoroutineScope.coroutineContext[Job]),
         )
-
-    private val _state = MutableStateFlow(PlayerState.STOPPED)
 
     @Volatile
     private var currentAudioRequest: AudioRequest? = null
@@ -56,31 +46,18 @@ class AudioPlayer(
     @Volatile
     private var currentSoundInstance: SoundInstance? = null
 
-    private val intents = Channel<PlayerIntent>(Channel.UNLIMITED)
-
-    val playerTerminated = AtomicBoolean(false)
-
-    @Volatile
-    private var stateMachineJob: Job? = null
-
     @Volatile
     private var startPlaybackJob: Job? = null
 
-    private val streamResolutionStartMillis = AtomicLong(0)
-
-    val effectChain = EffectChain()
-    val soundEventComposition = SoundEventComposition(soundEffectChain = effectChain)
-    val state: StateFlow<PlayerState> = _state.asStateFlow()
-    val clock = PlaytimeClock()
-    val isSeekingDisabled = AtomicBoolean(false)
-
     private val loadingGeneration = AtomicInteger(0)
-
-    private val soundManager get() = Minecraft.getInstance().soundManager
+    private val streamResolutionStartMillis = AtomicLong(0)
 
     @Volatile
     private var lastResyncAt: Long = -1L
     private val resyncCooldown = 10.seconds
+
+    val playerTerminated = AtomicBoolean(false)
+    val isSeekingDisabled = AtomicBoolean(false)
 
     @Volatile
     var context: AudioSpatialContext? = null
@@ -88,377 +65,51 @@ class AudioPlayer(
     @Volatile
     var contextKey: Any? = null
 
-    val masterVolumeInterpolator = FloatInterpolator(1f, 4.0.seconds)
-    val masterPitchInterpolator = FloatInterpolator(1f, 4.0.seconds)
-    val masterRadiusInterpolator = FloatInterpolator(1f, 4.0.seconds)
+    val effectChain = EffectChain()
+    val soundEventComposition = SoundEventComposition(soundEffectChain = effectChain)
+    val clock = PlaytimeClock()
 
-    val underwaterFilter = EffectPreset.UnderwaterFilter()
-    val reverberator = EffectPreset.Reverberator()
+    private val spatial = SpatialAudioController()
+    private val notifier = AudioPlayerNotifier(playerId)
+    private val streamLoader = StreamLoader(effectChain, soundInstanceFactory, this)
+    private val stateMachine = PlaybackStateMachine(playerScope, this)
+    private val retryScheduler =
+        RetryScheduler(scope = playerScope, onRetry = { stateMachine.send(PlayerIntent.Play(0.0)) })
+    private val watchdog =
+        PlaybackWatchdog(
+            scope = playerScope,
+            isPlaying = { state.value == PlayerState.PLAYING },
+            currentInstance = { currentSoundInstance },
+            isActiveInSoundManager = { instance -> soundManager.isActive(instance) },
+            onHang = { stateMachine.send(PlayerIntent.AudioHanged) },
+        )
+
+    val state get() = stateMachine.state
+
+    private val soundManager get() = Minecraft.getInstance().soundManager
+
+    val masterVolumeInterpolator get() = spatial.masterVolume
+    val masterPitchInterpolator get() = spatial.masterPitch
+    val masterRadiusInterpolator get() = spatial.masterRadius
+
+    //todo move this into some data structure for effect presets
+    val underwaterFilter get() = spatial.underwaterFilter
+    val reverberator get() = spatial.reverberator
 
     init {
-        startStateMachine()
+        stateMachine.start()
+        watchdog.start()
     }
 
-    fun startStateMachine() {
-        val currentSm = stateMachineJob
-        if (currentSm == null || !currentSm.isActive) {
-            stateMachineJob =
-                playerScope.launch(Dispatchers.IO) {
-                    try {
-                        for (intent in intents) {
-                            try {
-                                handleIntent(intent)
-                            } catch (e: Exception) {
-                                if (e is CancellationException) throw e
-                                e.printStackTrace()
-                            }
-                        }
-                    } finally {
-                        withContext(NonCancellable) {
-                            intents.close()
-                            doStopPlayback()
-                            playerScope.cancel()
-                        }
-                    }
-                }
-            playerScope.launch(Dispatchers.Default) {
-                while (isActive) {
-                    delay(1.seconds)
-                    val instance = currentSoundInstance
-                    val currentState = _state.value
-                    if (currentState == PlayerState.PLAYING && instance != null) {
-                        if (!soundManager.isActive(instance)) {
-                            intents.trySend(PlayerIntent.AudioHanged)
-                        }
-                    }
-                }
-            }
-        }
-    }
+    fun play(initialPosition: Double = 0.0) = stateMachine.send(PlayerIntent.Play(initialPosition))
 
-    private suspend fun handleIntent(intent: PlayerIntent) {
-        when (intent) {
-            is PlayerIntent.Play -> {
-                when (_state.value) {
-                    PlayerState.PLAYING,
-                    PlayerState.LOADING,
-                        -> {
-                        return
-                    }
+    fun pause() = stateMachine.send(PlayerIntent.Pause)
 
-                    PlayerState.PAUSED -> {
-                        if (currentSoundInstance != null) {
-                            resumePlayback()
-                        } else {
-                            doStopPlayback()
-                            startPlayback(clock.currentPlaytime)
-                        }
-                    }
+    fun stop() = stateMachine.send(PlayerIntent.Stop)
 
-                    PlayerState.STOPPED -> {
-                        startPlayback(intent.initialPosition)
-                    }
-                }
-            }
+    fun seek(position: Double) = stateMachine.send(PlayerIntent.Seek(position))
 
-            is PlayerIntent.Pause -> {
-                when (_state.value) {
-                    PlayerState.PAUSED,
-                        -> {
-                        return
-                    }
-
-                    PlayerState.LOADING -> {
-                        startPlaybackJob?.cancelAndJoin()
-                        pausePlayback()
-                    }
-
-                    PlayerState.PLAYING -> {
-                        pausePlayback()
-                    }
-
-                    else -> {
-                        return
-                    }
-                }
-            }
-
-            is PlayerIntent.Stop -> {
-                when (_state.value) {
-                    PlayerState.STOPPED -> return
-                    else -> doStopPlayback()
-                }
-            }
-
-            is PlayerIntent.Seek -> {
-                startPlaybackJob?.cancelAndJoin()
-                if (isSeekingDisabled.get()) return
-                if (_state.value == PlayerState.PLAYING || _state.value == PlayerState.PAUSED) {
-                    doStopPlayback(isSeek = true)
-                    startPlayback(intent.position)
-                }
-            }
-
-            is PlayerIntent.StreamReady -> {
-                if (_state.value != PlayerState.LOADING || intent.streamGeneration != loadingGeneration.get()) {
-                    intent.stream.close()
-                    return
-                }
-
-                currentAudioEffectInputStream = intent.stream
-                currentSoundInstance = intent.soundInstance
-
-                if (intent.audioInfo.isLive) {
-                    isSeekingDisabled.set(true)
-                }
-
-                val resolutionElapsed = (System.currentTimeMillis() - streamResolutionStartMillis.get()) / 1000.0
-                val adjustedPos = if (intent.audioInfo.isLive) 0.0 else intent.atPos + resolutionElapsed
-                clock.play(adjustedPos)
-                lastResyncAt = System.currentTimeMillis()
-                withMainContext { soundManager.play(intent.soundInstance) }
-                soundEventComposition.makeComposition(intent.soundInstance)
-                notifyAudioTitle(intent.audioInfo.title)
-
-                transition(PlayerState.PLAYING)
-            }
-
-            is PlayerIntent.StreamFailed -> {
-                doStopPlayback()
-                isSeekingDisabled.set(intent.shouldDisableSeek)
-                if (intent.shouldRetry) {
-                    intents.trySend(PlayerIntent.Play(0.0))
-                }
-            }
-
-            is PlayerIntent.AudioFinished -> {
-                startPlaybackJob?.cancelAndJoin()
-                notifyStreamEnd()
-                doStopPlayback()
-            }
-
-            is PlayerIntent.AudioHanged -> {
-                startPlaybackJob?.cancelAndJoin()
-                when (_state.value) {
-                    PlayerState.PAUSED -> {
-                        startPlaybackJob?.cancelAndJoin()
-                        resumePlayback()
-                        pausePlayback()
-                    }
-
-                    PlayerState.PLAYING -> {
-                        startPlaybackJob?.cancelAndJoin()
-                        unstuckPlayback()
-                    }
-
-                    else -> {
-                        return
-                    }
-                }
-            }
-
-            is PlayerIntent.NewRequest -> {
-                if (currentAudioRequest?.isSameSource(intent.req) == true) return
-
-                startPlaybackJob?.cancelAndJoin()
-
-                if (_state.value == PlayerState.PLAYING || _state.value == PlayerState.LOADING) return
-                doStopPlayback()
-                currentAudioRequest = intent.req
-            }
-
-            else -> {
-                "Invalid intent sent to the audio player!".info()
-            }
-        }
-    }
-
-    private suspend fun startPlayback(pos: Double = 0.0) {
-        val request = currentAudioRequest ?: return
-
-        startPlaybackJob?.cancelAndJoin()
-        loadingGeneration.incrementAndGet()
-        streamResolutionStartMillis.set(System.currentTimeMillis())
-        transition(PlayerState.LOADING)
-
-        launchStreamResolution(request, pos)
-    }
-
-    private fun launchStreamResolution(
-        request: AudioRequest,
-        pos: Double,
-    ) {
-        val currentGeneration = loadingGeneration.get()
-        startPlaybackJob =
-            playerScope.launch(Dispatchers.IO) {
-                val source = AudioSourceResolver.resolve(request)
-                val resolvedStream =
-                    try {
-                        SourceStreamResolver.resolveInputStream(source, pos)
-                    } catch (e: CancellationException) {
-                        if (ClientConfig.debugAudioPlayer.get()) {
-                            "Audio player cancellation was requested!".debug()
-                        }
-                        throw e
-                    } catch (e: Exception) {
-                        if (ClientConfig.debugAudioPlayer.get()) {
-                            "[AUDIO PLAYER FAIL] The player failed, and a retry will be requested\n cause:${e.message ?: "no explicit cause.. this is bad"}"
-                                .debug()
-                        }
-                        if (isActive) intents.trySend(PlayerIntent.StreamFailed())
-                        return@launch
-                    }
-                if (!isActive) {
-                    resolvedStream.inputStream?.close()
-                    return@launch
-                }
-
-                if (resolvedStream.status == SourceStreamResolver.Result.StreamStatus.FINISHED) {
-                    resolvedStream.inputStream?.close()
-                    intents.trySend(PlayerIntent.AudioFinished)
-                    return@launch
-                }
-
-                if (resolvedStream.inputStream == null || resolvedStream.status == SourceStreamResolver.Result.StreamStatus.FAILED) {
-                    resolvedStream.inputStream?.close()
-                    if (pos > 0) {
-                        "Restarted source playback since it hanged, probably for this url seek is not supported".info()
-                    }
-                    if (isActive) {
-                        intents.trySend(PlayerIntent.StreamFailed(shouldDisableSeek = true, shouldRetry = true))
-                    }
-                    return@launch
-                }
-
-                val stream =
-                    AudioEffectInputStream(
-                        resolvedStream.inputStream,
-                        effectChain,
-                        resolvedStream.audioInfo.sampleRate.toInt(),
-                        onStreamEnd = { handleStreamEnd() },
-                        onStreamHang = { handleStreamHang() },
-                    )
-
-                val soundInstance = soundInstanceFactory(this@AudioPlayer, playerId, stream)
-                if (soundInstance is SampleRatedInstance) {
-                    soundInstance.sampleRate = resolvedStream.audioInfo.sampleRate.toInt()
-                }
-
-                if (!isActive) {
-                    stream.close()
-                    return@launch
-                }
-
-                intents.trySend(
-                    PlayerIntent.StreamReady(
-                        stream,
-                        soundInstance,
-                        resolvedStream.audioInfo,
-                        pos,
-                        currentGeneration,
-                    ),
-                )
-            }
-    }
-
-    private suspend fun pausePlayback() {
-        val capturedInstance = currentSoundInstance ?: return handleStreamFailure()
-
-        clock.pause()
-        transition(PlayerState.PAUSED)
-        withContext(NonCancellable) {
-            withMainContext {
-                if (!capturedInstance.pause()) soundManager.stop(capturedInstance)
-            }
-        }
-    }
-
-    private suspend fun resumePlayback() {
-        val capturedInstance = currentSoundInstance ?: return handleStreamFailure()
-
-        withMainContext {
-            if (!capturedInstance.unpause()) soundManager.play(capturedInstance)
-        }
-        clock.play()
-        transition(PlayerState.PLAYING)
-    }
-
-    private suspend fun unstuckPlayback() {
-        val capturedInstance = currentSoundInstance ?: return handleStreamFailure()
-        withMainContext {
-            if (Minecraft.getInstance().level == null) return@withMainContext
-            if (Minecraft.getInstance().isSingleplayer && Minecraft.getInstance().isPaused) return@withMainContext
-            if (soundManager.isActive(capturedInstance)) return@withMainContext
-            soundManager.play(capturedInstance)
-        }
-    }
-
-    private suspend fun doStopPlayback(
-        isSeek: Boolean = false,
-    ) {
-        startPlaybackJob?.cancelAndJoin()
-        startPlaybackJob = null
-
-        val capturedStream = currentAudioEffectInputStream
-        val capturedInstance = currentSoundInstance
-        currentAudioEffectInputStream = null
-        currentSoundInstance = null
-
-        soundEventComposition.stopComposition()
-        clock.stop()
-        isSeekingDisabled.set(false)
-        if (!isSeek) lastResyncAt = -1L
-        withContext(NonCancellable) {
-            withMainContext { capturedInstance?.let { soundManager.stop(it) } }
-            capturedStream?.close()
-            effectChain.reset()
-            _state.value = PlayerState.STOPPED
-        }
-    }
-
-    private suspend fun handleStreamFailure(
-        shouldDisableSeek: Boolean = false,
-        shouldRetry: Boolean = false,
-    ) {
-        startPlaybackJob?.cancelAndJoin()
-        startPlaybackJob = null
-        doStopPlayback()
-        isSeekingDisabled.set(shouldDisableSeek)
-        if (shouldRetry) {
-            intents.trySend(PlayerIntent.Play(0.0))
-        }
-    }
-
-    private fun transition(next: PlayerState) {
-        val current = _state.value
-        check(current.canTransitionTo(next)) { "Invalid transition: $current → $next" }
-        _state.value = next
-    }
-
-
-    private fun handleStreamEnd() = intents.trySend(PlayerIntent.AudioFinished)
-
-    private fun handleStreamHang() = intents.trySend(PlayerIntent.AudioHanged)
-
-    private fun notifyAudioTitle(name: String) = ModPackets.sendToServer(UpdateAudioNamePacket(playerId, name))
-
-    private fun notifyStreamEnd() = ModPackets.sendToServer(AudioPlayerStreamEndPacket(playerId))
-
-    fun play(initialPosition: Double = 0.0) = intents.trySend(PlayerIntent.Play(initialPosition))
-
-    fun pause() {
-        intents.trySend(PlayerIntent.Pause)
-    }
-
-    fun stop() {
-        intents.trySend(PlayerIntent.Stop)
-    }
-
-    fun seek(position: Double) {
-        intents.trySend(PlayerIntent.Seek(position))
-    }
-
-    fun request(req: AudioRequest) = intents.trySend(PlayerIntent.NewRequest(req))
+    fun request(req: AudioRequest) = stateMachine.send(PlayerIntent.NewRequest(req))
 
     fun syncWith(other: PlaytimeClock) {
         if (!clock.isPlaying || !other.isPlaying) return
@@ -473,24 +124,157 @@ class AudioPlayer(
 
     fun tick() {
         clock.tick()
-
-        val ctx = context ?: return
-
-        masterPitchInterpolator.setTarget(ctx.targetPitch())
-        masterVolumeInterpolator.setTarget(ctx.targetVolume())
-        masterRadiusInterpolator.setTarget(ctx.targetRadius())
-
-        masterPitchInterpolator.tick()
-        masterVolumeInterpolator.tick()
-        masterRadiusInterpolator.tick()
-
-        underwaterFilter.update(this)
-        reverberator.update(this)
+        spatial.tick(this)
     }
 
     fun close() {
         playerTerminated.set(true)
-        intents.trySend(PlayerIntent.Shutdown)
-        intents.close()
+        retryScheduler.cancelPending()
+        watchdog.stop()
+        stateMachine.shutdown()
     }
+
+    internal fun onStreamEnd() = stateMachine.send(PlayerIntent.AudioFinished)
+
+    internal fun onStreamHang() = stateMachine.send(PlayerIntent.AudioHanged)
+
+    override fun hasActiveSoundInstance(): Boolean = currentSoundInstance != null
+
+    override fun isSeekingDisabled(): Boolean = isSeekingDisabled.get()
+
+    override fun currentPlaytime(): Double = clock.currentPlaytime
+
+    override fun isSameSourceAsCurrentRequest(request: AudioRequest): Boolean =
+        currentAudioRequest?.isSameSource(request) == true
+
+    override fun isValidGeneration(streamGeneration: Int): Boolean = streamGeneration == loadingGeneration.get()
+
+    override fun setCurrentRequest(request: AudioRequest) {
+        currentAudioRequest = request
+    }
+
+    override fun resetRetrySchedule() = retryScheduler.reset()
+
+    override fun cancelPendingRetry() = retryScheduler.cancelPending()
+
+    override suspend fun cancelLoading() {
+        startPlaybackJob?.cancelAndJoin()
+    }
+
+    override suspend fun startPlayback(position: Double) {
+        val request = currentAudioRequest ?: return
+
+        startPlaybackJob?.cancelAndJoin()
+        val generation = loadingGeneration.incrementAndGet()
+        streamResolutionStartMillis.set(System.currentTimeMillis())
+        stateMachine.transition(PlayerState.LOADING)
+
+        startPlaybackJob =
+            playerScope.launch(Dispatchers.IO) {
+                when (val result = streamLoader.load(request, position)) {
+                    is StreamLoadResult.Ready -> {
+                        if (!isActive) {
+                            result.stream.close()
+                            return@launch
+                        }
+                        stateMachine.send(
+                            PlayerIntent.StreamReady(result.stream, result.soundInstance, result.audioInfo, position, generation),
+                        )
+                    }
+
+                    StreamLoadResult.Finished -> stateMachine.send(PlayerIntent.AudioFinished)
+
+                    is StreamLoadResult.Failed -> {
+                        if (position > 0) {
+                            "Restarted source playback since it hanged, probably for this url seek is not supported".info()
+                        }
+                        if (isActive) {
+                            stateMachine.send(PlayerIntent.StreamFailed(result.shouldDisableSeek, result.shouldRetry))
+                        }
+                    }
+                }
+            }
+    }
+
+    override suspend fun pausePlayback() {
+        val capturedInstance = currentSoundInstance ?: return failPlayback()
+
+        clock.pause()
+        stateMachine.transition(PlayerState.PAUSED)
+        withContext(NonCancellable) {
+            withMainContext {
+                if (!capturedInstance.pause()) soundManager.stop(capturedInstance)
+            }
+        }
+    }
+
+    override suspend fun resumePlayback() {
+        val capturedInstance = currentSoundInstance ?: return failPlayback()
+
+        withMainContext {
+            if (!capturedInstance.unpause()) soundManager.play(capturedInstance)
+        }
+        clock.play()
+        stateMachine.transition(PlayerState.PLAYING)
+    }
+
+    override suspend fun unstuckPlayback() {
+        val capturedInstance = currentSoundInstance ?: return failPlayback()
+        withMainContext {
+            if (Minecraft.getInstance().level == null) return@withMainContext
+            if (Minecraft.getInstance().isSingleplayer && Minecraft.getInstance().isPaused) return@withMainContext
+            if (soundManager.isActive(capturedInstance)) return@withMainContext
+            soundManager.play(capturedInstance)
+        }
+    }
+
+    override suspend fun stopPlayback(isSeek: Boolean) {
+        startPlaybackJob?.cancelAndJoin()
+        startPlaybackJob = null
+
+        val capturedStream = currentAudioEffectInputStream
+        val capturedInstance = currentSoundInstance
+        currentAudioEffectInputStream = null
+        currentSoundInstance = null
+
+        soundEventComposition.stopComposition()
+        clock.stop()
+        isSeekingDisabled.set(false)
+        if (!isSeek) lastResyncAt = -1L
+
+        withContext(NonCancellable) {
+            withMainContext { capturedInstance?.let { soundManager.stop(it) } }
+            capturedStream?.close()
+            effectChain.reset()
+            stateMachine.forceState(PlayerState.STOPPED)
+        }
+    }
+
+    override suspend fun failPlayback(
+        shouldDisableSeek: Boolean,
+        shouldRetry: Boolean,
+    ) {
+        stopPlayback()
+        isSeekingDisabled.set(shouldDisableSeek)
+        if (shouldRetry) retryScheduler.scheduleRetry() else retryScheduler.reset()
+    }
+
+    override suspend fun applyStreamReady(intent: PlayerIntent.StreamReady) {
+        currentAudioEffectInputStream = intent.stream
+        currentSoundInstance = intent.soundInstance
+
+        if (intent.audioInfo.isLive) isSeekingDisabled.set(true)
+
+        val resolutionElapsed = (System.currentTimeMillis() - streamResolutionStartMillis.get()) / 1000.0
+        val adjustedPos = if (intent.audioInfo.isLive) 0.0 else intent.atPos + resolutionElapsed
+        clock.play(adjustedPos)
+        lastResyncAt = System.currentTimeMillis()
+
+        withMainContext { soundManager.play(intent.soundInstance) }
+        soundEventComposition.makeComposition(intent.soundInstance)
+        notifier.audioTitleChanged(intent.audioInfo.title)
+        retryScheduler.reset()
+    }
+
+    override suspend fun notifyAudioFinished() = notifier.streamEnded()
 }

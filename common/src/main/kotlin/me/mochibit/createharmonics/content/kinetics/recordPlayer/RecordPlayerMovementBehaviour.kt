@@ -489,7 +489,6 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                         }
 
                         PlayerState.STOPPED,
-                        PlayerState.TAILING,
                         -> {
                             val record = getRecordItem(context)
                             player.playFromRecord(
@@ -512,7 +511,7 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                 }
 
                 PlaybackState.STOPPED -> {
-                    if (player.state.value == PlayerState.STOPPED || player.state.value == PlayerState.TAILING) {
+                    if (player.state.value == PlayerState.STOPPED) {
                         return
                     }
                     player.stop()
@@ -539,11 +538,10 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
         val player =
             AudioPlayerManager.getOrCreate(
                 playerId,
-                provider = { streamId, stream ->
+                provider = { stream ->
                     StreamingSoundInstance.simpleFactory(
                         this,
                         stream,
-                        streamId,
                         SoundEvents.EMPTY,
                     )
                 },

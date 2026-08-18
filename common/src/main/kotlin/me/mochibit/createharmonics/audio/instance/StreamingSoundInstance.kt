@@ -15,7 +15,6 @@ import java.io.InputStream
 
 abstract class StreamingSoundInstance(
     val sourceStream: InputStream,
-    val streamId: String,
     override var sampleRate: Int = 44100,
     audioPlayer: AudioPlayer,
     soundEvent: SoundEvent,
@@ -35,7 +34,6 @@ abstract class StreamingSoundInstance(
         fun simpleFactory(
             audioPlayer: AudioPlayer,
             stream: InputStream,
-            streamId: String,
             soundEvent: SoundEvent,
             sampleRate: Int = 44100,
             soundSource: SoundSource = SoundSource.RECORDS,
@@ -48,7 +46,6 @@ abstract class StreamingSoundInstance(
             SimpleStreamSoundInstance(
                 audioPlayer,
                 stream,
-                streamId,
                 soundEvent,
                 randomSource,
                 soundSource,

@@ -70,10 +70,7 @@ class AudioEffectInputStream(
             }
     }
 
-    fun updateTailLength() {
-        val tailSeconds = effectChain.tailLengthSeconds(sampleRate)
-        flushSamplesRemaining = (tailSeconds * sampleRate).toInt()
-    }
+
 
     private suspend fun continuousRawBuffering() {
         try {
@@ -163,13 +160,22 @@ class AudioEffectInputStream(
         while (bytesCopied < len) {
             val currentlyBuffered = synchronized(processedBufferLock) { processedAudioBufferSize }
             if (currentlyBuffered >= maxLookaheadBytes) break
-            if (!ensureProcessedAudio()) break
+            if (!ensureProcessedAudio()) {
+                if (!streamEnded) break
+            }
             bytesCopied += drainProcessedBuffer(b, off + bytesCopied, len - bytesCopied)
         }
 
         if (bytesCopied > 0) return bytesCopied
+
         bytesCopied += drainProcessedBuffer(b, off + bytesCopied, len - bytesCopied)
-        return bytesCopied
+        if (bytesCopied > 0) return bytesCopied
+
+        if (streamEnded && !streamEndSignaled) {
+            streamEndSignaled = true
+            onStreamEnd?.invoke()
+        }
+        return if (streamEnded) -1 else 0
     }
 
     private fun ensureProcessedAudio(): Boolean {
@@ -221,34 +227,6 @@ class AudioEffectInputStream(
         return true
     }
 
-    private fun flushEffectTail(): Boolean {
-        if (flushSamplesRemaining <= 0) return false
-
-        val chunkSamples = minOf(EFFECT_PROCESS_CHUNK_SIZE / 2, flushSamplesRemaining)
-        val silence = ShortArray(chunkSamples)
-        val currentTime = samplesProcessed.toDouble() / sampleRate
-
-        val outputSamples = effectChain.process(silence, currentTime, sampleRate)
-        flushSamplesRemaining -= chunkSamples
-        samplesProcessed += chunkSamples
-
-        val maxAmplitude = outputSamples.maxOfOrNull { abs(it.toInt()) } ?: 0
-        if (maxAmplitude <= 62) {
-            flushSamplesRemaining = 0
-            return false
-        }
-
-        val outputByteCount = outputSamples.size * 2
-        shortsToBytes(outputSamples, outputSamples.size, outputByteBuffer)
-        val outputChunk = outputByteBuffer.copyOf(outputByteCount)
-
-        synchronized(processedBufferLock) {
-            processedAudioBuffer.addLast(outputChunk)
-            processedAudioBufferSize += outputByteCount
-        }
-
-        return true
-    }
 
     /**
      * Drains up to [maxBytes] bytes from the raw buffer into a single ByteArray.

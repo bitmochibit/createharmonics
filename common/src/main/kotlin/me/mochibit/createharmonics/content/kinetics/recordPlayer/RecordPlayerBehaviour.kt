@@ -154,8 +154,7 @@ class RecordPlayerBehaviour(
             val playerState = audioPlayer?.state?.value
             val currentlyActiveReverberator = audioPlayer?.reverberator?.currentlyActive ?: false
             val isDecaying =
-                playbackState == PlaybackState.PAUSED ||
-                    playerState == PlayerState.TAILING
+                playbackState == PlaybackState.PAUSED
 
             if (isDecaying || (
                     currentlyActiveReverberator &&
@@ -219,11 +218,10 @@ class RecordPlayerBehaviour(
             val player =
                 AudioPlayerManager.getOrCreate(
                     id = uuid.toString(),
-                    provider = { streamId, stream ->
+                    provider = { stream ->
                         StreamingSoundInstance.simpleFactory(
                             this,
                             stream,
-                            streamId,
                             SoundEvents.EMPTY,
                         )
                     },
