@@ -31,7 +31,6 @@ class AudioEffectInputStream(
     private val rawBufferMax get() = (bytesPerSecond * RAW_BUFFER_SECONDS * cachedMaxPitch).toInt()
     private val rawReadSize get() = (bytesPerSecond * 0.02).toInt().coerceAtLeast(4096)
 
-    // Chunk-based deques — each entry is a ByteArray chunk
     private val rawAudioBuffer = ArrayDeque<ByteArray>()
     private var rawAudioBufferSize = 0
     private val rawBufferLock = Any()
@@ -47,31 +46,9 @@ class AudioEffectInputStream(
 
     private var samplesProcessed = 0L
 
-    // Tail silence for extended effects
-    @Volatile private var isFlushing = false
-
     @Volatile private var flushSamplesRemaining = 0
 
     @Volatile private var flushUpdateCounter = 0
-
-    @Volatile
-    var tailFinished = CompletableDeferred<Unit>()
-        private set
-
-    val hasTail: Boolean get() {
-        updateTailLength()
-        return flushSamplesRemaining > 0
-    }
-
-    @Volatile var isFrozen: Boolean = false
-        set(value) {
-            field = value
-            effectChain.setFrozen(value)
-        }
-
-    fun freezeEffects(frozen: Boolean) {
-        effectChain.setFrozen(frozen)
-    }
 
     @Volatile var isClosed = false
         private set
@@ -82,6 +59,8 @@ class AudioEffectInputStream(
 
     @Volatile private var isReady = false
 
+    private val maxLookaheadBytes get() = (bytesPerSecond * AudioLatencyConfig.MAX_DSP_LOOKAHEAD_SECONDS).toInt()
+
     private var processingJob: Job? = null
 
     init {
@@ -89,12 +68,6 @@ class AudioEffectInputStream(
             modLaunch(Dispatchers.IO) {
                 continuousRawBuffering()
             }
-    }
-
-    fun resetTailSignal() {
-        if (tailFinished.isCompleted) {
-            tailFinished = CompletableDeferred()
-        }
     }
 
     fun updateTailLength() {
@@ -186,56 +159,20 @@ class AudioEffectInputStream(
         len: Int,
     ): Int {
         var bytesCopied = drainProcessedBuffer(b, off, len)
-        if (bytesCopied >= len) return bytesCopied
 
-        if (!ensureProcessedAudio()) {
-            if (!isFlushing) {
-                updateTailLength()
-                isFlushing = true
-            }
-
-            flushUpdateCounter += EFFECT_PROCESS_CHUNK_SIZE
-
-            if (flushUpdateCounter >= sampleRate / 4) {
-                updateTailLength()
-                flushUpdateCounter = 0
-            }
-
-            if (isFlushing && flushSamplesRemaining > 0) {
-                val flushed = flushEffectTail()
-                if (flushed) {
-                    if (tailFinished.isCompleted) {
-                        tailFinished
-                    }
-                    bytesCopied += drainProcessedBuffer(b, off + bytesCopied, len - bytesCopied)
-                    return bytesCopied
-                } else {
-                    if (!tailFinished.isCompleted) {
-                        tailFinished.complete(Unit)
-                    }
-                }
-            }
-
-            if (bytesCopied > 0) return bytesCopied
-
-            if (streamEnded) {
-                if (!streamEndSignaled) {
-                    streamEndSignaled = true
-                    onStreamEnd?.invoke()
-                }
-                return -1
-            }
-
-            return 0
+        while (bytesCopied < len) {
+            val currentlyBuffered = synchronized(processedBufferLock) { processedAudioBufferSize }
+            if (currentlyBuffered >= maxLookaheadBytes) break
+            if (!ensureProcessedAudio()) break
+            bytesCopied += drainProcessedBuffer(b, off + bytesCopied, len - bytesCopied)
         }
 
+        if (bytesCopied > 0) return bytesCopied
         bytesCopied += drainProcessedBuffer(b, off + bytesCopied, len - bytesCopied)
         return bytesCopied
     }
 
     private fun ensureProcessedAudio(): Boolean {
-        if (isFrozen) return false
-
         if (effectChain.isEmpty()) {
             val chunk =
                 synchronized(rawBufferLock) {

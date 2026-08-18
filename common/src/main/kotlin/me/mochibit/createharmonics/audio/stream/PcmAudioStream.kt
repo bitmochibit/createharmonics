@@ -8,6 +8,18 @@ import java.nio.ByteOrder
 import javax.sound.sampled.AudioFormat
 import kotlin.math.min
 
+//todo maybe convert this to some advanced configuration?
+object AudioLatencyConfig {
+    /** AL Buffer length in seconds */
+    const val AL_BUFFER_SECONDS = 0.05f
+
+    /** How many buffers of AL_BUFFER_SECONDS keep in queue, for example 10 * 0.15s = 1.5s hang resiliency */
+    const val AL_QUEUED_BUFFERS = 4
+
+    /** Max processed audio from the DSP chain. */
+    const val MAX_DSP_LOOKAHEAD_SECONDS = 0.12
+}
+
 interface PausableAudioStream {
     fun isPaused(): Boolean
 
@@ -21,7 +33,8 @@ class PcmAudioStream(
     val sampleRate: Int = 44100,
 ) : AudioStream,
     PausableAudioStream {
-    val readBufferSize = 4096
+    val readBufferSize = ((sampleRate * 2) * AudioLatencyConfig.AL_BUFFER_SECONDS).toInt()
+        .coerceAtLeast(4096)
     private val audioFormat = AudioFormat(sampleRate.toFloat(), 16, 1, true, false)
     private var paused: Boolean = false
 
@@ -36,7 +49,6 @@ class PcmAudioStream(
 
             return when {
                 bytesRead > 0 -> {
-                    // Normal data
                     ByteBuffer
                         .allocateDirect(bytesRead)
                         .order(ByteOrder.nativeOrder())
@@ -45,8 +57,6 @@ class PcmAudioStream(
                 }
 
                 bytesRead == 0 -> {
-                    // Buffer temporarily empty (stream loading or starved) — return silence
-                    // so Minecraft does not interpret this as end-of-stream.
                     val silenceSize = min(size, readBuffer.size)
                     ByteBuffer
                         .allocateDirect(silenceSize)
@@ -56,12 +66,10 @@ class PcmAudioStream(
                 }
 
                 else -> {
-                    // bytesRead == -1: true end-of-stream
                     ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
                 }
             }
         } catch (e: IOException) {
-            // On error, return silence instead of empty buffer to prevent premature stream end
             val silenceSize = min(size, readBuffer.size)
             return ByteBuffer
                 .allocateDirect(silenceSize)
@@ -88,10 +96,6 @@ class PcmAudioStream(
                 inputStream.close()
             }
         }
-    }
-
-    fun normallyClose() {
-        inputStream.close()
     }
 
     override fun isPaused(): Boolean = paused

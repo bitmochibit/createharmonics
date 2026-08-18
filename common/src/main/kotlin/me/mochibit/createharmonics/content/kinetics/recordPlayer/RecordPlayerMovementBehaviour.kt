@@ -12,7 +12,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import me.mochibit.createharmonics.audio.AudioPlayerManager
 import me.mochibit.createharmonics.audio.effect.AudioEffect
-import me.mochibit.createharmonics.audio.effect.PitchShiftEffect
 import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
 import me.mochibit.createharmonics.audio.player.*
 import me.mochibit.createharmonics.config.ModConfigs
@@ -549,13 +548,7 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                     )
                 },
                 effectChainConfiguration = { player ->
-                    val effects = this.getEffects()
-                    if (effects.none { it is PitchShiftEffect }) {
-                        this.addEffectAt(
-                            0,
-                            PitchShiftEffect(player.masterPitchInterpolator, scope = AudioEffect.Scope.MACHINE_CONTROLLED_PITCH),
-                        )
-                    }
+
                 },
             )
 

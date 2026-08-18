@@ -17,9 +17,7 @@ sealed interface PlayerIntent {
 
     data object AudioFinished : PlayerIntent
 
-    data class Shutdown(
-        val cancelTrail: Boolean,
-    ) : PlayerIntent
+    data object Shutdown : PlayerIntent
 
     data class Seek(
         val position: Double,
@@ -28,8 +26,6 @@ sealed interface PlayerIntent {
     data class NewRequest(
         val req: AudioRequest,
     ) : PlayerIntent
-
-    object TailFinished : PlayerIntent
 
     data class StreamReady(
         val stream: AudioEffectInputStream,

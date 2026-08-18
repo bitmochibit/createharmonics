@@ -1,8 +1,10 @@
 package me.mochibit.createharmonics.audio.instance
 
+import me.mochibit.createharmonics.audio.effect.reverb.ReverbEngine
+import me.mochibit.createharmonics.audio.effect.reverb.SimpleReverbEffect
 import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.compat.ModCompats
-import me.mochibit.createharmonics.foundation.info
+import me.mochibit.createharmonics.mixin.ChannelAccessor
 import me.mochibit.createharmonics.mixin.SoundEngineAccessor
 import me.mochibit.createharmonics.mixin.SoundManagerAccessor
 import net.minecraft.client.Minecraft
@@ -16,8 +18,6 @@ import net.minecraft.util.RandomSource
 import net.minecraft.util.valueproviders.ConstantFloat
 import net.minecraft.world.level.Level
 import org.joml.Vector3d
-import kotlin.math.abs
-import kotlin.math.roundToInt
 
 abstract class AudioPlayerSoundInstance(
     private val audioPlayer: AudioPlayer,
@@ -35,11 +35,14 @@ abstract class AudioPlayerSoundInstance(
     private val mc = Minecraft.getInstance()
     private val sm = mc.soundManager as SoundManagerAccessor
     protected val engine = sm.soundEngine as SoundEngineAccessor
-
     private val currentClientLevel: Level? = mc.level
+    private var reverbAttached = false
 
     override fun tick() {
-        if (this.isStopped) return
+        if (this.isStopped) {
+            detachReverbIfNeeded()
+            return
+        }
 
         val ctx = audioPlayer.context ?: return
 
@@ -57,8 +60,7 @@ abstract class AudioPlayerSoundInstance(
         this.z = currentPosition.z
 
         this.volume = currentVolume
-
-//        this.pitch = currentPitch
+        this.pitch = currentPitch
 
         try {
             engine.instanceToChannel[this]?.execute { channel ->
@@ -66,6 +68,8 @@ abstract class AudioPlayerSoundInstance(
             }
         } catch (e: Exception) {
         }
+
+        syncReverb()
     }
 
     override fun resolve(pHandler: SoundManager): WeighedSoundEvents? {
@@ -108,5 +112,41 @@ abstract class AudioPlayerSoundInstance(
             baseSound.shouldPreload(),
             currentRadius.toInt(),
         )
+    }
+
+    private fun syncReverb() {
+        val reverbEffect = audioPlayer.effectChain
+            .getEffects()
+            .filterIsInstance<SimpleReverbEffect>()
+            .firstOrNull()
+
+        val channelHandle = engine.instanceToChannel[this] ?: return
+        channelHandle.execute { channel ->
+            val sourceId = (channel as ChannelAccessor).source
+
+            if (reverbEffect != null) {
+                if (!reverbAttached) {
+                    ReverbEngine.attach(sourceId)
+                    reverbAttached = true
+                }
+                ReverbEngine.setParams(reverbEffect.currentParams())
+            } else if (reverbAttached) {
+                ReverbEngine.detach(sourceId)
+                reverbAttached = false
+            }
+        }
+    }
+
+    private fun detachReverbIfNeeded() {
+        if (!reverbAttached) return
+        val channelHandle = engine.instanceToChannel[this] ?: run {
+
+            reverbAttached = false
+            return
+        }
+        channelHandle.execute { channel ->
+            ReverbEngine.detach((channel as ChannelAccessor).source)
+        }
+        reverbAttached = false
     }
 }

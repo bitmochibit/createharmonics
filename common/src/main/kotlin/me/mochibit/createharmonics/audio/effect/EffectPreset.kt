@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.audio.effect
 
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
+import me.mochibit.createharmonics.audio.effect.reverb.SimpleReverbEffect
 import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.compat.ModCompats
 import me.mochibit.createharmonics.config.ModConfigs
@@ -201,13 +202,12 @@ sealed interface EffectPreset {
         private fun applyReverb(audioPlayer: AudioPlayer) {
             val effectChain = audioPlayer.effectChain
             val effects = effectChain.getEffects()
-            val existing = effects.firstOrNull { it.scope == effectScope && it is ReverbEffect }
+            val existing = effects.firstOrNull { it.scope == effectScope && it is SimpleReverbEffect }
 
             if (existing == null) {
                 currentlyActive = true
-
                 effectChain.addEffect(
-                    ReverbEffect(
+                    SimpleReverbEffect(
                         roomSizeSupplier = roomSizeInterpolated,
                         dampingSupplier = dampingInterpolated,
                         wetMixSupplier = wetMixInterpolated,
@@ -220,7 +220,7 @@ sealed interface EffectPreset {
         private fun removeReverb(audioPlayer: AudioPlayer) {
             val effectChain = audioPlayer.effectChain
             val effects = effectChain.getEffects()
-            val reverbIndex = effects.indexOfFirst { it.scope == effectScope && it is ReverbEffect }
+            val reverbIndex = effects.indexOfFirst { it.scope == effectScope && it is SimpleReverbEffect }
             if (reverbIndex < 0) return
 
             roomSizeInterpolated.setTarget(BASE_ROOM_SIZE)
@@ -378,3 +378,4 @@ private fun Level.countLiquidCoveredFaces(
     val isThick = viscousCount >= waterCount && viscousCount > 0
     return liquidCount to isThick
 }
+
