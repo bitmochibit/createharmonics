@@ -8,7 +8,8 @@ import net.minecraft.core.Registry
 import java.util.EnumMap
 import kotlin.collections.set
 
-object ModPartialModels : CommonRegistry {
+@AutoRegister
+object ModPartialModels : Registrable {
     private val recordModels =
         EnumMap<RecordType, PartialModel>(RecordType::class.java).apply {
             for (type in RecordType.entries) {

@@ -13,7 +13,8 @@ import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPres
 import me.mochibit.createharmonics.foundation.info
 import net.minecraft.core.Registry
 
-object ModBlockEntities : CommonRegistry {
+@AutoRegister
+object ModBlockEntities : Registrable {
     override val registrationOrder = 3
 
     val ANDESITE_JUKEBOX: BlockEntityEntry<AndesiteJukeboxBlockEntity> =

@@ -27,7 +27,7 @@ class ModPacketPayload<T : ModPacket>(
     override fun type(): CustomPacketPayload.Type<ModPacketPayload<T>> = payloadType
 }
 
-object NeoforgeModPackets : NeoforgeRegistry {
+object NeoforgeModPackets : Registrable {
     private data class PayloadEntry<T : ModPacket>(
         val type: CustomPacketPayload.Type<ModPacketPayload<T>>,
         val codec: StreamCodec<RegistryFriendlyByteBuf, ModPacketPayload<T>>,

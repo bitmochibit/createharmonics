@@ -8,7 +8,8 @@ import net.minecraft.core.Registry
 import net.minecraft.core.registries.Registries
 import net.minecraft.world.item.crafting.RecipeType
 
-object ModRecipeTypes : CommonRegistry {
+@AutoRegister
+object ModRecipeTypes : Registrable {
     val RECORD_REPAIR =
         ModRegistrate.simple("record_repair", Registries.RECIPE_TYPE) {
             RecipeType.simple<DeployerRecordRepairRecipe>(

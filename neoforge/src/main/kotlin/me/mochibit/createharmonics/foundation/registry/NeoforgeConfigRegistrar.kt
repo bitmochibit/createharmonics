@@ -11,7 +11,8 @@ import net.neoforged.fml.common.EventBusSubscriber
 import net.neoforged.fml.event.config.ModConfigEvent
 
 @EventBusSubscriber(modid = MOD_ID)
-object NeoforgeConfigRegistrar : NeoforgeRegistry {
+@AutoRegister
+object NeoforgeConfigRegistrar : Registrable {
     override val registrationOrder: Int = 1
 
     override fun register(registry: Registry<*>?) {

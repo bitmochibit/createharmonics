@@ -9,7 +9,8 @@ import net.minecraft.core.Registry
 import net.minecraft.core.component.DataComponentType
 import net.minecraft.core.registries.Registries
 
-object ModDataComponents : CommonRegistry {
+@AutoRegister
+object ModDataComponents : Registrable {
     val RECORD_URL = ModRegistrate.dataComponent("record_url", Codec.STRING)
     val CRAFTED_WITH = ModRegistrate.dataComponent("crafted_with", Codec.STRING)
 

@@ -13,7 +13,8 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import java.util.function.BiPredicate
 
-object ModItemAttributeTypes : PreFreezeCommonRegistry {
+@AutoRegister(RegistryPhase.PRE_FREEZE)
+object ModItemAttributeTypes : Registrable {
     val ETHEREAL_RECORD_DESTROYED =
         singleton("record_is_broken") { stack, _ ->
             stack.isBrokenEtherealRecord()

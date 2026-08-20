@@ -17,7 +17,8 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import java.util.function.Predicate
 
-object ModCreativeTabs : CommonRegistry {
+@AutoRegister
+object ModCreativeTabs : Registrable {
     val MAIN_TAB: RegistryEntry<CreativeModeTab, CreativeModeTab> =
         creativeTab(
             "main",

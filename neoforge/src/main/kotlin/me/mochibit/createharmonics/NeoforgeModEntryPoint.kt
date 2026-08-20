@@ -1,14 +1,11 @@
 package me.mochibit.createharmonics
 
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
-import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.data.DataGenerators.provideLang
 import me.mochibit.createharmonics.foundation.registry.ModBlockEntities
 import me.mochibit.createharmonics.foundation.registry.NeoforgeModPackets
-import me.mochibit.createharmonics.foundation.registry.NeoforgeRegistry
-import me.mochibit.createharmonics.foundation.registry.autoRegister
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.fml.common.EventBusSubscriber
@@ -62,7 +59,6 @@ class NeoforgeModEntryPoint(
 
         provideLang()
 
-        autoRegister<NeoforgeRegistry>()
         ModEventBus.addListener(NeoforgeModPackets::registerPayloads)
     }
 }

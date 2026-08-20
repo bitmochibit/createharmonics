@@ -17,7 +17,8 @@ import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.phys.Vec3
 import org.joml.Matrix4f
 
-object ModIcons : CommonRegistry {
+@AutoRegister
+object ModIcons : Registrable {
     override val targetEnvironment: PlatformService.Environment
         get() = PlatformService.Environment.CLIENT
 

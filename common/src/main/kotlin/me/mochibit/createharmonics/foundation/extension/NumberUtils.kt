@@ -1,5 +1,7 @@
 package me.mochibit.createharmonics.foundation.extension
 
+import kotlin.math.floor
+
 fun Float.remapTo(
     inMin: Float,
     inMax: Float,
@@ -32,3 +34,5 @@ fun Float.lerpTo(
     target: Float,
     t: Float,
 ): Float = this + (target - this) * t
+
+fun Double.toBlockCoord(): Int = floor(this).toInt()

@@ -8,7 +8,8 @@ import me.mochibit.createharmonics.content.kinetics.recordPlayer.displaySource.P
 import me.mochibit.createharmonics.foundation.info
 import net.minecraft.core.Registry
 
-object ModDisplaySources : CommonRegistry {
+@AutoRegister
+object ModDisplaySources : Registrable {
     override val registrationOrder = 1
 
     val AUDIO_NAME: RegistryEntry<DisplaySource, AudioNameDisplaySource> =

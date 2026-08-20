@@ -12,7 +12,8 @@ import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 
-object ModMountedStorages : CommonRegistry {
+@AutoRegister
+object ModMountedStorages : Registrable {
     override val registrationOrder = 1
 
     val SIMPLE_RECORD_PLAYER_STORAGE: RegistryEntry<MountedItemStorageType<*>, RecordPlayerMountedStorageType> =

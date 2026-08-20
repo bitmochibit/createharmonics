@@ -5,33 +5,32 @@ import com.simibubi.create.content.kinetics.deployer.ItemApplicationRecipeParams
 import me.mochibit.createharmonics.content.records.DeployerRecordRepairRecipe
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordType
-import me.mochibit.createharmonics.foundation.eventbus.CommonEvents
-import me.mochibit.createharmonics.foundation.eventbus.EventBus
 import me.mochibit.createharmonics.foundation.extension.asResource
+import me.mochibit.createharmonics.foundation.services.eventService
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.crafting.RecipeHolder
-import java.util.Optional
+import java.util.*
 import java.util.function.Supplier
 import kotlin.math.ceil
 import kotlin.math.ln
 
 object RecordRepairHandler : CommonEventHandler {
     override fun setupEvents() {
-        EventBus.onSync<CommonEvents.CreateEvents.CreateDeployerRecipeSearchEvent> { event ->
-            val inv = event.recipeWrapper
+        eventService.onCreateDeployerRecipeSearch { deployerBe, recipeWrapper, addRecipe ->
+            val inv = recipeWrapper
             val beltItem = inv.getItem(0)
             val heldItem = inv.getItem(1)
 
-            val recordItem = beltItem.item as? EtherealRecordItem ?: return@onSync
+            val recordItem = beltItem.item as? EtherealRecordItem ?: return@onCreateDeployerRecipeSearch
             val recordType = recordItem.recordType
 
-            if (recordType == RecordType.CREATIVE) return@onSync
+            if (recordType == RecordType.CREATIVE) return@onCreateDeployerRecipeSearch
 
-            if (beltItem.damageValue <= 0 && !recordItem.isRecordBroken()) return@onSync
+            if (beltItem.damageValue <= 0 && !recordItem.isRecordBroken()) return@onCreateDeployerRecipeSearch
 
             val params = ItemApplicationRecipeParams()
 
-            event.addRecipe(
+            addRecipe(
                 Supplier {
                     if (heldItem.`is`(AllItems.SUPER_GLUE.get()) &&
                         heldItem.damageValue < heldItem.maxDamage
@@ -43,7 +42,7 @@ object RecordRepairHandler : CommonEventHandler {
                                     params,
                                     inv,
                                     recordItem,
-                                    event.deployerBe,
+                                    deployerBe,
                                 ),
                             ),
                         )
@@ -59,7 +58,7 @@ object RecordRepairHandler : CommonEventHandler {
                 ?.invoke()
                 ?.takeIf { it.test(heldItem) }
                 ?.let { ingredient ->
-                    event.addRecipe(
+                    addRecipe(
                         Supplier {
                             Optional.of(
                                 holder(
@@ -81,7 +80,7 @@ object RecordRepairHandler : CommonEventHandler {
                 ?.invoke()
                 ?.takeIf { (ingredient, _) -> ingredient.test(heldItem) }
                 ?.let { (ingredient, fraction) ->
-                    event.addRecipe(
+                    addRecipe(
                         Supplier {
                             Optional.of(
                                 holder(

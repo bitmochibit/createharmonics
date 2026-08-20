@@ -12,7 +12,8 @@ import net.neoforged.neoforge.registries.DeferredRegister
 import net.neoforged.neoforge.registries.NeoForgeRegistries
 import java.util.function.Supplier
 
-object ModLootModifiers : NeoforgeRegistry {
+@AutoRegister
+object ModLootModifiers : Registrable {
     val LOOT_MODIFIERS: DeferredRegister<MapCodec<out IGlobalLootModifier>> =
         DeferredRegister.create(
             NeoForgeRegistries.Keys.GLOBAL_LOOT_MODIFIER_SERIALIZERS,

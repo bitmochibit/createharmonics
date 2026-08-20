@@ -2,25 +2,15 @@ package me.mochibit.createharmonics.foundation.eventbus
 
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.withContext
 import me.mochibit.createharmonics.foundation.async.EventBusScope
 import me.mochibit.createharmonics.foundation.async.ModDispatchers
-import me.mochibit.createharmonics.foundation.async.currentMainDispatcher
 import me.mochibit.createharmonics.foundation.err
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.reflect.KClass
 
-private val HIGH_FREQUENCY_EVENTS =
-    setOf(
-        TickEvents.ClientTickEvent::class,
-    )
 
 object EventBus {
     @PublishedApi
@@ -43,17 +33,10 @@ object EventBus {
         priority: EventPriority,
     ): MutableSharedFlow<ModEvent> =
         eventFlows.getOrPut(klass to priority) {
-            if (klass in HIGH_FREQUENCY_EVENTS) {
-                MutableSharedFlow(
-                    extraBufferCapacity = 4,
-                    onBufferOverflow = BufferOverflow.DROP_OLDEST,
-                )
-            } else {
-                MutableSharedFlow(
-                    extraBufferCapacity = 64,
-                    onBufferOverflow = BufferOverflow.DROP_OLDEST,
-                )
-            }
+            MutableSharedFlow(
+                extraBufferCapacity = 64,
+                onBufferOverflow = BufferOverflow.DROP_OLDEST,
+            )
         }
 
     /**
@@ -71,7 +54,7 @@ object EventBus {
 
         EventPriority.entries.forEach { priority ->
             val emitted = flowFor(event::class, priority).tryEmit(event)
-            if (!emitted && event::class !in HIGH_FREQUENCY_EVENTS) {
+            if (!emitted) {
                 "[EVENTBUS] DROP ${event::class.simpleName} on priority $priority".err()
             }
         }
@@ -101,22 +84,6 @@ object EventBus {
         noinline handler: suspend (T) -> Unit,
     ): Job = on(T::class, priority, listenSubclasses, ignoreCancelled, handler)
 
-    inline fun <reified T : ModEvent> onMcMain(
-        priority: EventPriority = EventPriority.NORMAL,
-        listenSubclasses: Boolean = false,
-        ignoreCancelled: Boolean = true,
-        noinline handler: suspend (T) -> Unit,
-    ): Job =
-        on<T>(priority, listenSubclasses, ignoreCancelled) { event ->
-            val dispatcher =
-                when ((event as? ProxyEvent)?.side) {
-                    LogicalSide.SERVER -> ModDispatchers.Server()
-                    else -> ModDispatchers.Client()
-                }
-            withContext(dispatcher) {
-                handler(event)
-            }
-        }
 
     @PublishedApi
     internal fun <T : ModEvent> on(
@@ -131,8 +98,8 @@ object EventBus {
                 if (listenSubclasses) klass.isInstance(event) else event::class == klass
             val cancellationOk =
                 priority == EventPriority.MONITOR ||
-                    !ignoreCancelled ||
-                    (event !is Cancellable || !event.isCancelled)
+                        !ignoreCancelled ||
+                        (event !is Cancellable || !event.isCancelled)
             typeMatch && cancellationOk
         }
 

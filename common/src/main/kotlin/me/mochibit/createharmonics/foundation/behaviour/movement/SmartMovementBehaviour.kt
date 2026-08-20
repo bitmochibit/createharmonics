@@ -4,13 +4,12 @@ import com.simibubi.create.api.behaviour.movement.MovementBehaviour
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity
 import com.simibubi.create.content.contraptions.behaviour.MovementContext
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
-import me.mochibit.createharmonics.foundation.eventbus.ServerEvents
 import me.mochibit.createharmonics.foundation.network.packet.ContraptionBlockDataChangedPacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
+import me.mochibit.createharmonics.foundation.services.eventService
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
-import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.StructureBlockInfo
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
@@ -45,9 +44,8 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
     }
 
     init {
-        EventBus.onSync<ServerEvents.PlayerStartTrackingEntity> { event ->
-            val entity = event.entity
-            if (entity !is AbstractContraptionEntity) return@onSync
+        eventService.onPlayerStartTrackingEntity { player, entity ->
+            if (entity !is AbstractContraptionEntity) return@onPlayerStartTrackingEntity
 
             trackingCounts.getOrPut(entity.id) { AtomicInteger(0) }.incrementAndGet()
 
@@ -56,9 +54,8 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
             }
         }
 
-        EventBus.onSync<ServerEvents.PlayerStopTrackingEntity> { event ->
-            val entity = event.entity
-            if (entity !is AbstractContraptionEntity) return@onSync
+        eventService.onPlayerStopTrackingEntity { player, entity ->
+            if (entity !is AbstractContraptionEntity) return@onPlayerStopTrackingEntity
 
             val remaining = trackingCounts[entity.id]?.decrementAndGet() ?: 0
             if (remaining <= 0) {

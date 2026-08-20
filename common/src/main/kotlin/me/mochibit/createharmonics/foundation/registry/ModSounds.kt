@@ -10,7 +10,8 @@ import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.sounds.SoundEvent
 
-object ModSounds : CommonRegistry {
+@AutoRegister
+object ModSounds : Registrable {
     val SLIDING_STONE = ModRegistrate.sound("sliding_stone")
     val GLITTER = ModRegistrate.sound("glitter")
 

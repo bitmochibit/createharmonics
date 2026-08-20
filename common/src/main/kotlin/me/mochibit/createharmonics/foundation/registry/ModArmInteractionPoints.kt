@@ -13,7 +13,8 @@ import net.minecraft.core.Registry
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.state.BlockState
 
-object ModArmInteractionPoints : CommonRegistry {
+@AutoRegister
+object ModArmInteractionPoints : Registrable {
     override val registrationOrder = 3
 
     val RECORD_PLAYER_TYPE: RegistryEntry<ArmInteractionPointType, RecordPlayerType> =

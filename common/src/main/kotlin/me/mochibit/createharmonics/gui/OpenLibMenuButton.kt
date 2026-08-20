@@ -2,9 +2,12 @@ package me.mochibit.createharmonics.gui
 
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.content.records.RecordType
-import me.mochibit.createharmonics.foundation.eventbus.ClientEvents
+import me.mochibit.createharmonics.foundation.eventbus.AutoHandler
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
+import me.mochibit.createharmonics.foundation.eventbus.ModEventHandler
 import me.mochibit.createharmonics.foundation.registry.ModItems
+import me.mochibit.createharmonics.foundation.services.EventPhase
+import me.mochibit.createharmonics.foundation.services.clientEventService
 import me.mochibit.createharmonics.gui.OpenLibMenuButton.MenuRows
 import me.mochibit.createharmonics.gui.OpenLibMenuButton.MenuRows.leftTextKeys
 import me.mochibit.createharmonics.gui.OpenLibMenuButton.MenuRows.rightTextKeys
@@ -92,11 +95,10 @@ class OpenLibMenuButton(
     }
 }
 
-object MainMenuHandler : CommonGuiEventHandler {
+@AutoHandler
+object MainMenuHandler : ModEventHandler {
     override fun setupEvents() {
-        EventBus.onMcMain<ClientEvents.ScreenEvent.Init> { event ->
-            val screen = event.screen
-
+        clientEventService.onScreenInit(EventPhase.END) { screen, listenerList, addListener, removeListener ->
             val menu: List<MenuRows.SingleMenuRow>
             val rowIdx: Int
             val offsetX: Int
@@ -114,27 +116,26 @@ object MainMenuHandler : CommonGuiEventHandler {
                 }
 
                 else -> {
-                    return@onMcMain
+                    return@onScreenInit
                 }
             }
 
             if (rowIdx == 0) {
-                return@onMcMain
+                return@onScreenInit
             }
 
             val onLeft = offsetX < 0
             val targetMessage = I18n.get((if (onLeft) menu.leftTextKeys() else menu.rightTextKeys())[rowIdx - 1])
 
             val toAdd = MutableObject<GuiEventListener>(null)
-            event
-                .listenerList
+            listenerList
                 .stream()
                 .filter { w: GuiEventListener -> w is AbstractWidget }
                 .map { w: GuiEventListener -> w as AbstractWidget }
                 .filter { w: AbstractWidget ->
                     (
-                        w.message.string == targetMessage
-                    )
+                            w.message.string == targetMessage
+                            )
                 }.findFirst()
                 .ifPresent(
                     Consumer { w: AbstractWidget ->
@@ -145,7 +146,8 @@ object MainMenuHandler : CommonGuiEventHandler {
                             )
                     },
                 )
-            if (toAdd.getValue() != null) event.addListener(toAdd.getValue())
+            if (toAdd.getValue() != null) addListener(toAdd.getValue())
         }
+
     }
 }

@@ -1,8 +1,9 @@
 package me.mochibit.createharmonics.foundation.eventbus
 
-import me.mochibit.createharmonics.foundation.registry.Registrable
-
-enum class LogicalSide { CLIENT, SERVER }
+import me.mochibit.createharmonics.foundation.registry.RegistryPhase
+import me.mochibit.createharmonics.foundation.services.classScanningService
+import me.mochibit.createharmonics.foundation.services.platformService
+import net.minecraft.core.Registry
 
 interface ModEvent
 
@@ -41,14 +42,20 @@ interface ModEventHandler {
     fun setupEvents()
 }
 
-inline fun <reified AutoHandler : ModEventHandler> autoHandler() {
-    if (!AutoHandler::class.isSealed) {
-        throw IllegalArgumentException("The passed event handler marker must be a sealed interface to enable automatic discovery")
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class AutoHandler
+
+object AutoHandlerRegistrar {
+    fun registerAll() {
+        classScanningService.getClassesAnnotatedByWithData(AutoHandler::class.java)
+            .mapNotNull { (clazz, _) -> resolveInstance(clazz) as? ModEventHandler }
+            .forEach { it.setupEvents() }
     }
 
-    AutoHandler::class
-        .sealedSubclasses
-        .filter { AutoHandler::class.java.isAssignableFrom(it.java) }
-        .map { it.objectInstance as ModEventHandler }
-        .forEach { it.setupEvents() }
+    private fun resolveInstance(clazz: Class<*>): Any? =
+        runCatching { clazz.getField("INSTANCE").get(null) }
+            .getOrElse {
+                runCatching { clazz.getDeclaredConstructor().newInstance() }.getOrNull()
+            }
 }

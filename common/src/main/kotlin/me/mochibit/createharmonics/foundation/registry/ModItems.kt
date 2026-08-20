@@ -11,7 +11,8 @@ import net.minecraft.world.item.Item
 import net.minecraft.world.item.Rarity
 import java.util.EnumMap
 
-object ModItems : CommonRegistry {
+@AutoRegister
+object ModItems : Registrable {
     override val registrationOrder = 3
 
     val BASE_RECORD: ItemEntry<BaseRecordItem> =

@@ -21,7 +21,8 @@ import net.minecraft.core.Registry
 import net.minecraft.world.level.block.SoundType
 import java.util.function.Supplier
 
-object ModBlocks : CommonRegistry {
+@AutoRegister
+object ModBlocks : Registrable {
     override val registrationOrder = 2
 
     val ANDESITE_JUKEBOX: BlockEntry<AndesiteJukeboxBlock> =

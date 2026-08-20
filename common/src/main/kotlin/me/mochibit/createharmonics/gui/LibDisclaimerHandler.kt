@@ -3,20 +3,23 @@ package me.mochibit.createharmonics.gui
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.config.ModConfigs
+import me.mochibit.createharmonics.foundation.eventbus.AutoHandler
 import me.mochibit.createharmonics.foundation.eventbus.EventBus
-import me.mochibit.createharmonics.foundation.eventbus.ProxyEvent
-import me.mochibit.createharmonics.foundation.eventbus.TickEvents
+import me.mochibit.createharmonics.foundation.eventbus.ModEventHandler
+import me.mochibit.createharmonics.foundation.services.EventPhase
+import me.mochibit.createharmonics.foundation.services.clientEventService
+
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.TitleScreen
 
-object LibDisclaimerHandler : CommonGuiEventHandler {
+@AutoHandler
+object LibDisclaimerHandler : ModEventHandler {
     private var hasShownDisclaimer = false
     private var hasChecked = false
 
     override fun setupEvents() {
-        EventBus.onMcMain<TickEvents.ClientTickEvent> { event ->
-            if (event.phase != TickEvents.Phase.END) return@onMcMain
-            if (hasChecked) return@onMcMain
+        clientEventService.onClientTick(tickPhase = EventPhase.END) {
+            if (hasChecked) return@onClientTick
 
             val minecraft = Minecraft.getInstance()
             val currentScreen = minecraft.screen
@@ -26,13 +29,13 @@ object LibDisclaimerHandler : CommonGuiEventHandler {
 
                 // Only show once per game session
                 if (hasShownDisclaimer) {
-                    return@onMcMain
+                    return@onClientTick
                 }
 
                 // Check if user has disabled the disclaimer
                 if (ModConfigs.client.neverShowLibraryDisclaimer.get()) {
                     hasShownDisclaimer = true
-                    return@onMcMain
+                    return@onClientTick
                 }
 
                 // Check if libraries are already installed
@@ -41,7 +44,7 @@ object LibDisclaimerHandler : CommonGuiEventHandler {
 
                 if (ytdlInstalled && ffmpegInstalled) {
                     hasShownDisclaimer = true
-                    return@onMcMain
+                    return@onClientTick
                 }
 
                 hasShownDisclaimer = true

@@ -8,6 +8,7 @@ import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.extension.getBlockState
 import me.mochibit.createharmonics.foundation.extension.getFluidState
 import me.mochibit.createharmonics.foundation.extension.lerpTo
+import me.mochibit.createharmonics.foundation.extension.toBlockCoord
 import me.mochibit.createharmonics.foundation.services.contentService
 import me.mochibit.createharmonics.foundation.supplier.values.FloatInterpolator
 import net.minecraft.core.Direction
@@ -294,9 +295,9 @@ private fun Level.scanReverberatorBlocks(
                 // In world contribution
                 val blockState =
                     this.getBlockState(
-                        cursorVector.value.x.toInt(),
-                        cursorVector.value.y.toInt(),
-                        cursorVector.value.z.toInt(),
+                        cursorVector.value.x.toBlockCoord(),
+                        cursorVector.value.y.toBlockCoord(),
+                        cursorVector.value.z.toBlockCoord(),
                     )
 
                 when (blockState.block) {
@@ -310,9 +311,9 @@ private fun Level.scanReverberatorBlocks(
                 if (inPlotGrid) {
                     val shipBlockState =
                         this.getBlockState(
-                            (position.value.x + dx).toInt(),
-                            (position.value.y + dy).toInt(),
-                            (position.value.z + dz).toInt(),
+                            (position.value.x + dx).toBlockCoord(),
+                            (position.value.y + dy).toBlockCoord(),
+                            (position.value.z + dz).toBlockCoord(),
                         )
                     when (shipBlockState.block) {
                         Blocks.AMETHYST_BLOCK -> roomIncreasers++
@@ -356,7 +357,7 @@ private fun Level.countLiquidCoveredFaces(
         }
 
         val worldFluid =
-            getFluidState(cursorVector.value.x.toInt(), cursorVector.value.y.toInt(), cursorVector.value.z.toInt())
+            getFluidState(cursorVector.value.x.toBlockCoord(), cursorVector.value.y.toBlockCoord(), cursorVector.value.z.toBlockCoord())
         if (!worldFluid.isEmpty) {
             accumulateFluid(worldFluid)
             continue
@@ -365,9 +366,9 @@ private fun Level.countLiquidCoveredFaces(
         if (inPlot) {
             val shipFluid =
                 getFluidState(
-                    (position.value.x + direction.stepX).toInt(),
-                    (position.value.y + direction.stepY).toInt(),
-                    (position.value.z + direction.stepZ).toInt(),
+                    (position.value.x + direction.stepX).toBlockCoord(),
+                    (position.value.y + direction.stepY).toBlockCoord(),
+                    (position.value.z + direction.stepZ).toBlockCoord(),
                 )
             if (!shipFluid.isEmpty) {
                 accumulateFluid(shipFluid)
