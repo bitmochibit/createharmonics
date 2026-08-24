@@ -125,7 +125,7 @@ class AudioEffectInputStream(
 
     private fun calculateRawBufferTarget(): Int {
         val base = (bytesPerSecond * RAW_BUFFER_SECONDS).toInt()
-        return (base * effectChain.getSpeedMultiplier()).toInt().coerceIn(rawBufferMin, rawBufferMax)
+        return (base).coerceIn(rawBufferMin, rawBufferMax)
     }
 
     private fun readFromStreamSafely(): Int =
@@ -227,8 +227,7 @@ class AudioEffectInputStream(
 
     override fun available(): Int {
         if (isClosed) return 0
-        val speedMultiplier = effectChain.getSpeedMultiplier()
-        return processedBuffer.size + (rawBuffer.size / speedMultiplier).toInt()
+        return processedBuffer.size + rawBuffer.size
     }
 }
 

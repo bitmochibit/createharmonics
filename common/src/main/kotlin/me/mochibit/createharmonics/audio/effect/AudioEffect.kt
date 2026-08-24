@@ -71,14 +71,21 @@ interface AudioEffect {
      */
     fun isBaseValues(): Boolean = false
 
-    fun getSpeedMultiplier(): Double = 1.0
-
-    fun tailLengthSeconds(sampleRate: Int): Double = 0.0
-
     val scope: Scope
 
     /**
      * Get a human-readable name for this effect (for debugging/logging).
      */
     fun getName(): String = this::class.simpleName ?: "UnknownEffect"
+}
+
+/**
+ * Interface for OpenAL effects, compatible with the EffectChain
+ */
+interface NativeAudioEffect: AudioEffect {
+    val alEffectType: Int
+
+    override fun process(samples: ShortArray, timeInSeconds: Double, sampleRate: Int): ShortArray = samples
+
+    fun applyParams(effectId: Int)
 }

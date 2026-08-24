@@ -1,7 +1,7 @@
 package me.mochibit.createharmonics.audio.instance
 
-import me.mochibit.createharmonics.audio.effect.reverb.ReverbEngine
-import me.mochibit.createharmonics.audio.effect.reverb.SimpleReverbEffect
+import me.mochibit.createharmonics.audio.effect.NativeAudioEffect
+import me.mochibit.createharmonics.audio.effect.NativeEffectSlotManager
 import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.compat.ModCompats
 import me.mochibit.createharmonics.mixin.ChannelAccessor
@@ -36,15 +36,21 @@ abstract class AudioPlayerSoundInstance(
     private val sm = mc.soundManager as SoundManagerAccessor
     protected val engine = sm.soundEngine as SoundEngineAccessor
     private val currentClientLevel: Level? = mc.level
-    private var reverbAttached = false
+
+    @Volatile
+    private var nativeAttached = false
+
+    private var lastNativeSourceId: Int? = null
+
+
 
     override fun tick() {
         if (this.isStopped) {
-            detachReverbIfNeeded()
+            releaseNativeEffects()
             return
         }
 
-        val ctx = audioPlayer.context ?: return
+        val ctx = audioPlayer.spatialContext ?: return
 
         ctx.mutatePosition(currentPosition)
         currentPitch = audioPlayer.masterPitchInterpolator.getValue()
@@ -69,7 +75,7 @@ abstract class AudioPlayerSoundInstance(
         } catch (e: Exception) {
         }
 
-        syncReverb()
+        syncNativeEffects()
     }
 
     override fun resolve(pHandler: SoundManager): WeighedSoundEvents? {
@@ -114,39 +120,40 @@ abstract class AudioPlayerSoundInstance(
         )
     }
 
-    private fun syncReverb() {
-        val reverbEffect = audioPlayer.effectChain
-            .getEffects()
-            .filterIsInstance<SimpleReverbEffect>()
+    private fun syncNativeEffects() {
+        val channelHandle = engine.instanceToChannel[this] ?: return
+        val nativeEffect = audioPlayer.effectChain.getEffects()
+            .filterIsInstance<NativeAudioEffect>()
             .firstOrNull()
 
-        val channelHandle = engine.instanceToChannel[this] ?: return
         channelHandle.execute { channel ->
             val sourceId = (channel as ChannelAccessor).source
 
-            if (reverbEffect != null) {
-                if (!reverbAttached) {
-                    ReverbEngine.attach(sourceId)
-                    reverbAttached = true
-                }
-                ReverbEngine.setParams(reverbEffect.currentParams())
-            } else if (reverbAttached) {
-                ReverbEngine.detach(sourceId)
-                reverbAttached = false
+            val previousId = lastNativeSourceId
+            if (previousId != null && previousId != sourceId) {
+                NativeEffectSlotManager.detach(previousId)
+            }
+            lastNativeSourceId = sourceId
+
+            if (nativeEffect != null) {
+                NativeEffectSlotManager.attach(sourceId, nativeEffect)
+                nativeAttached = true
+            } else if (nativeAttached) {
+                NativeEffectSlotManager.detach(sourceId)
+                nativeAttached = false
             }
         }
     }
 
-    private fun detachReverbIfNeeded() {
-        if (!reverbAttached) return
+    internal fun releaseNativeEffects() {
+        if (!nativeAttached) return
         val channelHandle = engine.instanceToChannel[this] ?: run {
-
-            reverbAttached = false
+            nativeAttached = false
             return
         }
         channelHandle.execute { channel ->
-            ReverbEngine.detach((channel as ChannelAccessor).source)
+            NativeEffectSlotManager.detach((channel as ChannelAccessor).source)
         }
-        reverbAttached = false
+        nativeAttached = false
     }
 }

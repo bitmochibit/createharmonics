@@ -11,7 +11,6 @@ import dev.engine_room.flywheel.api.visualization.VisualizationManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import me.mochibit.createharmonics.audio.AudioPlayerManager
-import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
 import me.mochibit.createharmonics.audio.player.*
 import me.mochibit.createharmonics.config.ModConfigs
@@ -550,9 +549,9 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                 },
             )
 
-        if (player.contextKey !== context) {
-            player.contextKey = context
-            player.context =
+        if (player.spatialContextKey !== context) {
+            player.spatialContextKey = context
+            player.spatialContext =
                 ContraptionAudioContext(
                     context,
                     data.volumeSupplier,

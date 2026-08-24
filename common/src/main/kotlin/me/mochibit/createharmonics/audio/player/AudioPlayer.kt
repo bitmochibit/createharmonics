@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
+import me.mochibit.createharmonics.audio.instance.AudioPlayerSoundInstance
 import me.mochibit.createharmonics.audio.stream.AudioEffectInputStream
 import me.mochibit.createharmonics.audio.utils.pause
 import me.mochibit.createharmonics.audio.utils.unpause
@@ -60,16 +61,17 @@ class AudioPlayer(
     val isSeekingDisabled = AtomicBoolean(false)
 
     @Volatile
-    var context: AudioSpatialContext? = null
+    var spatialContext: AudioSpatialContext? = null
 
     @Volatile
-    var contextKey: Any? = null
+    var spatialContextKey: Any? = null
 
     val effectChain = EffectChain()
     val soundEventComposition = SoundEventComposition(soundEffectChain = effectChain)
     val clock = PlaytimeClock()
 
-    private val spatial = SpatialAudioController()
+    var spatial = SpatialAudioController()
+        private set
     private val notifier = AudioPlayerNotifier(playerId)
     private val streamLoader = StreamLoader(effectChain, soundInstanceFactory, this)
     private val stateMachine = PlaybackStateMachine(playerScope, this)
@@ -91,10 +93,6 @@ class AudioPlayer(
     val masterVolumeInterpolator get() = spatial.masterVolume
     val masterPitchInterpolator get() = spatial.masterPitch
     val masterRadiusInterpolator get() = spatial.masterRadius
-
-    //todo move this into some data structure for effect presets
-    val underwaterFilter get() = spatial.underwaterFilter
-    val reverberator get() = spatial.reverberator
 
     init {
         stateMachine.start()

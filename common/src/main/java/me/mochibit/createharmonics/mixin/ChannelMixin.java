@@ -1,11 +1,13 @@
 package me.mochibit.createharmonics.mixin;
 
 import com.mojang.blaze3d.audio.Channel;
+import me.mochibit.createharmonics.audio.effect.NativeEffectSlotManager;
 import me.mochibit.createharmonics.audio.stream.AudioLatencyConfig;
 import me.mochibit.createharmonics.audio.stream.PausableAudioStream;
 import me.mochibit.createharmonics.audio.stream.PcmAudioStream;
 import net.minecraft.client.sounds.AudioStream;
 import net.minecraft.client.sounds.ChannelAccess;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.gen.Accessor;

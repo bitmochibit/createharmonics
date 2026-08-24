@@ -4,10 +4,20 @@ import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.audio.player.SoundInstanceFactory
 import me.mochibit.createharmonics.foundation.err
+import me.mochibit.createharmonics.foundation.services.eventService
+import net.minecraft.core.BlockPos
+import net.minecraft.world.level.Level
 import java.util.concurrent.ConcurrentHashMap
 
 object AudioPlayerManager {
     private val players = ConcurrentHashMap<String, AudioPlayer>()
+
+    init {
+        eventService.onBlockNeighborNotify { level, pos, state ->
+            if (!level.isClientSide) return@onBlockNeighborNotify
+            notifyBlockUpdate(level, pos)
+        }
+    }
 
     fun getOrCreate(
         id: String,
@@ -47,4 +57,11 @@ object AudioPlayerManager {
 
 
     fun exists(id: String): Boolean = players.containsKey(id)
+
+    private fun notifyBlockUpdate(level: Level, pos: BlockPos) {
+        if (players.isEmpty()) return
+        for (player in players.values) {
+            player.spatial.notifyBlockUpdate(player, level, pos)
+        }
+    }
 }

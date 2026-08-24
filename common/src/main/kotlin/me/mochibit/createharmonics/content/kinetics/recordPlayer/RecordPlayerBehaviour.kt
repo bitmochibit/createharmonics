@@ -5,7 +5,6 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import me.mochibit.createharmonics.audio.AudioPlayerManager
-import me.mochibit.createharmonics.audio.effect.AudioEffect
 import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
 import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.audio.player.BlockEntityAudioContext
@@ -152,12 +151,10 @@ class RecordPlayerBehaviour(
     val currentVolume: Float
         get() {
             val playerState = audioPlayer?.state?.value
-            val currentlyActiveReverberator = audioPlayer?.reverberator?.currentlyActive ?: false
             val isDecaying =
                 playbackState == PlaybackState.PAUSED
 
             if (isDecaying || (
-                    currentlyActiveReverberator &&
                         playerState != PlayerState.PLAYING &&
                         playerState != PlayerState.LOADING
                 )
@@ -230,9 +227,9 @@ class RecordPlayerBehaviour(
                     },
                 )
 
-            if (player.contextKey !== this.be) {
-                player.contextKey = this.be
-                player.context =
+            if (player.spatialContextKey !== this.be) {
+                player.spatialContextKey = this.be
+                player.spatialContext =
                     BlockEntityAudioContext(
                         this.be,
                         { currentVolume },

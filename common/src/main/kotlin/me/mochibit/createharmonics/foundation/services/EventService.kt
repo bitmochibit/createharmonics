@@ -5,6 +5,7 @@ import com.simibubi.create.content.kinetics.deployer.DeployerBlockEntity
 import net.minecraft.commands.CommandBuildContext
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
+import net.minecraft.core.BlockPos
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Entity
@@ -13,6 +14,7 @@ import net.minecraft.world.item.crafting.RecipeHolder
 import net.minecraft.world.item.crafting.RecipeInput
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelAccessor
+import net.minecraft.world.level.block.state.BlockState
 import net.neoforged.neoforge.items.wrapper.RecipeWrapper
 import java.util.Optional
 import java.util.function.Supplier
@@ -31,6 +33,8 @@ interface PlayerTrackingEvents {
 interface LevelEvents {
     fun onEntityJoinLevel(listener: (entity: Entity, level: Level) -> Unit)
     fun onLevelUnload(listener: (levelAccess: LevelAccessor) -> Unit)
+
+    fun onBlockNeighborNotify(listener: (level: Level, pos: BlockPos, state: BlockState) -> Unit)
 }
 
 interface CommandEvents {

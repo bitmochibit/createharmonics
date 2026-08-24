@@ -2,7 +2,10 @@ package me.mochibit.createharmonics.audio.player
 
 import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.foundation.supplier.values.FloatInterpolator
+import net.minecraft.core.BlockPos
+import net.minecraft.world.level.Level
 import kotlin.time.Duration.Companion.seconds
+
 
 class SpatialAudioController {
     val masterVolume = FloatInterpolator(1f, 4.0.seconds)
@@ -12,8 +15,11 @@ class SpatialAudioController {
     val underwaterFilter = EffectPreset.UnderwaterFilter()
     val reverberator = EffectPreset.Reverberator()
 
+    private val effectPresets: List<EffectPreset.AbstractEffectPreset> =
+        listOf(underwaterFilter, reverberator)
+
     fun tick(player: AudioPlayer) {
-        val ctx = player.context ?: return
+        val ctx = player.spatialContext ?: return
 
         masterPitch.setTarget(ctx.targetPitch())
         masterVolume.setTarget(ctx.targetVolume())
@@ -23,8 +29,22 @@ class SpatialAudioController {
         masterVolume.tick()
         masterRadius.tick()
 
-        underwaterFilter.update(player)
-        reverberator.update(player)
+        for (preset in effectPresets) {
+            preset.update(player)
+        }
+    }
+
+    fun notifyBlockUpdate(player: AudioPlayer, level: Level, pos: BlockPos) {
+        for (preset in effectPresets) {
+            val radius = preset.externalUpdateRadius
+            if (radius <= 0f) continue
+
+            val distSq = preset.currentPosition.distanceSquared(
+                pos.x + 0.5, pos.y + 0.5, pos.z + 0.5,
+            )
+            if (distSq <= radius * radius) {
+                preset.onExternalUpdate(player, level)
+            }
+        }
     }
 }
-

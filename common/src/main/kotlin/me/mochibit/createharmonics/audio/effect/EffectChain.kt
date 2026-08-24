@@ -35,20 +35,6 @@ class EffectChain(
         return result
     }
 
-    override fun getSpeedMultiplier(): Double {
-        // Check if theres a pitch shift effect in the chain, and if so return its multiplier, otherwise return 1.0
-        val currentEffects = synchronized(this) { effects }
-        for (effect in currentEffects) {
-            val multiplier = effect.getSpeedMultiplier()
-            if (multiplier != 1.0) {
-                return multiplier
-            }
-        }
-        return 1.0
-    }
-
-    override fun tailLengthSeconds(sampleRate: Int): Double = effects.maxOfOrNull { it.tailLengthSeconds(sampleRate) } ?: 0.0
-
     override fun reset() {
         effects.forEach { it.reset() }
     }

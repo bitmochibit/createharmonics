@@ -1,7 +1,6 @@
 package me.mochibit.createharmonics.audio.effect
 
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
-import me.mochibit.createharmonics.audio.effect.reverb.SimpleReverbEffect
 import me.mochibit.createharmonics.audio.player.AudioPlayer
 import me.mochibit.createharmonics.compat.ModCompats
 import me.mochibit.createharmonics.config.ModConfigs
@@ -35,17 +34,17 @@ sealed interface EffectPreset {
 
     abstract class AbstractEffectPreset : EffectPreset {
         protected val positionVec = PositionVector(Vector3d())
-
-        /**
-         * Use this vector for avoiding GC pressure in scans
-         */
         protected val cursorVec = CursorVector(Vector3d())
 
         private var heavyUpdateCooldown = 0
         protected open val heavyUpdateRate = 20
 
+        open val externalUpdateRadius: Float = 0f
+
+        val currentPosition: Vector3d get() = positionVec.value
+
         final override fun update(audioPlayer: AudioPlayer) {
-            val ctx = audioPlayer.context ?: return
+            val ctx = audioPlayer.spatialContext ?: return
             val level = ctx.level() ?: return
 
             ctx.mutatePosition(positionVec.value)
@@ -54,20 +53,18 @@ sealed interface EffectPreset {
 
             if (--heavyUpdateCooldown <= 0) {
                 heavyUpdateCooldown = heavyUpdateRate
-
-                heavyUpdate(
-                    audioPlayer,
-                    level,
-                )
+                heavyUpdate(audioPlayer, level)
             }
+        }
+
+        fun onExternalUpdate(audioPlayer: AudioPlayer, level: Level) {
+            heavyUpdateCooldown = heavyUpdateRate
+            heavyUpdate(audioPlayer, level)
         }
 
         protected open fun tick() {}
 
-        protected abstract fun heavyUpdate(
-            audioPlayer: AudioPlayer,
-            level: Level,
-        )
+        protected abstract fun heavyUpdate(audioPlayer: AudioPlayer, level: Level)
     }
 
     class UnderwaterFilter : AbstractEffectPreset() {
