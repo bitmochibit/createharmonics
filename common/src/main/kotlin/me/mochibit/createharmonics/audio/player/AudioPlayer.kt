@@ -1,17 +1,8 @@
 package me.mochibit.createharmonics.audio.player
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import me.mochibit.createharmonics.audio.comp.SoundEventComposition
 import me.mochibit.createharmonics.audio.effect.EffectChain
-import me.mochibit.createharmonics.audio.instance.AudioPlayerSoundInstance
 import me.mochibit.createharmonics.audio.stream.AudioEffectInputStream
 import me.mochibit.createharmonics.audio.utils.pause
 import me.mochibit.createharmonics.audio.utils.unpause
@@ -23,8 +14,6 @@ import net.minecraft.client.resources.sounds.SoundInstance
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
-import kotlin.math.abs
-import kotlin.time.Duration.Companion.seconds
 
 typealias SoundInstanceFactory = AudioPlayer.(stream: java.io.InputStream) -> SoundInstance
 
@@ -52,10 +41,6 @@ class AudioPlayer(
 
     private val loadingGeneration = AtomicInteger(0)
     private val streamResolutionStartMillis = AtomicLong(0)
-
-    @Volatile
-    private var lastResyncAt: Long = -1L
-    private val resyncCooldown = 10.seconds
 
     val playerTerminated = AtomicBoolean(false)
     val isSeekingDisabled = AtomicBoolean(false)
@@ -109,16 +94,6 @@ class AudioPlayer(
 
     fun request(req: AudioRequest) = stateMachine.send(PlayerIntent.NewRequest(req))
 
-    fun syncWith(other: PlaytimeClock) {
-        if (!clock.isPlaying || !other.isPlaying) return
-        val now = System.currentTimeMillis()
-        if (lastResyncAt != -1L && now - lastResyncAt < resyncCooldown.inWholeMilliseconds) return
-        val drift = other.currentPlaytime - clock.currentPlaytime
-        if (abs(drift) > 2.0) {
-            lastResyncAt = now
-            seek(other.currentPlaytime)
-        }
-    }
 
     fun tick() {
         clock.tick()
@@ -176,7 +151,13 @@ class AudioPlayer(
                             return@launch
                         }
                         stateMachine.send(
-                            PlayerIntent.StreamReady(result.stream, result.soundInstance, result.audioInfo, position, generation),
+                            PlayerIntent.StreamReady(
+                                result.stream,
+                                result.soundInstance,
+                                result.audioInfo,
+                                position,
+                                generation
+                            ),
                         )
                     }
 
@@ -238,7 +219,6 @@ class AudioPlayer(
         soundEventComposition.stopComposition()
         clock.stop()
         isSeekingDisabled.set(false)
-        if (!isSeek) lastResyncAt = -1L
 
         withContext(NonCancellable) {
             withMainContext { capturedInstance?.let { soundManager.stop(it) } }
@@ -266,7 +246,7 @@ class AudioPlayer(
         val resolutionElapsed = (System.currentTimeMillis() - streamResolutionStartMillis.get()) / 1000.0
         val adjustedPos = if (intent.audioInfo.isLive) 0.0 else intent.atPos + resolutionElapsed
         clock.play(adjustedPos)
-        lastResyncAt = System.currentTimeMillis()
+
 
         withMainContext { soundManager.play(intent.soundInstance) }
         soundEventComposition.makeComposition(intent.soundInstance)

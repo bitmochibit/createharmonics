@@ -462,7 +462,6 @@ class RecordPlayerBehaviour(
         level.onClient { level, virtual ->
             audioPlayer?.tick()
             if (playbackState == PlaybackState.PLAYING) {
-                audioPlayer?.syncWith(playtimeClock)
                 lastActiveVolume = currentVolume
             }
         }

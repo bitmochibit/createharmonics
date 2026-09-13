@@ -320,7 +320,7 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             putClock(contextData.playtimeClock)
             put("HeldRecordItem", contextData.heldItemStack.toNBT(provider))
             if (syncType != SyncType.DISK) {
-                // PlayState syncs only over network
+                // PlayState syncs only over network (otherwise it overloads the block's playstate when disassembled lol)
                 writeEnum("PlaybackStateMoving", contextData.playbackState)
             }
         }
@@ -475,7 +475,6 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             if (!data.isDirty) return
             data.clean()
 
-            player.syncWith(data.playtimeClock)
 
             val newState = data.playbackState
             when (newState) {

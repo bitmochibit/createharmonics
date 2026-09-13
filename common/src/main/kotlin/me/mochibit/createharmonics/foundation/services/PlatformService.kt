@@ -1,5 +1,7 @@
 package me.mochibit.createharmonics.foundation.services
 
+import java.nio.file.Path
+
 interface PlatformService {
     enum class Platform {
         NEOFORGE,
@@ -26,6 +28,8 @@ interface PlatformService {
     val currentThreadSide: Environment
 
     fun isModLoaded(modId: String): Boolean
+
+    val serverRootPath: Path
 
 }
 

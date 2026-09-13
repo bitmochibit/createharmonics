@@ -23,6 +23,7 @@ import net.minecraft.world.item.crafting.Ingredient
 import java.util.EnumSet
 import java.util.Locale.getDefault
 
+//todo this has to become data driven, ASAP
 enum class RecordType(
     val properties: Properties,
 ) {
