@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets
  * POST /audio/upload?player=<name>&ext=<ext>[&title=...][&artist=...][&filename=...]
  * Body: raw audio bytes.
  */
+//todo: token system for handling secure requests
 class UploadHandler(
     private val config: AudioUploadConfig,
     private val storage: AudioStorageManager,

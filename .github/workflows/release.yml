@@ -131,7 +131,7 @@ jobs:
           dependencies: |
             create | depends | *
             kotlin-for-forge | depends | *
-            jei | optional | *
+  
 
       # ── Summary ──────────────────────────────────────────────────────────────
       - name: Job summary
