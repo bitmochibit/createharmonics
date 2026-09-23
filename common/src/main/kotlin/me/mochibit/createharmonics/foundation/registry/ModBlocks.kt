@@ -15,10 +15,12 @@ import me.mochibit.createharmonics.config.ModStressConfig
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlock
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlock
+import me.mochibit.createharmonics.content.uploader.AmethystCatalystBlock
 import me.mochibit.createharmonics.foundation.info
 import net.minecraft.client.renderer.RenderType
 import net.minecraft.core.Registry
 import net.minecraft.world.level.block.SoundType
+import net.minecraft.world.level.block.state.BlockState
 import java.util.function.Supplier
 
 @AutoRegister
@@ -82,6 +84,22 @@ object ModBlocks : Registrable {
             ).blockstate { ctx, p ->
                 p.simpleBlock(ctx.entry, AssetLookup.partialBaseModel(ctx, p))
             }.item()
+            .transform(customItemModel())
+            .register()
+
+
+    val AMETHYST_CATALYST: BlockEntry<AmethystCatalystBlock> =
+        ModRegistrate
+            .block("amethyst_catalyst", ::AmethystCatalystBlock)
+            .properties { p ->
+                p.strength(2.0f, 6.0f)
+                    .sound(SoundType.AMETHYST)
+            }.tag(
+                AllTags.AllBlockTags.SAFE_NBT.tag
+            ).blockstate { context, provider ->
+                BlockStateGen.simpleBlock(context, provider, AssetLookup.forPowered(context, provider))
+            }
+            .item()
             .transform(customItemModel())
             .register()
 

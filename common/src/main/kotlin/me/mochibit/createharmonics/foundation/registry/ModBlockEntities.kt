@@ -10,6 +10,7 @@ import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.brassJukebox.BrassJukeboxBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseRenderer
+import me.mochibit.createharmonics.content.uploader.AmethystCatalystBlockEntity
 import me.mochibit.createharmonics.foundation.info
 import net.minecraft.core.Registry
 
@@ -56,6 +57,14 @@ object ModBlockEntities : Registrable {
                     RecordPressBaseRenderer(ctx)
                 }
             }.register()
+
+
+    val AMETHYST_CATALYST: BlockEntityEntry<AmethystCatalystBlockEntity> =
+        ModRegistrate
+            .blockEntity("amethyst_catalyst", ::AmethystCatalystBlockEntity)
+            .validBlocks(ModBlocks.AMETHYST_CATALYST)
+            .register()
+
 
     override fun register(registry: Registry<*>?) {
         "Registering block entities".info()

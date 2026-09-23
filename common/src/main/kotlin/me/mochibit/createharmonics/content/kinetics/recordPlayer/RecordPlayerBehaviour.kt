@@ -242,6 +242,7 @@ class RecordPlayerBehaviour(
         }
 
     private val particleRandom: RandomSource = RandomSource.create()
+    //TODO: remove this and replace with a proper ticker
     private val playerParticleJob =
         10.ticks().every {
             val level = this@RecordPlayerBehaviour.be.level ?: return@every

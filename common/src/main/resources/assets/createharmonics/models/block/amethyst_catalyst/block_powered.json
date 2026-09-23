@@ -1,0 +1,7 @@
+{
+  "parent": "createharmonics:block/amethyst_catalyst/block",
+  "textures": {
+    "3": "createharmonics:block/amethyst_catalyst/amethyst_catalyst_powered",
+    "particle": "createharmonics:block/amethyst_catalyst/amethyst_catalyst_powered"
+  }
+}
