@@ -1,0 +1,195 @@
+{
+	"credit": "Made with Blockbench",
+	"loader": "neoforge:composite",
+	"parent": "block/block",
+	"textures": {
+		"particle": "createharmonics:block/amethyst_catalyst/side"
+	},
+	"children": {
+		"crystal": {
+			"render_type": "minecraft:translucent",
+			"textures": {
+				"0": "createharmonics:block/amethyst_catalyst/amethyst_visual"
+			},
+			"elements": [
+				{
+					"from": [
+						7,
+						1,
+						7
+					],
+					"to": [
+						9,
+						6,
+						9
+					],
+					"rotation": {
+						"angle": 0,
+						"axis": "y",
+						"origin": [
+							8.0682,
+							2.2274,
+							8.0491
+						]
+					},
+					"faces": {
+						"north": {
+							"uv": [
+								0,
+								0,
+								2,
+								5
+							],
+							"texture": "#0"
+						},
+						"east": {
+							"uv": [
+								2,
+								0,
+								4,
+								5
+							],
+							"texture": "#0"
+						},
+						"south": {
+							"uv": [
+								4,
+								0,
+								6,
+								5
+							],
+							"texture": "#0"
+						},
+						"west": {
+							"uv": [
+								0,
+								5,
+								2,
+								10
+							],
+							"texture": "#0"
+						}
+					}
+				},
+				{
+					"from": [
+						7,
+						5.4326,
+						7
+					],
+					"to": [
+						8.4,
+						6.8326,
+						9
+					],
+					"rotation": {
+						"angle": 45,
+						"axis": "z",
+						"origin": [
+							8,
+							6.4326,
+							8
+						]
+					},
+					"faces": {
+						"north": {
+							"uv": [
+								6,
+								5,
+								7,
+								6
+							],
+							"texture": "#0"
+						},
+						"east": {
+							"uv": [
+								2,
+								5,
+								4,
+								6
+							],
+							"texture": "#0"
+						},
+						"south": {
+							"uv": [
+								6,
+								6,
+								7,
+								7
+							],
+							"texture": "#0"
+						},
+						"up": {
+							"uv": [
+								6,
+								0,
+								7,
+								2
+							],
+							"texture": "#0"
+						}
+					}
+				},
+				{
+					"from": [
+						7,
+						0.4326,
+						7
+					],
+					"to": [
+						8.4,
+						1.8326,
+						9
+					],
+					"rotation": {
+						"angle": 45,
+						"axis": "z",
+						"origin": [
+							8,
+							1.4326,
+							8
+						]
+					},
+					"faces": {
+						"north": {
+							"uv": [
+								7,
+								0,
+								8,
+								1
+							],
+							"texture": "#0"
+						},
+						"south": {
+							"uv": [
+								7,
+								1,
+								8,
+								2
+							],
+							"texture": "#0"
+						},
+						"west": {
+							"uv": [
+								3,
+								6,
+								5,
+								7
+							],
+							"texture": "#0"
+						},
+						"down": {
+							"uv": [
+								5,
+								6,
+								6,
+								8
+							],
+							"texture": "#0"
+						}
+					}
+				}
+			]
+		}
+	}
+}

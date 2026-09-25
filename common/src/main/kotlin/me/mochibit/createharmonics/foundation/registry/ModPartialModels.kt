@@ -17,6 +17,8 @@ object ModPartialModels : Registrable {
             }
         }
 
+    val amethystModel = block("amethyst_catalyst/amethyst_visual")
+
     fun getRecordModel(type: RecordType): PartialModel = recordModels.getValue(type)
 
     private fun block(path: String): PartialModel = PartialModel.of("block/$path".asResource())

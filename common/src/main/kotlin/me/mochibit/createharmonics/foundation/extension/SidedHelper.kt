@@ -1,5 +1,7 @@
 package me.mochibit.createharmonics.foundation.extension
 
+import me.mochibit.createharmonics.foundation.services.PlatformService
+import me.mochibit.createharmonics.foundation.services.platformService
 import net.createmod.ponder.api.level.PonderLevel
 import net.minecraft.client.Minecraft
 import net.minecraft.client.multiplayer.ClientLevel

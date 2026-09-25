@@ -56,7 +56,7 @@ class AmethystCatalystBlock(
         ModBlockEntities.AMETHYST_CATALYST.get()
 
     override fun getShape(state: BlockState, level: BlockGetter, pos: BlockPos, context: CollisionContext): VoxelShape {
-        return AllShapes.CASING_13PX.get(Direction.UP)
+        return AllShapes.CASING_11PX.get(Direction.UP)
     }
 
     override fun useItemOn(
@@ -103,26 +103,20 @@ class AmethystCatalystBlock(
         }
 
         level.onServer {
-            val be = level.getBlockEntity(pos) as? AmethystCatalystBlockEntity ?: return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
-            clickedWithStack?.let {
-                when {
-                    it.`is`(Items.AMETHYST_SHARD) -> {
-                        if (!be.behaviour.insertCrystal(it)) {
-                            return ItemInteractionResult.FAIL
-                        }
-                        it.shrink(1)
-                    }
+            val be = level.getBlockEntity(pos) as? AmethystCatalystBlockEntity
+                ?: return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
+            val stack = clickedWithStack ?: ItemStack.EMPTY
 
-                    it.isEmpty -> {
-                        if (!be.behaviour.hasCrystal) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
-                        player.addItem(
-                            be.behaviour.popCrystal()
-                        )
-                    }
+            when {
+                stack.`is`(Items.AMETHYST_SHARD) -> {
+                    if (!be.behaviour.insertCrystal(stack)) return ItemInteractionResult.FAIL
+                    stack.shrink(1)
                 }
-
-               return ItemInteractionResult.SUCCESS
+                stack.isEmpty && be.behaviour.hasCrystal ->
+                    player.inventory.placeItemBackInInventory(be.behaviour.popCrystal())
+                else -> return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
             }
+            return ItemInteractionResult.SUCCESS
         }
 
         return ItemInteractionResult.SUCCESS

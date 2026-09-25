@@ -3,8 +3,12 @@ package me.mochibit.createharmonics
 import kotlinx.coroutines.runBlocking
 import me.mochibit.createharmonics.audio.bin.BinStatusManager
 import me.mochibit.createharmonics.audio.process.ProcessLifecycleManager
+import me.mochibit.createharmonics.audio.soundscape.ModSoundScapes
 import me.mochibit.createharmonics.foundation.async.launchOnClient
 import me.mochibit.createharmonics.foundation.err
+import me.mochibit.createharmonics.foundation.services.EventPhase
+import me.mochibit.createharmonics.foundation.services.clientEventService
+import me.mochibit.createharmonics.foundation.services.eventService
 import me.mochibit.createharmonics.ponder.ModPonderPlugin
 import net.createmod.ponder.foundation.PonderIndex
 
@@ -21,6 +25,10 @@ object CreateHarmonicsClientMod {
 
         launchOnClient {
             BinStatusManager.initialize()
+        }
+
+        clientEventService.onClientTick(tickPhase = EventPhase.START) {
+            ModSoundScapes.tick()
         }
 
         Runtime.getRuntime().addShutdownHook(

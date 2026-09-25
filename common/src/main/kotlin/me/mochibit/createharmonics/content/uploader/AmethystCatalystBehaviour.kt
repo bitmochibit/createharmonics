@@ -37,13 +37,13 @@ class AmethystCatalystBehaviour(
     fun insertCrystal(crystalItem: ItemStack): Boolean {
         if (hasCrystal) return false
         if (!crystalItem.`is`(Items.AMETHYST_SHARD)) return false
-        itemHandler.setStackInSlot(AmethystCatalystItemHandler.CRYSTAL_SLOT, crystalItem.copy())
+        itemHandler.setStackInSlot(AmethystCatalystItemHandler.CRYSTAL_SLOT, crystalItem.copyWithCount(1))
         this.be.level?.playSound(
             null,
             pos,
             SoundEvents.AMETHYST_BLOCK_PLACE,
             SoundSource.PLAYERS,
-            0.2f,
+            0.5f,
             1f + RandomSource.create().nextFloat(),
         )
         return true
@@ -58,7 +58,7 @@ class AmethystCatalystBehaviour(
                 pos,
                 SoundEvents.AMETHYST_CLUSTER_FALL,
                 SoundSource.PLAYERS,
-                0.2f,
+                0.5f,
                 1f + RandomSource.create().nextFloat(),
             )
         }
@@ -73,7 +73,7 @@ class AmethystCatalystBehaviour(
                     pos,
                     SoundEvents.AMETHYST_BLOCK_RESONATE,
                     SoundSource.PLAYERS,
-                    2f,
+                    1.2f,
                     RandomSource.create().nextFloat().coerceIn(0.0f..0.5f),
                 )
                 this.be.level?.playSound(
@@ -81,7 +81,7 @@ class AmethystCatalystBehaviour(
                     pos,
                     SoundEvents.BELL_RESONATE,
                     SoundSource.PLAYERS,
-                    2f,
+                    1.2f,
                     1+RandomSource.create().nextFloat().coerceIn(0.0f..0.5f),
                 )
             }
@@ -92,7 +92,7 @@ class AmethystCatalystBehaviour(
                     pos,
                     SoundEvents.BEACON_DEACTIVATE,
                     SoundSource.PLAYERS,
-                    2f,
+                    .8f,
                     RandomSource.create().nextFloat().coerceIn(0.0f..0.5f),
                 )
                 this.be.level?.playSound(
@@ -105,6 +105,18 @@ class AmethystCatalystBehaviour(
                 )
             }
         }
+    }
+
+    override fun write(nbt: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {
+        super.write(nbt, registries, clientPacket)
+        nbt.put("Inventory", itemHandler.serializeNBT(registries))
+    }
+
+    override fun read(nbt: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {
+        if (nbt.contains("Inventory")) {
+            itemHandler.deserializeNBT(registries, nbt.getCompound("Inventory"))
+        }
+        super.read(nbt, registries, clientPacket)
     }
 
 }
