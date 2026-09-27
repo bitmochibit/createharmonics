@@ -6,6 +6,7 @@ import me.mochibit.createharmonics.audio.soundscape.ModSoundScapes
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBehaviour
 import me.mochibit.createharmonics.foundation.extension.onClient
 import net.minecraft.core.BlockPos
+import net.minecraft.world.Clearable
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
@@ -14,7 +15,7 @@ class AmethystCatalystBlockEntity(
     type: BlockEntityType<*>,
     pos: BlockPos,
     state: BlockState
-): SmartBlockEntity(type, pos, state) {
+): SmartBlockEntity(type, pos, state), Clearable {
 
     lateinit var behaviour: AmethystCatalystBehaviour
         private set
@@ -33,5 +34,9 @@ class AmethystCatalystBlockEntity(
                 ModSoundScapes.play(ModSoundScapes.AmbienceGroup.RESONATING, worldPosition, 0.5f)
             }
         }
+    }
+
+    override fun clearContent() {
+        this.behaviour.clearContent()
     }
 }

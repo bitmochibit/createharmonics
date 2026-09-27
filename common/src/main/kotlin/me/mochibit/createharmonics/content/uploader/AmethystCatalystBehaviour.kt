@@ -11,13 +11,14 @@ import net.minecraft.nbt.CompoundTag
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
+import net.minecraft.world.Clearable
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.neoforged.neoforge.items.ItemStackHandler
 
 class AmethystCatalystBehaviour(
     val be: AmethystCatalystBlockEntity
-): BlockEntityBehaviour(be) {
+): BlockEntityBehaviour(be), Clearable {
     companion object {
         @JvmStatic
         val BEHAVIOUR_TYPE = BehaviourType<AmethystCatalystBehaviour>()
@@ -105,6 +106,20 @@ class AmethystCatalystBehaviour(
                 )
             }
         }
+    }
+
+    override fun clearContent() {
+        for (slot in 0 until itemHandler.slots) {
+            itemHandler.setStackInSlot(slot, ItemStack.EMPTY)
+        }
+    }
+
+    override fun destroy() {
+        super.destroy()
+    }
+
+    override fun unload() {
+        super.unload()
     }
 
     override fun write(nbt: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {

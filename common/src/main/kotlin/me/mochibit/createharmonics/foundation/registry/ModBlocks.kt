@@ -21,6 +21,7 @@ import net.minecraft.client.renderer.RenderType
 import net.minecraft.core.Registry
 import net.minecraft.world.level.block.SoundType
 import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.material.MapColor
 import java.util.function.Supplier
 
 @AutoRegister
@@ -91,9 +92,17 @@ object ModBlocks : Registrable {
     val AMETHYST_CATALYST: BlockEntry<AmethystCatalystBlock> =
         ModRegistrate
             .block("amethyst_catalyst", ::AmethystCatalystBlock)
+            .initialProperties(SharedProperties::stone)
             .properties { p ->
-                p.strength(2.0f, 6.0f)
-                    .sound(SoundType.AMETHYST)
+                p
+                    .mapColor(MapColor.TERRACOTTA_BROWN)
+                    .lightLevel { state ->
+                        if (state.getValue(AmethystCatalystBlock.POWERED)) {
+                            15
+                        } else {
+                            0
+                        }
+                    }
             }.tag(
                 AllTags.AllBlockTags.SAFE_NBT.tag
             ).blockstate { context, provider ->

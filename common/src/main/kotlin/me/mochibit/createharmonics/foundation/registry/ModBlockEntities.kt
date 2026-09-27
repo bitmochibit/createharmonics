@@ -7,11 +7,10 @@ import me.mochibit.createharmonics.ModRegistrate
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerRenderer
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerVisual
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlockEntity
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.brassJukebox.BrassJukeboxBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseRenderer
 import me.mochibit.createharmonics.content.uploader.AmethystCatalystBlockEntity
-import me.mochibit.createharmonics.content.uploader.AmethystCatalystVisual
+import me.mochibit.createharmonics.content.uploader.AmethystCatalystRenderer
 import me.mochibit.createharmonics.foundation.info
 import net.minecraft.core.Registry
 
@@ -63,11 +62,16 @@ object ModBlockEntities : Registrable {
     val AMETHYST_CATALYST: BlockEntityEntry<AmethystCatalystBlockEntity> =
         ModRegistrate
             .blockEntity("amethyst_catalyst", ::AmethystCatalystBlockEntity)
-            .visual({
-                SimpleBlockEntityVisualizer.Factory { ctx, be, pt ->
-                    AmethystCatalystVisual(ctx, be, pt)
+            .renderer {
+                NonNullFunction { ctx ->
+                    AmethystCatalystRenderer(ctx)
                 }
-            }, false)
+            }
+//            .visual({
+//                SimpleBlockEntityVisualizer.Factory { ctx, be, pt ->
+//                    AmethystCatalystVisual(ctx, be, pt)
+//                }
+//            }, false)
             .validBlocks(ModBlocks.AMETHYST_CATALYST)
             .register()
 
