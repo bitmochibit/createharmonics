@@ -4,7 +4,7 @@ import com.simibubi.create.api.contraption.storage.item.MountedItemStorageType
 import com.tterrag.registrate.util.entry.RegistryEntry
 import me.mochibit.createharmonics.ModRegistrate
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMountedStorage
+import me.mochibit.createharmonics.content.recordPlayer.RecordPlayerMountedStorage
 import me.mochibit.createharmonics.foundation.info
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Registry
@@ -27,9 +27,9 @@ object ModMountedStorages : Registrable {
 
     class RecordPlayerMountedStorageType : MountedItemStorageType<RecordPlayerMountedStorage>(RecordPlayerMountedStorage.CODEC) {
         override fun mount(
-            level: Level?,
-            state: BlockState?,
-            pos: BlockPos?,
+            level: Level,
+            state: BlockState,
+            pos: BlockPos,
             be: BlockEntity?,
         ): RecordPlayerMountedStorage? {
             if (be is RecordPlayerBlockEntity) {

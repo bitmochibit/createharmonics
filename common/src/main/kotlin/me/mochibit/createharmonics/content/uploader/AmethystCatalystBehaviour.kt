@@ -2,11 +2,14 @@ package me.mochibit.createharmonics.content.uploader
 
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerTrait
-import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.foundation.extension.onServer
+import me.mochibit.createharmonics.foundation.inventory.GenericInventory
+import me.mochibit.createharmonics.foundation.inventory.InventorySpec
+import me.mochibit.createharmonics.foundation.inventory.StorageInventory
+import me.mochibit.createharmonics.foundation.inventory.clearContent
+import me.mochibit.createharmonics.foundation.inventory.dropContents
+import me.mochibit.createharmonics.foundation.services.contentService
 import net.minecraft.core.HolderLookup
-import net.minecraft.core.NonNullList
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
@@ -14,31 +17,53 @@ import net.minecraft.util.RandomSource
 import net.minecraft.world.Clearable
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
-import net.neoforged.neoforge.items.ItemStackHandler
 
 class AmethystCatalystBehaviour(
     val be: AmethystCatalystBlockEntity
-): BlockEntityBehaviour(be), Clearable {
+) : BlockEntityBehaviour(be), Clearable {
     companion object {
         @JvmStatic
         val BEHAVIOUR_TYPE = BehaviourType<AmethystCatalystBehaviour>()
+
+        const val CRYSTAL_SLOT = 0
     }
 
     private val randomSource = RandomSource.create()
 
     override fun getType(): BehaviourType<*> = BEHAVIOUR_TYPE
 
-    val itemHandler = AmethystCatalystItemHandler(this)
+    val itemHandler: StorageInventory = contentService.createInventoryFromSpec(
+        InventorySpec(
+            size = 1,
+            isItemValid = { _, stack -> stack.isEmpty || stack.`is`(Items.AMETHYST_SHARD) },
+            slotLimit = { _ -> 1 },
+        ), onChange = { _ ->
+            val hasCrystal = !getStackInSlot(CRYSTAL_SLOT).isEmpty
+            if (hasCrystal) {
+                be.behaviour.onCrystalChange(CrystalChangeOutcome.INSERTED)
+            } else {
+                be.behaviour.onCrystalChange(CrystalChangeOutcome.REMOVED)
+            }
+
+            be.level?.setBlockAndUpdate(
+                be.blockPos,
+                be.blockState.setValue(AmethystCatalystBlock.POWERED, hasCrystal),
+            )
+            be.notifyUpdate()
+        }, onLoad = {
+            blockEntity.notifyUpdate()
+        }
+    )
 
     val hasCrystal: Boolean
-        get() = !itemHandler.getStackInSlot(AmethystCatalystItemHandler.CRYSTAL_SLOT).isEmpty
+        get() = !itemHandler.getStackInSlot(CRYSTAL_SLOT).isEmpty
 
-    fun getCrystal(): ItemStack = itemHandler.getStackInSlot(AmethystCatalystItemHandler.CRYSTAL_SLOT).copy()
+    fun getCrystal(): ItemStack = itemHandler.getStackInSlot(CRYSTAL_SLOT).copy()
 
     fun insertCrystal(crystalItem: ItemStack): Boolean {
         if (hasCrystal) return false
         if (!crystalItem.`is`(Items.AMETHYST_SHARD)) return false
-        itemHandler.setStackInSlot(AmethystCatalystItemHandler.CRYSTAL_SLOT, crystalItem.copyWithCount(1))
+        itemHandler.setStackInSlot(CRYSTAL_SLOT, crystalItem.copyWithCount(1))
         this.be.level?.playSound(
             null,
             pos,
@@ -52,7 +77,7 @@ class AmethystCatalystBehaviour(
 
     fun popCrystal(): ItemStack {
         val stack = getCrystal()
-        itemHandler.setStackInSlot(AmethystCatalystItemHandler.CRYSTAL_SLOT, ItemStack.EMPTY)
+        itemHandler.setStackInSlot(CRYSTAL_SLOT, ItemStack.EMPTY)
         if (!stack.isEmpty) {
             this.be.level?.playSound(
                 null,
@@ -67,7 +92,7 @@ class AmethystCatalystBehaviour(
     }
 
     fun onCrystalChange(outcome: CrystalChangeOutcome) {
-        when(outcome) {
+        when (outcome) {
             CrystalChangeOutcome.INSERTED -> {
                 this.be.level?.playSound(
                     null,
@@ -83,7 +108,7 @@ class AmethystCatalystBehaviour(
                     SoundEvents.BELL_RESONATE,
                     SoundSource.PLAYERS,
                     1.2f,
-                    1+RandomSource.create().nextFloat().coerceIn(0.0f..0.5f),
+                    1 + RandomSource.create().nextFloat().coerceIn(0.0f..0.5f),
                 )
             }
 
@@ -109,16 +134,19 @@ class AmethystCatalystBehaviour(
     }
 
     override fun clearContent() {
-        for (slot in 0 until itemHandler.slots) {
-            itemHandler.setStackInSlot(slot, ItemStack.EMPTY)
-        }
+        this.itemHandler.clearContent()
     }
 
     override fun destroy() {
+        this.be.level?.onServer { serverLevel ->
+            this.itemHandler.dropContents(serverLevel, be.blockPos)
+            onCrystalChange(CrystalChangeOutcome.REMOVED)
+        }
         super.destroy()
     }
 
     override fun unload() {
+        contentService.invalidateBlockEntityStorage(be)
         super.unload()
     }
 
@@ -137,68 +165,5 @@ class AmethystCatalystBehaviour(
 }
 
 enum class CrystalChangeOutcome {
-    INSERTED,
-    REMOVED
-}
-
-
-class AmethystCatalystItemHandler(
-    val behaviour: AmethystCatalystBehaviour,
-    private val targetSlotCount: Int = 1,
-) : ItemStackHandler(targetSlotCount) {
-    companion object {
-        const val CRYSTAL_SLOT = 0
-    }
-
-    override fun insertItem(
-        slot: Int,
-        stack: ItemStack,
-        simulate: Boolean,
-    ): ItemStack {
-        if (slot != CRYSTAL_SLOT) return stack
-        return super.insertItem(slot, stack, simulate)
-    }
-
-    override fun onLoad() {
-        behaviour.be.onServer {
-            behaviour.blockEntity.notifyUpdate()
-        }
-    }
-
-    override fun onContentsChanged(slot: Int) {
-        behaviour.be.onServer {
-            val hasCrystal = !getStackInSlot(CRYSTAL_SLOT).isEmpty
-            val be = behaviour.blockEntity
-            if (hasCrystal) {
-                behaviour.onCrystalChange(CrystalChangeOutcome.INSERTED)
-            } else {
-                behaviour.onCrystalChange(CrystalChangeOutcome.REMOVED)
-            }
-
-            be.level?.setBlockAndUpdate(
-                be.blockPos,
-                be.blockState.setValue(AmethystCatalystBlock.POWERED, hasCrystal),
-            )
-            be.notifyUpdate()
-        }
-    }
-
-    override fun isItemValid(
-        slot: Int,
-        stack: ItemStack,
-    ): Boolean {
-        return stack.isEmpty || stack.`is`(Items.AMETHYST_SHARD)
-    }
-
-    override fun deserializeNBT(
-        provider: HolderLookup.Provider,
-        nbt: CompoundTag,
-    ) {
-        super.deserializeNBT(provider, nbt)
-        if (stacks.size < targetSlotCount) {
-            val expanded = NonNullList.withSize(targetSlotCount, ItemStack.EMPTY)
-            for (i in stacks.indices) expanded[i] = stacks[i]
-            stacks = expanded
-        }
-    }
+    INSERTED, REMOVED
 }

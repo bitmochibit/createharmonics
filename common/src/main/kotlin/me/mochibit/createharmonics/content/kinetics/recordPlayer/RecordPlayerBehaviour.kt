@@ -6,16 +6,10 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import me.mochibit.createharmonics.audio.AudioPlayerManager
 import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
-import me.mochibit.createharmonics.audio.player.AudioPlayer
-import me.mochibit.createharmonics.audio.player.BlockEntityAudioContext
-import me.mochibit.createharmonics.audio.player.PlayerState
-import me.mochibit.createharmonics.audio.player.PlaytimeClock
-import me.mochibit.createharmonics.audio.player.putClock
-import me.mochibit.createharmonics.audio.player.updateClock
+import me.mochibit.createharmonics.audio.player.*
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.config.ServerConfig
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.MAIN_RECORD_SLOT
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerItemHandler.Companion.RECORD_OUTPUT_SLOT
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.RecordPlayerInventory.MAIN_RECORD_SLOT
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordUtilities
 import me.mochibit.createharmonics.content.records.RecordUtilities.playFromRecord
@@ -24,8 +18,11 @@ import me.mochibit.createharmonics.foundation.extension.onClient
 import me.mochibit.createharmonics.foundation.extension.onServer
 import me.mochibit.createharmonics.foundation.extension.remapTo
 import me.mochibit.createharmonics.foundation.extension.ticks
+import me.mochibit.createharmonics.foundation.inventory.InventorySpec
+import me.mochibit.createharmonics.foundation.inventory.dropContents
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
+import me.mochibit.createharmonics.foundation.services.contentService
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.client.Minecraft
 import net.minecraft.core.Direction
@@ -44,7 +41,7 @@ import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
-import java.util.UUID
+import java.util.*
 import kotlin.math.abs
 
 class RecordPlayerBehaviour(
@@ -90,14 +87,38 @@ class RecordPlayerBehaviour(
         }
     }
 
-    private val maxPitch get() =
-        ModConfigs.client.maxPitch
-            .get()
-            .toFloat()
-    private val minPitch get() =
-        ModConfigs.client.minPitch
-            .get()
-            .toFloat()
+    object RecordPlayerInventory {
+        const val MAIN_RECORD_SLOT = 0
+        const val RECORD_OUTPUT_SLOT = 1
+
+        val SpecBasis = InventorySpec(
+            size = 2,
+            isItemValid = { slot, stack ->
+                when {
+                    stack.isEmpty -> true
+                    else -> {
+                        val item = stack.item as? EtherealRecordItem
+                        when {
+                            item == null -> false
+                            slot == MAIN_RECORD_SLOT -> !item.isRecordBroken()
+                            else -> true
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    private val maxPitch
+        get() =
+            ModConfigs.client.maxPitch
+                .get()
+                .toFloat()
+    private val minPitch
+        get() =
+            ModConfigs.client.minPitch
+                .get()
+                .toFloat()
 
     private var _recordPlayerUUID: UUID? = null
     val recordPlayerUUID: UUID?
@@ -156,8 +177,8 @@ class RecordPlayerBehaviour(
 
             if (isDecaying || (
                         playerState != PlayerState.PLAYING &&
-                        playerState != PlayerState.LOADING
-                )
+                                playerState != PlayerState.LOADING
+                        )
             ) {
                 return lastActiveVolume
             }
@@ -204,7 +225,23 @@ class RecordPlayerBehaviour(
     // Flag to request restart on next tick (for redstone looping)
     private var shouldRestartOnNextTick = false
 
-    val itemHandler = RecordPlayerItemHandler(this)
+    val itemHandler = contentService.createInventoryFromSpec(
+        RecordPlayerInventory.SpecBasis,
+        onChange = { _: Int ->
+            val hasDisc = !getStackInSlot(MAIN_RECORD_SLOT).isEmpty
+            if (!hasDisc) {
+                this@RecordPlayerBehaviour.onAudioTitleUpdate("")
+            }
+            be.level?.setBlockAndUpdate(
+                be.blockPos,
+                be.blockState.setValue(RecordPlayerTrait.HAS_ETHEREAL_RECORD, hasDisc),
+            )
+            be.notifyUpdate()
+        },
+        onLoad = {
+            be.notifyUpdate()
+        }
+    )
 
     private var pendingRecordUse = false
     private var ticksSinceLastClockSave = 0
@@ -242,6 +279,7 @@ class RecordPlayerBehaviour(
         }
 
     private val particleRandom: RandomSource = RandomSource.create()
+
     //TODO: remove this and replace with a proper ticker
     private val playerParticleJob =
         10.ticks().every {
@@ -292,7 +330,7 @@ class RecordPlayerBehaviour(
         get() {
             val playbackMode = be.playbackMode.get()
             return playbackMode == RecordPlayerBlockEntity.PlaybackMode.PLAY_STATIC_PITCH ||
-                playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
+                    playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
         }
 
     private fun ensureTracking() {
@@ -306,12 +344,8 @@ class RecordPlayerBehaviour(
         get() {
             val playbackMode = be.playbackMode.get()
             return playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE ||
-                playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
+                    playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
         }
-
-    override fun lazyTick() {
-        super.lazyTick()
-    }
 
     override fun tick() {
         super.tick()
@@ -332,7 +366,7 @@ class RecordPlayerBehaviour(
             }
             ensureTracking()
 
-            val outputStack = itemHandler.getStackInSlot(RECORD_OUTPUT_SLOT)
+            val outputStack = itemHandler.getStackInSlot(RecordPlayerInventory.RECORD_OUTPUT_SLOT)
             if (!outputStack.isEmpty) {
                 tryEjectOutputSlot(outputStack, serverLevel)
             }
@@ -504,7 +538,7 @@ class RecordPlayerBehaviour(
                         0.08,
                     )
 
-                    itemHandler.setStackInSlot(RECORD_OUTPUT_SLOT, itemStack)
+                    itemHandler.setStackInSlot(RecordPlayerInventory.RECORD_OUTPUT_SLOT, itemStack)
                     be.notifyUpdate()
                 }
             }
@@ -522,7 +556,7 @@ class RecordPlayerBehaviour(
                 .getBehaviour(DirectBeltInputBehaviour.TYPE)
                 ?.tryExportingToBeltFunnel(stack, facing.opposite, false)
         if (funnelResult != null && funnelResult.count != stack.count) {
-            itemHandler.setStackInSlot(RECORD_OUTPUT_SLOT, funnelResult)
+            itemHandler.setStackInSlot(RecordPlayerInventory.RECORD_OUTPUT_SLOT, funnelResult)
             be.notifyUpdate()
             return
         }
@@ -535,7 +569,7 @@ class RecordPlayerBehaviour(
             if (!behaviour.canInsertFromSide(direction)) continue
             val remainder = behaviour.handleInsertion(stack, direction, false)
             if (!ItemStack.matches(remainder, stack)) {
-                itemHandler.setStackInSlot(RECORD_OUTPUT_SLOT, remainder)
+                itemHandler.setStackInSlot(RecordPlayerInventory.RECORD_OUTPUT_SLOT, remainder)
                 be.notifyUpdate()
                 return
             }
@@ -547,7 +581,7 @@ class RecordPlayerBehaviour(
                 facing.stepY * 0.7,
                 facing.stepZ * 0.7,
             )
-        itemHandler.setStackInSlot(RECORD_OUTPUT_SLOT, ItemStack.EMPTY)
+        itemHandler.setStackInSlot(RecordPlayerInventory.RECORD_OUTPUT_SLOT, ItemStack.EMPTY)
         val itemEntity = ItemEntity(level, dropPos.x, dropPos.y, dropPos.z, stack)
         itemEntity.setDeltaMovement(facing.stepX * 0.2, 0.2, facing.stepZ * 0.2)
         level.addFreshEntity(itemEntity)
@@ -695,16 +729,6 @@ class RecordPlayerBehaviour(
         audioPlayer?.stop()
     }
 
-    fun dropContent() {
-        val currLevel = be.level ?: return
-
-        val inv = SimpleContainer(itemHandler.slots)
-        for (i in 0 until itemHandler.slots) {
-            inv.setItem(i, itemHandler.getStackInSlot(i))
-        }
-
-        Containers.dropContents(currLevel, be.blockPos, inv)
-    }
 
     override fun unload() {
         val uuidStr = recordPlayerUUID?.toString() ?: return
@@ -721,7 +745,7 @@ class RecordPlayerBehaviour(
             }
         }
 
-        be.level?.invalidateCapabilities(pos)
+        contentService.invalidateBlockEntityStorage(be)
         super.unload()
     }
 
@@ -736,11 +760,11 @@ class RecordPlayerBehaviour(
             AudioPlayerManager.release(uuidStr)
         }
 
-        be.onServer {
+        be.level?.onServer { serverLevel ->
             unregisterPlayer(uuidStr, be)
+            itemHandler.dropContents(serverLevel, be.blockPos)
         }
 
-        dropContent()
         super.destroy()
     }
 
@@ -870,3 +894,4 @@ class RecordPlayerBehaviour(
         audioPlayingTitle = audioTitle
     }
 }
+

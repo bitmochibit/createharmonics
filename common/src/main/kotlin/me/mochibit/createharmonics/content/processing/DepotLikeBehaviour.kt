@@ -13,6 +13,14 @@ import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.item.ItemHelper
 import me.mochibit.createharmonics.foundation.extension.onServer
+import me.mochibit.createharmonics.foundation.inventory.GenericInventory
+import me.mochibit.createharmonics.foundation.inventory.InventorySpec
+import me.mochibit.createharmonics.foundation.inventory.MutableInventory
+import me.mochibit.createharmonics.foundation.inventory.StorageInventory
+import me.mochibit.createharmonics.foundation.inventory.canStackAmounts
+import me.mochibit.createharmonics.foundation.inventory.dropContents
+import me.mochibit.createharmonics.foundation.inventory.insertStacked
+import me.mochibit.createharmonics.foundation.services.contentService
 import net.createmod.catnip.math.VecHelper
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.core.Direction
@@ -23,17 +31,18 @@ import net.minecraft.world.Containers
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.phys.Vec3
-import net.neoforged.neoforge.items.IItemHandler
-import net.neoforged.neoforge.items.ItemHandlerHelper
-import net.neoforged.neoforge.items.ItemStackHandler
 import kotlin.math.min
 
 abstract class DepotLikeBehaviour(
     be: SmartBlockEntity,
 ) : BlockEntityBehaviour(be) {
-    class DepotLikeItemHandler(
+
+    /**
+     * Works strictly with [DepotLikeBehaviour], and it's just an abstraction layer for accessing the behavior's inventory
+     */
+    class DepotLikeInventory(
         private val behaviour: DepotLikeBehaviour,
-    ) : IItemHandler {
+    ) : GenericInventory, MutableInventory {
         override fun getSlots(): Int = 9
 
         override fun getStackInSlot(slot: Int): ItemStack =
@@ -86,6 +95,14 @@ abstract class DepotLikeBehaviour(
             stack: ItemStack,
         ): Boolean = slot == MAIN_SLOT && behaviour.isItemValid(stack)
 
+        override fun setStackInSlot(slot: Int, stack: ItemStack) {
+            if (slot == MAIN_SLOT) {
+                behaviour.heldItem = TransportedItemStack(stack)
+            } else {
+                behaviour.processingOutputBuffer.setStackInSlot(slot, stack)
+            }
+        }
+
         companion object {
             private const val MAIN_SLOT = 0
         }
@@ -94,8 +111,11 @@ abstract class DepotLikeBehaviour(
     var heldItem: TransportedItemStack? = null
     var incoming: MutableList<TransportedItemStack> = mutableListOf()
     var outgoing: MutableList<TransportedItemStack> = mutableListOf()
-    var processingOutputBuffer: ItemStackHandler
-    var itemHandler: DepotLikeItemHandler
+    var processingOutputBuffer: StorageInventory = contentService.createInventoryFromSpec(
+        InventorySpec(size = 8, slotLimit = { 64 }),
+        onChange = { blockEntity.notifyUpdate() }
+    )
+    var itemHandler: DepotLikeInventory
     var transportedHandler: TransportedItemStackHandlerBehaviour? = null
     var maxStackSize: () -> Int = { heldItem?.stack?.maxStackSize ?: 64 }
     var canAcceptItems: () -> Boolean = { true }
@@ -107,13 +127,7 @@ abstract class DepotLikeBehaviour(
     init {
         acceptedItems = { true }
         onHeldInserted = { }
-        itemHandler = DepotLikeItemHandler(this)
-        processingOutputBuffer =
-            object : ItemStackHandler(8) {
-                override fun onContentsChanged(slot: Int) {
-                    be.notifyUpdate()
-                }
-            }
+        itemHandler = DepotLikeInventory(this)
     }
 
     fun enableMerging(): DepotLikeBehaviour {
@@ -252,7 +266,7 @@ abstract class DepotLikeBehaviour(
         val funnelFacing = AbstractFunnelBlock.getFunnelFacing(funnel)
         if (funnelFacing == null || !canFunnelsPullFrom(funnelFacing.opposite)) return false
 
-        for (slot in 0..<processingOutputBuffer.slots) {
+        for (slot in 0..<processingOutputBuffer.getSlots()) {
             val previousItem = processingOutputBuffer.getStackInSlot(slot)
             if (previousItem.isEmpty) continue
             val afterInsert =
@@ -289,16 +303,11 @@ abstract class DepotLikeBehaviour(
     fun tryEjectOutputToBelts(): Boolean {
         if (blockEntity.isVirtual) {
             // Add the current held item to the output buffer for ejection attempts
-
-            ItemHandlerHelper.insertItemStacked(
-                processingOutputBuffer,
-                heldItemStack,
-                false,
-            )
+            processingOutputBuffer.insertStacked(heldItemStack, false)
             heldItem = null
         }
 
-        for (slot in 0..<processingOutputBuffer.slots) {
+        for (slot in 0..<processingOutputBuffer.getSlots()) {
             val previousItem = processingOutputBuffer.getStackInSlot(slot)
             if (previousItem.isEmpty) continue
 
@@ -349,9 +358,9 @@ abstract class DepotLikeBehaviour(
 
     override fun destroy() {
         super.destroy()
-        val level = getWorld()
+        val level = world
         val pos = getPos()
-        ItemHelper.dropContents(level, pos, processingOutputBuffer)
+        processingOutputBuffer.dropContents(level, pos)
         for (transportedItemStack in incoming) {
             Block.popResource(level, pos, transportedItemStack.stack)
         }
@@ -364,7 +373,7 @@ abstract class DepotLikeBehaviour(
     }
 
     override fun unload() {
-        this.blockEntity.level?.invalidateCapabilities(blockEntity.blockPos)
+        contentService.invalidateBlockEntityStorage(this.blockEntity)
     }
 
     override fun write(
@@ -402,11 +411,13 @@ abstract class DepotLikeBehaviour(
         processingOutputBuffer.deserializeNBT(registries, compound.getCompound("OutputBuffer"))
         if (canMergeItems()) {
             val list = compound.getList("Incoming", Tag.TAG_COMPOUND.toInt())
-            incoming = NBTHelper.readCompoundList(list) { nbt -> TransportedItemStack.read(nbt, registries) }.toMutableList()
+            incoming =
+                NBTHelper.readCompoundList(list) { nbt -> TransportedItemStack.read(nbt, registries) }.toMutableList()
         }
         if (compound.contains("Outgoing")) {
             val list = compound.getList("Outgoing", Tag.TAG_COMPOUND.toInt())
-            outgoing = NBTHelper.readCompoundList(list) { nbt -> TransportedItemStack.read(nbt, registries) }.toMutableList()
+            outgoing =
+                NBTHelper.readCompoundList(list) { nbt -> TransportedItemStack.read(nbt, registries) }.toMutableList()
         }
     }
 
@@ -420,7 +431,7 @@ abstract class DepotLikeBehaviour(
     val presentStackSize: Int
         get() {
             var cumulativeStackSize = heldItemStack.count
-            for (slot in 0..<processingOutputBuffer.slots) {
+            for (slot in 0..<processingOutputBuffer.getSlots()) {
                 cumulativeStackSize +=
                     processingOutputBuffer
                         .getStackInSlot(
@@ -468,7 +479,7 @@ abstract class DepotLikeBehaviour(
         if (space <= 0) return insertedStack
 
         val currentHeld = heldItem
-        if (currentHeld != null && !ItemHelper.canItemStackAmountsStack(currentHeld.stack, insertedStack)) {
+        if (currentHeld != null && !currentHeld.stack.canStackAmounts(insertedStack)) {
             return insertedStack
         }
 
@@ -523,7 +534,7 @@ abstract class DepotLikeBehaviour(
                 } else {
                     AllSoundEvents.DEPOT_PLOP
                 }
-            sound.playOnServer(getWorld(), getPos())
+            sound.playOnServer(world, pos)
         }
 
         val itemToStore =
@@ -602,7 +613,7 @@ abstract class DepotLikeBehaviour(
         if (processOnlyData(currentHeldItem)) {
             val processedStack = processData(currentHeldItem).copy()
             heldItem = null
-            val remainder = ItemHandlerHelper.insertItemStacked(processingOutputBuffer, processedStack, false)
+            val remainder = processingOutputBuffer.insertStacked(processedStack, false)
             val vec = VecHelper.getCenterOf(blockEntity.blockPos)
             val level = blockEntity.level ?: return
             Containers.dropItemStack(level, vec.x, vec.y + 0.5f, vec.z, remainder)
@@ -624,7 +635,7 @@ abstract class DepotLikeBehaviour(
         heldOutput?.let { setCenteredHeldItem(transformHeldOutput(currentHeldItem, it)) }
 
         result.outputs.forEach { added ->
-            val remainder = ItemHandlerHelper.insertItemStacked(processingOutputBuffer, added.stack, false)
+            val remainder = processingOutputBuffer.insertStacked(added.stack, false)
             val vec = VecHelper.getCenterOf(blockEntity.blockPos)
             val level = blockEntity.level ?: return
             Containers.dropItemStack(level, vec.x, vec.y + 0.5f, vec.z, remainder)
@@ -638,7 +649,7 @@ abstract class DepotLikeBehaviour(
 
     val isOutputEmpty: Boolean
         get() {
-            for (i in 0..<processingOutputBuffer.slots) {
+            for (i in 0..<processingOutputBuffer.getSlots()) {
                 if (!processingOutputBuffer.getStackInSlot(i).isEmpty) {
                     return false
                 }

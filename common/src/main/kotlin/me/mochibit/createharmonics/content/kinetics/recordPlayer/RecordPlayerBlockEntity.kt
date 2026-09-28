@@ -10,6 +10,8 @@ import com.simibubi.create.foundation.gui.AllIcons
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
 import me.mochibit.createharmonics.config.ModStressConfig
 import me.mochibit.createharmonics.foundation.extension.lerpTo
+import me.mochibit.createharmonics.foundation.inventory.GenericInventory
+import me.mochibit.createharmonics.foundation.inventory.StorageInventory
 import me.mochibit.createharmonics.foundation.registry.ModIcons
 import net.createmod.catnip.math.AngleHelper
 import net.minecraft.core.BlockPos
@@ -120,13 +122,13 @@ abstract class RecordPlayerBlockEntity(
     }
 
     override fun clearContent() {
-        for (i in 0 until itemHandler.slots) {
+        for (i in 0 until itemHandler.getSlots()) {
             itemHandler.setStackInSlot(i, ItemStack.EMPTY)
         }
     }
 
     fun applyInventoryToBlock(wrapped: ItemStackHandler) {
-        for (i in 0 until itemHandler.slots) {
+        for (i in 0 until itemHandler.getSlots()) {
             itemHandler.setStackInSlot(i, if (i < wrapped.slots) wrapped.getStackInSlot(i) else ItemStack.EMPTY)
         }
     }
@@ -180,6 +182,6 @@ abstract class RecordPlayerBlockEntity(
         return if (rpm in (0f + Float.MIN_VALUE)..128f) baseImpact * (128f / rpm) else baseImpact
     }
 
-    val itemHandler: RecordPlayerItemHandler
+    val itemHandler: StorageInventory
         get() = playerBehaviour.itemHandler
 }

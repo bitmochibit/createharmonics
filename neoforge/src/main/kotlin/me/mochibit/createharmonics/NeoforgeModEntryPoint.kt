@@ -1,9 +1,12 @@
 package me.mochibit.createharmonics
 
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.data.DataGenerators.provideLang
+import me.mochibit.createharmonics.foundation.inventory.SpecItemHandler
+import me.mochibit.createharmonics.foundation.inventory.asItemHandler
 import me.mochibit.createharmonics.foundation.registry.ModBlockEntities
 import me.mochibit.createharmonics.foundation.registry.NeoforgeModPackets
 import net.neoforged.bus.api.IEventBus
@@ -41,12 +44,12 @@ class NeoforgeModEntryPoint(
             event.registerBlockEntity(
                 Capabilities.ItemHandler.BLOCK,
                 ModBlockEntities.ANDESITE_JUKEBOX.get(),
-            ) { be: RecordPlayerBlockEntity, _ -> be.itemHandler }
+            ) { be: RecordPlayerBlockEntity, _ -> be.itemHandler.asItemHandler() }
 
             event.registerBlockEntity(
                 Capabilities.ItemHandler.BLOCK,
                 ModBlockEntities.RECORD_PRESS_BASE.get(),
-            ) { be: RecordPressBaseBlockEntity, _ -> be.behaviour.itemHandler }
+            ) { be: RecordPressBaseBlockEntity, _ -> be.behaviour.itemHandler.asItemHandler() }
         }
     }
 

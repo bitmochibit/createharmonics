@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
+import com.simibubi.create.api.contraption.storage.item.WrapperMountedItemStorage
 import com.simibubi.create.content.contraptions.ControlledContraptionEntity
 import com.simibubi.create.content.contraptions.behaviour.MovementContext
 import com.simibubi.create.content.contraptions.render.ActorVisual
@@ -574,17 +575,19 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
     private fun handleRecordUse(context: MovementContext) {
         context.world?.onServer { level ->
             val storage =
-                context.contraption.storage.allItemStorages[context.localPos] as? RecordPlayerMountedStorage ?: return
+                context.contraption.storage.allItemStorages[context.localPos] as? WrapperMountedItemStorage<*> ?: return
+
+
             val record = getRecordItem(context)
             val result = RecordUtilities.handleRecordUse(record, level)
 
             when {
                 result.shouldReplace -> {
-                    result.replacementStack?.let { storage.setRecord(it) }
+                    result.replacementStack?.let { storage.setStackInSlot(RecordPlayerBehaviour.RecordPlayerInventory.MAIN_RECORD_SLOT, it) }
                 }
 
                 result.isBroken -> {
-                    storage.setRecord(ItemStack.EMPTY)
+                    storage.setStackInSlot(RecordPlayerBehaviour.RecordPlayerInventory.MAIN_RECORD_SLOT, ItemStack.EMPTY)
                     val itemStack = (result as RecordUtilities.RecordUseResult.Broken).dropStack.copy()
 
                     val remainder: ItemStack =
@@ -650,8 +653,8 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             return contextData.heldItemStack
         }
         val handler =
-            context.contraption.storage.allItemStorages[context.localPos] as? RecordPlayerMountedStorage
+            context.contraption.storage.allItemStorages[context.localPos] as? WrapperMountedItemStorage<*>
                 ?: return ItemStack.EMPTY
-        return handler.getRecord()
+        return handler.getStackInSlot(RecordPlayerBehaviour.RecordPlayerInventory.MAIN_RECORD_SLOT)
     }
 }

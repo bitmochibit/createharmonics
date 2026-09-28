@@ -32,8 +32,8 @@ import net.minecraft.world.phys.shapes.CollisionContext
 import net.minecraft.world.phys.shapes.VoxelShape
 
 class AmethystCatalystBlock(
-    val properties: Properties
-) : Block(properties), IBE<AmethystCatalystBlockEntity>, IWrenchable, ProperWaterloggedBlock {
+    val props: Properties
+) : Block(props), IBE<AmethystCatalystBlockEntity>, IWrenchable, ProperWaterloggedBlock {
     companion object {
         val POWERED = BlockStateProperties.POWERED
     }
@@ -120,5 +120,15 @@ class AmethystCatalystBlock(
         }
 
         return ItemInteractionResult.SUCCESS
+    }
+
+    override fun onRemove(
+        state: BlockState,
+        level: Level,
+        pos: BlockPos,
+        newState: BlockState,
+        movedByPiston: Boolean
+    ) {
+        IBE.onRemove(state, level, pos, newState)
     }
 }

@@ -163,7 +163,7 @@ class RecordPressBaseBlock(
         }
 
         val outputs = behaviour.processingOutputBuffer
-        for (i in 0..<outputs.slots) {
+        for (i in 0..<outputs.getSlots()) {
             val extracted = outputs.extractItem(i, 64, false)
             if (!extracted.isEmpty && !playedSoundOnce) {
                 pLevel.playSound(null, pPos, SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, .2f, 1f + RANDOM.nextFloat())

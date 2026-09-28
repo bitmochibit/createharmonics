@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.content.processing.recordPressBase
 
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
+import me.mochibit.createharmonics.foundation.inventory.clearContent
 import net.minecraft.core.BlockPos
 import net.minecraft.world.Clearable
 import net.minecraft.world.level.block.entity.BlockEntityType
@@ -71,10 +72,7 @@ class RecordPressBaseBlockEntity(
         }
 
     override fun clearContent() {
-        val handler = this.behaviour.itemHandler
-        for (i in 0 until handler.slots) {
-            handler.extractItem(i, Int.MAX_VALUE, false)
-        }
+        this.behaviour.itemHandler.clearContent()
 
         notifyUpdate()
     }

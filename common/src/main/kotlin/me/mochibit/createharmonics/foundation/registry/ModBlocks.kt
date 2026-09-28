@@ -17,6 +17,7 @@ import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlock
 import me.mochibit.createharmonics.content.uploader.AmethystCatalystBlock
 import me.mochibit.createharmonics.foundation.info
+import me.mochibit.createharmonics.foundation.services.contentService
 import net.minecraft.client.renderer.RenderType
 import net.minecraft.core.Registry
 import net.minecraft.world.level.block.SoundType
@@ -41,7 +42,7 @@ object ModBlocks : Registrable {
             .tag(
                 AllTags.AllBlockTags.SAFE_NBT.tag,
             ).tag(AllTags.AllBlockTags.SIMPLE_MOUNTED_STORAGE.tag)
-            .transform(mountedItemStorage(ModMountedStorages.SIMPLE_RECORD_PLAYER_STORAGE))
+            .transform(mountedItemStorage(contentService.simpleRecordPlayerMountedStorage()))
             .transform(displaySource(ModDisplaySources.AUDIO_NAME))
             .transform(displaySource(ModDisplaySources.PLAYER_STATUS))
             .transform(ModStressConfig.setImpact(1.0))

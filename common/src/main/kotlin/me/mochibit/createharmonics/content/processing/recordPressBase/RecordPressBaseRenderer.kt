@@ -123,7 +123,7 @@ class RecordPressBaseRenderer(
             }
 
             // Render output items
-            for (i in 0..<depotBehaviour.processingOutputBuffer.slots) {
+            for (i in 0..<depotBehaviour.processingOutputBuffer.getSlots()) {
                 val stack = depotBehaviour.processingOutputBuffer.getStackInSlot(i)
                 if (stack.isEmpty) continue
                 ms.pushPose()
