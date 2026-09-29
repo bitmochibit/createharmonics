@@ -16,35 +16,13 @@ fun Component.toMultilineComponent(): List<Component> {
     }
 }
 
-fun Component.toMultilineFormattedCharSequence(
-    font: Font,
-    maxWidth: Int,
-): List<FormattedCharSequence> = font.split(this, maxWidth)
-
-fun GuiGraphics.renderTooltip(
-    font: Font,
-    lines: List<Component>,
-    x: Int,
-    y: Int,
-    maxWidth: Int = 200,
-) {
-    val formattedLines = lines.flatMap { it.toMultilineFormattedCharSequence(font, maxWidth) }
-    this.renderTooltip(font, formattedLines, x, y)
-}
-
-/**
- * Convenience method for rendering a single component as a tooltip,
- * automatically splitting on newlines.
- */
-fun GuiGraphics.renderTooltip(
+fun GuiGraphics.renderMultilineTooltip(
     font: Font,
     component: Component,
     x: Int,
     y: Int,
     maxWidth: Int = 200,
-) {
-    this.renderTooltip(font, component.toMultilineComponent(), x, y, maxWidth)
-}
+) = renderTooltip(font, font.split(component, maxWidth), x, y)
 
 fun GuiGraphics.drawCenteredString(
     font: Font,

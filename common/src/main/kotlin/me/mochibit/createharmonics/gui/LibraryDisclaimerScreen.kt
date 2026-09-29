@@ -10,7 +10,6 @@ import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.async.withMainContext
 import me.mochibit.createharmonics.foundation.extension.drawCenteredString
-import me.mochibit.createharmonics.foundation.extension.toMultilineFormattedCharSequence
 import me.mochibit.createharmonics.foundation.locale.ModLang
 import net.minecraft.ChatFormatting
 import net.minecraft.Util
@@ -733,11 +732,10 @@ class LibraryDisclaimerScreen(
         val maxTextWidth = boxW - 40
         val padding = 12
 
-        val notice =
-            ModLang
-                .translate("gui.library_setup.manual_install")
-                .component()
-                .toMultilineFormattedCharSequence(font, maxTextWidth)
+        val notice = font.split(
+            ModLang.translate("gui.library_setup.manual_install").component(),
+            maxTextWidth,
+        )
 
         val boxH = padding + font.lineHeight + padding + (notice.size * font.lineHeight) + 5 + padding
 

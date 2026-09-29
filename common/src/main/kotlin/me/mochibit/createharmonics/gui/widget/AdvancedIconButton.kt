@@ -4,9 +4,11 @@ import com.mojang.blaze3d.systems.RenderSystem
 import com.simibubi.create.AllKeys
 import com.simibubi.create.foundation.gui.AllGuiTextures
 import com.simibubi.create.foundation.gui.widget.IconButton
+import me.mochibit.createharmonics.foundation.extension.toMultilineComponent
 import me.mochibit.createharmonics.gui.ModGuiTexture
 import net.createmod.catnip.gui.element.ScreenElement
 import net.minecraft.client.gui.GuiGraphics
+import net.minecraft.network.chat.Component
 
 class AdvancedIconButton(
     x: Int,
@@ -106,5 +108,10 @@ class AdvancedIconButton(
 
             else -> {}
         }
+    }
+
+    override fun setToolTip(text: Component) {
+        toolTip.clear()
+        toolTip.addAll(text.toMultilineComponent())
     }
 }

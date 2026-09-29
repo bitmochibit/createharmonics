@@ -1,4 +1,4 @@
-package me.mochibit.createharmonics.gui.content.amethyst_catalyst
+package me.mochibit.createharmonics.gui.content.amethystCatalyst
 
 import net.createmod.catnip.gui.AbstractSimiScreen
 import net.minecraft.client.gui.GuiGraphics
