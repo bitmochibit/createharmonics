@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import net.minecraft.core.BlockPos
 
+//TODO serialize this in a proper datastructure
 @Serializable
 class ConfigureRecordPressBasePacket(
     @Contextual val blockPos: BlockPos,
