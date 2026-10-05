@@ -7,6 +7,7 @@ import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPres
 import net.minecraft.core.BlockPos
 
 //TODO serialize this in a proper datastructure
+@AutoPacket
 @Serializable
 class ConfigureRecordPressBasePacket(
     @Contextual val blockPos: BlockPos,
@@ -14,14 +15,13 @@ class ConfigureRecordPressBasePacket(
     val urlWeights: MutableList<Float>,
     val randomMode: Boolean,
     val newIndex: Int,
-) : ModPacket,
-    C2SPacket {
-    override fun handle(context: ModPacket.Context): Boolean {
-        val sender = context.sender ?: return false
-        if (sender.isSpectator || AdventureUtil.isAdventure(sender)) return false
+) : C2SPacket {
+    override fun handle(context: ServerPacketContext) {
+        val sender = context.player
+        if (sender.isSpectator || AdventureUtil.isAdventure(sender)) return
         val world = sender.level()
-        if (world == null || !world.isLoaded(blockPos)) return false
-        if (!sender.canInteractWithBlock(blockPos, 20.0)) return false
+        if (world == null || !world.isLoaded(blockPos)) return
+        if (!sender.canInteractWithBlock(blockPos, 20.0)) return
         val blockEntity = world.getBlockEntity(blockPos)
         if (blockEntity is RecordPressBaseBlockEntity) {
             blockEntity.audioUrls = audioUrls
@@ -31,6 +31,5 @@ class ConfigureRecordPressBasePacket(
             blockEntity.sendData()
             blockEntity.setChanged()
         }
-        return true
     }
 }

@@ -1,6 +1,7 @@
 package me.mochibit.createharmonics.config
 
 import me.mochibit.createharmonics.content.records.RecordType
+import me.mochibit.createharmonics.foundation.services.platformService
 import net.createmod.catnip.config.ConfigBase
 import net.neoforged.neoforge.common.ModConfigSpec
 
@@ -11,8 +12,26 @@ import net.neoforged.neoforge.common.ModConfigSpec
  * to control gameplay mechanics and balance.
  */
 object ServerConfig : ConfigBase() {
+    // Audio host configuration
+
+    lateinit var audioServerIp: CValue<String, ModConfigSpec.ConfigValue<String>>
+        private set
+    lateinit var audioServerPort: ConfigInt
+        private set
+
+    lateinit var audioStorageRoot: CValue<String, ModConfigSpec.ConfigValue<String>>
+        private set
+
+    lateinit var maxFilesPerPlayer: ConfigInt
+        private set
+
+    lateinit var maxFileSizeBytes: CValue<Long, ModConfigSpec.ConfigValue<Long>>
+        private set
+
+
     // Stress configuration (nested)
-    val modStress = nested(0, { ModStressConfig }, "Mechanical stress impacts and capacities for CreateHarmonics blocks")
+    val modStress =
+        nested(0, { ModStressConfig }, "Mechanical stress impacts and capacities for CreateHarmonics blocks")
 
     // Record durability configuration
     private val recordDurabilities: MutableMap<RecordType, ConfigInt> = mutableMapOf()
@@ -24,6 +43,56 @@ object ServerConfig : ConfigBase() {
 
     lateinit var maxJukeboxSoundRange: ConfigInt
         private set
+
+
+    private fun audioServerGroup() {
+        group(1, "Audio server", "Configure the audio file hoster")
+        audioServerIp =
+            CValue<String, ModConfigSpec.ConfigValue<String>>(
+                "audioServerIp",
+                { builder ->
+                    builder.define("audioServerIp", "0.0.0.0")
+                },
+                "Host IP for the audio server, generally the default is good to keep",
+            )
+
+        audioServerPort = i(
+            25570,
+            0,
+            65565,
+            "Server port"
+        )
+
+        audioStorageRoot = CValue<String, ModConfigSpec.ConfigValue<String>>(
+            "audioStorageRoot",
+            { builder ->
+                builder.define("audioStorageRoot",
+                    platformService.serverRootPath.resolve("createharmonics/audio/uploaded").toString()
+                )
+            },
+            "Root directory in the server that will be used for storing audio files uploaded by players.",
+        )
+
+        maxFilesPerPlayer = i(
+            20,
+            1,
+            9999,
+            "Maximum files (count) that one player can upload"
+        )
+
+        maxFileSizeBytes = CValue<Long, ModConfigSpec.ConfigValue<Long>>(
+            "maxFileSizeBytes",
+            { builder ->
+                builder.defineInRange("maxFileSizeBytes",
+                    10*1024*1024L,
+                    1L,
+                    10*1024*1024*1024L
+                )
+            },
+            "Maximum size per file that one player can upload (bytes). Default is 10 megabytes",
+        )
+
+    }
 
     /**
      * Registers record-related configuration options.
@@ -78,6 +147,7 @@ object ServerConfig : ConfigBase() {
     }
 
     override fun registerAll(builder: ModConfigSpec.Builder) {
+        audioServerGroup()
         recordGroup()
         jukeboxesGroup()
         super.registerAll(builder)

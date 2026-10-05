@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.audio.upload
 
+import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
@@ -14,8 +15,8 @@ import kotlin.io.path.outputStream
 
 data class AudioMetadata(
     val fileId: String,
-    val playerName: String,
     val extension: String,
+    val playerName: String,
     val originalFileName: String?,
     val title: String?,
     val artist: String?,
@@ -26,7 +27,23 @@ data class AudioMetadata(
 class QuotaExceededException(message: String) : RuntimeException(message)
 class FileTooLargeException(message: String) : RuntimeException(message)
 
-class AudioStorageManager(private val config: AudioUploadConfig) {
+data class AudioStorageConfiguration(
+    val storageRoot: Path,
+    val maxFilesPerPlayer: Int,
+    val maxFileSizeBytes: Long,
+)
+
+class AudioStorageManager(private val config: AudioStorageConfiguration) {
+
+    constructor(
+        storageRoot: Path,
+        maxFilesPerPlayer: Int = 10,
+        maxFileSizeBytes: Long = 10 * 1024 * 1024L
+    ) : this(
+        AudioStorageConfiguration(storageRoot, maxFilesPerPlayer, maxFileSizeBytes)
+    )
+
+    fun currentConfig(): AudioStorageConfiguration = this.config.copy()
 
     private fun playerDir(playerName: String): Path =
         InputSanitizer.resolveContained(config.storageRoot, playerName)
@@ -47,8 +64,8 @@ class AudioStorageManager(private val config: AudioUploadConfig) {
      */
     fun store(
         playerName: String,
-        extension: String,
         originalFileName: String?,
+        extension: String,
         title: String?,
         artist: String?,
         body: InputStream,
@@ -79,11 +96,11 @@ class AudioStorageManager(private val config: AudioUploadConfig) {
         val metadata = AudioMetadata(
             fileId = fileId,
             playerName = playerName,
-            extension = extension,
             originalFileName = originalFileName,
             title = title,
             artist = artist,
             sizeBytes = sizeBytes,
+            extension = extension,
             uploadedAt = Instant.now(),
         )
         writeMetadata(metaTarget, metadata)
@@ -92,9 +109,7 @@ class AudioStorageManager(private val config: AudioUploadConfig) {
 
     fun resolveAudioFile(playerName: String, fileId: String, extension: String): Path {
         val target = InputSanitizer.resolveContained(config.storageRoot, playerName, "$fileId.$extension")
-        if (!target.exists() || !Files.isRegularFile(target)) {
-            throw NoSuchFileException(target.toString())
-        }
+        if (!Files.isRegularFile(target)) throw NoSuchFileException(target.toString())
         return target
     }
 

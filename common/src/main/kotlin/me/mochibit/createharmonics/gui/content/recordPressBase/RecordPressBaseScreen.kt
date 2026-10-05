@@ -20,12 +20,13 @@ import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.EditBox
 import net.minecraft.util.Mth
 import net.minecraft.world.item.ItemStack
-import java.util.Collections
-import java.util.Locale
+import java.util.*
 
 class RecordPressBaseScreen(
     private val be: RecordPressBaseBlockEntity,
-) : AbstractSimiScreen(ModLang.translate("gui.record_press_base.title").component()) {
+) : AbstractSimiScreen(
+    ModLang.translate("gui.record_press_base.title").component()
+) {
 
     companion object {
         private const val SCROLL_AREA_X = 3
@@ -83,7 +84,7 @@ class RecordPressBaseScreen(
             font, 0, 0, 0, URL_FIELD_HEIGHT,
             ModLang.translate("gui.record_press_base.$langKey").component(),
         ).apply {
-            setBordered(false)
+            isBordered = false
             setMaxLength(maxLength)
             configure()
         }
@@ -312,7 +313,15 @@ class RecordPressBaseScreen(
         val inputX = 28
         val inputY = 8
         scope.decoration(0, 0, 2f) { dx, dy ->
-            UIRenderHelper.drawStretched(this, dx + 10, dy - 10, 3, cardHeight + 20, 0, AllGuiTextures.SCHEDULE_STRIP_LIGHT)
+            UIRenderHelper.drawStretched(
+                this,
+                dx + 10,
+                dy - 10,
+                3,
+                cardHeight + 20,
+                0,
+                AllGuiTextures.SCHEDULE_STRIP_LIGHT
+            )
             noteStripTexture.render(this, dx + 7, dy + CARD_SPACING)
             UIRenderHelper.drawStretched(
                 this, dx + inputX, dy + inputY, width, URL_FIELD_HEIGHT, 0, AllGuiTextures.SCHEDULE_CONDITION_MIDDLE,
@@ -371,10 +380,42 @@ class RecordPressBaseScreen(
     private fun GuiGraphics.renderCardBackground(x: Int, y: Int, cardWidth: Int, cardHeight: Int) {
         val z = 1
         poseScoped {
-            UIRenderHelper.drawStretched(this, x, y + 1, cardWidth, cardHeight - 2, z, AllGuiTextures.SCHEDULE_CARD_LIGHT)
-            UIRenderHelper.drawStretched(this, x + 1, y, cardWidth - 2, cardHeight, z, AllGuiTextures.SCHEDULE_CARD_LIGHT)
-            UIRenderHelper.drawStretched(this, x + 1, y + 1, cardWidth - 2, cardHeight - 2, z, AllGuiTextures.SCHEDULE_CARD_DARK)
-            UIRenderHelper.drawStretched(this, x + 2, y + 2, cardWidth - 4, cardHeight - 4, z, AllGuiTextures.SCHEDULE_CARD_MEDIUM)
+            UIRenderHelper.drawStretched(
+                this,
+                x,
+                y + 1,
+                cardWidth,
+                cardHeight - 2,
+                z,
+                AllGuiTextures.SCHEDULE_CARD_LIGHT
+            )
+            UIRenderHelper.drawStretched(
+                this,
+                x + 1,
+                y,
+                cardWidth - 2,
+                cardHeight,
+                z,
+                AllGuiTextures.SCHEDULE_CARD_LIGHT
+            )
+            UIRenderHelper.drawStretched(
+                this,
+                x + 1,
+                y + 1,
+                cardWidth - 2,
+                cardHeight - 2,
+                z,
+                AllGuiTextures.SCHEDULE_CARD_DARK
+            )
+            UIRenderHelper.drawStretched(
+                this,
+                x + 2,
+                y + 2,
+                cardWidth - 4,
+                cardHeight - 4,
+                z,
+                AllGuiTextures.SCHEDULE_CARD_MEDIUM
+            )
         }
     }
 

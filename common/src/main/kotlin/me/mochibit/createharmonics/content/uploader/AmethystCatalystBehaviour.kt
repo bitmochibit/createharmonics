@@ -139,8 +139,10 @@ class AmethystCatalystBehaviour(
 
     override fun destroy() {
         this.be.level?.onServer { serverLevel ->
-            this.itemHandler.dropContents(serverLevel, be.blockPos)
-            onCrystalChange(CrystalChangeOutcome.REMOVED)
+            if (hasCrystal) {
+                this.itemHandler.dropContents(serverLevel, be.blockPos)
+                onCrystalChange(CrystalChangeOutcome.REMOVED)
+            }
         }
         super.destroy()
     }

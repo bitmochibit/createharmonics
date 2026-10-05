@@ -10,19 +10,18 @@ import net.minecraft.client.Minecraft
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 
+@AutoPacket
 @Serializable
 class ContraptionBlockDataChangedPacket(
     val entityID: Int,
     @Contextual val localPos: BlockPos,
     @Contextual val newData: CompoundTag,
-) : ModPacket,
-    S2CPacket {
-    override fun handle(context: ModPacket.Context): Boolean {
+) : S2CPacket {
+    override fun handle(context: ClientPacketContext) {
         modLaunch {
             val entity =
                 Minecraft.getInstance().level?.getEntity(entityID) as? AbstractContraptionEntity ?: return@modLaunch
             entity.handleBlockDataChange(localPos, newData)
         }
-        return true
     }
 }

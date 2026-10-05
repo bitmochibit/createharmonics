@@ -18,6 +18,8 @@ object InputSanitizer {
      */
     private val FILE_ID = Regex("^[0-9a-fA-F-]{36}$")
 
+    private val EXTENSION_REGEX = Regex("[a-z0-9]{1,8}")
+
     fun validatePlayerName(raw: String?): String =
         raw?.takeIf { PLAYER_NAME.matches(it) }
             ?: throw InvalidInputException("Invalid player name")
@@ -26,10 +28,15 @@ object InputSanitizer {
         raw?.takeIf { FILE_ID.matches(it) && runCatching { UUID.fromString(it) }.isSuccess }
             ?: throw InvalidInputException("Invalid file id")
 
-    fun validateExtension(raw: String?, allowed: Set<String>): String {
-        val ext = raw?.lowercase()
-        if (ext == null || ext !in allowed) throw InvalidInputException("Extension not allowed")
-        return ext
+    fun extensionFrom(fileName: String?): String {
+        val ext = fileName?.substringAfterLast('.', "")?.lowercase().orEmpty()
+        return if (EXTENSION_REGEX.matches(ext)) ext else "bin"
+    }
+
+    fun validateExtension(ext: String): String {
+        val lower = ext.lowercase()
+        if (!EXTENSION_REGEX.matches(lower)) throw InvalidInputException("Invalid extension")
+        return lower
     }
 
     fun newFileId(): String = UUID.randomUUID().toString()

@@ -11,46 +11,46 @@ import java.nio.charset.StandardCharsets
  * Body: raw audio bytes.
  */
 //todo: token system for handling secure requests
-class UploadHandler(
-    private val config: AudioUploadConfig,
-    private val storage: AudioStorageManager,
-) : HttpHandler {
+class UploadHandler(private val storage: AudioStorageManager) : HttpHandler {
 
     override fun handle(exchange: HttpExchange) {
         exchange.use { exchange ->
             if (exchange.requestMethod != "POST") {
-                exchange.sendPlainText(405, "Method Not Allowed")
-                return
+                exchange.sendPlainText(405, "Method Not Allowed"); return
+            }
+
+            val ticket = exchange.bearerToken()?.let(UploadTicketRegistry::consume)
+            if (ticket == null) {
+                exchange.sendPlainText(401, "Invalid or expired upload ticket"); return
             }
 
             val params = parseQuery(exchange.requestURI.rawQuery)
+            val maxSize = storage.currentConfig().maxFileSizeBytes
 
             try {
-                val playerName = InputSanitizer.validatePlayerName(params["player"])
-                val extension = InputSanitizer.validateExtension(params["ext"], config.allowedExtensions)
-                val title = params["title"]?.take(256)
-                val artist = params["artist"]?.take(256)
-                val originalFileName = params["filename"]?.take(256)
-
-                val contentLengthHeader = exchange.requestHeaders.getFirst("Content-Length")?.toLongOrNull()
-                if (contentLengthHeader != null && contentLengthHeader > config.maxFileSizeBytes) {
-                    exchange.sendPlainText(413, "File exceeds maximum allowed size of ${config.maxFileSizeBytes} bytes")
-                    return
+                val declared = exchange.requestHeaders.getFirst("Content-Length")?.toLongOrNull()
+                if (declared != null && declared > maxSize) {
+                    exchange.sendPlainText(413, "File exceeds maximum allowed size of $maxSize bytes"); return
                 }
 
+                val originalFileName = params["filename"]?.take(256)
+                val extension = InputSanitizer.extensionFrom(originalFileName)
+
                 val metadata = storage.store(
-                    playerName = playerName,
-                    extension = extension,
+                    playerName = ticket.playerName,
                     originalFileName = originalFileName,
-                    title = title,
-                    artist = artist,
+                    extension = extension,
+                    title = params["title"]?.take(256),
+                    artist = params["artist"]?.take(256),
                     body = exchange.requestBody,
                 )
 
-                val body = "fileId=${metadata.fileId}\n" +
-                        "streamPath=/audio/stream/$playerName/${metadata.fileId}.$extension\n" +
-                        "sizeBytes=${metadata.sizeBytes}\n"
-                exchange.sendPlainText(201, body)
+                exchange.sendPlainText(
+                    201,
+                    "fileId=${metadata.fileId}\n" +
+                            "streamPath=/audio/stream/${ticket.playerName}/${metadata.fileId}.${metadata.extension}\n" +
+                            "sizeBytes=${metadata.sizeBytes}\n"
+                )
             } catch (e: InvalidInputException) {
                 exchange.sendPlainText(400, e.message ?: "Invalid request")
             } catch (e: QuotaExceededException) {
@@ -73,4 +73,9 @@ class UploadHandler(
             key to value
         }.toMap()
     }
+
+    private fun HttpExchange.bearerToken(): String? =
+        requestHeaders.getFirst("Authorization")
+            ?.takeIf { it.startsWith("Bearer ") }
+            ?.removePrefix("Bearer ")?.trim()
 }

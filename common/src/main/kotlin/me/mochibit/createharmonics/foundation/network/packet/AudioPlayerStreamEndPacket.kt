@@ -5,15 +5,15 @@ import me.mochibit.createharmonics.content.kinetics.recordPlayer.GlobalRecordPla
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour
 
+@AutoPacket
 @Serializable
 class AudioPlayerStreamEndPacket(
     val audioPlayerId: String,
     val failure: Boolean = false,
-) : ModPacket,
+) :
     C2SPacket {
-    override fun handle(context: ModPacket.Context): Boolean {
+    override fun handle(context: ServerPacketContext) {
         RecordPlayerBlockEntity.handlePlaybackEnd(audioPlayerId, failure)
         GlobalRecordPlayerMovementBehaviourTracker.canRestart += audioPlayerId
-        return true
     }
 }
