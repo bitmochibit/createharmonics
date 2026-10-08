@@ -106,6 +106,11 @@ object ModIcons : Registrable {
     @JvmField
     val I_PAUSE_PITCH_STATIC: AllIcons = ModIcon(1, 0, ATLAS)
 
+    @JvmField
+    val I_UPLOAD: AllIcons = ModIcon(2, 0, ATLAS)
+
+
+
     override fun register(registry: Registry<*>?) {
         "Loading Mod Icons".info()
     }

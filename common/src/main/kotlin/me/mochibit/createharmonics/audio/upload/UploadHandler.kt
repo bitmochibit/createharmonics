@@ -10,58 +10,61 @@ import java.nio.charset.StandardCharsets
  * POST /audio/upload?player=<name>&ext=<ext>[&title=...][&artist=...][&filename=...]
  * Body: raw audio bytes.
  */
-//todo: token system for handling secure requests
 class UploadHandler(private val storage: AudioStorageManager) : HttpHandler {
 
-    override fun handle(exchange: HttpExchange) {
-        exchange.use { exchange ->
-            if (exchange.requestMethod != "POST") {
-                exchange.sendPlainText(405, "Method Not Allowed"); return
-            }
+    override fun handle(exchange: HttpExchange) = exchange.use { ex ->
+        if (ex.requestMethod != "POST") {
+            ex.sendPlainText(405, "Method Not Allowed"); return@use
+        }
 
-            val ticket = exchange.bearerToken()?.let(UploadTicketRegistry::consume)
-            if (ticket == null) {
-                exchange.sendPlainText(401, "Invalid or expired upload ticket"); return
-            }
+        val ticket = ex.bearerToken()?.let(UploadTicketRegistry::consume)
+        if (ticket == null) {
+            ex.sendPlainText(401, "Invalid or expired upload ticket"); return@use
+        }
 
-            val params = parseQuery(exchange.requestURI.rawQuery)
+        try {
+            val params = parseQuery(ex.requestURI.rawQuery)
             val maxSize = storage.currentConfig().maxFileSizeBytes
+            val declared = ex.requestHeaders.getFirst("Content-Length")?.toLongOrNull()
 
-            try {
-                val declared = exchange.requestHeaders.getFirst("Content-Length")?.toLongOrNull()
-                if (declared != null && declared > maxSize) {
-                    exchange.sendPlainText(413, "File exceeds maximum allowed size of $maxSize bytes"); return
-                }
-
-                val originalFileName = params["filename"]?.take(256)
-                val extension = InputSanitizer.extensionFrom(originalFileName)
-
-                val metadata = storage.store(
-                    playerName = ticket.playerName,
-                    originalFileName = originalFileName,
-                    extension = extension,
-                    title = params["title"]?.take(256),
-                    artist = params["artist"]?.take(256),
-                    body = exchange.requestBody,
-                )
-
-                exchange.sendPlainText(
-                    201,
-                    "fileId=${metadata.fileId}\n" +
-                            "streamPath=/audio/stream/${ticket.playerName}/${metadata.fileId}.${metadata.extension}\n" +
-                            "sizeBytes=${metadata.sizeBytes}\n"
-                )
-            } catch (e: InvalidInputException) {
-                exchange.sendPlainText(400, e.message ?: "Invalid request")
-            } catch (e: QuotaExceededException) {
-                exchange.sendPlainText(403, e.message ?: "Quota exceeded")
-            } catch (e: FileTooLargeException) {
-                exchange.sendPlainText(413, e.message ?: "File too large")
-            } catch (e: IOException) {
-                exchange.sendPlainText(500, "Internal error while storing the file")
+            if (declared != null && declared > maxSize) {
+                ex.sendPlainText(413, "File exceeds maximum allowed size of $maxSize bytes"); return@use
             }
+
+            val originalFileName = params["filename"]?.take(256)
+            val metadata = storage.store(
+                playerName = ticket.playerName,
+                originalFileName = originalFileName,
+                extension = InputSanitizer.extensionFrom(originalFileName),
+                title = params["title"]?.take(256),
+                artist = params["artist"]?.take(256),
+                body = ex.requestBody,
+                onProgress = { read ->
+                    if (declared != null && declared > 0) {
+                        ticket.uploadSession.progress = (read.toFloat() / declared).coerceIn(0f, 1f)
+                    }
+                },
+            )
+
+            ex.sendPlainText(
+                201,
+                "fileId=${metadata.fileId}\n" +
+                        "streamPath=/audio/stream/${ticket.playerName}/${metadata.fileId}.${metadata.extension}\n" +
+                        "sizeBytes=${metadata.sizeBytes}\n",
+            )
+        } catch (e: InvalidInputException) {
+            ex.sendPlainText(400, e.message ?: "Invalid request")
+        } catch (e: QuotaExceededException) {
+            ex.sendPlainText(403, e.message ?: "Quota exceeded")
+        } catch (e: FileTooLargeException) {
+            ex.sendPlainText(413, e.message ?: "File too large")
+        } catch (e: IOException) {
+            ex.sendPlainText(500, "Internal error while storing the file")
+        } finally {
+            ticket.uploadSession.finish()
         }
     }
+
 
     private fun parseQuery(rawQuery: String?): Map<String, String> {
         if (rawQuery.isNullOrBlank()) return emptyMap()

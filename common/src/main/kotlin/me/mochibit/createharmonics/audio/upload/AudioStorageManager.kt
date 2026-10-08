@@ -1,6 +1,5 @@
 package me.mochibit.createharmonics.audio.upload
 
-import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
@@ -8,9 +7,10 @@ import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.time.Instant
-import java.util.Properties
+import java.util.*
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
+import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
 
 data class AudioMetadata(
@@ -69,6 +69,7 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
         title: String?,
         artist: String?,
         body: InputStream,
+        onProgress: (Long) -> Unit
     ): AudioMetadata {
         playerDir(playerName) // validates playerName before touching disk
         val dir = Files.createDirectories(playerDir(playerName))
@@ -84,7 +85,7 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
         val metaTarget = InputSanitizer.resolveContained(config.storageRoot, playerName, "$fileId.properties")
 
         val sizeBytes = try {
-            target.outputStream().use { out -> copyBounded(body, out, config.maxFileSizeBytes) }
+            target.outputStream().use { out -> copyBounded(body, out, config.maxFileSizeBytes, onProgress) }
         } catch (e: FileTooLargeException) {
             target.deleteIfExists()
             throw e
@@ -113,6 +114,21 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
         return target
     }
 
+    fun list(playerName: String): List<AudioMetadata> {
+        val dir = playerDir(playerName)
+        if (!dir.exists()) return emptyList()
+        return Files.newDirectoryStream(dir, "*.properties").use { s ->
+            s.mapNotNull(::readMetadata).sortedBy { it.uploadedAt }
+        }
+    }
+
+    fun delete(playerName: String, fileId: String): Boolean {
+        val metaPath = InputSanitizer.resolveContained(config.storageRoot, playerName, "$fileId.properties")
+        val meta = readMetadata(metaPath) ?: return false
+        InputSanitizer.resolveContained(config.storageRoot, playerName, "$fileId.${meta.extension}").deleteIfExists()
+        return metaPath.deleteIfExists()
+    }
+
     private fun writeMetadata(path: Path, meta: AudioMetadata) {
         val props = Properties()
         props.setProperty("fileId", meta.fileId)
@@ -126,7 +142,21 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
         path.outputStream().use { props.store(it, "CreateHarmonics audio metadata") }
     }
 
-    private fun copyBounded(input: InputStream, output: OutputStream, limit: Long): Long {
+    private fun readMetadata(path: Path): AudioMetadata? = runCatching {
+        val p = Properties().apply { path.inputStream().use(::load) }
+        AudioMetadata(
+            fileId = p.getProperty("fileId"),
+            extension = p.getProperty("extension"),
+            playerName = p.getProperty("playerName"),
+            originalFileName = p.getProperty("originalFileName", null),
+            title = p.getProperty("title", null),
+            artist = p.getProperty("artist", null),
+            sizeBytes = p.getProperty("sizeBytes").toLong(),
+            uploadedAt = Instant.parse(p.getProperty("uploadedAt"))
+        )
+    }.getOrNull()
+
+    private fun copyBounded(input: InputStream, output: OutputStream, limit: Long, onProgress: (Long) -> Unit): Long {
         val buffer = ByteArray(8 * 1024)
         var total = 0L
         while (true) {
@@ -137,6 +167,7 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
                 throw FileTooLargeException("Upload exceeds the maximum allowed size of $limit bytes")
             }
             output.write(buffer, 0, read)
+            onProgress(total)
         }
         return total
     }

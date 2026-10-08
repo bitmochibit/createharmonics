@@ -109,11 +109,11 @@ class AmethystCatalystBlock(
 
             when {
                 stack.`is`(Items.AMETHYST_SHARD) -> {
-                    if (!be.behaviour.insertCrystal(stack)) return ItemInteractionResult.FAIL
+                    if (!be.insertCrystal(stack)) return ItemInteractionResult.FAIL
                     stack.shrink(1)
                 }
-                stack.isEmpty && be.behaviour.hasCrystal ->
-                    player.inventory.placeItemBackInInventory(be.behaviour.popCrystal())
+                stack.isEmpty && be.hasCrystal ->
+                    player.inventory.placeItemBackInInventory(be.popCrystal())
                 else -> return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
             }
             return ItemInteractionResult.SUCCESS

@@ -22,6 +22,10 @@ object AudioUploadServer {
     fun hasFreeSlot(playerName: String) =
         storage.countFiles(playerName) < storage.currentConfig().maxFilesPerPlayer
 
+    fun list(playerName: String) = storage.list(playerName)
+
+    fun delete(playerName: String, fileId: String) = storage.delete(playerName, fileId)
+
     private var ticketCleaner: Job? = null
 
     @Synchronized
@@ -45,9 +49,9 @@ object AudioUploadServer {
         }
 
         val currentStorageConfiguration = this.storage.currentConfig()
-        ("Started audio hosting server on ${host}:${port} \n" +
-                "Make sure that port is forwarded correctly \n" +
-                "Players files will go in ${currentStorageConfiguration.storageRoot}, max ${currentStorageConfiguration.maxFilesPerPlayer} files (${currentStorageConfiguration.maxFileSizeBytes / 1024 / 1024} MB) for each player").info()
+        "Started audio hosting server on ${host}:${port}".info()
+        "Make sure that port is forwarded correctly".info()
+        "Players files will go in ${currentStorageConfiguration.storageRoot}, max ${currentStorageConfiguration.maxFilesPerPlayer} files (${currentStorageConfiguration.maxFileSizeBytes / 1024 / 1024} MB) for each player".info()
     }
 
     @Synchronized

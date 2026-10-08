@@ -20,6 +20,7 @@ import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.EditBox
 import net.minecraft.util.Mth
 import net.minecraft.world.item.ItemStack
+import org.lwjgl.glfw.GLFW
 import java.util.*
 
 class RecordPressBaseScreen(
@@ -469,13 +470,18 @@ class RecordPressBaseScreen(
         return interactions.handleClick(mouseX, mouseY) || super.mouseClicked(mouseX, mouseY, button)
     }
 
-    override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean =
-        allBoxes.any { it.isFocused && it.keyPressed(keyCode, scanCode, modifiers) } ||
-                super.keyPressed(keyCode, scanCode, modifiers)
+    override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {
+        val box = allBoxes.firstOrNull{ it.isFocused }
+        if (box != null && keyCode != GLFW.GLFW_KEY_ESCAPE) {
+            box.keyPressed(keyCode, scanCode, modifiers)
+            return true
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers)
+    }
 
     override fun charTyped(codePoint: Char, modifiers: Int): Boolean =
-        allBoxes.any { it.isFocused && it.charTyped(codePoint, modifiers) } ||
-                super.charTyped(codePoint, modifiers)
+        allBoxes.firstOrNull{ it.isFocused }?.charTyped(codePoint, modifiers) ?: super.charTyped(codePoint, modifiers)
+    
 
     override fun removed() {
         ModPackets.sendToServer(
