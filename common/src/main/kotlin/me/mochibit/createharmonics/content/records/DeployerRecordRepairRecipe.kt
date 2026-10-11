@@ -26,167 +26,51 @@ import net.minecraft.world.level.block.entity.BlockEntity
 import net.neoforged.neoforge.items.wrapper.EmptyItemHandler
 import net.neoforged.neoforge.items.wrapper.RecipeWrapper
 
-sealed class DeployerRecordRepairRecipe(
+class DeployerRecordRepairRecipe(
     params: ItemApplicationRecipeParams,
-    val capturedInput: RecipeWrapper,
+    private val capturedInput: RecipeWrapper,
+    private val data: RecordRepairRecipe,
+    private val be: BlockEntity,
 ) : DeployerApplicationRecipe(params) {
-    class GlueRepair(
-        params: ItemApplicationRecipeParams,
-        capturedInput: RecipeWrapper,
-        private val recordItem: EtherealRecordItem,
-        val capturedBe: BlockEntity,
-    ) : DeployerRecordRepairRecipe(params, capturedInput) {
-        override fun matches(
-            input: RecipeWrapper,
-            level: Level,
-        ): Boolean {
-            val record = input.getItem(0)
-            val glue = input.getItem(1)
-            return record.item == recordItem &&
-                glue.`is`(AllItems.SUPER_GLUE.get()) &&
-                record.damageValue > 0 &&
-                glue.damageValue < glue.maxDamage
-        }
 
-        override fun assemble(
-            input: RecipeWrapper,
-            registries: HolderLookup.Provider,
-        ): ItemStack = this.getResultItem(registries)
+    override fun matches(input: RecipeWrapper, level: Level): Boolean =
+        data.matches(input.getItem(0), input.getItem(1))
 
-        override fun getResultItem(registries: HolderLookup.Provider): ItemStack {
-            val record = capturedInput.getItem(0)
-            val glue = capturedInput.getItem(1)
-            val isRecordBroken = recordItem.isRecordBroken()
+    override fun getResultItem(registries: HolderLookup.Provider): ItemStack =
+        data.repair(capturedInput.getItem(0))
 
-            val cost =
-                RecordRepairHandler.calculateGlueRepairCost(
-                    recordItem.recordType,
-                    if (isRecordBroken) record.maxDamage else record.damageValue,
-                )
-            val newGlueDamage = glue.damageValue + cost
-            if (newGlueDamage >= glue.maxDamage) {
-                glue.shrink(1)
-            } else {
-                glue.damageValue = newGlueDamage
-            }
+    override fun assemble(input: RecipeWrapper, registries: HolderLookup.Provider): ItemStack =
+        getResultItem(registries)
 
-            capturedBe.level?.playSound(
-                null,
-                capturedBe.blockPos,
-                SoundEvents.SLIME_BLOCK_BREAK,
-                SoundSource.PLAYERS,
-                1.0f,
-                1.0f,
-            )
-
-            if (isRecordBroken) {
-                return RecordUtilities.fromBrokenRecordStack(record)
-            }
-
-            return record.copy().also { it.damageValue = 0 }
-        }
-
-        override fun rollResults(
-            rollableResults: List<ProcessingOutput?>,
-            randomSource: RandomSource,
-        ): List<ItemStack?> {
-            val repairedRecord = this.getResultItem(net.minecraft.core.RegistryAccess.EMPTY)
-            return mutableListOf(repairedRecord)
-        }
-
-        override fun getType(): RecipeType<*> = ModRecipeTypes.RECORD_REPAIR.get()
+    override fun rollResults(
+        rollableResults: List<ProcessingOutput?>,
+        randomSource: RandomSource,
+    ): List<ItemStack?> {
+        val record = capturedInput.getItem(0)
+        val result = data.repair(record)
+        applySideEffects(record)
+        return mutableListOf(result)
     }
 
-    class FullMaterialRepair(
-        params: ItemApplicationRecipeParams,
-        capturedInput: RecipeWrapper,
-        private val ingredient: Ingredient,
-    ) : DeployerRecordRepairRecipe(params, capturedInput) {
-        override fun matches(
-            input: RecipeWrapper,
-            level: Level,
-        ): Boolean {
-            val record = input.getItem(0)
-            val material = input.getItem(1)
-            return record.item is EtherealRecordItem &&
-                ingredient.test(material) &&
-                record.damageValue > 0
-        }
-
-        override fun assemble(
-            input: RecipeWrapper,
-            registries: HolderLookup.Provider,
-        ): ItemStack = getResultItem(registries)
-
-        override fun getResultItem(p0: HolderLookup.Provider): ItemStack {
-            val record = capturedInput.getItem(0)
-            val recordItem = record.item as? EtherealRecordItem ?: return ItemStack.EMPTY
-
-            if (recordItem.isRecordBroken()) {
-                return RecordUtilities.fromBrokenRecordStack(record)
-            }
-
-            return record.copy().also { it.damageValue = 0 }
-        }
-
-        override fun getType(): RecipeType<*> = ModRecipeTypes.RECORD_REPAIR.get()
-
-        override fun rollResults(
-            rollableResults: List<ProcessingOutput?>,
-            randomSource: RandomSource,
-        ): List<ItemStack?> {
-            val repairedRecord = this.getResultItem(net.minecraft.core.RegistryAccess.EMPTY)
-            return mutableListOf(repairedRecord)
+    private fun applySideEffects(record: ItemStack) {
+        when (data.kind) {
+            RepairKind.GLUE -> consumeGlue(record)
+            RepairKind.FULL, RepairKind.PARTIAL -> Unit
         }
     }
 
-    class PartialMaterialRepair(
-        params: ItemApplicationRecipeParams,
-        capturedInput: RecipeWrapper,
-        private val ingredient: Ingredient,
-        private val repairFraction: Float,
-    ) : DeployerRecordRepairRecipe(params, capturedInput) {
-        override fun matches(
-            input: RecipeWrapper,
-            level: Level,
-        ): Boolean {
-            val record = input.getItem(0)
-            val material = input.getItem(1)
-            return record.item is EtherealRecordItem &&
-                ingredient.test(material) &&
-                record.damageValue > 0
-        }
+    private fun consumeGlue(record: ItemStack) {
+        val item = record.item as? EtherealRecordItem ?: return
+        val glue = capturedInput.getItem(1)
 
-        override fun assemble(
-            input: RecipeWrapper,
-            registries: HolderLookup.Provider,
-        ): ItemStack = getResultItem(registries)
+        val currentDamage = if (item.isRecordBroken()) record.maxDamage else record.damageValue
+        val cost = RecordRepairRecipe.calculateGlueRepairCost(item.recordType.uses, currentDamage)
 
-        override fun getResultItem(p0: HolderLookup.Provider): ItemStack {
-            val record = capturedInput.getItem(0)
-            val recordItem = record.item as? EtherealRecordItem ?: return ItemStack.EMPTY
+        val newDamage = glue.damageValue + cost
+        if (newDamage >= glue.maxDamage) glue.shrink(1) else glue.damageValue = newDamage
 
-            if (recordItem.isRecordBroken()) {
-                val repaired = RecordUtilities.fromBrokenRecordStack(record)
-                val repairAmount = (repairFraction * repaired.maxDamage).toInt().coerceAtLeast(1)
-                repaired.damageValue = (repaired.maxDamage - repairAmount - 1).coerceAtLeast(0)
-                return repaired
-            }
-
-            val repairAmount = (repairFraction * record.maxDamage).toInt().coerceAtLeast(1)
-            return record.copy().also {
-                it.damageValue = (record.damageValue - repairAmount).coerceAtLeast(0)
-            }
-        }
-
-        override fun rollResults(
-            rollableResults: List<ProcessingOutput?>,
-            randomSource: RandomSource,
-        ): List<ItemStack?> {
-            val repairedRecord = this.getResultItem(net.minecraft.core.RegistryAccess.EMPTY)
-            return mutableListOf(repairedRecord)
-        }
-
-        override fun getType(): RecipeType<*> = ModRecipeTypes.RECORD_REPAIR.get()
+        be.level?.playSound(null, be.blockPos, SoundEvents.SLIME_BLOCK_BREAK, SoundSource.PLAYERS, 1f, 1f)
     }
+
+    override fun getType(): RecipeType<*> = ModRecipeTypes.RECORD_REPAIR.get()
 }

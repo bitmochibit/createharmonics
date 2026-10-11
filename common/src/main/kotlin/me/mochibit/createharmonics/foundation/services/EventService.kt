@@ -1,11 +1,15 @@
 package me.mochibit.createharmonics.foundation.services
 
 import com.mojang.brigadier.CommandDispatcher
+import com.mojang.serialization.Codec
 import com.simibubi.create.content.kinetics.deployer.DeployerBlockEntity
 import net.minecraft.commands.CommandBuildContext
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Registry
+import net.minecraft.core.RegistryAccess
+import net.minecraft.resources.ResourceKey
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Entity
@@ -16,7 +20,7 @@ import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelAccessor
 import net.minecraft.world.level.block.state.BlockState
 import net.neoforged.neoforge.items.wrapper.RecipeWrapper
-import java.util.Optional
+import java.util.*
 import java.util.function.Supplier
 
 interface ServerEvents {
@@ -35,6 +39,20 @@ interface LevelEvents {
     fun onLevelUnload(listener: (levelAccess: LevelAccessor) -> Unit)
 
     fun onBlockNeighborNotify(listener: (level: Level, pos: BlockPos, state: BlockState) -> Unit)
+}
+
+interface DataEvents {
+    fun onTagsUpdated(listener: (registryAccess: RegistryAccess) -> Unit)
+}
+
+interface ConfigEvents {
+    fun onConfigReload(listener: (configType: ConfigType) -> Unit)
+    enum class ConfigType {
+        COMMON,
+        CLIENT,
+        SERVER,
+        STARTUP
+    }
 }
 
 interface CommandEvents {
@@ -58,6 +76,8 @@ interface EventService :
     PlayerTrackingEvents,
     LevelEvents,
     CommandEvents,
-    CreateEvents
+    CreateEvents,
+    DataEvents,
+    ConfigEvents
 
 val eventService: EventService by lazy { loadService<EventService>() }

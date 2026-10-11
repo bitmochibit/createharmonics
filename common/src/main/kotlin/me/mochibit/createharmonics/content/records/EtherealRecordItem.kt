@@ -19,12 +19,12 @@ class EtherealRecordItem(
     props: Properties,
     private val brokenVariant: Boolean = false,
 ) : Item(
-        props.apply {
-            if (brokenVariant == false) {
-                this.durability(1)
-            }
-        },
-    ) {
+    props.apply {
+        if (!brokenVariant) {
+            this.durability(1)
+        }
+    },
+) {
     companion object {
         val JUKEBOX_DISCS: List<Item> by lazy {
             BuiltInRegistries.ITEM
@@ -63,32 +63,23 @@ class EtherealRecordItem(
         val player = Minecraft.getInstance().player ?: return
         if (!GogglesItem.isWearingGoggles(player)) return
 
-        val url = RecordUtilities.getAudioUrl(stack)
-        if (!url.isNullOrBlank()) {
+        if (!RecordUtilities.getAudioUrl(stack).isNullOrBlank()) {
             tooltipComponents.add(
                 ModLang.translate("tooltips.item.ethereal_record.url_bound").component().withStyle(ChatFormatting.GRAY),
             )
         }
 
-        val effectAttributes = this.recordType.properties.effectAttributes
+        val effectAttributes = recordType.properties(player.level().registryAccess()).attributes
         if (effectAttributes.isNotEmpty()) {
             tooltipComponents.add(Component.empty())
             tooltipComponents.add(ModLang.translate("tooltips.item.ethereal_record.qualities").component().withStyle(ChatFormatting.GRAY))
             val attributeComponent =
                 effectAttributes
                     .sortedByDescending { it.qualityIndicator }
-                    .map {
-                        Component
-                            .empty()
-                            .withStyle(Style.EMPTY)
-                            .append(it.translatedComponent())
-                    }.reduceOrNull { acc, c ->
-                        acc
-                            .append(
-                                Component.literal(", ").setStyle(Style.EMPTY.withColor(ChatFormatting.WHITE)),
-                            ).append(c)
-                    }
-                    ?: Component.empty()
+                    .map { Component.empty().withStyle(Style.EMPTY).append(it.translatedComponent()) }
+                    .reduceOrNull { acc, c ->
+                        acc.append(Component.literal(", ").setStyle(Style.EMPTY.withColor(ChatFormatting.WHITE))).append(c)
+                    } ?: Component.empty()
             tooltipComponents.add(CommonComponents.space().plainCopy().append(attributeComponent))
         }
         super.appendHoverText(stack, context, tooltipComponents, isAdvanced)

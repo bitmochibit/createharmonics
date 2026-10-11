@@ -152,13 +152,13 @@ object RecordUtilities {
 
         // source -> |INTRINSIC_EFFECT| -> |EFFECT_COMP_MIXER|(untouched by intrinsics) -> |PITCH SHIFT| -> |WATER MUFFLE|
 
-        val recordProps = etherealRecordItem.recordType
+        val recordType = etherealRecordItem.recordType
+        val props = recordType.properties(level.registryAccess())
         this.soundEventComposition.removeAll { true }
-
         this.soundEventComposition.anchorBefore(AudioEffect.Scope.MACHINE_CONTROLLED_PITCH)
 
-        val soundEvents = recordProps.properties.createSoundEventComps()
-        for (event in soundEvents) {
+        for (data in props.soundEvents) {
+            val event = data.create()
             event.pitchSupplier = this.masterPitchInterpolator
             event.radiusSupplier = this.masterRadiusInterpolator
             event.volumeSupplier = this.masterVolumeInterpolator
@@ -166,9 +166,8 @@ object RecordUtilities {
         }
 
         this.effectChain.cleanAllExceptScopes(AudioEffect.Scope.MACHINE_CONTROLLED_PITCH)
-
-        recordProps.properties.createAudioEffects().forEach { effect ->
-            this.effectChain.addBeforeScope(AudioEffect.Scope.MACHINE_CONTROLLED_PITCH, effect)
+        props.audioEffects.forEach { def ->
+            this.effectChain.addBeforeScope(AudioEffect.Scope.MACHINE_CONTROLLED_PITCH, def.create())
         }
 
         if (url.isNotBlank() && FFMPEGProvider.isAvailable() && YTDLProvider.isAvailable()) {

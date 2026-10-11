@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.data.recipe
 
+import me.mochibit.createharmonics.data.record.RecordRecipeProvider
 import net.minecraft.core.HolderLookup
 import net.minecraft.data.CachedOutput
 import net.minecraft.data.DataGenerator
@@ -24,6 +25,7 @@ class ModRecipeProvider(
                     ModDeployingRecipeGen(output, registries),
                     ModPressingRecipeGen(output, registries),
                     ModMechanicalCraftingRecipeGen(output, registries),
+                    RecordRecipeProvider(output, registries)
                 )
 
             gen.addProvider(

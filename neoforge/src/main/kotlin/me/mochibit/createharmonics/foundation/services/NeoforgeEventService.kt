@@ -3,10 +3,12 @@ package me.mochibit.createharmonics.foundation.services
 import com.mojang.brigadier.CommandDispatcher
 import com.simibubi.create.content.kinetics.deployer.DeployerBlockEntity
 import com.simibubi.create.content.kinetics.deployer.DeployerRecipeSearchEvent
+import me.mochibit.createharmonics.ModEventBus
 import net.minecraft.commands.CommandBuildContext
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.core.BlockPos
+import net.minecraft.core.RegistryAccess
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Entity
@@ -16,26 +18,25 @@ import net.minecraft.world.item.crafting.RecipeInput
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelAccessor
 import net.minecraft.world.level.block.state.BlockState
-import net.minecraft.world.level.chunk.ChunkAccess
+import net.neoforged.fml.config.ModConfig
+import net.neoforged.fml.event.config.ModConfigEvent
 import net.neoforged.neoforge.common.NeoForge
 import net.neoforged.neoforge.event.GameShuttingDownEvent
 import net.neoforged.neoforge.event.RegisterCommandsEvent
+import net.neoforged.neoforge.event.TagsUpdatedEvent
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent
 import net.neoforged.neoforge.event.entity.player.PlayerEvent
 import net.neoforged.neoforge.event.level.BlockEvent
-import net.neoforged.neoforge.event.level.ChunkEvent
 import net.neoforged.neoforge.event.level.LevelEvent
 import net.neoforged.neoforge.event.server.ServerStartedEvent
 import net.neoforged.neoforge.event.server.ServerStoppedEvent
-import net.neoforged.neoforge.event.tick.EntityTickEvent
-import net.neoforged.neoforge.event.tick.LevelTickEvent
 import net.neoforged.neoforge.items.wrapper.RecipeWrapper
-import java.util.Optional
+import java.util.*
 import java.util.function.Supplier
 
-class NeoforgeEventService: EventService {
+class NeoforgeEventService : EventService {
     override fun onServerStarted(listener: (server: MinecraftServer) -> Unit) {
-        NeoForge.EVENT_BUS.addListener<ServerStartedEvent> {e ->
+        NeoForge.EVENT_BUS.addListener<ServerStartedEvent> { e ->
             listener(e.server)
         }
     }
@@ -98,6 +99,25 @@ class NeoforgeEventService: EventService {
                 e.inventory,
                 e::addRecipe
             )
+        }
+    }
+
+    override fun onTagsUpdated(listener: (registryAccess: RegistryAccess) -> Unit) {
+        NeoForge.EVENT_BUS.addListener<TagsUpdatedEvent> { e ->
+            listener(e.registryAccess)
+        }
+    }
+
+
+    override fun onConfigReload(listener: (configType: ConfigEvents.ConfigType) -> Unit) {
+        ModEventBus.addListener<ModConfigEvent.Reloading> { e ->
+            val convertedConfigType = when (e.config.type) {
+                ModConfig.Type.COMMON -> ConfigEvents.ConfigType.COMMON
+                ModConfig.Type.CLIENT -> ConfigEvents.ConfigType.CLIENT
+                ModConfig.Type.SERVER -> ConfigEvents.ConfigType.SERVER
+                ModConfig.Type.STARTUP -> ConfigEvents.ConfigType.STARTUP
+            }
+            listener(convertedConfigType)
         }
     }
 

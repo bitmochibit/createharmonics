@@ -6,14 +6,19 @@ import com.tterrag.registrate.providers.ProviderType
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
 import me.mochibit.createharmonics.ModRegistrate
 import me.mochibit.createharmonics.content.records.RecordType
+import me.mochibit.createharmonics.content.records.properties.RecordProperties
 import me.mochibit.createharmonics.data.recipe.ModRecipeProvider
+import me.mochibit.createharmonics.data.record.BuiltinRecordProperties
 import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.ponder.ModPonderPlugin
 import net.createmod.ponder.foundation.PonderIndex
+import net.minecraft.core.RegistrySetBuilder
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.fml.common.EventBusSubscriber
+import net.neoforged.neoforge.common.data.DatapackBuiltinEntriesProvider
 import net.neoforged.neoforge.data.event.GatherDataEvent
+import net.neoforged.neoforge.registries.DataPackRegistryEvent
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
@@ -35,11 +40,25 @@ object DataGenerators {
             )
         }
 
+
         if (event.includeServer()) {
+            generator.addProvider(
+                true, DatapackBuiltinEntriesProvider(
+                    output, lookUpProvider,
+                    RegistrySetBuilder().add(RecordProperties.KEY) { BuiltinRecordProperties.bootstrap(it) },
+                    setOf(MOD_ID),
+                )
+            )
             ModRecipeProvider.registerAllProcessRecipes(generator, output, lookUpProvider)
         }
     }
 
+
+    @SubscribeEvent
+    @JvmStatic
+    fun onNewDatapackRegistry(e: DataPackRegistryEvent.NewRegistry) {
+        e.dataPackRegistry(RecordProperties.KEY, RecordProperties.CODEC, RecordProperties.CODEC)
+    }
     fun provideLang() {
         ModRegistrate.addDataGenerator(ProviderType.LANG) { provider ->
             val langConsumer: (String, String) -> Unit = { key, value ->

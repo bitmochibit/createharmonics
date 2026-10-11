@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.foundation.registry
 
 import me.mochibit.createharmonics.ModRegistrate
 import me.mochibit.createharmonics.content.records.DeployerRecordRepairRecipe
+import me.mochibit.createharmonics.content.records.RecordRepairRecipe
 import me.mochibit.createharmonics.foundation.extension.asResource
 import me.mochibit.createharmonics.foundation.info
 import net.minecraft.core.Registry
@@ -10,12 +11,15 @@ import net.minecraft.world.item.crafting.RecipeType
 
 @AutoRegister
 object ModRecipeTypes : Registrable {
+
     val RECORD_REPAIR =
-        ModRegistrate.simple("record_repair", Registries.RECIPE_TYPE) {
-            RecipeType.simple<DeployerRecordRepairRecipe>(
-                "record_repair".asResource(),
-            )
-        }
+        ModRegistrate
+            .simple("record_repair", Registries.RECIPE_TYPE) { RecipeType.simple<RecordRepairRecipe>("record_repair".asResource()) }
+
+    val RECORD_REPAIR_SERIALIZER =
+        ModRegistrate
+            .simple("record_repair", Registries.RECIPE_SERIALIZER) { RecordRepairRecipe.Serializer }
+
 
     override fun register(registry: Registry<*>?) {
         "Registering recipe types".info()

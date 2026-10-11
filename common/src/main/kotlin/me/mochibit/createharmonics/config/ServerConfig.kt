@@ -103,7 +103,7 @@ object ServerConfig : ConfigBase() {
 
         for (type in RecordType.entries) {
             val configName = "maxUses_${type.name.lowercase()}"
-            val defaultValue = type.properties.defaultDurability
+            val defaultValue = type.uses
 
             val c =
                 i(

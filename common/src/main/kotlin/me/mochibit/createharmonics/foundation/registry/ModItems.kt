@@ -24,8 +24,7 @@ object ModItems : Registrable {
 
     val BROKEN_ETHEREAL_RECORDS =
         EnumMap<RecordType, ItemEntry<EtherealRecordItem>>(RecordType::class.java).apply {
-            RecordType.entries
-                .filter { it != RecordType.CREATIVE }
+            RecordType.entries.filter { it != RecordType.CREATIVE }
                 .forEach { this[it] = registerBrokenEtherealRecordVariant(it) }
         }
 
@@ -40,10 +39,9 @@ object ModItems : Registrable {
             .item("broken_${typeName}_ethereal_record") {
                 EtherealRecordItem(recordType, Item.Properties().stacksTo(1), true)
             }.apply {
-                recordType.properties.materialDisplayName?.let { lang("Broken $it Ethereal Record") }
-            }.model { ctx, prov ->
-                prov.generated(ctx, prov.modLoc("item/ethereal_record/${typeName}_broken"))
-            }.register()
+                recordType.materialDisplayName?.let { lang("Broken $it Ethereal Record") }
+            }.model { ctx, prov -> prov.generated(ctx, prov.modLoc("item/ethereal_record/${typeName}_broken")) }
+            .register()
     }
 
     private fun registerEtherealRecordVariant(recordType: RecordType): ItemEntry<EtherealRecordItem> {
@@ -54,10 +52,9 @@ object ModItems : Registrable {
                 if (recordType == RecordType.CREATIVE) properties.rarity(Rarity.EPIC)
                 EtherealRecordItem(recordType, properties)
             }.apply {
-                recordType.properties.materialDisplayName?.let { lang("$it Ethereal Record") }
-            }.model { ctx, prov ->
-                prov.generated(ctx, prov.modLoc("item/ethereal_record/$typeName"))
-            }.register()
+                recordType.materialDisplayName?.let { lang("$it Ethereal Record") }
+            }.model { ctx, prov -> prov.generated(ctx, prov.modLoc("item/ethereal_record/$typeName")) }
+            .register()
     }
 
     fun getEtherealRecordItem(recordType: RecordType): ItemEntry<EtherealRecordItem> = ETHEREAL_RECORDS.getValue(recordType)

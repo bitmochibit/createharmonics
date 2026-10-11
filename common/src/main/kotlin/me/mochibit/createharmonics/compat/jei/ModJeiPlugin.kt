@@ -9,11 +9,11 @@ import com.simibubi.create.content.kinetics.deployer.ItemApplicationRecipeParams
 import com.simibubi.create.content.processing.recipe.ProcessingOutput
 import com.simibubi.create.foundation.gui.AllGuiTextures
 import com.simibubi.create.foundation.utility.CreateLang
-import me.mochibit.createharmonics.content.records.RecordType
+import me.mochibit.createharmonics.content.records.RecordRepairRecipe
+import me.mochibit.createharmonics.content.records.RepairKind
 import me.mochibit.createharmonics.foundation.extension.asResource
 import me.mochibit.createharmonics.foundation.registry.ModItems
 import me.mochibit.createharmonics.foundation.registry.ModRecipeTypes
-import me.mochibit.createharmonics.handler.RecordRepairHandler.calculateGlueRepairCost
 import mezz.jei.api.IModPlugin
 import mezz.jei.api.JeiPlugin
 import mezz.jei.api.constants.VanillaTypes
@@ -26,6 +26,7 @@ import mezz.jei.api.registration.IRecipeCatalystRegistration
 import mezz.jei.api.registration.IRecipeCategoryRegistration
 import mezz.jei.api.registration.IRecipeRegistration
 import net.minecraft.ChatFormatting
+import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.item.ItemStack
@@ -91,126 +92,71 @@ class ModJeiPlugin : IModPlugin {
 }
 
 object RecordRepairJEIRecipes {
-    fun buildDisplayHolders(): List<RecipeHolder<DeployerApplicationRecipe>> =
-        buildList {
-            RecordType.entries.filter { it != RecordType.CREATIVE }.forEach { recordType ->
-                val brokenRecordItem = ModItems.getBrokenEtherealRecordItem(recordType)?.get() ?: return@forEach
-                val repairedRecordItem = ModItems.getEtherealRecordItem(recordType).get()
+    fun buildDisplayHolders(): List<RecipeHolder<DeployerApplicationRecipe>> {
+        val level = Minecraft.getInstance().level ?: return emptyList()
+        val access = level.registryAccess()
+        val glueItem = AllItems.SUPER_GLUE.get()
 
-                val brokenIngredient = Ingredient.of(brokenRecordItem)
-                val damagedIngredient = Ingredient.of(repairedRecordItem)
-                val repairedStack = repairedRecordItem.defaultInstance
+        return buildList {
+            level.recipeManager.getAllRecipesFor(ModRecipeTypes.RECORD_REPAIR.get()).forEach { holder ->
+                val recipe = holder.value()
 
-                val costedGlue =
-                    ItemStack(AllItems.SUPER_GLUE.get()).also {
-                        it.damageValue = calculateGlueRepairCost(recordType, recordType.uses)
-                    }
+                recipe.recordTypes.filter { !it.isUnbreakable }.forEach { type ->
+                    val brokenItem = ModItems.getBrokenEtherealRecordItem(type)?.get() ?: return@forEach
+                    val normalItem = ModItems.getEtherealRecordItem(type).get()
+                    val max = type.uses
 
-                add(
-                    makeHolder(
-                        id = "jei/glue_repair/broken/${recordType.name.lowercase()}",
-                        processedItem = brokenIngredient,
-                        heldItem = Ingredient.of(AllItems.SUPER_GLUE.get()),
-                        results = listOf(ProcessingOutput(repairedStack, 1f), ProcessingOutput(costedGlue, 1f)),
-                    ),
-                )
-                add(
-                    makeHolder(
-                        id = "jei/glue_repair/damaged/${recordType.name.lowercase()}",
-                        processedItem = damagedIngredient,
-                        heldItem = Ingredient.of(AllItems.SUPER_GLUE.get()),
-                        results = listOf(ProcessingOutput(repairedStack, 1f), ProcessingOutput(costedGlue, 1f)),
-                        dynamicOutputs = { inputDamage, _ ->
-                            val dynamicGlue =
-                                ItemStack(AllItems.SUPER_GLUE.get()).also {
-                                    it.damageValue = calculateGlueRepairCost(recordType, inputDamage)
-                                }
-                            listOf(
-                                ProcessingOutput(repairedStack.copy(), 1f),
-                                ProcessingOutput(dynamicGlue, 1f),
-                            )
-                        },
-                    ),
-                )
+                    fun stack(damage: Int = 0) =
+                        normalItem.defaultInstance.also {
+                            it.damageValue = damage
+                        }
+                    fun glueStack(damage: Int) =
+                        ItemStack(glueItem).also { it.damageValue = RecordRepairRecipe.calculateGlueRepairCost(max, damage) }
+                    fun id(suffix: String) = holder.id().withPath("jei/${holder.id().path}/${type.id.path}/$suffix")
 
-                recordType.properties.repair?.fullRepairIngredientProvider?.invoke()?.let { ingredient ->
-                    add(
-                        makeHolder(
-                            id = "jei/full_repair/broken/${recordType.name.lowercase()}",
-                            processedItem = brokenIngredient,
-                            heldItem = ingredient,
-                            results = listOf(ProcessingOutput(repairedStack, 1f)),
-                        ),
-                    )
-                    add(
-                        makeHolder(
-                            id = "jei/full_repair/damaged/${recordType.name.lowercase()}",
-                            processedItem = damagedIngredient,
-                            heldItem = ingredient,
-                            results = listOf(ProcessingOutput(repairedStack, 1f)),
-                        ),
-                    )
-                }
+                    val broken = Ingredient.of(brokenItem)
+                    val damaged = Ingredient.of(normalItem)
+                    val repaired = stack()
 
-                recordType.properties.repair
-                    ?.partialRepairIngredientProvider
-                    ?.invoke()
-                    ?.let { (ingredient, repairFraction) ->
-
-                        val maxDamage = repairedRecordItem.defaultInstance.maxDamage
-                        val staticPartialStack =
-                            repairedRecordItem.defaultInstance.also {
-                                it.damageValue = ((1f - repairFraction) * maxDamage).toInt()
-                            }
-
-                        val dynamicOutputs: (Int, Int) -> List<ProcessingOutput> = { inputDamage, itemMaxDamage ->
-                            val resultDamage =
-                                (inputDamage - repairFraction * itemMaxDamage)
-                                    .toInt()
-                                    .coerceAtLeast(0)
-                            listOf(
-                                ProcessingOutput(
-                                    repairedRecordItem.defaultInstance.also { it.damageValue = resultDamage },
-                                    1f,
-                                ),
-                            )
+                    when (recipe.kind) {
+                        RepairKind.FULL -> {
+                            add(makeHolder(id("broken"), broken, recipe.material, listOf(ProcessingOutput(repaired, 1f))))
+                            add(makeHolder(id("damaged"), damaged, recipe.material, listOf(ProcessingOutput(repaired, 1f))))
                         }
 
-                        add(
-                            makeHolder(
-                                id = "jei/partial_repair/broken/${recordType.name.lowercase()}",
-                                processedItem = brokenIngredient,
-                                heldItem = ingredient,
-                                results = listOf(ProcessingOutput(staticPartialStack, 1f)),
-                            ),
-                        )
+                        RepairKind.PARTIAL -> {
+                            val staticPartial = stack(((1f - recipe.fraction) * max).toInt())
+                            val dynamic: (Int, Int) -> List<ProcessingOutput> = { inputDamage, itemMax ->
+                                listOf(ProcessingOutput(stack((inputDamage - recipe.fraction * itemMax).toInt().coerceAtLeast(0)), 1f))
+                            }
+                            add(makeHolder(id("broken"), broken, recipe.material, listOf(ProcessingOutput(staticPartial, 1f))))
+                            add(makeHolder(id("damaged"), damaged, recipe.material,
+                                listOf(ProcessingOutput(staticPartial, 1f)), dynamicOutputs = dynamic))
+                        }
 
-                        add(
-                            makeHolder(
-                                id = "jei/partial_repair/damaged/${recordType.name.lowercase()}",
-                                processedItem = damagedIngredient,
-                                heldItem = ingredient,
-                                results = listOf(ProcessingOutput(staticPartialStack, 1f)),
-                                dynamicOutputs = dynamicOutputs,
-                            ),
-                        )
+                        RepairKind.GLUE -> {
+                            add(makeHolder(id("broken"), broken, recipe.material,
+                                listOf(ProcessingOutput(repaired, 1f), ProcessingOutput(glueStack(max), 1f))))
+                            add(makeHolder(id("damaged"), damaged, recipe.material,
+                                listOf(ProcessingOutput(repaired, 1f), ProcessingOutput(glueStack(max), 1f)),
+                                dynamicOutputs = { inputDamage, _ ->
+                                    listOf(ProcessingOutput(repaired.copy(), 1f), ProcessingOutput(glueStack(inputDamage), 1f))
+                                }))
+                        }
                     }
+                }
             }
         }
+    }
 
     private fun makeHolder(
-        id: String,
+        id: ResourceLocation,
         processedItem: Ingredient,
         heldItem: Ingredient,
         results: List<ProcessingOutput>,
         dynamicOutputs: ((inputDamage: Int, maxDamage: Int) -> List<ProcessingOutput>)? = null,
-        keepHeldItem: Boolean = false,
-        duration: Int = 40,
-    ): RecipeHolder<DeployerApplicationRecipe> {
-        val params = DisplayRecipeParams(processedItem, heldItem, results, keepHeldItem, duration)
-        val recipe = DynamicRepairRecipe(params, dynamicOutputs)
-        return RecipeHolder(id.asResource(), recipe)
-    }
+    ): RecipeHolder<DeployerApplicationRecipe> =
+        RecipeHolder(id, DynamicRepairRecipe(DisplayRecipeParams(processedItem, heldItem, results), dynamicOutputs))
 }
 
 class RecordRepairCategory(
