@@ -44,7 +44,7 @@ object UploadTicketRegistry {
      */
     fun consume(token: String): UploadTicket? {
         val ticket = tickets.remove(token) ?: return null
-        if (ticket.expiresAt.isBefore(Instant.now())) {
+        if (ticket.uploadSession.cancelled || ticket.expiresAt.isBefore(Instant.now())) {
             ticket.uploadSession.finish()
             return null
         }
@@ -64,7 +64,7 @@ object UploadTicketRegistry {
     }
 
     fun finishAll() {
-        tickets.values.forEach { it.uploadSession.finish() }
+        tickets.values.forEach { it.uploadSession.cancel() }
         tickets.clear()
     }
 }

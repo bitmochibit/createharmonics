@@ -4,7 +4,6 @@ import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.blaze3d.vertex.VertexConsumer
 import com.mojang.math.Axis
 import com.simibubi.create.foundation.blockEntity.renderer.SmartBlockEntityRenderer
-import com.simibubi.create.foundation.render.RenderTypes
 import me.mochibit.createharmonics.foundation.registry.ModPartialModels
 import net.createmod.catnip.animation.AnimationTickHolder
 import net.createmod.catnip.render.CachedBuffers
@@ -20,8 +19,9 @@ import net.minecraft.util.FastColor
 import net.minecraft.util.Mth
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
+import org.joml.Quaternionf
+import org.joml.Vector3f
 import kotlin.math.PI
-import kotlin.math.pow
 import kotlin.math.sin
 
 class AmethystCatalystRenderer(context: Context) :
@@ -33,11 +33,14 @@ class AmethystCatalystRenderer(context: Context) :
         private const val BOB_PERIOD_TICKS = 40.0
         private const val OFFSET_Y = 0.8f
 
-        // beam
+        private const val CRYSTAL_TIP_OFFSET = 0.35f
 
         private val UPLOAD_COLOR = 0xFFA855F7.toInt()
         private val DELETE_COLOR = 0xFFEF4444.toInt()
     }
+
+    private fun bobOffset(time: Float): Float =
+        (sin(time * 2.0 * PI / BOB_PERIOD_TICKS) * BOB_AMPLITUDE).toFloat()
 
     override fun renderSafe(
         be: AmethystCatalystBlockEntity,
@@ -52,32 +55,33 @@ class AmethystCatalystRenderer(context: Context) :
         if (!be.hasCrystal) return
 
         val level = be.level ?: return
-
-        val blockState = be.blockState
         val time = AnimationTickHolder.getRenderTime(level)
 
         val angle = (time * SPIN_DEGREES_PER_TICK) % 360.0
-        val bob = sin(time * 2.0 * PI / BOB_PERIOD_TICKS) * BOB_AMPLITUDE
 
-        CachedBuffers.partial(ModPartialModels.amethystModel, blockState)
+        CachedBuffers.partial(ModPartialModels.amethystModel, be.blockState)
             .rotateCentered(Mth.DEG_TO_RAD * angle.toFloat(), Direction.UP)
-            .translate(0.0, bob + OFFSET_Y, 0.0)
+            .translate(0.0, (bobOffset(time) + OFFSET_Y).toDouble(), 0.0)
             .light<SuperByteBuffer>(light)
             .overlay<SuperByteBuffer>(overlay)
             .renderInto(ms, buffer.getBuffer(RenderType.cutoutMipped()))
-
-
     }
 
     private fun renderBeam(
-        be: AmethystCatalystBlockEntity, partialTicks: Float, ms: PoseStack, buffer: MultiBufferSource,
+        be: AmethystCatalystBlockEntity,
+        partialTicks: Float,
+        ms: PoseStack,
+        buffer: MultiBufferSource,
     ) {
         val level = be.level ?: return
         val frame = be.beamFrame(partialTicks) ?: return
+        val time = AnimationTickHolder.getRenderTime(level)
+        val tipY = OFFSET_Y  + CRYSTAL_TIP_OFFSET
 
         CatalystBeam.render(
             ms, buffer, frame, level.gameTime, partialTicks,
             color = if (frame.descending) DELETE_COLOR else UPLOAD_COLOR,
+            tipY = tipY,
         )
     }
 
@@ -92,7 +96,6 @@ class AmethystCatalystRenderer(context: Context) :
     override fun shouldRenderOffScreen(be: AmethystCatalystBlockEntity) = true
     override fun getViewDistance() = 256
 
-
     override fun shouldRender(be: AmethystCatalystBlockEntity, cameraPos: Vec3): Boolean =
         Vec3.atCenterOf(be.blockPos).multiply(1.0, 0.0, 1.0)
             .closerThan(cameraPos.multiply(1.0, 0.0, 1.0), viewDistance.toDouble())
@@ -100,70 +103,91 @@ class AmethystCatalystRenderer(context: Context) :
 
 
 object CatalystBeam {
-    private const val START_Y = 1f
-    private const val INNER_RADIUS = 0.15f
-    private const val GLOW_RADIUS = 0.22f
+    private const val INNER_RADIUS = 0.05f
+    private const val GLOW_RADIUS = 0.07f
     private const val GLOW_ALPHA = 32
+    private const val CORNER_RADIUS = 0.04f
+    private const val CORNER_Y = 0.5f
 
+    private const val CORNER_POSITION = 0.25f
+
+
+    private val CORNERS = arrayOf(
+        Vector3f(-CORNER_POSITION, CORNER_Y, -CORNER_POSITION),
+        Vector3f(CORNER_POSITION, CORNER_Y, -CORNER_POSITION),
+        Vector3f(-CORNER_POSITION, CORNER_Y, CORNER_POSITION),
+        Vector3f(CORNER_POSITION, CORNER_Y, CORNER_POSITION),
+    )
 
     fun render(
         ms: PoseStack,
         buffer: MultiBufferSource,
-        frame: AmethystCatalystBlockEntity.BeamFrame,
+        frame: BeamFrame,
         gameTime: Long,
         partialTicks: Float,
         color: Int,
+        tipY: Float,
     ) {
-        val descending = frame.descending
-        val front = frame.length * easeOut(frame.grow)
-        var yMin: Float
-        var yMax: Float
-        if (descending) {
-            yMax = START_Y + frame.length
-            yMin = yMax - front
-        } else {
-            yMin = START_Y
-            yMax = START_Y + front
-        }
-
-        val retract = smooth(frame.retract)
-        val span = yMax - yMin
-        if (descending) yMax -= span * retract else yMin += span * retract
-
-        val scale = 1f - frame.retract
-        if (yMax - yMin < 0.01f || scale < 0.02f) return
-
         val t = Math.floorMod(gameTime, 40) + partialTicks
-        val signed = if (descending) t else -t
-        val scroll = -1f + Mth.frac(signed * 0.2f - Mth.floor(signed * 0.1f).toFloat())
-
-        val r = INNER_RADIUS * scale
-        val g = GLOW_RADIUS * scale
-        val innerV = 0.5f / INNER_RADIUS
-        val glowV = 1f
 
         ms.pushPose()
         ms.translate(0.5, 0.0, 0.5)
 
+        if (frame.head > 0f) renderMainBeam(ms, buffer, frame, color, tipY, t)
+
+        ms.popPose()
+    }
+
+
+    private fun renderMainBeam(
+        ms: PoseStack,
+        buffer: MultiBufferSource,
+        frame: BeamFrame,
+        color: Int,
+        tipY: Float,
+        t: Float,
+    ) {
+        val top = tipY + frame.length
+        val front = frame.length * frame.head
+        val back = frame.length * frame.tail
+
+
+        val yMin: Float
+        val yMax: Float
+        if (frame.descending) {
+            yMax = top - back
+            yMin = top - front
+        } else {
+            yMin = tipY + back
+            yMax = tipY + front
+        }
+        if (yMax - yMin < 0.01f) return
+
+        val signed = if (frame.descending) t else -t
+        val scroll = -1f + Mth.frac(signed * 0.2f - Mth.floor(signed * 0.1f).toFloat())
+        val innerV = 0.5f / INNER_RADIUS
+        val glowV = 1f
+        val r = INNER_RADIUS
+        val g = GLOW_RADIUS
+
+        // Inner rotating beam
         ms.pushPose()
         ms.mulPose(Axis.YP.rotationDegrees(t * 2.25f - 45f))
         prism(
             ms.last(), buffer.getBuffer(RenderType.beaconBeam(BeaconRenderer.BEAM_LOCATION, false)),
             color, yMin, yMax,
-            scroll + (yMin - START_Y) * innerV, scroll + (yMax - START_Y) * innerV,
+            scroll + (yMin - tipY) * innerV, scroll + (yMax - tipY) * innerV,
             0f, r, r, 0f, -r, 0f, 0f, -r,
         )
         ms.popPose()
 
-        val glowColor = FastColor.ARGB32.color((GLOW_ALPHA * scale).toInt(), color)
+        // Outer glow
         prism(
             ms.last(), buffer.getBuffer(RenderType.beaconBeam(BeaconRenderer.BEAM_LOCATION, true)),
-            glowColor, yMin, yMax,
-            scroll + (yMin - START_Y) * glowV, scroll + (yMax - START_Y) * glowV,
+            FastColor.ARGB32.color(GLOW_ALPHA, color), yMin, yMax,
+            scroll + (yMin - tipY) * glowV, scroll + (yMax - tipY) * glowV,
             -g, -g, g, -g, -g, g, g, g,
         )
-
-        ms.popPose()
     }
 
     private fun prism(
@@ -200,7 +224,4 @@ object CatalystBeam {
             .setLight(LightTexture.FULL_BRIGHT)
             .setNormal(pose, 0f, 1f, 0f)
     }
-
-    private fun easeOut(x: Float) = 1f - (1f - x).let { it * it * it }
-    private fun smooth(x: Float) = x * x * (3f - 2f * x)
 }

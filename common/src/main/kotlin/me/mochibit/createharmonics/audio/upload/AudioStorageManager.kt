@@ -6,6 +6,7 @@ import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.time.Instant
 import java.util.*
 import kotlin.io.path.deleteIfExists
@@ -69,10 +70,10 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
         title: String?,
         artist: String?,
         body: InputStream,
-        onProgress: (Long) -> Unit
+        onProgress: (Long) -> Unit,
+        beforeCommit: () -> Unit = {},
     ): AudioMetadata {
-        playerDir(playerName) // validates playerName before touching disk
-        val dir = Files.createDirectories(playerDir(playerName))
+        Files.createDirectories(playerDir(playerName))
 
         if (countFiles(playerName) >= config.maxFilesPerPlayer) {
             throw QuotaExceededException(
@@ -81,31 +82,40 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
         }
 
         val fileId = InputSanitizer.newFileId()
+        val tmp = InputSanitizer.resolveContained(config.storageRoot, playerName, "$fileId.$extension.part")
         val target = InputSanitizer.resolveContained(config.storageRoot, playerName, "$fileId.$extension")
         val metaTarget = InputSanitizer.resolveContained(config.storageRoot, playerName, "$fileId.properties")
 
-        val sizeBytes = try {
-            target.outputStream().use { out -> copyBounded(body, out, config.maxFileSizeBytes, onProgress) }
-        } catch (e: FileTooLargeException) {
-            target.deleteIfExists()
-            throw e
-        } catch (e: IOException) {
-            target.deleteIfExists()
-            throw e
-        }
+        var committed = false
+        try {
+            val sizeBytes = tmp.outputStream().use { out ->
+                copyBounded(body, out, config.maxFileSizeBytes, onProgress)
+            }
 
-        val metadata = AudioMetadata(
-            fileId = fileId,
-            playerName = playerName,
-            originalFileName = originalFileName,
-            title = title,
-            artist = artist,
-            sizeBytes = sizeBytes,
-            extension = extension,
-            uploadedAt = Instant.now(),
-        )
-        writeMetadata(metaTarget, metadata)
-        return metadata
+            beforeCommit()
+
+            Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE)
+
+            val metadata = AudioMetadata(
+                fileId = fileId,
+                playerName = playerName,
+                originalFileName = originalFileName,
+                title = title,
+                artist = artist,
+                sizeBytes = sizeBytes,
+                extension = extension,
+                uploadedAt = Instant.now(),
+            )
+            writeMetadata(metaTarget, metadata)
+            committed = true
+            return metadata
+        } finally {
+            if (!committed) {
+                tmp.deleteIfExists()
+                target.deleteIfExists()
+                metaTarget.deleteIfExists()
+            }
+        }
     }
 
     fun resolveAudioFile(playerName: String, fileId: String, extension: String): Path {

@@ -40,10 +40,14 @@ class UploadHandler(private val storage: AudioStorageManager) : HttpHandler {
                 artist = params["artist"]?.take(256),
                 body = ex.requestBody,
                 onProgress = { read ->
+                    ticket.uploadSession.throwIfCancelled()
                     if (declared != null && declared > 0) {
                         ticket.uploadSession.progress = (read.toFloat() / declared).coerceIn(0f, 1f)
                     }
                 },
+                beforeCommit = {
+                    ticket.uploadSession.throwIfCancelled()
+                }
             )
 
             ex.sendPlainText(

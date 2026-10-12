@@ -754,8 +754,6 @@ class RecordPlayerBehaviour(
 
         playerParticleJob.cancel()
 
-        // Release directly on client — don't wait for the server packet,
-        // which arrives too late and causes the new BE to grab the stale instance
         be.level?.onClient { _, _ ->
             AudioPlayerManager.release(uuidStr)
         }

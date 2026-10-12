@@ -28,6 +28,9 @@ class SpecItemHandler(
         onLoad()
     }
 
+    override fun extractItem(slot: Int, amount: Int, simulate: Boolean): ItemStack =
+        if (!spec.canExtract(slot)) ItemStack.EMPTY else super.extractItem(slot, amount, simulate)
+
     companion object {
         fun copyOf(source: GenericInventory, spec: InventorySpec) = SpecItemHandler(spec).also { c ->
             for (i in 0 until source.getSlots()) c.stacks[i] = source.getStackInSlot(i).copy()

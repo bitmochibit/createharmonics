@@ -43,13 +43,6 @@ class AmethystCatalystScreen(
         const val REFRESH_X = 160
         const val ACTION_X = 12
         const val ACTION_Y = 55
-
-        const val CRYSTAL_U = 4
-        const val CRYSTAL_V = 84
-        const val CRYSTAL_X = 35
-        const val CRYSTAL_Y = 56
-        const val CRYSTAL_W = 2
-        const val CRYSTAL_H = 16
     }
 
     private sealed interface Source {
@@ -67,8 +60,6 @@ class AmethystCatalystScreen(
 
     // textures
     private val background = ModGuiTexture("amethyst_catalyst", 0, 0, 166, 79)
-    private val crystalTexture = ModGuiTexture("amethyst_catalyst", CRYSTAL_U, CRYSTAL_V, CRYSTAL_W, CRYSTAL_H)
-    private val renderedItem = ItemStack(ModBlocks.AMETHYST_CATALYST.get())
 
     // state
     private lateinit var picker: EntryScrollInput
@@ -80,6 +71,11 @@ class AmethystCatalystScreen(
     private var lastEntries: List<AudioEntryInfo>? = null
     private var lastActionUi: ActionUi? = null
     private var wasUploading = false
+
+    private var pendingTicks = 0
+
+    private val isLocked get() = be.isBusy || ClientAudioUpload.isBusy || pendingTicks > 0
+    private val canInteract get() = be.hasCrystal && !isLocked
 
     private val entries get() = ClientAudioLibrary.entries
 
@@ -137,27 +133,27 @@ class AmethystCatalystScreen(
     // actions
 
     private fun runAction() {
-        if (!be.hasCrystal) return
+        if (!canInteract) return
         when (val s = source) {
             is Source.Local -> {
-                if (ClientAudioUpload.isBusy) return
                 if (!Files.isReadable(s.file)) return
                 ClientAudioUpload.begin(ClientAudioUpload.PendingUpload(s.file, be.blockPos))
                 pickedFile = null
                 picker.text = ""
+                lock()
             }
-
             is Source.Url -> TODO("yt-dlp")
             is Source.Existing -> {
                 networkService.sendToServer(DeleteAudioPacket(be.blockPos, s.entry.fileId))
                 picker.selectNew()
+                lock()
             }
-
             Source.None -> Unit
         }
     }
 
     private fun pickFile() {
+        if (!canInteract) return
         Thread({
             val chosen = MemoryStack.stackPush().use { stack ->
                 val filters = stack.mallocPointer(3)
@@ -167,6 +163,7 @@ class AmethystCatalystScreen(
             }
             chosen?.let { path ->
                 Minecraft.getInstance().execute {
+                    if (!canInteract) return@execute
                     val file = Path.of(path)
                     picker.selectNew()
                     picker.text = file.fileName.toString()
@@ -180,8 +177,7 @@ class AmethystCatalystScreen(
 
     private fun updateWidgets() {
         val hasCrystal = be.hasCrystal
-        val busy = be.isUploading || ClientAudioUpload.isBusy
-        val usable = hasCrystal && !busy
+        val usable = canInteract
 
         if (!hasCrystal) picker.blur()
         picker.visible = hasCrystal
@@ -195,6 +191,7 @@ class AmethystCatalystScreen(
 
     override fun tick() {
         super.tick()
+        if (pendingTicks > 0) { if (be.isBusy) pendingTicks = 0 else pendingTicks-- }
         val uploading = be.isUploading
         if (wasUploading && !uploading) ClientAudioLibrary.refresh()
         wasUploading = uploading
@@ -231,6 +228,12 @@ class AmethystCatalystScreen(
         actionButton.active = ui.enabled
     }
 
+
+    private fun lock(ticks: Int = 20) {
+        pendingTicks = ticks
+        updateWidgets()
+    }
+
     // render
 
     override fun renderWindow(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTicks: Float) {
@@ -239,20 +242,10 @@ class AmethystCatalystScreen(
         background.render(graphics, x, y)
         graphics.drawString(font, title, x + background.width / 2 - font.width(title) / 2, y + 4, 0x592424, false)
 
-        if (be.hasCrystal) {
-            graphics.blit(
-                crystalTexture.location,
-                x + CRYSTAL_X, y + CRYSTAL_Y,
-                CRYSTAL_U.toFloat(), CRYSTAL_V.toFloat(),
-                CRYSTAL_W, CRYSTAL_H,
-                256, 256,
-            )
-        }
-
-
-        GuiGameElement.of(renderedItem)
-            .at<GuiGameElement.GuiRenderBuilder>(x + background.width + 6f, y + background.height - 56f, -200f)
-            .scale(5.0)
+        GuiGameElement.of(be)
+            .at<GuiGameElement.GuiRenderBuilder>(x + background.width + 20f, y + background.height.toFloat()+7, 100f)
+            .rotateBlock(30.0, -135.0, 0.0)
+            .scale(48.0)
             .render(graphics)
     }
 
@@ -263,12 +256,10 @@ class AmethystCatalystScreen(
         return super.mouseClicked(mouseX, mouseY, button)
     }
 
-    override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean =
-        (be.hasCrystal && picker.keyPressed(keyCode, scanCode, modifiers)) ||
-                super.keyPressed(keyCode, scanCode, modifiers)
+    override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int) =
+        (canInteract && picker.keyPressed(keyCode, scanCode, modifiers)) || super.keyPressed(keyCode, scanCode, modifiers)
 
-    override fun charTyped(codePoint: Char, modifiers: Int): Boolean =
-        (be.hasCrystal && picker.charTyped(codePoint, modifiers)) ||
-                super.charTyped(codePoint, modifiers)
+    override fun charTyped(codePoint: Char, modifiers: Int) =
+        (canInteract && picker.charTyped(codePoint, modifiers)) || super.charTyped(codePoint, modifiers)
 }
 

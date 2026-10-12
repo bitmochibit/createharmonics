@@ -87,38 +87,31 @@ class AmethystCatalystBlock(
         hand: InteractionHand? = null,
         clickedWithStack: ItemStack? = null
     ): ItemInteractionResult {
-        clickedWithStack?.let {
-            if (AllItems.WRENCH.isIn(it)) {
-                return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
-            }
-        }
+        val held = clickedWithStack ?: player.mainHandItem
+        if (AllItems.WRENCH.isIn(held)) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
 
         if (hitResult.direction != Direction.UP) {
-            level.onClient { _, _ ->
-                withBlockEntityDo(level, pos) { be ->
-                    ClientHandler.openAmethystCatalystScreen(be)
-                }
-            }
+            level.onClient { _, _ -> withBlockEntityDo(level, pos) { ClientHandler.openAmethystCatalystScreen(it) } }
             return ItemInteractionResult.SUCCESS
         }
+
+        val be = level.getBlockEntity(pos) as? AmethystCatalystBlockEntity
+            ?: return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
+
+        val insert = held.`is`(Items.AMETHYST_SHARD) && !be.hasCrystal
+        val extract = held.isEmpty && be.hasCrystal
+        if (!insert && !extract) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
 
         level.onServer {
-            val be = level.getBlockEntity(pos) as? AmethystCatalystBlockEntity
-                ?: return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
-            val stack = clickedWithStack ?: ItemStack.EMPTY
-
             when {
-                stack.`is`(Items.AMETHYST_SHARD) -> {
-                    if (!be.insertCrystal(stack)) return ItemInteractionResult.FAIL
-                    stack.shrink(1)
+                insert -> {
+                    be.insertCrystal(held)
+                    if (!player.hasInfiniteMaterials()) held.shrink(1)
                 }
-                stack.isEmpty && be.hasCrystal ->
-                    player.inventory.placeItemBackInInventory(be.popCrystal())
-                else -> return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
+                be.isBusy -> be.shock(player)
+                else -> player.inventory.placeItemBackInInventory(be.popCrystal())
             }
-            return ItemInteractionResult.SUCCESS
         }
-
         return ItemInteractionResult.SUCCESS
     }
 
