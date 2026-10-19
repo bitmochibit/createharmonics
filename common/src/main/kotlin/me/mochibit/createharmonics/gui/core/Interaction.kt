@@ -12,6 +12,7 @@ class InteractiveRegion(
     val clip: Rect? = null,
     val tooltip: Component? = null,
     val onClick: ((mouseX: Double, mouseY: Double) -> Boolean)? = null,
+    val onScroll: ((mouseX: Double, mouseY: Double, delta: Double) -> Boolean)? = null,
 ) {
     fun hits(x: Double, y: Double): Boolean =
         bounds.contains(x, y) && (clip?.contains(x, y) ?: true)
@@ -33,6 +34,11 @@ class InteractionRegistry {
         }
         return false
     }
+
+    fun handleScroll(mouseX: Double, mouseY: Double, delta: Double): Boolean =
+        regions.asReversed().any { r ->
+            r.onScroll != null && r.hits(mouseX, mouseY) && r.onScroll.invoke(mouseX, mouseY, delta)
+        }
 
     fun renderHoveredTooltip(graphics: GuiGraphics, font: Font, mouseX: Int, mouseY: Int) {
         val region = regions.asReversed().firstOrNull {

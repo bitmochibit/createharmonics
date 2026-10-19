@@ -12,6 +12,7 @@ import net.minecraft.core.RegistryAccess
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.crafting.Recipe
 import net.minecraft.world.item.crafting.RecipeHolder
 import net.minecraft.world.item.crafting.RecipeInput
@@ -50,6 +51,12 @@ class NeoforgeEventService : EventService {
     override fun onGameShuttingDown(listener: () -> Unit) {
         NeoForge.EVENT_BUS.addListener<GameShuttingDownEvent> { e ->
             listener()
+        }
+    }
+
+    override fun onPlayerJoin(listener: (player: Player) -> Unit) {
+        NeoForge.EVENT_BUS.addListener<PlayerEvent.PlayerLoggedInEvent> { e ->
+            listener(e.entity)
         }
     }
 

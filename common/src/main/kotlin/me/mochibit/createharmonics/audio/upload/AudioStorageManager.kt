@@ -1,5 +1,12 @@
 package me.mochibit.createharmonics.audio.upload
 
+import kotlinx.serialization.Contextual
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
@@ -14,6 +21,9 @@ import kotlin.io.path.exists
 import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
 
+
+
+@Serializable
 data class AudioMetadata(
     val fileId: String,
     val extension: String,
@@ -22,9 +32,12 @@ data class AudioMetadata(
     val title: String?,
     val artist: String?,
     val sizeBytes: Long,
-    val uploadedAt: Instant,
-)
-
+    val durationSeconds: Int = 0,
+    val sampleRate: Int = 0,
+    @Contextual val uploadedAt: Instant,
+) {
+    val displayName get() = title ?: originalFileName ?: fileId
+}
 class QuotaExceededException(message: String) : RuntimeException(message)
 class FileTooLargeException(message: String) : RuntimeException(message)
 
@@ -69,6 +82,8 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
         extension: String,
         title: String?,
         artist: String?,
+        durationSeconds: Int,
+        sampleRate: Int,
         body: InputStream,
         onProgress: (Long) -> Unit,
         beforeCommit: () -> Unit = {},

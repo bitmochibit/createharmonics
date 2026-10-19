@@ -24,10 +24,11 @@ private val AUDIO_MIME_TYPES = mapOf(
  * GET/HEAD /audio/stream/<playerName>/<fileId>
  */
 class StreamHandler(
-    private val storage: AudioStorageManager,
+    private val storageProvider: () -> AudioStorageManager,
 ) : HttpHandler {
 
     override fun handle(exchange: HttpExchange) {
+        val storage = storageProvider()
         try {
             if (exchange.requestMethod != "GET" && exchange.requestMethod != "HEAD") {
                 exchange.sendPlainText(405, "Method Not Allowed")

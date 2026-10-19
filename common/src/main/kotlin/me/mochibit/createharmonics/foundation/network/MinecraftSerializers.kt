@@ -10,6 +10,7 @@ import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.contextual
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
+import java.time.Instant
 
 object BlockPosSerializer : KSerializer<BlockPos> {
     override val descriptor: SerialDescriptor =
@@ -57,8 +58,15 @@ object CompoundTagSerializer : KSerializer<CompoundTag> {
         }
 }
 
-val MinecraftSerializersModule =
+object InstantSerializer : KSerializer<Instant> {
+    override val descriptor = PrimitiveSerialDescriptor("Instant", PrimitiveKind.STRING)
+    override fun serialize(encoder: Encoder, value: Instant) = encoder.encodeString(value.toString())
+    override fun deserialize(decoder: Decoder): Instant = Instant.parse(decoder.decodeString())
+}
+
+val MinecraftNetworkSerializerModule =
     SerializersModule {
         contextual(BlockPosSerializer)
         contextual(CompoundTagSerializer)
+        contextual(InstantSerializer)
     }

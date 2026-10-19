@@ -13,6 +13,7 @@ import net.minecraft.resources.ResourceKey
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.crafting.Recipe
 import net.minecraft.world.item.crafting.RecipeHolder
 import net.minecraft.world.item.crafting.RecipeInput
@@ -27,6 +28,8 @@ interface ServerEvents {
     fun onServerStarted(listener: (server: MinecraftServer) -> Unit)
     fun onServerStopped(listener: (server: MinecraftServer) -> Unit)
     fun onGameShuttingDown(listener: () -> Unit)
+
+    fun onPlayerJoin(listener: (player: Player) -> Unit)
 }
 
 interface PlayerTrackingEvents {

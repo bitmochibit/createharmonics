@@ -4,6 +4,9 @@ import kotlin.math.max
 
 typealias Easing = (Float) -> Float
 
+
+//todo abstract this stuff
+
 object Easings {
     val LINEAR: Easing = { it }
     val EASE_IN: Easing = { x -> x * x * x }

@@ -1,29 +1,43 @@
 package me.mochibit.createharmonics.gui.widget
 
+import com.simibubi.create.AllSoundEvents
 import com.simibubi.create.foundation.gui.widget.SelectionScrollInput
 import me.mochibit.createharmonics.foundation.locale.ModLang
+import net.minecraft.ChatFormatting
+import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.Font
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.EditBox
+import net.minecraft.client.resources.sounds.SimpleSoundInstance
 import net.minecraft.network.chat.Component
+import net.minecraft.network.chat.MutableComponent
+import net.minecraft.network.chat.Style
+import kotlin.math.max
+import kotlin.math.min
 
 
-
+/**
+ * Entry scroll which lets you write or choose options
+ */
 class EntryScrollInput(
     private val font: Font,
     x: Int, y: Int, width: Int, height: Int,
+    val titleTooltip: MutableComponent = ModLang.translate("gui.entryScrollInput.title").component(),
+    val scrollToSelectTooltip: MutableComponent = ModLang.translate("gui.entryScrollInput.scrollToSelect").component(),
+    val noSelectableEntriesTooltip: MutableComponent = ModLang.translate("gui.entryScrollInput.noSelectableEntries")
+        .component(),
+    val hintTooltip: MutableComponent = ModLang.translate("gui.entryScrollInput.hintTooltip").component()
 ) : SelectionScrollInput(x, y, width, height) {
 
     private companion object {
         const val PAD = 4
     }
 
-    private val newEntryLabel = ModLang.translate("gui.amethyst_catalyst.new_entry").component()
-    private val hintText = ModLang.translate("gui.amethyst_catalyst.hint").component()
-
     private var programmatic = false
     private var draft = ""
     private var wasNew = true
+
+    private var selected: Int? = null
 
     private val box = EditBox(font, x + PAD, y, width - PAD * 2, font.lineHeight, Component.empty()).apply {
         isBordered = false
@@ -35,11 +49,12 @@ class EntryScrollInput(
         private set
 
     var busyLabel: String? = null
-
+    var onSelected: () -> Unit = {}
     var onUserTyped: (String) -> Unit = {}
 
-    val isNewMode get() = state == 0
-    val selectedEntryIndex get() = (state - 1).takeIf { it >= 0 }
+    val isTyping get() = box.isFocused
+    val isNewMode get() = selected == null
+    val selectedEntryIndex get() = selected
 
     var text: String
         get() = box.value
@@ -51,18 +66,24 @@ class EntryScrollInput(
 
     init {
         applyOptions()
-        titled(ModLang.translate("gui.amethyst_catalyst.entries").component().plainCopy())
+        titled(titleTooltip.plainCopy())
     }
-
 
     fun setEntries(names: List<String>) {
         entryNames = names
         applyOptions()
     }
 
+    fun select(index: Int?) {
+        selected = index?.takeIf { it in entryNames.indices }
+        selected?.let { setState(it) }
+        syncBox()
+    }
+
     fun selectNew() {
-        setState(0)
-        onChanged()
+        selected = null
+        syncBox()
+        onSelected()
     }
 
     fun blur() {
@@ -70,8 +91,9 @@ class EntryScrollInput(
     }
 
     private fun applyOptions() {
-        forOptions(listOf(newEntryLabel) + entryNames.map(Component::literal))
-        setState(state)
+        forOptions(entryNames.map(Component::literal))
+        if (selected?.let { it !in entryNames.indices } == true) selected = null
+        selected?.let { setState(it) }
         syncBox()
     }
 
@@ -86,17 +108,37 @@ class EntryScrollInput(
     private fun layoutBox() {
         box.x = x + PAD
         box.y = y + (height - font.lineHeight) / 2 + 1
+        box.setWidth(width - PAD * 2)
+    }
+
+    private fun playScrollSound() {
+        if (soundPlayed) return
+        soundPlayed = true
+        Minecraft.getInstance().soundManager.play(
+            SimpleSoundInstance.forUI(AllSoundEvents.SCROLL_VALUE.mainEvent, 1.5f),
+        )
     }
 
     override fun onChanged() {
         super.onChanged()
+        selected = state
         syncBox()
+        onSelected()
     }
 
     override fun mouseScrolled(mouseX: Double, mouseY: Double, scrollX: Double, scrollY: Double): Boolean {
-        if (!active) return false
-        if (box.isFocused && box.value.isNotEmpty()) return false // non perdere la vista mentre scrivi
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)
+        if (!active || entryNames.isEmpty()) return false
+        if (box.isFocused && box.value.isNotEmpty()) return false
+        if (selected == null) {
+            selected = 0
+            setState(0)
+            syncBox()
+            playScrollSound()
+            onSelected()
+            return true
+        }
+        super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)
+        return true
     }
 
     override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
@@ -116,7 +158,6 @@ class EntryScrollInput(
 
     override fun charTyped(codePoint: Char, modifiers: Int): Boolean =
         box.isFocused && box.charTyped(codePoint, modifiers)
-    
 
     override fun renderWidget(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTicks: Float) {
         super.renderWidget(graphics, mouseX, mouseY, partialTicks)
@@ -130,12 +171,67 @@ class EntryScrollInput(
         val busy = busyLabel
         when {
             busy != null -> draw(busy, 0xCCDDFF)
-            !isNewMode -> draw(entryNames.getOrNull(state - 1).orEmpty(), 0xFFFFFF)
-            box.value.isEmpty() && !box.isFocused -> draw(hintText.string, 0x888888)
+            !isNewMode -> draw(entryNames.getOrNull(selected!!).orEmpty(), 0xFFFFFF)
+            box.value.isEmpty() && !box.isFocused ->
+                draw((if (entryNames.isEmpty()) noSelectableEntriesTooltip else hintTooltip).string, 0x888888)
+
             else -> {
                 layoutBox()
                 box.render(graphics, mouseX, mouseY, partialTicks)
             }
         }
     }
+
+
+    override fun updateTooltip() {
+        toolTip.clear()
+        if (title == null) return
+        toolTip.add(
+            title.plainCopy()
+                .withStyle { s: Style -> s.withColor(HEADER_RGB.getRGB()) }
+        )
+        var min = min(this.max - 16, state - 7)
+        var max = max(this.min + 16, state + 8)
+        min = max(min, this.min)
+        max = min(max, this.max)
+        if (this.min + 1 == min) min--
+        if (min > this.min) {
+            toolTip.add(
+                Component.literal("> ...")
+                    .withStyle(ChatFormatting.GRAY)
+            )
+        }
+        if (this.max - 1 == max) max++
+        for (i in min..<max) {
+            if (i == state) toolTip.add(
+                Component.empty()
+                    .append("-> ")
+                    .append(options.get(i))
+                    .withStyle(ChatFormatting.WHITE)
+            )
+            else toolTip.add(
+                Component.empty()
+                    .append("> ")
+                    .append(options.get(i))
+                    .withStyle(ChatFormatting.GRAY)
+            )
+        }
+        if (max < this.max) {
+            toolTip.add(
+                Component.literal("> ...")
+                    .withStyle(ChatFormatting.GRAY)
+            )
+        }
+
+        if (hint != null) toolTip.add(
+            hint.plainCopy()
+                .withStyle { s: Style -> s.withColor(HINT_RGB.getRGB()) }
+        )
+        toolTip.add(
+            scrollToSelectTooltip.plainCopy()
+                .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC)
+        )
+    }
+
+
 }

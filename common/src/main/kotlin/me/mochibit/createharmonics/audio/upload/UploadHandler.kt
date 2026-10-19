@@ -10,9 +10,11 @@ import java.nio.charset.StandardCharsets
  * POST /audio/upload?player=<name>&ext=<ext>[&title=...][&artist=...][&filename=...]
  * Body: raw audio bytes.
  */
-class UploadHandler(private val storage: AudioStorageManager) : HttpHandler {
+class UploadHandler(private val storageProvider:
+                    () -> AudioStorageManager) : HttpHandler {
 
     override fun handle(exchange: HttpExchange) = exchange.use { ex ->
+        val storage = storageProvider()
         if (ex.requestMethod != "POST") {
             ex.sendPlainText(405, "Method Not Allowed"); return@use
         }
@@ -32,12 +34,19 @@ class UploadHandler(private val storage: AudioStorageManager) : HttpHandler {
             }
 
             val originalFileName = params["filename"]?.take(256)
+
+            val durationSeconds = params["durationSeconds"]?.take(256)?.toIntOrNull() ?: 0
+            val sampleRate = params["sampleRate"]?.take(256)?.toIntOrNull() ?: 48000
+
+
             val metadata = storage.store(
                 playerName = ticket.playerName,
                 originalFileName = originalFileName,
                 extension = InputSanitizer.extensionFrom(originalFileName),
                 title = params["title"]?.take(256),
                 artist = params["artist"]?.take(256),
+                durationSeconds = durationSeconds,
+                sampleRate = sampleRate,
                 body = ex.requestBody,
                 onProgress = { read ->
                     ticket.uploadSession.throwIfCancelled()

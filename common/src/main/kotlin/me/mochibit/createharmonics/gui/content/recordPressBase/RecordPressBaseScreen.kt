@@ -3,7 +3,10 @@ package me.mochibit.createharmonics.gui.content.recordPressBase
 import com.simibubi.create.foundation.gui.AllGuiTextures
 import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
+import me.mochibit.createharmonics.audio.upload.AudioEntryInfo
+import me.mochibit.createharmonics.audio.upload.ClientAudioLibrary
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
+import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseConfiguration
 import me.mochibit.createharmonics.foundation.extension.toMultilineComponent
 import me.mochibit.createharmonics.foundation.locale.ModLang
 import me.mochibit.createharmonics.foundation.network.packet.ConfigureRecordPressBasePacket
@@ -12,16 +15,33 @@ import me.mochibit.createharmonics.foundation.registry.ModPackets
 import me.mochibit.createharmonics.gui.ModGuiTexture
 import me.mochibit.createharmonics.gui.core.*
 import me.mochibit.createharmonics.gui.widget.AdvancedIconButton
+import me.mochibit.createharmonics.gui.widget.EntryScrollInput
 import me.mochibit.createharmonics.mixin.AbstractWidgetAccessor
 import net.createmod.catnip.gui.AbstractSimiScreen
 import net.createmod.catnip.gui.UIRenderHelper
 import net.createmod.catnip.gui.element.GuiGameElement
+import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.EditBox
+import net.minecraft.client.gui.components.events.GuiEventListener
 import net.minecraft.util.Mth
 import net.minecraft.world.item.ItemStack
 import org.lwjgl.glfw.GLFW
 import java.util.*
+
+data class ServerAudioRef(val owner: String, val fileId: String) {
+    override fun toString() = "$PREFIX$owner/$fileId"
+
+    companion object {
+        const val PREFIX = "createharmonics://audio/"
+
+        fun parse(url: String): ServerAudioRef? {
+            if (!url.startsWith(PREFIX)) return null
+            val parts = url.removePrefix(PREFIX).split('/')
+            return if (parts.size == 2 && parts.none { it.isBlank() }) ServerAudioRef(parts[0], parts[1]) else null
+        }
+    }
+}
 
 class RecordPressBaseScreen(
     private val be: RecordPressBaseBlockEntity,
@@ -58,15 +78,32 @@ class RecordPressBaseScreen(
     private val renderedItem = ItemStack(ModBlocks.RECORD_PRESS_BASE.get())
 
     // model
-    private inner class Entry(var url: String = "", weight: Float = 1f) {
-        var weight: Float = weight.coerceIn(0f, 1f)
 
-        val urlBox: EditBox by lazy {
-            newEditBox("url_input", maxLength = 2048) {
-                value = this@Entry.url
-                setResponder { this@Entry.url = it }
+    private val localName get() = Minecraft.getInstance().player?.gameProfile?.name.orEmpty()
+
+    private fun ServerAudioRef.unavailableLabel() =
+        if (owner == localName) ModLang.translate("gui.record_press_base.missing_audio").component().string
+        else ModLang.translate("gui.record_press_base.foreign_audio", owner).component().string
+
+    private inner class Entry(initial: RecordPressBaseConfiguration.AudioEntry = RecordPressBaseConfiguration.AudioEntry()) {
+        private val initialUrl = initial.url
+        var weight: Float = initial.weight.coerceIn(0f, 1f)
+
+        private var linked: ServerAudioRef? = ServerAudioRef.parse(initialUrl)
+        private var linkedName: String? = initial.name
+        private var applied: List<AudioEntryInfo>? = null
+
+        private val inputLazy = lazy {
+            EntryScrollInput(font, 0, 0, URL_FIELD_WIDTH_SEQUENTIAL, URL_FIELD_HEIGHT).also {
+                if (linked == null) it.text = initialUrl
+                it.onUserTyped = { linked = null; linkedName = null }
+                it.onSelected = {
+                    linked = selectedRef()
+                    linkedName = it.selectedEntryIndex?.let { i -> applied?.getOrNull(i)?.displayName }
+                }
             }
         }
+        val input: EntryScrollInput by inputLazy
 
         val weightBox: EditBox by lazy {
             newEditBox("weight_input", maxLength = 6) {
@@ -76,9 +113,35 @@ class RecordPressBaseScreen(
                 }
             }
         }
+        val boxes: Sequence<EditBox> get() = sequenceOf(weightBox)
 
-        val boxes: Sequence<EditBox> get() = sequenceOf(urlBox, weightBox)
+        val typingInput: EntryScrollInput? get() = if (inputLazy.isInitialized() && input.isTyping) input else null
+        fun blur() { if (inputLazy.isInitialized()) input.blur() }
+
+        private fun selectedRef(): ServerAudioRef? =
+            input.selectedEntryIndex?.let { applied?.getOrNull(it) }
+                ?.let { ServerAudioRef(localName, it.fileId) }
+
+        fun applyLibrary(list: List<AudioEntryInfo>) {
+            if (list !== applied) {
+                applied = list
+                input.setEntries(list.map { it.displayName })
+                val ref = linked?.takeIf { it.owner == localName }
+                val idx = ref?.let { r -> list.indexOfFirst { it.fileId == r.fileId } }?.takeIf { it >= 0 }
+                input.select(idx)
+                if (idx != null) linkedName = list[idx].displayName
+            }
+            val l = linked
+            input.busyLabel =
+                if (l != null && input.isNewMode && !input.isTyping) linkedName ?: l.unavailableLabel() else null
+        }
+
+        fun toConfig() = RecordPressBaseConfiguration.AudioEntry(url = currentUrl(), weight = weight)
+
+        fun currentUrl(): String =
+            if (!inputLazy.isInitialized()) initialUrl else linked?.toString() ?: input.text.trim()
     }
+
 
     private fun newEditBox(langKey: String, maxLength: Int, configure: EditBox.() -> Unit) =
         EditBox(
@@ -100,10 +163,10 @@ class RecordPressBaseScreen(
     }
 
     private val entries: MutableList<Entry> =
-        be.audioUrls.mapIndexedTo(mutableListOf()) { i, url -> Entry(url, be.urlWeights.getOrElse(i) { 1f }) }
+        be.configuration.entries.mapTo(mutableListOf()) { Entry(it) }
 
-    private var randomMode = be.randomMode
-    private var current: Entry? = entries.getOrNull(be.currentUrlIndex)
+    private var randomMode = be.configuration.randomMode
+    private var current: Entry? = entries.getOrNull(be.configuration.currentUrlIndex)
     private var selectionTouched = false
 
     // state
@@ -171,6 +234,7 @@ class RecordPressBaseScreen(
         )
 
         initButtons()
+        ClientAudioLibrary.refresh()
     }
 
     private fun initButtons() {
@@ -207,6 +271,14 @@ class RecordPressBaseScreen(
             zIndex = 100
             toolTipZIndex = 6000
             setToolTip(ModLang.translate("gui.record_press_base.url_index_decrease").component())
+            addRenderableWidget(this)
+        }
+
+        AdvancedIconButton(guiLeft + background.width - 53, buttonY, AllIcons.I_REFRESH).apply {
+            withCallback<IconButton> { ClientAudioLibrary.refresh() }
+            zIndex = 100
+            toolTipZIndex = 6000
+            setToolTip(ModLang.translate("gui.record_press_base.refresh").component())
             addRenderableWidget(this)
         }
     }
@@ -331,19 +403,12 @@ class RecordPressBaseScreen(
             AllGuiTextures.SCHEDULE_CONDITION_RIGHT.render(this, dx + inputX + width, dy + inputY)
         }
 
-        entry.urlBox.let { box ->
-            box.applyWidth(width)
-            (box as AbstractWidgetAccessor).setHeight(URL_FIELD_HEIGHT)
-            scope.editBox(
-                widget = box,
-                localX = inputX,
-                localY = inputY + 4,
-                width = width,
-                height = URL_FIELD_HEIGHT,
-                mouseX = area.mouseX,
-                mouseY = area.mouseY,
-                partialTicks = area.partialTicks,
-                tooltip = ModLang.translate("gui.record_press_base.url_input_tooltip").component(),
+        entry.input.let { input ->
+            scope.scrollInput(
+                widget = input,
+                localX = inputX, localY = inputY,
+                width = width, height = URL_FIELD_HEIGHT,
+                mouseX = area.mouseX, mouseY = area.mouseY, partialTicks = area.partialTicks,
                 z = 4f,
             )
         }
@@ -456,41 +521,50 @@ class RecordPressBaseScreen(
 
     override fun tick() {
         scrollArea.tick()
-        if (!selectionTouched) current = entries.getOrNull(be.currentUrlIndex)
+        val library = ClientAudioLibrary.entries
+        entries.forEach { it.applyLibrary(library) }
+        if (!selectionTouched) current = entries.getOrNull(be.configuration.currentUrlIndex)
         super.tick()
     }
 
     override fun mouseScrolled(mouseX: Double, mouseY: Double, scrollX: Double, scrollY: Double): Boolean {
+        if (interactions.handleScroll(mouseX, mouseY, scrollY)) return true
         scrollArea.mouseScrolled(mouseX, mouseY, scrollY)
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)
     }
 
     override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
         allBoxes.forEach { it.isFocused = false }
+        entries.forEach { it.blur() }
         return interactions.handleClick(mouseX, mouseY) || super.mouseClicked(mouseX, mouseY, button)
     }
 
+    private fun focusedTarget(): GuiEventListener? =
+        entries.firstNotNullOfOrNull { it.typingInput } ?: allBoxes.firstOrNull { it.isFocused }
+
     override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {
-        val box = allBoxes.firstOrNull{ it.isFocused }
-        if (box != null && keyCode != GLFW.GLFW_KEY_ESCAPE) {
-            box.keyPressed(keyCode, scanCode, modifiers)
+        val target = focusedTarget()
+        if (target != null && keyCode != GLFW.GLFW_KEY_ESCAPE) {
+            target.keyPressed(keyCode, scanCode, modifiers)
             return true
         }
         return super.keyPressed(keyCode, scanCode, modifiers)
     }
 
+
     override fun charTyped(codePoint: Char, modifiers: Int): Boolean =
-        allBoxes.firstOrNull{ it.isFocused }?.charTyped(codePoint, modifiers) ?: super.charTyped(codePoint, modifiers)
-    
+        focusedTarget()?.charTyped(codePoint, modifiers) ?: super.charTyped(codePoint, modifiers)
+
 
     override fun removed() {
         ModPackets.sendToServer(
             ConfigureRecordPressBasePacket(
                 be.blockPos,
-                entries.map { it.url }.toMutableList(),
-                entries.map { it.weight }.toMutableList(),
-                randomMode,
-                entries.indexOf(current).coerceAtLeast(0),
+                RecordPressBaseConfiguration(
+                    randomMode = randomMode,
+                    currentUrlIndex = entries.indexOf(current).coerceAtLeast(0),
+                    entries = entries.map { it.toConfig() },
+                ),
             ),
         )
     }

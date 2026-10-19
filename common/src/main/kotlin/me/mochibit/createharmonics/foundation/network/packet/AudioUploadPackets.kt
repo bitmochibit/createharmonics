@@ -9,6 +9,15 @@ import me.mochibit.createharmonics.foundation.services.networkService
 import net.minecraft.core.BlockPos
 import net.minecraft.world.phys.Vec3
 
+/**
+ * Request to the server on what port the audio server is hosted to, and after received the port will be updated
+ */
+@AutoPacket
+@Serializable
+data class AudioServerInfoPacket(val port: Int) : S2CPacket {
+    override fun handle(context: ClientPacketContext) { AudioServerEndpoint.port = port }
+}
+
 @AutoPacket
 @Serializable
 class RequestAudioUpload(
@@ -49,14 +58,14 @@ class RequestAudioUpload(
         val ticket = UploadTicketRegistry.issue(player.uuid, name, session)
         networkService.sendToPlayer(
             player,
-            AudioUploadGrantedPacket(ticket.token, ModConfigs.server.audioServerPort.get(), expiresInSeconds = 60)
+            AudioUploadGrantedPacket(ticket.token, expiresInSeconds = 60)
         )
     }
 }
 
 @AutoPacket
 @Serializable
-data class AudioUploadGrantedPacket(val token: String, val port: Int, val expiresInSeconds: Int) : S2CPacket {
+data class AudioUploadGrantedPacket(val token: String, val expiresInSeconds: Int) : S2CPacket {
     override fun handle(context: ClientPacketContext) = ClientAudioUpload.onGranted(this)
 }
 
@@ -75,7 +84,7 @@ class RequestAudioList : C2SPacket {
         val player = context.player
         networkService.sendToPlayer(
             player, AudioListPacket(
-                AudioUploadServer.list(player.gameProfile.name).map(AudioEntryInfo::from)
+                AudioUploadServer.list(player.gameProfile.name)
             )
         )
     }
@@ -106,7 +115,7 @@ class DeleteAudioPacket(
         if (!AudioUploadServer.delete(name, fileId)) return
 
         be.tryStartDelete()
-        networkService.sendToPlayer(player, AudioListPacket(AudioUploadServer.list(name).map(AudioEntryInfo::from)))
+        networkService.sendToPlayer(player, AudioListPacket(AudioUploadServer.list(name)))
     }
 
 }
@@ -114,7 +123,7 @@ class DeleteAudioPacket(
 
 @AutoPacket
 @Serializable
-class AudioListPacket(val entries: List<AudioEntryInfo>) : S2CPacket {
+class AudioListPacket(val entries: List<AudioMetadata>) : S2CPacket {
     override fun handle(context: ClientPacketContext) {
         ClientAudioLibrary.update(entries)
     }

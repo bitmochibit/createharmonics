@@ -11,6 +11,8 @@ import me.mochibit.createharmonics.content.records.RecordUtilities
 import net.minecraft.core.Direction
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.nbt.ListTag
+import net.minecraft.nbt.Tag
 import net.minecraft.world.item.ItemStack
 
 /**
@@ -28,17 +30,7 @@ class RecordPressBaseBehaviour(
         val BEHAVIOUR_TYPE = BehaviourType<RecordPressBaseBehaviour>()
     }
 
-    /** List of audio URLs to be assigned to processed Ethereal Records */
-    var audioUrls: MutableList<String> = mutableListOf()
-
-    /** Weights for each URL in random mode (0.0 to 1.0, default 1.0 for equal probability) */
-    var urlWeights: MutableList<Float> = mutableListOf()
-
-    /** Selection mode: true = random, false = ordered */
-    var randomMode: Boolean = false
-
-    /** Current index for ordered mode */
-    var currentUrlIndex: Int = 0
+    var config = RecordPressBaseConfiguration()
 
     /**
      * Assigns an audio URL to an Ethereal Record item after processing is complete.
@@ -50,68 +42,32 @@ class RecordPressBaseBehaviour(
      * @param stack The item stack to assign the URL to
      */
     private fun assignUrlToItem(stack: ItemStack) {
-        if (audioUrls.isEmpty()) return
+        val entries = config.entries
+        if (entries.isEmpty()) return
 
-        val selectedUrl =
-            if (randomMode) {
-                // Random mode: pick a random URL using weighted selection
-                val randomIndex = selectWeightedRandomIndex()
-                currentUrlIndex = randomIndex
-                audioUrls[randomIndex]
-            } else {
-                // Ordered mode: cycle through URLs
-                val url = audioUrls[currentUrlIndex % audioUrls.size]
-                currentUrlIndex++
-                if (currentUrlIndex >= audioUrls.size) currentUrlIndex = 0
-                url
-            }
+        val index =
+            if (config.randomMode) selectWeightedRandomIndex(entries)
+            else config.currentUrlIndex.mod(entries.size)
 
-        RecordUtilities.setAudioUrl(stack, selectedUrl)
+        config = config.copy(
+            currentUrlIndex = if (config.randomMode) index else (index + 1) % entries.size,
+        )
+        RecordUtilities.setAudioUrl(stack, entries[index].url)
     }
 
     /**
      * Selects a random index from the audioUrls list using weighted probability.
      * If weights are not properly initialized, defaults to uniform distribution.
      */
-    private fun selectWeightedRandomIndex(): Int {
-        // Ensure weights list is same size as URLs
-        ensureWeightsInitialized()
-
-        // Calculate total weight
-        val totalWeight = urlWeights.sum()
-
-        // If no valid weights, return random index
-        if (totalWeight <= 0f) {
-            return audioUrls.indices.random()
+    private fun selectWeightedRandomIndex(entries: List<RecordPressBaseConfiguration.AudioEntry>): Int {
+        val total = entries.sumOf { it.weight.toDouble() }
+        if (total <= 0.0) return entries.indices.random()
+        var r = Math.random() * total
+        entries.forEachIndexed { i, e ->
+            r -= e.weight
+            if (r <= 0.0) return i
         }
-
-        // Select random value between 0 and totalWeight
-        val randomValue = Math.random().toFloat() * totalWeight
-
-        // Find the index that corresponds to this random value
-        var cumulativeWeight = 0f
-        for (i in audioUrls.indices) {
-            cumulativeWeight += urlWeights[i]
-            if (randomValue <= cumulativeWeight) {
-                return i
-            }
-        }
-
-        // Fallback (should never reach here)
-        return audioUrls.indices.last()
-    }
-
-    /**
-     * Ensures the weights list has the same size as URLs list.
-     * Fills missing weights with 1.0 (equal probability).
-     */
-    private fun ensureWeightsInitialized() {
-        while (urlWeights.size < audioUrls.size) {
-            urlWeights.add(1f)
-        }
-        while (urlWeights.size > audioUrls.size) {
-            urlWeights.removeAt(urlWeights.size - 1)
-        }
+        return entries.lastIndex
     }
 
     override fun addSubBehaviours(behaviours: MutableList<BlockEntityBehaviour>) {
@@ -144,71 +100,57 @@ class RecordPressBaseBehaviour(
         return input.stack
     }
 
-    override fun write(
-        compound: CompoundTag,
-        registries: HolderLookup.Provider,
-        clientPacket: Boolean,
-    ) {
+    override fun write(compound: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {
         super.write(compound, registries, clientPacket)
-
-        val urlsTag = net.minecraft.nbt.ListTag()
-        for (url in audioUrls) {
-            urlsTag.add(
-                net.minecraft.nbt.StringTag
-                    .valueOf(url),
-            )
-        }
-        compound.put("AudioUrls", urlsTag)
-
-        val weightsTag = net.minecraft.nbt.ListTag()
-        ensureWeightsInitialized()
-        for (weight in urlWeights) {
-            weightsTag.add(
-                net.minecraft.nbt.FloatTag
-                    .valueOf(weight),
-            )
-        }
-        compound.put("UrlWeights", weightsTag)
-
-        compound.putBoolean("RandomMode", randomMode)
-        compound.putInt("CurrentUrlIndex", currentUrlIndex)
+        compound.putBoolean("RandomMode", config.randomMode)
+        compound.putInt("CurrentUrlIndex", config.currentUrlIndex)
+        compound.put("Entries", ListTag().apply {
+            config.entries.forEach { e ->
+                add(CompoundTag().apply {
+                    putString("Url", e.url)
+                    putFloat("Weight", e.weight)
+                    e.name?.let { putString("Name", it) }
+                })
+            }
+        })
     }
 
-    override fun read(
-        compound: CompoundTag,
-        registries: HolderLookup.Provider,
-        clientPacket: Boolean,
-    ) {
+
+    override fun read(compound: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {
         super.read(compound, registries, clientPacket)
 
-        // Load the list of URLs
-        if (compound.contains("AudioUrls")) {
-            audioUrls.clear()
-            val urlsTag = compound.getList("AudioUrls", 8) // 8 = String tag type
-            for (i in 0 until urlsTag.size) {
-                audioUrls.add(urlsTag.getString(i))
+        val entries = when {
+            compound.contains("Entries", Tag.TAG_LIST.toInt()) ->
+                compound.getList("Entries", Tag.TAG_COMPOUND.toInt()).map { tag ->
+                    val c = tag as CompoundTag
+                    RecordPressBaseConfiguration.AudioEntry(
+                        url = c.getString("Url"),
+                        weight = c.getFloat("Weight"),
+                        name = if (c.contains("Name")) c.getString("Name") else null,
+                    )
+                }
+
+            // legacy
+            compound.contains("AudioUrls") -> {
+                val urls = compound.getList("AudioUrls", Tag.TAG_STRING.toInt())
+                val weights = compound.getList("UrlWeights", Tag.TAG_FLOAT.toInt())
+                (0 until urls.size).map { i ->
+                    RecordPressBaseConfiguration.AudioEntry(
+                        url = urls.getString(i),
+                        weight = if (i < weights.size) weights.getFloat(i) else 1f,
+                    )
+                }
             }
+            else -> config.entries
         }
 
-        // Load the list of weights
-        if (compound.contains("UrlWeights")) {
-            urlWeights.clear()
-            val weightsTag = compound.getList("UrlWeights", 5) // 5 = Float tag type
-            for (i in 0 until weightsTag.size) {
-                urlWeights.add(weightsTag.getFloat(i))
-            }
-        }
-
-        // Ensure weights are initialized if missing
-        ensureWeightsInitialized()
-
-        if (compound.contains("RandomMode")) {
-            randomMode = compound.getBoolean("RandomMode")
-        }
-        if (compound.contains("CurrentUrlIndex")) {
-            currentUrlIndex = compound.getInt("CurrentUrlIndex")
-        }
+        config = RecordPressBaseConfiguration(
+            randomMode = if (compound.contains("RandomMode")) compound.getBoolean("RandomMode") else config.randomMode,
+            currentUrlIndex = if (compound.contains("CurrentUrlIndex")) compound.getInt("CurrentUrlIndex") else config.currentUrlIndex,
+            entries = entries,
+        )
     }
 
     override fun getType(): BehaviourType<*> = BEHAVIOUR_TYPE
 }
+

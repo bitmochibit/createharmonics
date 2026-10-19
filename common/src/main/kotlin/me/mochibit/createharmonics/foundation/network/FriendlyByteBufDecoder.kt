@@ -12,7 +12,7 @@ class FriendlyByteBufDecoder(
 ) : AbstractDecoder() {
     private var elementIndex = 0
     private var collectionSize = -1
-    override val serializersModule = MinecraftSerializersModule
+    override val serializersModule = MinecraftNetworkSerializerModule
 
     override fun decodeBoolean() = buf.readBoolean()
 

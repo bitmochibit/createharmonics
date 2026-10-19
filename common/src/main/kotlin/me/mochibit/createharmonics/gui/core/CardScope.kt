@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.gui.core
 
+import me.mochibit.createharmonics.gui.widget.EntryScrollInput
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.EditBox
 import net.minecraft.network.chat.Component
@@ -14,6 +15,9 @@ class CardScope(
     private val scrollOffsetInt: Int,
     val clip: Rect
 ) {
+    private fun localX(x: Double) = x - (absoluteBaseX - baseX)
+    private fun localY(y: Double) = y - (absoluteBaseY - baseY) - scrollOffsetInt
+
     fun button(
         localX: Int,
         localY: Int,
@@ -64,6 +68,28 @@ class CardScope(
                     )
                     true
                 }
+            ),
+        )
+    }
+
+    fun scrollInput(
+        widget: EntryScrollInput,
+        localX: Int, localY: Int, width: Int, height: Int,
+        mouseX: Int, mouseY: Int, partialTicks: Float,
+        tooltip: Component? = null,
+        z: Float = 0f,
+    ) {
+        widget.x = baseX + localX
+        widget.y = baseY + localY
+        widget.setWidth(width)
+        graphics.layer(z) { widget.render(this@layer, mouseX, mouseY, partialTicks) }
+        registry.register(
+            InteractiveRegion(
+                bounds = Rect(absoluteBaseX + localX, absoluteBaseY + localY + scrollOffsetInt, width, height),
+                clip = clip,
+                tooltip = tooltip,
+                onClick = { cx, cy -> widget.mouseClicked(localX(cx), localY(cy), 0); true },
+                onScroll = { cx, cy, delta -> widget.mouseScrolled(localX(cx), localY(cy), 0.0, delta) },
             ),
         )
     }

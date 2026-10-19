@@ -4,31 +4,14 @@ import kotlinx.serialization.Serializable
 import me.mochibit.createharmonics.foundation.network.packet.RequestAudioList
 import me.mochibit.createharmonics.foundation.services.networkService
 
-@Serializable
-data class AudioEntryInfo(
-    val fileId: String,
-    val extension: String,
-    val title: String?,
-    val artist: String?,
-    val originalFileName: String?,
-    val sizeBytes: Long,
-) {
-    val displayName get() = title ?: originalFileName ?: fileId
-
-    companion object {
-        fun from(m: AudioMetadata) = AudioEntryInfo(
-            m.fileId, m.extension, m.title, m.artist,
-            m.originalFileName,
-            m.sizeBytes
-        )
-    }
-}
-
+/**
+ * Local audio library of the uploaded audios on the server
+ */
 object ClientAudioLibrary {
-    @Volatile var entries: List<AudioEntryInfo> = emptyList()
+    @Volatile var entries: List<AudioMetadata> = emptyList()
         private set
 
-    fun update(list: List<AudioEntryInfo>) {
+    fun update(list: List<AudioMetadata>) {
         entries = list
     }
 

@@ -23,51 +23,10 @@ class RecordPressBaseBlockEntity(
         behaviour.addSubBehaviours(behaviours)
     }
 
-//    override fun <T : Any?> getCapability(
-//        cap: Capability<T?>,
-//        side: Direction?,
-//    ): LazyOptional<T?> {
-//        if (cap == ForgeCapabilities.ITEM_HANDLER) {
-//            return behaviour.getItemCapability(cap, side)
-//        }
-//        return super.getCapability(cap, side)
-//    }
-
-    var currentUrlIndex: Int
-        get() = behaviour.currentUrlIndex
+    var configuration: RecordPressBaseConfiguration
+        get() = behaviour.config
         set(value) {
-            behaviour.currentUrlIndex = value
-            notifyUpdate()
-        }
-
-    var urlTemplate: String
-        get() = behaviour.audioUrls.firstOrNull() ?: ""
-        set(value) {
-            if (value.isNotEmpty()) {
-                behaviour.audioUrls.clear()
-                behaviour.audioUrls.add(value)
-            }
-            notifyUpdate()
-        }
-
-    var audioUrls: MutableList<String>
-        get() = behaviour.audioUrls
-        set(value) {
-            behaviour.audioUrls = value
-            notifyUpdate()
-        }
-
-    var urlWeights: MutableList<Float>
-        get() = behaviour.urlWeights
-        set(value) {
-            behaviour.urlWeights = value
-            notifyUpdate()
-        }
-
-    var randomMode: Boolean
-        get() = behaviour.randomMode
-        set(value) {
-            behaviour.randomMode = value
+            behaviour.config = value
             notifyUpdate()
         }
 
