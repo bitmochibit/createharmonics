@@ -14,8 +14,10 @@ import net.minecraft.world.phys.Vec3
  */
 @AutoPacket
 @Serializable
-data class AudioServerInfoPacket(val port: Int) : S2CPacket {
-    override fun handle(context: ClientPacketContext) { AudioServerEndpoint.port = port }
+data class AudioServerInfoPacket(val port: Int, val host: String) : S2CPacket {
+    override fun handle(context: ClientPacketContext) {
+        AudioServerEndpoint.port = port
+    }
 }
 
 @AutoPacket

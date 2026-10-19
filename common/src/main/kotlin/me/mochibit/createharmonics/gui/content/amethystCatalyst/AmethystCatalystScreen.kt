@@ -2,15 +2,13 @@ package me.mochibit.createharmonics.gui.content.amethystCatalyst
 
 import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
-import me.mochibit.createharmonics.audio.upload.AudioEntryInfo
+import me.mochibit.createharmonics.audio.upload.AudioMetadata
 import me.mochibit.createharmonics.audio.upload.ClientAudioLibrary
 import me.mochibit.createharmonics.audio.upload.ClientAudioUpload
-import me.mochibit.createharmonics.content.uploader.AmethystCatalystBlock
 import me.mochibit.createharmonics.content.uploader.AmethystCatalystBlockEntity
 import me.mochibit.createharmonics.foundation.extension.toMultilineComponent
 import me.mochibit.createharmonics.foundation.locale.ModLang
 import me.mochibit.createharmonics.foundation.network.packet.DeleteAudioPacket
-import me.mochibit.createharmonics.foundation.registry.ModBlocks
 import me.mochibit.createharmonics.foundation.registry.ModIcons
 import me.mochibit.createharmonics.foundation.services.networkService
 import me.mochibit.createharmonics.gui.ModGuiTexture
@@ -21,10 +19,6 @@ import net.createmod.catnip.gui.element.GuiGameElement
 import net.createmod.catnip.gui.element.ScreenElement
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
-import net.minecraft.core.component.DataComponents
-import net.minecraft.util.Mth
-import net.minecraft.world.item.ItemStack
-import net.minecraft.world.item.component.BlockItemStateProperties
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.util.tinyfd.TinyFileDialogs
 import java.nio.file.Files
@@ -49,7 +43,7 @@ class AmethystCatalystScreen(
         data object None : Source
         data class Local(val file: Path) : Source
         data class Url(val url: String) : Source
-        data class Existing(val entry: AudioEntryInfo) : Source
+        data class Existing(val entry: AudioMetadata) : Source
     }
 
     private data class ActionUi(
@@ -68,7 +62,7 @@ class AmethystCatalystScreen(
     private lateinit var actionButton: IconButton
 
     private var pickedFile: Path? = null
-    private var lastEntries: List<AudioEntryInfo>? = null
+    private var lastEntries: List<AudioMetadata>? = null
     private var lastActionUi: ActionUi? = null
     private var wasUploading = false
 
@@ -142,12 +136,14 @@ class AmethystCatalystScreen(
                 picker.text = ""
                 lock()
             }
+
             is Source.Url -> TODO("yt-dlp")
             is Source.Existing -> {
                 networkService.sendToServer(DeleteAudioPacket(be.blockPos, s.entry.fileId))
                 picker.selectNew()
                 lock()
             }
+
             Source.None -> Unit
         }
     }
@@ -191,7 +187,9 @@ class AmethystCatalystScreen(
 
     override fun tick() {
         super.tick()
-        if (pendingTicks > 0) { if (be.isBusy) pendingTicks = 0 else pendingTicks-- }
+        if (pendingTicks > 0) {
+            if (be.isBusy) pendingTicks = 0 else pendingTicks--
+        }
         val uploading = be.isUploading
         if (wasUploading && !uploading) ClientAudioLibrary.refresh()
         wasUploading = uploading
@@ -243,7 +241,7 @@ class AmethystCatalystScreen(
         graphics.drawString(font, title, x + background.width / 2 - font.width(title) / 2, y + 4, 0x592424, false)
 
         GuiGameElement.of(be)
-            .at<GuiGameElement.GuiRenderBuilder>(x + background.width + 20f, y + background.height.toFloat()+7, 100f)
+            .at<GuiGameElement.GuiRenderBuilder>(x + background.width + 20f, y + background.height.toFloat() + 7, 100f)
             .rotateBlock(30.0, -135.0, 0.0)
             .scale(48.0)
             .render(graphics)
@@ -257,7 +255,11 @@ class AmethystCatalystScreen(
     }
 
     override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int) =
-        (canInteract && picker.keyPressed(keyCode, scanCode, modifiers)) || super.keyPressed(keyCode, scanCode, modifiers)
+        (canInteract && picker.keyPressed(keyCode, scanCode, modifiers)) || super.keyPressed(
+            keyCode,
+            scanCode,
+            modifiers
+        )
 
     override fun charTyped(codePoint: Char, modifiers: Int) =
         (canInteract && picker.charTyped(codePoint, modifiers)) || super.charTyped(codePoint, modifiers)

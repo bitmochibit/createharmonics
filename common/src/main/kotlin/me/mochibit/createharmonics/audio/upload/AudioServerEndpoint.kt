@@ -13,7 +13,7 @@ object OnJoinSendAudioServerPort: ModEventHandler{
     override fun setupEvents() {
         eventService.onPlayerJoin { player ->
             if (player !is ServerPlayer) return@onPlayerJoin
-            networkService.sendToPlayer(player, AudioServerInfoPacket(AudioUploadServer.port))
+            networkService.sendToPlayer(player, AudioServerInfoPacket(AudioUploadServer.port, AudioUploadServer.host))
         }
     }
 
@@ -25,8 +25,18 @@ object OnJoinSendAudioServerPort: ModEventHandler{
  */
 object AudioServerEndpoint {
     @Volatile var port: Int = 0
+    @Volatile var boundHost: String = "0.0.0.0"
+
+    val effectiveHost get() = mapHost()
     fun baseUrl(): String {
-        val host = Minecraft.getInstance().currentServer?.ip?.substringBefore(':') ?: "127.0.0.1"
-        return "http://$host:$port"
+        return "http://$effectiveHost:$port"
+    }
+
+    private fun mapHost():String {
+        if (boundHost == "127.0.0.1" || boundHost == "localhost") {
+            return "127.0.0.1"
+        }
+
+        return Minecraft.getInstance().currentServer?.ip?.substringBefore(':') ?: "127.0.0.1"
     }
 }

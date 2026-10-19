@@ -3,7 +3,6 @@ package me.mochibit.createharmonics.foundation.network.packet
 import com.simibubi.create.foundation.utility.AdventureUtil
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
-import me.mochibit.createharmonics.audio.upload.AudioEntryInfo
 import me.mochibit.createharmonics.audio.upload.AudioUploadServer
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseConfiguration
@@ -46,7 +45,7 @@ class ConfigureRecordPressBasePacket(
         val known = previous[url]?.name
         val resolved =
             if (ref.owner == sender) {
-                AudioUploadServer.list(ref.owner).map(AudioEntryInfo::from)
+                AudioUploadServer.list(ref.owner)
                     .firstOrNull { it.fileId == ref.fileId }?.displayName ?: known
             } else known
 

@@ -31,6 +31,10 @@ object AudioUploadServer {
     var port: Int = 0
         private set
 
+    @Volatile
+    var host: String = "0.0.0.0"
+        private set
+
     val isRunning get() = server != null
 
     fun hasFreeSlot(playerName: String) =
@@ -45,11 +49,10 @@ object AudioUploadServer {
         check(server == null) { "AudioUploadServer already started" }
 
         storage = buildStorage()
-        val host = ModConfigs.server.audioServerIp.get()
+        val boundHost = ModConfigs.server.audioServerIp.get()
         val boundPort = ModConfigs.server.audioServerPort.get()
 
-        // Throws on bind failure, before any state has been mutated
-        val httpServer = HttpServer.create(InetSocketAddress(host, boundPort), 0)
+        val httpServer = HttpServer.create(InetSocketAddress(boundHost, boundPort), 0)
         val pool = Executors.newCachedThreadPool { runnable ->
             Thread(runnable, "createharmonics-audio-http").apply { isDaemon = true }
         }
@@ -68,6 +71,7 @@ object AudioUploadServer {
         server = httpServer
         executor = pool
         port = boundPort
+        host = boundHost
 
         ticketCleaner = repeatingLaunch(Dispatchers.IO, Duration.ZERO, 20.seconds) {
             UploadTicketRegistry.purgeExpired()
@@ -105,7 +109,7 @@ object AudioUploadServer {
      * Hops onto the server thread since this can be called from config/reload threads.
      */
     private fun broadcastPort() {
-        networkService.broadcast(AudioServerInfoPacket(port))
+        networkService.broadcast(AudioServerInfoPacket(port, host))
     }
 
     private fun buildStorage() = AudioStorageManager(

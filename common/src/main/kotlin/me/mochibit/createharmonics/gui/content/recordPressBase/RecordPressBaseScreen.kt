@@ -3,7 +3,7 @@ package me.mochibit.createharmonics.gui.content.recordPressBase
 import com.simibubi.create.foundation.gui.AllGuiTextures
 import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
-import me.mochibit.createharmonics.audio.upload.AudioEntryInfo
+import me.mochibit.createharmonics.audio.upload.AudioMetadata
 import me.mochibit.createharmonics.audio.upload.ClientAudioLibrary
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseConfiguration
@@ -91,7 +91,7 @@ class RecordPressBaseScreen(
 
         private var linked: ServerAudioRef? = ServerAudioRef.parse(initialUrl)
         private var linkedName: String? = initial.name
-        private var applied: List<AudioEntryInfo>? = null
+        private var applied: List<AudioMetadata>? = null
 
         private val inputLazy = lazy {
             EntryScrollInput(font, 0, 0, URL_FIELD_WIDTH_SEQUENTIAL, URL_FIELD_HEIGHT).also {
@@ -122,7 +122,7 @@ class RecordPressBaseScreen(
             input.selectedEntryIndex?.let { applied?.getOrNull(it) }
                 ?.let { ServerAudioRef(localName, it.fileId) }
 
-        fun applyLibrary(list: List<AudioEntryInfo>) {
+        fun applyLibrary(list: List<AudioMetadata>) {
             if (list !== applied) {
                 applied = list
                 input.setEntries(list.map { it.displayName })

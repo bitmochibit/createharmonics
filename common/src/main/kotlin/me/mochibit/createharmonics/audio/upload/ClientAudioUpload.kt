@@ -48,12 +48,8 @@ object ClientAudioUpload {
     }
 
     fun onGranted(grant: AudioUploadGrantedPacket) {
-        val upload = pending?.also { pending = null } ?: return
-        val mc = Minecraft.getInstance()
 
-        val host = (mc.connection?.connection?.remoteAddress as? InetSocketAddress)?.hostString
-            ?: "127.0.0.1"
-        val hostPart = if (':' in host) "[$host]" else host
+        val upload = pending?.also { pending = null } ?: return
 
         fun enc(s: String) = URLEncoder.encode(s, StandardCharsets.UTF_8)
         val query = listOfNotNull(
@@ -63,7 +59,7 @@ object ClientAudioUpload {
         ).joinToString("&")
 
         val request = try {
-            HttpRequest.newBuilder(URI.create("http://$hostPart:${grant.port}/audio/upload?$query"))
+            HttpRequest.newBuilder(URI.create("${AudioServerEndpoint.baseUrl()}/audio/upload?$query"))
                 .header("Authorization", "Bearer ${grant.token}")
                 .timeout(Duration.ofMinutes(5))
                 .POST(HttpRequest.BodyPublishers.ofFile(upload.file))
