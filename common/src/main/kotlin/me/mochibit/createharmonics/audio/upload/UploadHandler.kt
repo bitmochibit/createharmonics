@@ -35,16 +35,16 @@ class UploadHandler(private val storageProvider:
 
             val originalFileName = params["filename"]?.take(256)
 
-            val durationSeconds = params["durationSeconds"]?.take(256)?.toIntOrNull() ?: 0
-            val sampleRate = params["sampleRate"]?.take(256)?.toIntOrNull() ?: 48000
+            val durationSeconds = params["durationSeconds"]?.toIntOrNull()?.coerceIn(0, 24 * 3600) ?: 0
+            val sampleRate = params["sampleRate"]?.toIntOrNull()?.coerceIn(8_000, 192_000) ?: 48000
 
 
             val metadata = storage.store(
                 playerName = ticket.playerName,
                 originalFileName = originalFileName,
                 extension = InputSanitizer.extensionFrom(originalFileName),
-                title = params["title"]?.take(256),
-                artist = params["artist"]?.take(256),
+                title = params["title"]?.takeIf { it.isNotBlank() }?.take(256),
+                artist = params["artist"]?.takeIf { it.isNotBlank() }?.take(256),
                 durationSeconds = durationSeconds,
                 sampleRate = sampleRate,
                 body = ex.requestBody,

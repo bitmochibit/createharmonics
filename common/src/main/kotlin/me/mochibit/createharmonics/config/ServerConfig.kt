@@ -51,9 +51,9 @@ object ServerConfig : ConfigBase() {
             CValue<String, ModConfigSpec.ConfigValue<String>>(
                 "audioServerIp",
                 { builder ->
-                    builder.define("audioServerIp", "0.0.0.0")
+                    builder.define("audioServerIp", "")
                 },
-                "Host IP for the audio server, generally the default is good to keep",
+                "Host IP for the audio server, EMPTY if the audio server lives in the same host; only specify an IP if you're doing something with proxies.",
             )
 
         audioServerPort = i(

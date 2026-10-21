@@ -3,7 +3,9 @@ package me.mochibit.createharmonics.foundation.network.packet
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import me.mochibit.createharmonics.audio.upload.*
-import me.mochibit.createharmonics.config.ModConfigs
+import me.mochibit.createharmonics.audio.upload.client.AudioServerEndpoint
+import me.mochibit.createharmonics.audio.upload.client.ClientAudioLibrary
+import me.mochibit.createharmonics.audio.upload.client.ClientAudioUpload
 import me.mochibit.createharmonics.content.uploader.AmethystCatalystBlockEntity
 import me.mochibit.createharmonics.foundation.services.networkService
 import net.minecraft.core.BlockPos
@@ -17,6 +19,7 @@ import net.minecraft.world.phys.Vec3
 data class AudioServerInfoPacket(val port: Int, val host: String) : S2CPacket {
     override fun handle(context: ClientPacketContext) {
         AudioServerEndpoint.port = port
+        AudioServerEndpoint.publicHost = host
     }
 }
 

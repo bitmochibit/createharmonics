@@ -32,7 +32,7 @@ object AudioUploadServer {
         private set
 
     @Volatile
-    var host: String = "0.0.0.0"
+    var host: String = ""
         private set
 
     val isRunning get() = server != null
@@ -49,7 +49,7 @@ object AudioUploadServer {
         check(server == null) { "AudioUploadServer already started" }
 
         storage = buildStorage()
-        val boundHost = ModConfigs.server.audioServerIp.get()
+        val boundHost = ModConfigs.server.audioServerIp.get().ifBlank { "0.0.0.0" }
         val boundPort = ModConfigs.server.audioServerPort.get()
 
         val httpServer = HttpServer.create(InetSocketAddress(boundHost, boundPort), 0)
@@ -60,6 +60,7 @@ object AudioUploadServer {
         try {
             httpServer.createContext("/audio/upload", UploadHandler { storage })
             httpServer.createContext("/audio/stream/", StreamHandler { storage })
+            httpServer.createContext("/audio/info/", InfoHandler { storage })
             httpServer.executor = pool
             httpServer.start()
         } catch (e: Exception) {
@@ -118,3 +119,4 @@ object AudioUploadServer {
         maxFileSizeBytes = ModConfigs.server.maxFileSizeBytes.get()
     )
 }
+

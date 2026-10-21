@@ -53,9 +53,12 @@ class StreamHandler(
             }
 
             val playerName = InputSanitizer.validatePlayerName(playerSegment)
-            val fileId = InputSanitizer.validateFileId(fileSegment.substring(0, dotIndex))
-            val extension = InputSanitizer.validateExtension(fileSegment.substring(dotIndex + 1))
+            val fileId = InputSanitizer.validateFileId(fileSegment.substringBeforeLast('.'))
 
+            val meta = storage.find(playerName, fileId) ?: run {
+                exchange.sendPlainText(404, "Not Found"); return
+            }
+            val extension = meta.extension
             val file = storage.resolveAudioFile(playerName, fileId, extension)
             val fileSize = Files.size(file)
             val isHead = exchange.requestMethod == "HEAD"
@@ -147,3 +150,5 @@ class StreamHandler(
         }
     }
 }
+
+

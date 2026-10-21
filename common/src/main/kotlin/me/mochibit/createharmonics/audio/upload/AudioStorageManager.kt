@@ -22,6 +22,11 @@ import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
 
 
+object InstantSerializer : KSerializer<Instant> {
+    override val descriptor = PrimitiveSerialDescriptor("Instant", PrimitiveKind.STRING)
+    override fun serialize(encoder: Encoder, value: Instant) = encoder.encodeString(value.toString())
+    override fun deserialize(decoder: Decoder): Instant = Instant.parse(decoder.decodeString())
+}
 
 @Serializable
 data class AudioMetadata(
@@ -33,10 +38,11 @@ data class AudioMetadata(
     val artist: String?,
     val sizeBytes: Long,
     val durationSeconds: Int = 0,
-    val sampleRate: Int = 0,
-    @Contextual val uploadedAt: Instant,
+    val sampleRate: Int = 48000,
+    @Serializable(with = InstantSerializer::class) val uploadedAt: Instant,
 ) {
-    val displayName get() = title ?: originalFileName ?: fileId
+    val displayName get() =
+        title?.ifBlank { null } ?: originalFileName?.ifBlank { null } ?: fileId
 }
 class QuotaExceededException(message: String) : RuntimeException(message)
 class FileTooLargeException(message: String) : RuntimeException(message)
@@ -120,6 +126,8 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
                 sizeBytes = sizeBytes,
                 extension = extension,
                 uploadedAt = Instant.now(),
+                durationSeconds = durationSeconds,
+                sampleRate = sampleRate
             )
             writeMetadata(metaTarget, metadata)
             committed = true
@@ -147,6 +155,9 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
         }
     }
 
+    fun find(playerName: String, fileId: String): AudioMetadata? =
+        readMetadata(InputSanitizer.resolveContained(config.storageRoot, playerName, "$fileId.properties"))
+
     fun delete(playerName: String, fileId: String): Boolean {
         val metaPath = InputSanitizer.resolveContained(config.storageRoot, playerName, "$fileId.properties")
         val meta = readMetadata(metaPath) ?: return false
@@ -164,6 +175,8 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
         meta.artist?.let { props.setProperty("artist", it) }
         props.setProperty("sizeBytes", meta.sizeBytes.toString())
         props.setProperty("uploadedAt", meta.uploadedAt.toString())
+        props.setProperty("durationSeconds", meta.durationSeconds.toString())
+        props.setProperty("sampleRate", meta.sampleRate.toString())
         path.outputStream().use { props.store(it, "CreateHarmonics audio metadata") }
     }
 
@@ -177,7 +190,9 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
             title = p.getProperty("title", null),
             artist = p.getProperty("artist", null),
             sizeBytes = p.getProperty("sizeBytes").toLong(),
-            uploadedAt = Instant.parse(p.getProperty("uploadedAt"))
+            durationSeconds = p.getProperty("durationSeconds")?.toIntOrNull() ?: 0,
+            sampleRate = p.getProperty("sampleRate")?.toIntOrNull() ?: 48000,
+            uploadedAt = Instant.parse(p.getProperty("uploadedAt")),
         )
     }.getOrNull()
 

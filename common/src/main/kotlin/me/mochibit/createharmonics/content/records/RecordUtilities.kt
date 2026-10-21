@@ -224,6 +224,7 @@ object RecordUtilities {
                     title = songData.description.getString(128),
                     sampleRate = sampleRate,
                     isLive = false,
+                    artist = songData.description.getString(128)
                 ),
             ),
         )

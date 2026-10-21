@@ -6,7 +6,10 @@ import me.mochibit.createharmonics.audio.info.AudioInfo
 import me.mochibit.createharmonics.audio.process.FFmpegExecutor
 import me.mochibit.createharmonics.audio.source.AudioSource
 import me.mochibit.createharmonics.audio.source.HttpAudioSource
+import me.mochibit.createharmonics.audio.source.ServerAudioSource
 import me.mochibit.createharmonics.audio.source.StreamAudioSource
+import me.mochibit.createharmonics.config.ClientConfig
+import me.mochibit.createharmonics.foundation.debug
 import java.io.InputStream
 
 object SourceStreamResolver {
@@ -34,10 +37,13 @@ object SourceStreamResolver {
         pos: Double = 0.0,
     ): Result {
         val info = source.resolveAudioInfo()
+        if (ClientConfig.debugAudioPlayer.get()) {
+            "[INPUT STREAM RESOLVER] Info resolved :${info}".debug()
+        }
         val adjustedPosition = if (info.isLive) 0.0 else pos
         val result =
             when (source) {
-                is HttpAudioSource -> {
+                is HttpAudioSource, is ServerAudioSource -> {
                     if (adjustedPosition > 0 && info.durationSeconds > 0 && adjustedPosition > info.durationSeconds) {
                         Result(
                             status = Result.StreamStatus.FINISHED,

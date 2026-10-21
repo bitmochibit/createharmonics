@@ -11,118 +11,79 @@ import kotlinx.serialization.json.jsonPrimitive
 import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.info.AudioInfo
 import me.mochibit.createharmonics.foundation.err
+import kotlin.coroutines.cancellation.CancellationException
 
-/**
- * Runs ffprobe (bundled alongside ffmpeg) to extract container metadata from a URL
- * without downloading any audio data.
- *
- * Returns duration and title in a single fast probe call.
- */
-class FFprobeExecutor {
-    /**
-     * Probes [url] and returns its duration (seconds) and title tag.
-     * Returns null if ffprobe is unavailable or the probe fails.
-     */
-    suspend fun probe(url: String): AudioInfo =
-        withContext(Dispatchers.IO) {
-            try {
-                val probePath =
-                    FFMPEGProvider.ffprobePath
-                        ?: throw IllegalStateException("FFprobeExecutor: ffprobe binary not found")
 
-                val command =
-                    listOf(
-                        probePath,
-                        "-v",
-                        "quiet",
-                        "-print_format",
-                        "json",
-                        "-show_entries",
-                        "format=duration:format_tags=title",
-                        "-user_agent",
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                        url,
-                    )
+data class ProbeResult(
+    val durationSeconds: Int,
+    val sampleRate: Float,
+    val title: String?,
+    val artist: String?,
+    val isLive: Boolean,
+)
 
-                val process =
-                    ProcessBuilder(command)
-                        .redirectErrorStream(false)
-                        .start()
+object FFprobeExecutor {
+    private val json = Json { ignoreUnknownKeys = true }
 
-                val processId = ProcessLifecycleManager.registerProcess(process)
+    suspend fun probe(url: String): AudioInfo {
+        val r = probeRaw(url)
+        return AudioInfo(
+            audioUrl = url,
+            durationSeconds = r.durationSeconds,
+            title = r.title ?: fallbackTitle(url),
+            sampleRate = r.sampleRate,
+            isLive = r.isLive,
+            artist = r.artist ?: "",
+        )
+    }
 
-                try {
-                    val (output, _) =
-                        coroutineScope {
-                            val stdout = async { process.inputStream.bufferedReader().use { it.readText() } }
-                            val stderr = async { process.errorStream.bufferedReader().use { it.readText() } }
-                            stdout.await() to stderr.await()
-                        }
+    /** [source] is a URL or an absolute local path. */
+    suspend fun probeRaw(source: String): ProbeResult {
+        try {
+            val probePath = FFMPEGProvider.ffprobePath
+                ?: error("ffprobe binary not found")
 
-                    val exitCode = process.waitFor()
-
-                    if (exitCode != 0 ||
-                        output.isBlank()
-                    ) {
-                        throw IllegalStateException("FFprobeExecutor: Failed to probe, process exited with code $exitCode")
-                    }
-
-                    val json = Json { ignoreUnknownKeys = true }
-                    val root = json.parseToJsonElement(output).jsonObject
-
-                    if (root.isEmpty()) throw IllegalStateException("FFprobeExecutor: Failed to probe, output is empty")
-
-                    val format = root["format"]?.jsonObject ?: throw IllegalStateException("FFprobeExecutor: Missing format data")
-                    val streams = root["streams"]?.jsonArray
-
-                    val durationRaw =
-                        format["duration"]
-                            ?.jsonPrimitive
-                            ?.content
-                            ?.toDoubleOrNull()
-
-                    val duration = durationRaw?.toInt() ?: 0
-
-                    val title =
-                        format["tags"]
-                            ?.jsonObject
-                            ?.get("title")
-                            ?.jsonPrimitive
-                            ?.content
-                            ?.takeIf { it.isNotBlank() }
-
-                    val sampleRate =
-                        streams
-                            ?.firstOrNull()
-                            ?.jsonObject
-                            ?.get("sample_rate")
-                            ?.jsonPrimitive
-                            ?.content
-                            ?.toFloatOrNull() ?: 48_000f
-
-                    val icyTags = format["tags"]?.jsonObject
-                    val hasIcyName = icyTags?.containsKey("icy-name") == true
-                    val isLive = durationRaw == null || durationRaw == 0.0 || hasIcyName
-
-                    AudioInfo(
-                        audioUrl = url,
-                        durationSeconds = duration,
-                        title =
-                            title ?: try {
-                                val path = url.substringBefore('?').substringBefore('#')
-                                val filename = path.substringAfterLast('/')
-                                filename.ifBlank { "Unknown" }
-                            } catch (_: Exception) {
-                                "Unknown"
-                            },
-                        sampleRate = sampleRate,
-                        isLive,
-                    )
-                } finally {
-                    ProcessLifecycleManager.destroyProcess(processId)
-                }
-            } catch (e: Exception) {
-                throw IllegalStateException("FFprobeExecutor: probe failed for $url: ${e.message}")
+            val result = runProcess(
+                listOf(
+                    probePath,
+                    "-v", "quiet",
+                    "-print_format", "json",
+                    "-select_streams", "a:0",
+                    "-show_entries", "format=duration:format_tags:stream=sample_rate",
+                    "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                    source,
+                ),
+            )
+            check(result.exitCode == 0 && result.stdout.isNotBlank()) {
+                "process exited with code ${result.exitCode}"
             }
+
+            val root = json.parseToJsonElement(result.stdout).jsonObject
+            val format = root["format"]?.jsonObject ?: error("missing format data")
+
+            val tags = format["tags"]?.jsonObject.orEmpty()
+                .entries.associate { (k, v) -> k.lowercase() to v.jsonPrimitive.content }
+
+            val durationRaw = format["duration"]?.jsonPrimitive?.content?.toDoubleOrNull()
+            val sampleRate = root["streams"]?.jsonArray?.firstOrNull()?.jsonObject
+                ?.get("sample_rate")?.jsonPrimitive?.content?.toFloatOrNull() ?: 48_000f
+
+            return ProbeResult(
+                durationSeconds = durationRaw?.toInt() ?: 0,
+                sampleRate = sampleRate,
+                title = tags["title"]?.takeIf { it.isNotBlank() },
+                artist = tags["artist"]?.takeIf { it.isNotBlank() },
+                isLive = durationRaw == null || durationRaw == 0.0 || "icy-name" in tags,
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalStateException("FFprobeExecutor: probe failed for $source: ${e.message}", e)
         }
+    }
+
+    private fun fallbackTitle(url: String): String =
+        url.substringBefore('?').substringBefore('#')
+            .substringAfterLast('/').substringAfterLast('\\')
+            .ifBlank { "Unknown" }
 }

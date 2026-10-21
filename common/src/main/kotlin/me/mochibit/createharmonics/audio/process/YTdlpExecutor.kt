@@ -7,15 +7,24 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import me.mochibit.createharmonics.audio.bin.FFMPEGProvider
 import me.mochibit.createharmonics.audio.bin.YTDLProvider
 import me.mochibit.createharmonics.audio.info.AudioInfo
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.foundation.err
+import java.nio.file.Files
+import java.nio.file.Path
 
-class YTdlpExecutor {
+data class DownloadedAudio(val file: Path, val title: String?, val artist: String?)
+
+object YTdlpExecutor {
+    private const val SEGMENT_DURATION_CEILING_S = 300
+
+
     suspend fun extractAudioInfo(youtubeUrl: String): AudioInfo =
         withContext(Dispatchers.IO) {
             try {
@@ -85,6 +94,7 @@ class YTdlpExecutor {
                     val jsonObject = json.parseToJsonElement(firstJsonLine).jsonObject
 
                     val title = jsonObject["title"]?.jsonPrimitive?.content ?: "Unknown"
+                    val artist = jsonObject["artist"]?.jsonPrimitive?.content ?: "Unknown artist"
                     val audioUrl =
                         when (jsonObject["protocol"]?.jsonPrimitive?.content) {
                             "m3u8_native", "m3u8" -> {
@@ -114,7 +124,8 @@ class YTdlpExecutor {
                         audioUrl,
                         durationSeconds = duration,
                         title = title,
-                        sampleRate,
+                        artist = artist,
+                        sampleRate = sampleRate,
                         isLive = isLive,
                         httpHeaders = httpHeaders,
                     )
@@ -125,6 +136,49 @@ class YTdlpExecutor {
                 throw IllegalStateException("Error extracting audio info: ${e.message}")
             }
         }
+
+    suspend fun download(url: String, targetDir: Path): DownloadedAudio {
+        if (!YTDLProvider.isAvailable()) error("YTDLProvider not available")
+        val ytdlPath = YTDLProvider.getExecutablePath() ?: error("YTDLP not found")
+
+        val command = buildList {
+            add(ytdlPath)
+            addAll(listOf("--encoding", "utf-8"))
+            addAll(listOf("-f", "bestaudio/best"))
+            addAll(listOf("-x", "--audio-format", "mp3"))
+            add("--no-playlist")
+            addAll(listOf("--match-filter", "!is_live"))
+            FFMPEGProvider.ffprobePath?.let { Path.of(it).parent }?.let {
+                addAll(listOf("--ffmpeg-location", it.toString()))
+            }
+            addAll(listOf("-P", targetDir.toAbsolutePath().toString()))
+            addAll(listOf("-o", "%(id)s.%(ext)s", "--restrict-filenames"))
+            addAll(listOf("--no-simulate", "--print", "after_move:%()j"))
+            add("--")
+            add(url)
+        }
+
+        val result = runProcess(command)
+        if (result.exitCode != 0) {
+            "yt-dlp error: ${result.stderr.take(500)}".err()
+            throw IllegalStateException("yt-dlp failed with exit code ${result.exitCode}")
+        }
+
+        val line = result.stdout.lineSequence().lastOrNull { it.trimStart().startsWith("{") }
+            ?: throw IllegalStateException("yt-dlp produced no output (live stream or filtered video?)")
+        val info = Json.parseToJsonElement(line).jsonObject
+
+        val file = info["filepath"]?.jsonPrimitive?.contentOrNull?.let(Path::of)
+            ?.takeIf { Files.isRegularFile(it) }
+            ?: throw IllegalStateException("yt-dlp did not report the downloaded file")
+
+        fun str(key: String) = info[key]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+        return DownloadedAudio(
+            file = file,
+            title = str("title"),
+            artist = str("artist") ?: str("creator") ?: str("uploader"),
+        )
+    }
 
     /**
      * Extracts the *full* video/audio duration (in whole seconds) from a yt-dlp info-dict
@@ -197,12 +251,4 @@ class YTdlpExecutor {
         }
     }
 
-    companion object {
-        /**
-         * Durations at or below this value (seconds) are assumed to be per-segment
-         * lengths rather than full-video durations and are discarded in favour of
-         * more reliable sources. YouTube DASH audio segments are typically 85–120 s.
-         */
-        private const val SEGMENT_DURATION_CEILING_S = 300
-    }
 }

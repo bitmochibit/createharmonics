@@ -16,7 +16,7 @@ abstract class BinProvider(
             .getInstance()
             .gameDirectory
             .toPath()
-            .resolve("audio_providers/$providerName")
+            .resolve("createharmonics/audio-providers/$providerName")
             .normalize()
             .toFile(),
 ) {
@@ -46,7 +46,7 @@ abstract class BinProvider(
                 .getInstance()
                 .gameDirectory
                 .toPath()
-                .resolve("audio_providers")
+                .resolve("createharmonics/audio-providers")
                 .normalize()
                 .toFile()
     }

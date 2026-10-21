@@ -9,3 +9,5 @@ class StreamAudioSource(
 ) : AudioSource {
     override suspend fun resolveAudioInfo(): AudioInfo = audioInfo
 }
+
+

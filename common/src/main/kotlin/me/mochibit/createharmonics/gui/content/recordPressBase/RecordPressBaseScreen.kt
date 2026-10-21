@@ -4,7 +4,8 @@ import com.simibubi.create.foundation.gui.AllGuiTextures
 import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
 import me.mochibit.createharmonics.audio.upload.AudioMetadata
-import me.mochibit.createharmonics.audio.upload.ClientAudioLibrary
+import me.mochibit.createharmonics.audio.upload.client.ClientAudioLibrary
+import me.mochibit.createharmonics.audio.upload.ServerAudioReference
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseConfiguration
 import me.mochibit.createharmonics.foundation.extension.toMultilineComponent
@@ -28,20 +29,6 @@ import net.minecraft.util.Mth
 import net.minecraft.world.item.ItemStack
 import org.lwjgl.glfw.GLFW
 import java.util.*
-
-data class ServerAudioRef(val owner: String, val fileId: String) {
-    override fun toString() = "$PREFIX$owner/$fileId"
-
-    companion object {
-        const val PREFIX = "createharmonics://audio/"
-
-        fun parse(url: String): ServerAudioRef? {
-            if (!url.startsWith(PREFIX)) return null
-            val parts = url.removePrefix(PREFIX).split('/')
-            return if (parts.size == 2 && parts.none { it.isBlank() }) ServerAudioRef(parts[0], parts[1]) else null
-        }
-    }
-}
 
 class RecordPressBaseScreen(
     private val be: RecordPressBaseBlockEntity,
@@ -81,7 +68,7 @@ class RecordPressBaseScreen(
 
     private val localName get() = Minecraft.getInstance().player?.gameProfile?.name.orEmpty()
 
-    private fun ServerAudioRef.unavailableLabel() =
+    private fun ServerAudioReference.unavailableLabel() =
         if (owner == localName) ModLang.translate("gui.record_press_base.missing_audio").component().string
         else ModLang.translate("gui.record_press_base.foreign_audio", owner).component().string
 
@@ -89,7 +76,7 @@ class RecordPressBaseScreen(
         private val initialUrl = initial.url
         var weight: Float = initial.weight.coerceIn(0f, 1f)
 
-        private var linked: ServerAudioRef? = ServerAudioRef.parse(initialUrl)
+        private var linked: ServerAudioReference? = ServerAudioReference.parse(initialUrl)
         private var linkedName: String? = initial.name
         private var applied: List<AudioMetadata>? = null
 
@@ -118,9 +105,9 @@ class RecordPressBaseScreen(
         val typingInput: EntryScrollInput? get() = if (inputLazy.isInitialized() && input.isTyping) input else null
         fun blur() { if (inputLazy.isInitialized()) input.blur() }
 
-        private fun selectedRef(): ServerAudioRef? =
+        private fun selectedRef(): ServerAudioReference? =
             input.selectedEntryIndex?.let { applied?.getOrNull(it) }
-                ?.let { ServerAudioRef(localName, it.fileId) }
+                ?.let { ServerAudioReference(localName, it.fileId) }
 
         fun applyLibrary(list: List<AudioMetadata>) {
             if (list !== applied) {

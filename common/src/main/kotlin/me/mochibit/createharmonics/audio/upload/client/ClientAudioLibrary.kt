@@ -1,6 +1,6 @@
-package me.mochibit.createharmonics.audio.upload
+package me.mochibit.createharmonics.audio.upload.client
 
-import kotlinx.serialization.Serializable
+import me.mochibit.createharmonics.audio.upload.AudioMetadata
 import me.mochibit.createharmonics.foundation.network.packet.RequestAudioList
 import me.mochibit.createharmonics.foundation.services.networkService
 

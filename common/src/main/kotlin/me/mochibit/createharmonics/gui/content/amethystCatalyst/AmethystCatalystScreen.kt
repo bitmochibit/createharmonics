@@ -3,8 +3,8 @@ package me.mochibit.createharmonics.gui.content.amethystCatalyst
 import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
 import me.mochibit.createharmonics.audio.upload.AudioMetadata
-import me.mochibit.createharmonics.audio.upload.ClientAudioLibrary
-import me.mochibit.createharmonics.audio.upload.ClientAudioUpload
+import me.mochibit.createharmonics.audio.upload.client.ClientAudioLibrary
+import me.mochibit.createharmonics.audio.upload.client.ClientAudioUpload
 import me.mochibit.createharmonics.content.uploader.AmethystCatalystBlockEntity
 import me.mochibit.createharmonics.foundation.extension.toMultilineComponent
 import me.mochibit.createharmonics.foundation.locale.ModLang
@@ -76,7 +76,7 @@ class AmethystCatalystScreen(
     private val source: Source
         get() = when (val i = picker.selectedEntryIndex) {
             null -> pickedFile?.let(Source::Local)
-                ?: picker.text.trim().takeIf { it.isNotEmpty() }?.let(Source::Url)
+                ?: picker.text.trim().takeIf { it.startsWith("http://") || it.startsWith("https://") }?.let(Source::Url)
                 ?: Source.None
 
             else -> entries.getOrNull(i)?.let(Source::Existing) ?: Source.None
@@ -131,13 +131,14 @@ class AmethystCatalystScreen(
         when (val s = source) {
             is Source.Local -> {
                 if (!Files.isReadable(s.file)) return
-                ClientAudioUpload.begin(ClientAudioUpload.PendingUpload(s.file, be.blockPos))
-                pickedFile = null
-                picker.text = ""
-                lock()
+                ClientAudioUpload.beginFile(s.file, be.blockPos)
+                pickedFile = null; picker.text = ""; lock()
             }
 
-            is Source.Url -> TODO("yt-dlp")
+            is Source.Url -> {
+                ClientAudioUpload.beginUrl(s.url, be.blockPos)
+                picker.text = ""; lock()
+            }
             is Source.Existing -> {
                 networkService.sendToServer(DeleteAudioPacket(be.blockPos, s.entry.fileId))
                 picker.selectNew()

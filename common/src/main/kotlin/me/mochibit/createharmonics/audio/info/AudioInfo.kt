@@ -17,6 +17,7 @@ data class AudioInfo(
     val audioUrl: String,
     val durationSeconds: Int,
     val title: String,
+    val artist: String,
     val sampleRate: Float,
     val isLive: Boolean,
     val httpHeaders: Map<String, String> = emptyMap(),
@@ -27,11 +28,10 @@ data class AudioInfo(
     }
 }
 
+
 object AudioInfoCache {
     private val cache = ConcurrentHashMap<String, AudioInfo>()
     private val CACHE_TTL_MS = 15.minutes.inWholeMilliseconds
-    private val ytdlpWrapper: YTdlpExecutor by lazy { YTdlpExecutor() }
-    private val ffprobeWrapper: FFprobeExecutor by lazy { FFprobeExecutor() }
 
     suspend fun getAudioInfo(url: String): AudioInfo {
         cache[url]?.let { entry ->
@@ -52,8 +52,8 @@ object AudioInfoCache {
         coroutineScope {
             var jobs: List<Deferred<Result<AudioInfo>>> =
                 listOf(
-                    async { runCatching { ffprobeWrapper.probe(rawUrl) } },
-                    async { runCatching { ytdlpWrapper.extractAudioInfo(rawUrl) } },
+                    async { runCatching { FFprobeExecutor.probe(rawUrl) } },
+                    async { runCatching { YTdlpExecutor.extractAudioInfo(rawUrl) } },
                 )
 
             var lastFailure: Throwable? = null

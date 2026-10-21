@@ -33,6 +33,9 @@ class StreamLoader(
 ) {
     suspend fun load(request: AudioRequest, position: Double): StreamLoadResult {
         val source = AudioSourceResolver.resolve(request)
+        if (ClientConfig.debugAudioPlayer.get()) {
+            "[STREAM LOADER] Source resolved :${source}".debug()
+        }
 
         val resolved = try {
             SourceStreamResolver.resolveInputStream(source, position)

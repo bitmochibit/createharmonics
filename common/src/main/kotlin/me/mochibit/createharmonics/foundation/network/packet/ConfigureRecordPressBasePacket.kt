@@ -4,9 +4,9 @@ import com.simibubi.create.foundation.utility.AdventureUtil
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import me.mochibit.createharmonics.audio.upload.AudioUploadServer
+import me.mochibit.createharmonics.audio.upload.ServerAudioReference
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseConfiguration
-import me.mochibit.createharmonics.gui.content.recordPressBase.ServerAudioRef
 import net.minecraft.core.BlockPos
 
 @AutoPacket
@@ -40,7 +40,7 @@ class ConfigureRecordPressBasePacket(
         previous: Map<String, RecordPressBaseConfiguration.AudioEntry>,
     ): RecordPressBaseConfiguration.AudioEntry? {
         val safeWeight = if (weight.isFinite()) weight.coerceIn(0f, 1f) else 1f
-        val ref = ServerAudioRef.parse(url) ?: return copy(weight = safeWeight, name = null)
+        val ref = ServerAudioReference.parse(url) ?: return copy(weight = safeWeight, name = null)
 
         val known = previous[url]?.name
         val resolved =
