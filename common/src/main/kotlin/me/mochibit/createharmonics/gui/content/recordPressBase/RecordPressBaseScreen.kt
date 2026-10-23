@@ -4,8 +4,8 @@ import com.simibubi.create.foundation.gui.AllGuiTextures
 import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
 import me.mochibit.createharmonics.audio.upload.AudioMetadata
-import me.mochibit.createharmonics.audio.upload.client.ClientAudioLibrary
 import me.mochibit.createharmonics.audio.upload.ServerAudioReference
+import me.mochibit.createharmonics.audio.upload.client.ClientAudioLibrary
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseConfiguration
 import me.mochibit.createharmonics.foundation.extension.toMultilineComponent
@@ -83,6 +83,7 @@ class RecordPressBaseScreen(
         private val inputLazy = lazy {
             EntryScrollInput(font, 0, 0, URL_FIELD_WIDTH_SEQUENTIAL, URL_FIELD_HEIGHT).also {
                 if (linked == null) it.text = initialUrl
+                else it.busyLabel = linkedName
                 it.onUserTyped = { linked = null; linkedName = null }
                 it.onSelected = {
                     linked = selectedRef()
@@ -103,7 +104,9 @@ class RecordPressBaseScreen(
         val boxes: Sequence<EditBox> get() = sequenceOf(weightBox)
 
         val typingInput: EntryScrollInput? get() = if (inputLazy.isInitialized() && input.isTyping) input else null
-        fun blur() { if (inputLazy.isInitialized()) input.blur() }
+        fun blur() {
+            if (inputLazy.isInitialized()) input.blur()
+        }
 
         private fun selectedRef(): ServerAudioReference? =
             input.selectedEntryIndex?.let { applied?.getOrNull(it) }
@@ -119,11 +122,19 @@ class RecordPressBaseScreen(
                 if (idx != null) linkedName = list[idx].displayName
             }
             val l = linked
-            input.busyLabel =
-                if (l != null && input.isNewMode && !input.isTyping) linkedName ?: l.unavailableLabel() else null
+            input.busyLabel = when {
+                l == null || !input.isNewMode || input.isTyping -> null
+                linkedName != null -> linkedName
+                !ClientAudioLibrary.loaded -> ""
+                else -> l.unavailableLabel()
+            }
         }
 
-        fun toConfig() = RecordPressBaseConfiguration.AudioEntry(url = currentUrl(), weight = weight)
+        fun toConfig() = RecordPressBaseConfiguration.AudioEntry(
+            url = currentUrl(),
+            weight = weight,
+            name = linkedName,
+        )
 
         fun currentUrl(): String =
             if (!inputLazy.isInitialized()) initialUrl else linked?.toString() ?: input.text.trim()

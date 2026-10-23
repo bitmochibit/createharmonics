@@ -1,6 +1,5 @@
 package me.mochibit.createharmonics.foundation.locale
 
-import com.simibubi.create.foundation.utility.CreateLang
 import me.mochibit.createharmonics.CreateHarmonicsMod
 import net.createmod.catnip.lang.Lang
 import net.createmod.catnip.lang.LangBuilder

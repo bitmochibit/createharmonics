@@ -20,7 +20,7 @@ data class UploadTicket(
 object UploadTicketRegistry {
     private val tickets = ConcurrentHashMap<String, UploadTicket>()
     private val random = SecureRandom()
-    private const val TTL_SECONDS = 60L
+    private const val TTL_SECONDS = 30L * 60
     private const val TOKEN_BYTES = 32
 
 
@@ -51,12 +51,13 @@ object UploadTicketRegistry {
         return ticket
     }
 
+
     fun purgeExpired() {
         val now = Instant.now()
         val iterator = tickets.values.iterator()
-        while(iterator.hasNext()) {
+        while (iterator.hasNext()) {
             val ticket = iterator.next()
-            if (ticket.expiresAt.isBefore(now)) {
+            if (ticket.uploadSession.finished || ticket.expiresAt.isBefore(now)) {
                 iterator.remove()
                 ticket.uploadSession.finish()
             }

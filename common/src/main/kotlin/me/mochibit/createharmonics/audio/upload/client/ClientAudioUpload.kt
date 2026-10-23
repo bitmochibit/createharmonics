@@ -4,13 +4,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.mochibit.createharmonics.audio.process.FFprobeExecutor
 import me.mochibit.createharmonics.audio.process.YTdlpExecutor
+import me.mochibit.createharmonics.audio.upload.AudioUploadResponse
 import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.async.onClientThread
 import me.mochibit.createharmonics.foundation.info
+import me.mochibit.createharmonics.foundation.locale.ModLang
 import me.mochibit.createharmonics.foundation.network.packet.AudioUploadGrantedPacket
+import me.mochibit.createharmonics.foundation.network.packet.CancelAudioUploadPacket
 import me.mochibit.createharmonics.foundation.network.packet.RequestAudioUpload
 import me.mochibit.createharmonics.foundation.services.networkService
 import me.mochibit.createharmonics.foundation.warn
+import net.minecraft.client.Minecraft
 import net.minecraft.core.BlockPos
 import java.io.IOException
 import java.net.URI
@@ -59,7 +63,7 @@ object UploadPreparer {
 }
 
 object ClientAudioUpload {
-    private class Pending(val prepared: PreparedUpload, val pos: BlockPos)
+    private class Pending(val prepare: suspend () -> PreparedUpload, val pos: BlockPos)
 
     private val http = HttpClient.newHttpClient()
     @Volatile private var pending: Pending? = null
@@ -67,73 +71,76 @@ object ClientAudioUpload {
     @Volatile var isBusy = false
         private set
 
-    fun beginFile(file: Path, pos: BlockPos) = begin(pos) { UploadPreparer.fromFile(file) }
-    fun beginUrl(url: String, pos: BlockPos) = begin(pos) { UploadPreparer.fromUrl(url) }
+    fun beginFile(file: Path, pos: BlockPos) =
+        begin(pos, file.fileName.toString()) { UploadPreparer.fromFile(file) }
 
-    private fun begin(pos: BlockPos, prepare: suspend () -> PreparedUpload) {
+    fun beginUrl(url: String, pos: BlockPos) =
+        begin(pos, url) { UploadPreparer.fromUrl(url) }
+
+
+    private fun begin(pos: BlockPos, label: String, prepare: suspend () -> PreparedUpload) {
         if (isBusy) return
         isBusy = true
-        modLaunch(Dispatchers.IO) {
-            val prepared = try {
-                prepare()
-            } catch (e: CancellationException) {
-                isBusy = false; throw e
-            } catch (e: Exception) {
-                isBusy = false
-                "Can't prepare audio: ${e.message}".warn()
-                return@modLaunch
-            }
-            pending = Pending(prepared, pos)
-            onClientThread {
-                networkService.sendToServer(RequestAudioUpload(pos, prepared.file.fileName.toString()))
-            }
-        }
+        pending = Pending(prepare, pos)
+        networkService.sendToServer(RequestAudioUpload(pos, label))
     }
 
-    fun onDenied(reason: String) {
-        pending?.prepared?.cleanup()
+    fun onDenied(reason: AudioUploadResponse) {
         pending = null
         isBusy = false
-        reason.warn()
+        reason.sendToChat()
     }
 
     fun onGranted(grant: AudioUploadGrantedPacket) {
         val p = pending?.also { pending = null } ?: return
-        val up = p.prepared
 
-        val request = try {
-            HttpRequest.newBuilder(
-                AudioServerEndpoint.uploadUri(
-                    filename = up.file.fileName.toString(),
-                    durationSeconds = up.durationSeconds,
-                    sampleRate = up.sampleRate,
-                    title = up.title,
-                    artist = up.artist,
-                )
-            )
-                .header("Authorization", "Bearer ${grant.token}")
-                .timeout(Duration.ofMinutes(5))
-                .POST(HttpRequest.BodyPublishers.ofFile(up.file))
-                .build()
-        } catch (e: IOException) {
-            finish(up)
-            "Can't read the file ${e.message}".warn()
-            return
-        }
-
-        http.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-            .whenComplete { resp, err ->
-                finish(up)
-                when {
-                    err != null -> "Upload failed: ${err.message}".warn()
-                    resp.statusCode() != 201 -> "Upload failed (${resp.statusCode()}): ${resp.body()}".warn()
-                    else -> "Upload completed".info()
-                }
+        modLaunch(Dispatchers.IO) {
+            var prepared: PreparedUpload? = null
+            try {
+                prepared = p.prepare()
+                upload(prepared, grant.token)
+                "Upload completed".info()
+            } catch (e: CancellationException) {
+                abort(p.pos)
+                throw e
+            } catch (e: Exception) {
+                "Upload failed: ${e.message}".warn()
+                abort(p.pos)
+            } finally {
+                prepared?.cleanup()
+                isBusy = false
             }
+        }
     }
 
-    private fun finish(up: PreparedUpload) {
-        up.cleanup()
-        isBusy = false
+    private fun upload(up: PreparedUpload, token: String) {
+        val request = HttpRequest.newBuilder(
+            AudioServerEndpoint.uploadUri(
+                filename = up.file.fileName.toString(),
+                durationSeconds = up.durationSeconds,
+                sampleRate = up.sampleRate,
+                title = up.title,
+                artist = up.artist,
+            )
+        )
+            .header("Authorization", "Bearer $token")
+            .timeout(Duration.ofMinutes(5))
+            .POST(HttpRequest.BodyPublishers.ofFile(up.file))
+            .build()
+
+        val resp = http.send(request, HttpResponse.BodyHandlers.ofString())
+        if (resp.statusCode() != 201) throw IOException("(${resp.statusCode()}) ${resp.body()}")
     }
+
+    private suspend fun abort(pos: BlockPos) = onClientThread {
+        networkService.sendToServer(CancelAudioUploadPacket(pos))
+    }
+}
+
+fun AudioUploadResponse.sendToChat() {
+    val localPlayer = Minecraft.getInstance().player ?: return
+    localPlayer.displayClientMessage(
+        ModLang.translate(this.translationKey).component(),
+        false
+    )
 }

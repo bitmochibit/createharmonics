@@ -29,6 +29,7 @@ import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.Vec3
+import java.util.UUID
 import kotlin.math.ceil
 import kotlin.math.max
 
@@ -44,6 +45,8 @@ class AmethystCatalystBlockEntity(
         private const val SHOCK_DAMAGE = 2f
         private const val SHOCK_KNOCKBACK = 0.6
         private const val RAIN_CHANCE = 0.15f
+
+        private const val UPLOAD_IDLE_TIMEOUT = 20 * 60 * 10
     }
 
     enum class CrystalChangeOutcome { INSERTED, REMOVED }
@@ -116,7 +119,10 @@ class AmethystCatalystBlockEntity(
     private var cooldownTicksLeft = 0
     private var beamStartTime = 0L
 
-    // Client only
+    private var sessionOwner: UUID? = null
+    private var idleTicks = 0
+
+        // Client only
     private val beam = BeamAnimator()
 
     private val beamLength: Float
@@ -181,14 +187,30 @@ class AmethystCatalystBlockEntity(
      * Reserves the block entity for an upload session.
      * @return an [UploadSession], or null if the block is already busy
      */
-    fun tryReserve(fileName: String): UploadSession? {
+    fun tryReserve(fileName: String, owner: UUID): UploadSession? {
         if (isBusy) return null
         val s = UploadSession(fileName)
         session = s
+        sessionOwner = owner
+        idleTicks = 0
         uploadingFileName = s.fileName
         uploadingProgress = 0f
         changePhase(Phase.UPLOADING)
         return s
+    }
+
+    fun cancelUpload(requester: UUID) {
+        if (!isUploading || sessionOwner != requester) return
+        session?.cancel()
+        finishSession()
+    }
+
+    private fun finishSession() {
+        session = null
+        sessionOwner = null
+        uploadingFileName = null
+        uploadingProgress = 0f
+        startCooldown()
     }
 
     /** @return false if the block is already busy */
@@ -249,14 +271,14 @@ class AmethystCatalystBlockEntity(
         when (phase) {
             Phase.UPLOADING -> {
                 val s = session ?: return
-                if (s.finished) {
-                    session = null
-                    uploadingFileName = null
-                    uploadingProgress = 0f
-                    startCooldown()
-                } else if (s.progress != uploadingProgress) {
-                    uploadingProgress = s.progress
-                    sendData()
+                when {
+                    s.finished -> finishSession()
+                    s.progress != uploadingProgress -> {
+                        uploadingProgress = s.progress
+                        idleTicks = 0
+                        sendData()
+                    }
+                    ++idleTicks > UPLOAD_IDLE_TIMEOUT -> { s.cancel(); finishSession() }
                 }
             }
             Phase.DELETING -> {

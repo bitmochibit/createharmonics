@@ -2,7 +2,10 @@ package me.mochibit.createharmonics.foundation.network.packet
 
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
-import me.mochibit.createharmonics.audio.upload.*
+import me.mochibit.createharmonics.audio.upload.AudioMetadata
+import me.mochibit.createharmonics.audio.upload.AudioUploadResponse
+import me.mochibit.createharmonics.audio.upload.AudioUploadServer
+import me.mochibit.createharmonics.audio.upload.UploadTicketRegistry
 import me.mochibit.createharmonics.audio.upload.client.AudioServerEndpoint
 import me.mochibit.createharmonics.audio.upload.client.ClientAudioLibrary
 import me.mochibit.createharmonics.audio.upload.client.ClientAudioUpload
@@ -38,25 +41,25 @@ class RequestAudioUpload(
         if (be == null || player.distanceToSqr(Vec3.atCenterOf(blockPos)) > 64) {
             networkService.sendToPlayer(
                 player,
-                AudioUploadDeniedPacket("Amethyst Catalyst is not reachable or non existent")
+                AudioUploadDeniedPacket(AudioUploadResponse.NON_REACHABLE)
             )
             return
         }
 
         if (!AudioUploadServer.isRunning) {
-            networkService.sendToPlayer(player, AudioUploadDeniedPacket("Audio upload server is not running"))
+            networkService.sendToPlayer(player, AudioUploadDeniedPacket(AudioUploadResponse.SERVER_NOT_RUNNING))
             return
         }
 
         if (!AudioUploadServer.hasFreeSlot(name)) {
-            networkService.sendToPlayer(player, AudioUploadDeniedPacket("You reached your audio file limit"))
+            networkService.sendToPlayer(player, AudioUploadDeniedPacket(AudioUploadResponse.AUDIO_FILE_LIMIT))
             return
         }
 
 
-        val session = be.tryReserve(fileName)
+        val session = be.tryReserve(fileName, player.uuid)
         if (session == null) {
-            networkService.sendToPlayer(player, AudioUploadDeniedPacket("Amethyst Catalyst is already busy"))
+            networkService.sendToPlayer(player, AudioUploadDeniedPacket(AudioUploadResponse.BLOCK_BUSY))
             return
         }
 
@@ -70,13 +73,23 @@ class RequestAudioUpload(
 
 @AutoPacket
 @Serializable
+class CancelAudioUploadPacket(@Contextual val blockPos: BlockPos) : C2SPacket {
+    override fun handle(context: ServerPacketContext) {
+        val player = context.player
+        (player.level().getBlockEntity(blockPos) as? AmethystCatalystBlockEntity)
+            ?.cancelUpload(player.uuid)
+    }
+}
+
+@AutoPacket
+@Serializable
 data class AudioUploadGrantedPacket(val token: String, val expiresInSeconds: Int) : S2CPacket {
     override fun handle(context: ClientPacketContext) = ClientAudioUpload.onGranted(this)
 }
 
 @AutoPacket
 @Serializable
-data class AudioUploadDeniedPacket(val reason: String) : S2CPacket {
+data class AudioUploadDeniedPacket(val reason: AudioUploadResponse) : S2CPacket {
     override fun handle(context: ClientPacketContext) = ClientAudioUpload.onDenied(reason)
 }
 
@@ -108,12 +121,15 @@ class DeleteAudioPacket(
         val be = player.level().getBlockEntity(blockPos) as? AmethystCatalystBlockEntity
 
         if (be == null || player.distanceToSqr(Vec3.atCenterOf(blockPos)) > 64) {
-            networkService.sendToPlayer(player, AudioUploadDeniedPacket("Amethyst Catalyst is not reachable or non existent"))
+            networkService.sendToPlayer(
+                player,
+                AudioUploadDeniedPacket(AudioUploadResponse.NON_REACHABLE)
+            )
             return
         }
 
         if (be.isBusy) {
-            networkService.sendToPlayer(player, AudioUploadDeniedPacket("Amethyst Catalyst is already busy"))
+            networkService.sendToPlayer(player, AudioUploadDeniedPacket(AudioUploadResponse.BLOCK_BUSY))
             return
         }
 
