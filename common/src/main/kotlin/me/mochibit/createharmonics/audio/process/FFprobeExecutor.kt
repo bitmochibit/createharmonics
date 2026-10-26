@@ -30,10 +30,9 @@ object FFprobeExecutor {
         return AudioInfo(
             audioUrl = url,
             durationSeconds = r.durationSeconds,
-            title = r.title ?: fallbackTitle(url),
+            displayName = r.title ?: fallbackTitle(url),
             sampleRate = r.sampleRate,
             isLive = r.isLive,
-            artist = r.artist ?: "",
         )
     }
 

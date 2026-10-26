@@ -44,6 +44,8 @@ object AudioUploadServer {
 
     fun delete(playerName: String, fileId: String) = storage.delete(playerName, fileId)
 
+    fun rename(playerName: String, fileId: String, newName: String?) = storage.rename(playerName, fileId, newName)
+
     @Synchronized
     fun start() {
         check(server == null) { "AudioUploadServer already started" }

@@ -17,6 +17,6 @@ sealed interface AudioRequest {
         val streamRetriever: () -> InputStream,
         val streamInfo: AudioInfo,
     ) : AudioRequest {
-        override fun isSameSource(other: AudioRequest): Boolean = other is Stream && other.streamInfo.title == streamInfo.title
+        override fun isSameSource(other: AudioRequest): Boolean = other is Stream && other.streamInfo.displayName == streamInfo.displayName
     }
 }

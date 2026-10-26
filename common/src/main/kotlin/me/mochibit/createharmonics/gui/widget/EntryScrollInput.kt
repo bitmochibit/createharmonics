@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.gui.widget
 
 import com.simibubi.create.AllSoundEvents
 import com.simibubi.create.foundation.gui.widget.SelectionScrollInput
+import me.mochibit.createharmonics.audio.upload.MAX_DISPLAY_NAME_LENGTH
 import me.mochibit.createharmonics.foundation.locale.ModLang
 import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft
@@ -12,6 +13,7 @@ import net.minecraft.client.resources.sounds.SimpleSoundInstance
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.MutableComponent
 import net.minecraft.network.chat.Style
+import org.lwjgl.glfw.GLFW
 import kotlin.math.max
 import kotlin.math.min
 
@@ -31,6 +33,7 @@ class EntryScrollInput(
 
     private companion object {
         const val PAD = 4
+        const val MAX_INPUT_LENGTH = 2048
     }
 
     private var programmatic = false
@@ -47,6 +50,10 @@ class EntryScrollInput(
 
     var entryNames: List<String> = emptyList()
         private set
+
+    private var editing = false
+    val isEditing get() = editing
+    var onRenamed: (index: Int, newName: String) -> Unit = { _, _ -> }
 
     var busyLabel: String? = null
     var onSelected: () -> Unit = {}
@@ -86,8 +93,34 @@ class EntryScrollInput(
         onSelected()
     }
 
-    fun blur() {
+    fun blur() = commitEdit().also { box.isFocused = false }
+
+    fun beginEdit() {
+        val index = selected ?: return
+        editing = true
+        box.setMaxLength(MAX_DISPLAY_NAME_LENGTH)
+        text = entryNames[index]
+        layoutBox()
+        box.isFocused = true
+        box.setCursorPosition(box.value.length)
+        box.setHighlightPos(0)
+    }
+
+    fun commitEdit() {
+        if (!editing) return
+        val index = selected
+        val newName = box.value.trim()
+        endEdit()
+        if (index != null && newName != entryNames[index]) {
+            onRenamed(index, newName)
+            if (newName.isNotEmpty()) setEntries(entryNames.toMutableList().also { it[index] = newName })
+        }
+    }
+
+    private fun endEdit() {
+        editing = false
         box.isFocused = false
+        box.setMaxLength(MAX_INPUT_LENGTH)
     }
 
     private fun applyOptions() {
@@ -99,9 +132,10 @@ class EntryScrollInput(
 
     private fun syncBox() {
         val nowNew = isNewMode
+        if (nowNew && editing) endEdit()
         if (wasNew && !nowNew) draft = box.value
         if (!wasNew && nowNew) text = draft
-        if (!nowNew) box.isFocused = false
+        if (!nowNew && !editing) box.isFocused = false
         wasNew = nowNew
     }
 
@@ -127,7 +161,7 @@ class EntryScrollInput(
     }
 
     override fun mouseScrolled(mouseX: Double, mouseY: Double, scrollX: Double, scrollY: Double): Boolean {
-        if (!active || entryNames.isEmpty()) return false
+        if (!active || editing || entryNames.isEmpty()) return false
         if (box.isFocused && box.value.isNotEmpty()) return false
         if (selected == null) {
             selected = 0
@@ -142,9 +176,11 @@ class EntryScrollInput(
     }
 
     override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
-        if (!active || !isMouseOver(mouseX, mouseY)) {
-            blur()
-            return false
+        if (!active || !isMouseOver(mouseX, mouseY)) return false
+        if (editing) {
+            layoutBox()
+            box.mouseClicked(mouseX, mouseY, button)
+            return true
         }
         if (!isNewMode) selectNew()
         layoutBox()
@@ -153,8 +189,13 @@ class EntryScrollInput(
         return true
     }
 
-    override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean =
-        box.isFocused && box.keyPressed(keyCode, scanCode, modifiers)
+    override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {
+        if (editing && (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)) {
+            commitEdit()
+            return true
+        }
+        return box.isFocused && box.keyPressed(keyCode, scanCode, modifiers)
+    }
 
     override fun charTyped(codePoint: Char, modifiers: Int): Boolean =
         box.isFocused && box.charTyped(codePoint, modifiers)
@@ -168,17 +209,16 @@ class EntryScrollInput(
         fun draw(s: String, color: Int) =
             graphics.drawString(font, font.plainSubstrByWidth(s, maxWidth), textX, textY, color)
 
+        fun drawBox() { layoutBox(); box.render(graphics, mouseX, mouseY, partialTicks) }
+
         val busy = busyLabel
         when {
             busy != null -> draw(busy, 0xCCDDFF)
+            editing -> drawBox()
             !isNewMode -> draw(entryNames.getOrNull(selected!!).orEmpty(), 0xFFFFFF)
             box.value.isEmpty() && !box.isFocused ->
                 draw((if (entryNames.isEmpty()) noSelectableEntriesTooltip else hintTooltip).string, 0x888888)
-
-            else -> {
-                layoutBox()
-                box.render(graphics, mouseX, mouseY, partialTicks)
-            }
+            else -> drawBox()
         }
     }
 

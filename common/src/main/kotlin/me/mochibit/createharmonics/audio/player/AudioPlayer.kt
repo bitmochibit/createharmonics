@@ -250,7 +250,7 @@ class AudioPlayer(
 
         withMainContext { soundManager.play(intent.soundInstance) }
         soundEventComposition.makeComposition(intent.soundInstance)
-        notifier.audioTitleChanged(intent.audioInfo.title)
+        notifier.audioTitleChanged(intent.audioInfo.displayName)
         retryScheduler.reset()
     }
 

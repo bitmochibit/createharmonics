@@ -106,6 +106,8 @@ object ClientAudioUpload {
             } catch (e: Exception) {
                 "Upload failed: ${e.message}".warn()
                 abort(p.pos)
+                val response = (e as? AudioUploadException)?.response ?: AudioUploadResponse.INTERNAL_ERROR
+                onClientThread { response.sendToChat() }
             } finally {
                 prepared?.cleanup()
                 isBusy = false
@@ -129,7 +131,11 @@ object ClientAudioUpload {
             .build()
 
         val resp = http.send(request, HttpResponse.BodyHandlers.ofString())
-        if (resp.statusCode() != 201) throw IOException("(${resp.statusCode()}) ${resp.body()}")
+        if (resp.statusCode() != 201) {
+            val responseEnum = runCatching { AudioUploadResponse.valueOf(resp.body().trim()) }
+                .getOrDefault(AudioUploadResponse.INTERNAL_ERROR)
+            throw AudioUploadException(responseEnum)
+        }
     }
 
     private suspend fun abort(pos: BlockPos) = onClientThread {
@@ -144,3 +150,5 @@ fun AudioUploadResponse.sendToChat() {
         false
     )
 }
+
+class AudioUploadException(val response: AudioUploadResponse) : IOException(response.name)

@@ -9,6 +9,7 @@ import me.mochibit.createharmonics.content.uploader.AmethystCatalystBlockEntity
 import me.mochibit.createharmonics.foundation.extension.toMultilineComponent
 import me.mochibit.createharmonics.foundation.locale.ModLang
 import me.mochibit.createharmonics.foundation.network.packet.DeleteAudioPacket
+import me.mochibit.createharmonics.foundation.network.packet.RenameAudioPacket
 import me.mochibit.createharmonics.foundation.registry.ModIcons
 import me.mochibit.createharmonics.foundation.services.networkService
 import me.mochibit.createharmonics.gui.ModGuiTexture
@@ -37,6 +38,8 @@ class AmethystCatalystScreen(
         const val REFRESH_X = 160
         const val ACTION_X = 12
         const val ACTION_Y = 55
+
+        const val EDIT_X = 34
     }
 
     private sealed interface Source {
@@ -61,12 +64,16 @@ class AmethystCatalystScreen(
     private lateinit var refreshButton: IconButton
     private lateinit var actionButton: IconButton
 
+    private lateinit var editButton: IconButton
+
     private var pickedFile: Path? = null
     private var lastEntries: List<AudioMetadata>? = null
     private var lastActionUi: ActionUi? = null
     private var wasUploading = false
 
     private var pendingTicks = 0
+
+    private var wasEditing = false
 
     private val isLocked get() = be.isBusy || ClientAudioUpload.isBusy || pendingTicks > 0
     private val canInteract get() = be.hasCrystal && !isLocked
@@ -93,6 +100,7 @@ class AmethystCatalystScreen(
         if (!::picker.isInitialized) {
             picker = EntryScrollInput(font, 0, 0, PICKER_W, PICKER_H).also {
                 it.onUserTyped = { pickedFile = null }
+                it.onRenamed = ::requestRename
             }
         }
         picker.x = guiLeft + PICKER_X
@@ -118,6 +126,15 @@ class AmethystCatalystScreen(
             withCallback<IconButton> { runAction() }
             addRenderableWidget(this)
         }
+
+        editButton = AdvancedIconButton(guiLeft + EDIT_X, guiTop + ACTION_Y, ModIcons.I_UPLOAD).apply {
+            withCallback<IconButton> {
+                if (picker.isEditing) picker.commitEdit() else if (canInteract) picker.beginEdit()
+            }
+            addRenderableWidget(this)
+        }
+        applyEditUi()
+
         lastActionUi = null
 
         ClientAudioLibrary.refresh()
@@ -184,6 +201,11 @@ class AmethystCatalystScreen(
         folderButton.active = usable
         refreshButton.active = usable
         applyActionUi(actionUi(source, usable))
+
+        val hasSelection = picker.selectedEntryIndex != null
+        editButton.visible = hasCrystal && hasSelection
+        editButton.active = usable && hasSelection
+        if (picker.isEditing != wasEditing) applyEditUi()
     }
 
     override fun tick() {
@@ -233,6 +255,22 @@ class AmethystCatalystScreen(
         updateWidgets()
     }
 
+    private fun requestRename(index: Int, newName: String) {
+        val entry = entries.getOrNull(index) ?: return
+        networkService.sendToServer(RenameAudioPacket(be.blockPos, entry.fileId, newName))
+    }
+
+    private fun applyEditUi() {
+        val editing = picker.isEditing
+        editButton.setIcon(if (editing) AllIcons.I_CONFIRM else AllIcons.I_MOVE_GAUGE)
+        editButton.toolTip.clear()
+        editButton.toolTip.addAll(
+            ModLang.translate("gui.amethyst_catalyst.${if (editing) "confirm_rename" else "rename"}")
+                .component().toMultilineComponent(),
+        )
+        wasEditing = editing
+    }
+
     // render
 
     override fun renderWindow(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTicks: Float) {
@@ -250,8 +288,13 @@ class AmethystCatalystScreen(
 
     // input
 
+    override fun removed() {
+        if (::picker.isInitialized) picker.commitEdit()
+        super.removed()
+    }
+
     override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
-        if (!picker.isMouseOver(mouseX, mouseY)) picker.blur()
+        if (!picker.isMouseOver(mouseX, mouseY) && !editButton.isMouseOver(mouseX, mouseY)) picker.blur()
         return super.mouseClicked(mouseX, mouseY, button)
     }
 

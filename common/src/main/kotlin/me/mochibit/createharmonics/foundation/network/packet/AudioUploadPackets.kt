@@ -141,6 +141,28 @@ class DeleteAudioPacket(
 
 }
 
+@AutoPacket
+@Serializable
+class RenameAudioPacket(
+    @Contextual val blockPos: BlockPos,
+    val fileId: String,
+    val newName: String?,
+) : C2SPacket {
+    override fun handle(context: ServerPacketContext) {
+        val player = context.player
+        val name = player.gameProfile.name
+        val be = player.level().getBlockEntity(blockPos) as? AmethystCatalystBlockEntity
+
+        if (be == null || player.distanceToSqr(Vec3.atCenterOf(blockPos)) > 64) {
+            networkService.sendToPlayer(player, AudioUploadDeniedPacket(AudioUploadResponse.NON_REACHABLE))
+            return
+        }
+
+        if (AudioUploadServer.rename(name, fileId, newName) == null) return
+        networkService.sendToPlayer(player, AudioListPacket(AudioUploadServer.list(name)))
+    }
+}
+
 
 @AutoPacket
 @Serializable

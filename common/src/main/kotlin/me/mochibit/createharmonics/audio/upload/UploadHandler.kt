@@ -16,12 +16,12 @@ class UploadHandler(private val storageProvider:
     override fun handle(exchange: HttpExchange) = exchange.use { ex ->
         val storage = storageProvider()
         if (ex.requestMethod != "POST") {
-            ex.sendPlainText(405, "Method Not Allowed"); return@use
+            ex.sendPlainText(405, AudioUploadResponse.INVALID_METHOD.name); return@use
         }
 
         val ticket = ex.bearerToken()?.let(UploadTicketRegistry::consume)
         if (ticket == null) {
-            ex.sendPlainText(401, "Invalid or expired upload ticket"); return@use
+            ex.sendPlainText(401, AudioUploadResponse.UNAUTHORIZED.name); return@use
         }
 
         try {
@@ -30,7 +30,8 @@ class UploadHandler(private val storageProvider:
             val declared = ex.requestHeaders.getFirst("Content-Length")?.toLongOrNull()
 
             if (declared != null && declared > maxSize) {
-                ex.sendPlainText(413, "File exceeds maximum allowed size of $maxSize bytes"); return@use
+                ex.sendPlainText(413, AudioUploadResponse.FILE_TOO_LARGE.name);
+                return@use
             }
 
             val originalFileName = params["filename"]?.take(256)
@@ -43,8 +44,6 @@ class UploadHandler(private val storageProvider:
                 playerName = ticket.playerName,
                 originalFileName = originalFileName,
                 extension = InputSanitizer.extensionFrom(originalFileName),
-                title = params["title"]?.takeIf { it.isNotBlank() }?.take(256),
-                artist = params["artist"]?.takeIf { it.isNotBlank() }?.take(256),
                 durationSeconds = durationSeconds,
                 sampleRate = sampleRate,
                 body = ex.requestBody,
@@ -66,13 +65,15 @@ class UploadHandler(private val storageProvider:
                         "sizeBytes=${metadata.sizeBytes}\n",
             )
         } catch (e: InvalidInputException) {
-            ex.sendPlainText(400, e.message ?: "Invalid request")
+            e.printStackTrace()
+            ex.sendPlainText(400, AudioUploadResponse.INVALID_INPUT.name)
         } catch (e: QuotaExceededException) {
-            ex.sendPlainText(403, e.message ?: "Quota exceeded")
+            ex.sendPlainText(403, AudioUploadResponse.QUOTA_EXCEEDED.name)
         } catch (e: FileTooLargeException) {
-            ex.sendPlainText(413, e.message ?: "File too large")
+            ex.sendPlainText(413, AudioUploadResponse.FILE_TOO_LARGE.name)
         } catch (e: IOException) {
-            ex.sendPlainText(500, "Internal error while storing the file")
+            e.printStackTrace()
+            ex.sendPlainText(500, AudioUploadResponse.INTERNAL_ERROR.name)
         } finally {
             ticket.uploadSession.finish()
         }

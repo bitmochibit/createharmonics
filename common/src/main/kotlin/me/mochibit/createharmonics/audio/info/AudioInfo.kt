@@ -16,8 +16,7 @@ import kotlin.time.Duration.Companion.minutes
 data class AudioInfo(
     val audioUrl: String,
     val durationSeconds: Int,
-    val title: String,
-    val artist: String,
+    val displayName: String,
     val sampleRate: Float,
     val isLive: Boolean,
     val httpHeaders: Map<String, String> = emptyMap(),

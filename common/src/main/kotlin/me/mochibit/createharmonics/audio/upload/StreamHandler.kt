@@ -31,7 +31,7 @@ class StreamHandler(
         val storage = storageProvider()
         try {
             if (exchange.requestMethod != "GET" && exchange.requestMethod != "HEAD") {
-                exchange.sendPlainText(405, "Method Not Allowed")
+                exchange.sendPlainText(405, AudioUploadResponse.INVALID_METHOD.name)
                 return
             }
 
@@ -41,14 +41,14 @@ class StreamHandler(
                 .filter { it.isNotBlank() }
 
             if (segments.size != 2) {
-                exchange.sendPlainText(404, "Not Found")
+                exchange.sendPlainText(404, AudioUploadResponse.FILE_NOT_FOUND.name)
                 return
             }
 
             val (playerSegment, fileSegment) = segments
             val dotIndex = fileSegment.lastIndexOf('.')
             if (dotIndex <= 0) {
-                exchange.sendPlainText(404, "Not Found")
+                exchange.sendPlainText(404, AudioUploadResponse.FILE_NOT_FOUND.name)
                 return
             }
 
@@ -56,7 +56,7 @@ class StreamHandler(
             val fileId = InputSanitizer.validateFileId(fileSegment.substringBeforeLast('.'))
 
             val meta = storage.find(playerName, fileId) ?: run {
-                exchange.sendPlainText(404, "Not Found"); return
+                exchange.sendPlainText(404, AudioUploadResponse.FILE_NOT_FOUND.name); return
             }
             val extension = meta.extension
             val file = storage.resolveAudioFile(playerName, fileId, extension)
@@ -87,9 +87,10 @@ class StreamHandler(
             exchange.responseHeaders.set("Content-Range", "bytes $start-$clampedEnd/$fileSize")
             respond(exchange, file.toFile(), 206, start, clampedEnd - start + 1, isHead)
         } catch (e: InvalidInputException) {
-            exchange.sendPlainText(400, e.message ?: "Invalid request")
+            e.printStackTrace()
+            exchange.sendPlainText(400, AudioUploadResponse.INVALID_INPUT.name)
         } catch (e: NoSuchFileException) {
-            exchange.sendPlainText(404, "Not Found")
+            exchange.sendPlainText(404, AudioUploadResponse.FILE_NOT_FOUND.name)
         } catch (e: IOException) {
         } finally {
             exchange.close()

@@ -26,10 +26,9 @@ class ServerAudioSource(val ref: ServerAudioReference) : AudioSource {
         return AudioInfo(
             audioUrl = url,
             durationSeconds = audioMetadata.durationSeconds,
-            title = audioMetadata.title ?: "",
+            displayName = audioMetadata.displayName,
             sampleRate = audioMetadata.sampleRate.toFloat(),
             isLive = false,
-            artist = audioMetadata.artist ?: "Unknown artist"
         )
     }
 }

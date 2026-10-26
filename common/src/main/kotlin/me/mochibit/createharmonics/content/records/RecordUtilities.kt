@@ -221,10 +221,9 @@ object RecordUtilities {
                 AudioInfo(
                     audioUrl = "stream",
                     durationSeconds = 1000,
-                    title = songData.description.getString(128),
+                    displayName = songData.description.getString(128),
                     sampleRate = sampleRate,
                     isLive = false,
-                    artist = songData.description.getString(128)
                 ),
             ),
         )

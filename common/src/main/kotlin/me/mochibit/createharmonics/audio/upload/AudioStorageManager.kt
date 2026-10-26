@@ -28,21 +28,21 @@ object InstantSerializer : KSerializer<Instant> {
     override fun deserialize(decoder: Decoder): Instant = Instant.parse(decoder.decodeString())
 }
 
+const val MAX_DISPLAY_NAME_LENGTH = 64
 @Serializable
 data class AudioMetadata(
     val fileId: String,
     val extension: String,
     val playerName: String,
     val originalFileName: String?,
-    val title: String?,
-    val artist: String?,
+    val customName: String? = null,
     val sizeBytes: Long,
     val durationSeconds: Int = 0,
     val sampleRate: Int = 48000,
     @Serializable(with = InstantSerializer::class) val uploadedAt: Instant,
 ) {
-    val displayName get() =
-        title?.ifBlank { null } ?: originalFileName?.ifBlank { null } ?: fileId
+    val displayName
+        get() = customName?.ifBlank { null } ?: originalFileName?.ifBlank { null } ?: fileId
 }
 class QuotaExceededException(message: String) : RuntimeException(message)
 class FileTooLargeException(message: String) : RuntimeException(message)
@@ -86,8 +86,6 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
         playerName: String,
         originalFileName: String?,
         extension: String,
-        title: String?,
-        artist: String?,
         durationSeconds: Int,
         sampleRate: Int,
         body: InputStream,
@@ -121,8 +119,6 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
                 fileId = fileId,
                 playerName = playerName,
                 originalFileName = originalFileName,
-                title = title,
-                artist = artist,
                 sizeBytes = sizeBytes,
                 extension = extension,
                 uploadedAt = Instant.now(),
@@ -139,6 +135,17 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
                 metaTarget.deleteIfExists()
             }
         }
+    }
+
+    fun rename(playerName: String, fileId: String, newName: String?): AudioMetadata? {
+        val metaPath = InputSanitizer.resolveContained(config.storageRoot, playerName, "$fileId.properties")
+        val meta = readMetadata(metaPath) ?: return null
+        val cleaned = newName
+            ?.filterNot(Char::isISOControl)
+            ?.trim()
+            ?.take(MAX_DISPLAY_NAME_LENGTH)
+            ?.ifBlank { null }
+        return meta.copy(customName = cleaned).also { writeMetadata(metaPath, it) }
     }
 
     fun resolveAudioFile(playerName: String, fileId: String, extension: String): Path {
@@ -171,15 +178,20 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
         props.setProperty("playerName", meta.playerName)
         props.setProperty("extension", meta.extension)
         meta.originalFileName?.let { props.setProperty("originalFileName", it) }
-        meta.title?.let { props.setProperty("title", it) }
-        meta.artist?.let { props.setProperty("artist", it) }
+        meta.customName?.let { props.setProperty("customName", it) }
         props.setProperty("sizeBytes", meta.sizeBytes.toString())
         props.setProperty("uploadedAt", meta.uploadedAt.toString())
         props.setProperty("durationSeconds", meta.durationSeconds.toString())
         props.setProperty("sampleRate", meta.sampleRate.toString())
-        path.outputStream().use { props.store(it, "CreateHarmonics audio metadata") }
-    }
 
+        val tmp = path.resolveSibling(path.fileName.toString() + ".tmp")
+        try {
+            tmp.outputStream().use { props.store(it, "CreateHarmonics audio metadata") }
+            Files.move(tmp, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+        } finally {
+            tmp.deleteIfExists()
+        }
+    }
     private fun readMetadata(path: Path): AudioMetadata? = runCatching {
         val p = Properties().apply { path.inputStream().use(::load) }
         AudioMetadata(
@@ -187,8 +199,7 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
             extension = p.getProperty("extension"),
             playerName = p.getProperty("playerName"),
             originalFileName = p.getProperty("originalFileName", null),
-            title = p.getProperty("title", null),
-            artist = p.getProperty("artist", null),
+            customName = p.getProperty("customName", null),
             sizeBytes = p.getProperty("sizeBytes").toLong(),
             durationSeconds = p.getProperty("durationSeconds")?.toIntOrNull() ?: 0,
             sampleRate = p.getProperty("sampleRate")?.toIntOrNull() ?: 48000,

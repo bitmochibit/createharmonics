@@ -94,7 +94,6 @@ object YTdlpExecutor {
                     val jsonObject = json.parseToJsonElement(firstJsonLine).jsonObject
 
                     val title = jsonObject["title"]?.jsonPrimitive?.content ?: "Unknown"
-                    val artist = jsonObject["artist"]?.jsonPrimitive?.content ?: "Unknown artist"
                     val audioUrl =
                         when (jsonObject["protocol"]?.jsonPrimitive?.content) {
                             "m3u8_native", "m3u8" -> {
@@ -123,8 +122,7 @@ object YTdlpExecutor {
                     AudioInfo(
                         audioUrl,
                         durationSeconds = duration,
-                        title = title,
-                        artist = artist,
+                        displayName = title,
                         sampleRate = sampleRate,
                         isLive = isLive,
                         httpHeaders = httpHeaders,
