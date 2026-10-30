@@ -11,6 +11,7 @@ class InteractiveRegion(
     val bounds: Rect,
     val clip: Rect? = null,
     val tooltip: Component? = null,
+    val tooltipLines: (() -> List<Component>)? = null,
     val onClick: ((mouseX: Double, mouseY: Double) -> Boolean)? = null,
     val onScroll: ((mouseX: Double, mouseY: Double, delta: Double) -> Boolean)? = null,
 ) {
@@ -41,9 +42,17 @@ class InteractionRegistry {
         }
 
     fun renderHoveredTooltip(graphics: GuiGraphics, font: Font, mouseX: Int, mouseY: Int) {
+        val mx = mouseX.toDouble()
+        val my = mouseY.toDouble()
         val region = regions.asReversed().firstOrNull {
-            it.tooltip != null && it.hits(mouseX.toDouble(), mouseY.toDouble())
+            (it.tooltip != null || it.tooltipLines != null) && it.hits(mx, my)
         } ?: return
+
+        region.tooltipLines?.let { supplier ->
+            val lines = supplier()
+            if (lines.isNotEmpty()) graphics.renderComponentTooltip(font, lines, mouseX, mouseY)
+            return
+        }
         graphics.renderTooltip(font, font.split(region.tooltip!!, 200), mouseX, mouseY)
     }
 }

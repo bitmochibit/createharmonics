@@ -47,7 +47,7 @@ class CardScope(
         mouseX: Int,
         mouseY: Int,
         partialTicks: Float,
-        tooltip: Component? = null,
+        tooltip: List<Component>? = null,
         z: Float = 0f
     ) {
         widget.x = baseX + localX
@@ -59,7 +59,7 @@ class CardScope(
             InteractiveRegion(
                 bounds = Rect(absoluteBaseX + localX, absoluteBaseY + localY + scrollOffsetInt, width, height),
                 clip = clip,
-                tooltip = tooltip,
+                tooltipLines = tooltip?.let { lines -> { lines } },
                 onClick = { clickX, clickY ->
                     widget.isFocused = true
                     widget.onClick(
@@ -88,6 +88,7 @@ class CardScope(
                 bounds = Rect(absoluteBaseX + localX, absoluteBaseY + localY + scrollOffsetInt, width, height),
                 clip = clip,
                 tooltip = tooltip,
+                tooltipLines = { if (widget.active) widget.hoverTooltip else emptyList() },
                 onClick = { cx, cy -> widget.mouseClicked(localX(cx), localY(cy), 0); true },
                 onScroll = { cx, cy, delta -> widget.mouseScrolled(localX(cx), localY(cy), 0.0, delta) },
             ),

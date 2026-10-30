@@ -18,17 +18,55 @@ import kotlin.math.max
 import kotlin.math.min
 
 
+data class EntryScrollInputConfig(
+    val autoSelectFirst: Boolean = false,
+    val selfRenderTooltip: Boolean = true,
+    val showPlaceholderEmpty: Boolean = true,
+    val showPlaceholderHint: Boolean = true,
+    val showTooltipHint: Boolean = true,
+    val texts: Texts = Texts(),
+) {
+    data class Texts(
+        val placeholderHint: Component = default("placeholder_hint"),
+        val placeholderEmpty: Component = default("placeholder_empty"),
+
+        // hover
+        val tooltipTitle: Component = default("tooltip_title"),
+        val tooltipScrollToSelect: Component = default("tooltip_scroll_to_select"),
+        val tooltipHint: List<Component> = emptyList(),
+
+        val tooltipEmpty: Component = default("tooltip_empty"),
+        val tooltipEmptyInstructions: List<Component> = emptyList(),
+    )
+}
+
+private fun default(key: String): Component =
+    ModLang.translate("gui.entry_scroll_input.$key").component()
+
 /**
- * Entry scroll which lets you write or choose options
+ * A specialized scroll input component that combines a dropdown-like selection list
+ * with a free-form text input box.
+ *
+ * Behavior can be customized via [Configurable][EntryScrollInputConfig] to handle placeholders,
+ * tooltips, and auto-selection rules.
+ *
+ * ### It allows:
+ * - **Scroll Selection**: Scroll through a list of entries or use the tooltip preview.
+ * - **Free Typing / New Mode**: Type custom text freely when no entry is selected.
+ * - **Edit Mode**: Allows in-place renaming of existing selected entries.
+ * - **Flexible Binding**: Selection updates can be handled both programmatically and manually by the user.
+ *
+ * @property font The font renderer used for text and placeholder display.
+ * @param x The X coordinate of the widget on the screen.
+ * @param y The Y coordinate of the widget on the screen.
+ * @param width The total width of the widget.
+ * @param height The total height of the widget.
+ * @property config The [Configurable][EntryScrollInputConfig] instance defining texts and behavior rules.
  */
 class EntryScrollInput(
     private val font: Font,
     x: Int, y: Int, width: Int, height: Int,
-    val titleTooltip: MutableComponent = ModLang.translate("gui.entryScrollInput.title").component(),
-    val scrollToSelectTooltip: MutableComponent = ModLang.translate("gui.entryScrollInput.scrollToSelect").component(),
-    val noSelectableEntriesTooltip: MutableComponent = ModLang.translate("gui.entryScrollInput.noSelectableEntries")
-        .component(),
-    val hintTooltip: MutableComponent = ModLang.translate("gui.entryScrollInput.hintTooltip").component()
+    val config: EntryScrollInputConfig = EntryScrollInputConfig(),
 ) : SelectionScrollInput(x, y, width, height) {
 
     private companion object {
@@ -44,12 +82,14 @@ class EntryScrollInput(
 
     private val box = EditBox(font, x + PAD, y, width - PAD * 2, font.lineHeight, Component.empty()).apply {
         isBordered = false
-        setMaxLength(2048)
+        setMaxLength(MAX_INPUT_LENGTH)
         setResponder { if (!programmatic) onUserTyped(it) }
     }
 
     var entryNames: List<String> = emptyList()
         private set
+
+    private var autoSelectConsumed = false
 
     private var editing = false
     val isEditing get() = editing
@@ -71,26 +111,50 @@ class EntryScrollInput(
             programmatic = false
         }
 
+    val hoverTooltip: List<Component> get() = toolTip
+
+
     init {
         applyOptions()
-        titled(titleTooltip.plainCopy())
+        titled(config.texts.tooltipTitle.plainCopy())
     }
 
     fun setEntries(names: List<String>) {
+        if (names == entryNames) return
         entryNames = names
         applyOptions()
     }
 
     fun select(index: Int?) {
+        autoSelectConsumed = true
         selected = index?.takeIf { it in entryNames.indices }
         selected?.let { setState(it) }
         syncBox()
     }
 
     fun selectNew() {
+        autoSelectConsumed = true
         selected = null
         syncBox()
         onSelected()
+    }
+
+    fun rearmAutoSelect() {
+        autoSelectConsumed = false
+        if (maybeAutoSelect()) {
+            setState(0)
+            syncBox()
+            onSelected()
+        }
+    }
+
+    private fun maybeAutoSelect(): Boolean {
+        if (!config.autoSelectFirst || autoSelectConsumed || selected != null ||
+            entryNames.isEmpty() || isTyping || text.isNotEmpty()
+        ) return false
+        autoSelectConsumed = true
+        selected = 0
+        return true
     }
 
     fun blur() = commitEdit().also { box.isFocused = false }
@@ -126,8 +190,13 @@ class EntryScrollInput(
     private fun applyOptions() {
         forOptions(entryNames.map(Component::literal))
         if (selected?.let { it !in entryNames.indices } == true) selected = null
+
+        val autoSelected = maybeAutoSelect()
+
         selected?.let { setState(it) }
         syncBox()
+        updateTooltip()
+        if (autoSelected) onSelected()
     }
 
     private fun syncBox() {
@@ -209,69 +278,70 @@ class EntryScrollInput(
         fun draw(s: String, color: Int) =
             graphics.drawString(font, font.plainSubstrByWidth(s, maxWidth), textX, textY, color)
 
-        fun drawBox() { layoutBox(); box.render(graphics, mouseX, mouseY, partialTicks) }
+        fun drawBox() {
+            layoutBox()
+            box.render(graphics, mouseX, mouseY, partialTicks)
+        }
 
         val busy = busyLabel
         when {
             busy != null -> draw(busy, 0xCCDDFF)
             editing -> drawBox()
             !isNewMode -> draw(entryNames.getOrNull(selected!!).orEmpty(), 0xFFFFFF)
-            box.value.isEmpty() && !box.isFocused ->
-                draw((if (entryNames.isEmpty()) noSelectableEntriesTooltip else hintTooltip).string, 0x888888)
+            box.value.isEmpty() && !box.isFocused -> {
+                val placeholder = when {
+                    entryNames.isEmpty() && config.showPlaceholderEmpty -> config.texts.placeholderEmpty
+                    config.showPlaceholderHint -> config.texts.placeholderHint
+                    else -> null
+                }
+                placeholder?.let { draw(it.string, 0x888888) }
+            }
             else -> drawBox()
         }
     }
 
-
     override fun updateTooltip() {
         toolTip.clear()
-        if (title == null) return
-        toolTip.add(
-            title.plainCopy()
-                .withStyle { s: Style -> s.withColor(HEADER_RGB.getRGB()) }
-        )
+        val header = title ?: return
+        val texts = config.texts
+
+        toolTip.add(header.plainCopy().withStyle { s: Style -> s.withColor(HEADER_RGB.rgb) })
+
+        if (entryNames.isEmpty()) {
+            toolTip.add(texts.tooltipEmpty.plainCopy().withStyle(ChatFormatting.GRAY))
+            texts.tooltipEmptyInstructions.forEach {
+                toolTip.add(it.plainCopy().withStyle { s: Style -> s.withColor(HINT_RGB.rgb) })
+            }
+            return
+        }
+
         var min = min(this.max - 16, state - 7)
         var max = max(this.min + 16, state + 8)
         min = max(min, this.min)
         max = min(max, this.max)
         if (this.min + 1 == min) min--
-        if (min > this.min) {
-            toolTip.add(
-                Component.literal("> ...")
-                    .withStyle(ChatFormatting.GRAY)
-            )
-        }
+        if (min > this.min) toolTip.add(Component.literal("> ...").withStyle(ChatFormatting.GRAY))
         if (this.max - 1 == max) max++
         for (i in min..<max) {
-            if (i == state) toolTip.add(
-                Component.empty()
-                    .append("-> ")
-                    .append(options.get(i))
-                    .withStyle(ChatFormatting.WHITE)
-            )
-            else toolTip.add(
-                Component.empty()
-                    .append("> ")
-                    .append(options.get(i))
-                    .withStyle(ChatFormatting.GRAY)
-            )
-        }
-        if (max < this.max) {
             toolTip.add(
-                Component.literal("> ...")
-                    .withStyle(ChatFormatting.GRAY)
+                Component.empty()
+                    .append(if (i == state) "-> " else "> ")
+                    .append(options[i])
+                    .withStyle(if (i == state) ChatFormatting.WHITE else ChatFormatting.GRAY)
             )
         }
+        if (max < this.max) toolTip.add(Component.literal("> ...").withStyle(ChatFormatting.GRAY))
 
-        if (hint != null) toolTip.add(
-            hint.plainCopy()
-                .withStyle { s: Style -> s.withColor(HINT_RGB.getRGB()) }
-        )
+        if (config.showTooltipHint) texts.tooltipHint.forEach {
+            toolTip.add(it.plainCopy().withStyle { s: Style -> s.withColor(HINT_RGB.rgb) })
+        }
         toolTip.add(
-            scrollToSelectTooltip.plainCopy()
+            texts.tooltipScrollToSelect.plainCopy()
                 .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC)
         )
     }
 
-
+    override fun renderTooltip(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTicks: Float) {
+        if (config.selfRenderTooltip) super.renderTooltip(graphics, mouseX, mouseY, partialTicks)
+    }
 }

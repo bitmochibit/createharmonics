@@ -109,6 +109,12 @@ object ModIcons : Registrable {
     @JvmField
     val I_UPLOAD: AllIcons = ModIcon(2, 0, ATLAS)
 
+    @JvmField
+    val I_RENAME: AllIcons = ModIcon(3, 0, ATLAS)
+
+    @JvmField
+    val I_RENAME_CONFIRM: AllIcons = ModIcon(4, 0, ATLAS)
+
 
 
     override fun register(registry: Registry<*>?) {

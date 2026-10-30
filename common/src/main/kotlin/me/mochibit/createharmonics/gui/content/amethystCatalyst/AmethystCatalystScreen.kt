@@ -15,11 +15,13 @@ import me.mochibit.createharmonics.foundation.services.networkService
 import me.mochibit.createharmonics.gui.ModGuiTexture
 import me.mochibit.createharmonics.gui.widget.AdvancedIconButton
 import me.mochibit.createharmonics.gui.widget.EntryScrollInput
+import me.mochibit.createharmonics.gui.widget.EntryScrollInputConfig
 import net.createmod.catnip.gui.AbstractSimiScreen
 import net.createmod.catnip.gui.element.GuiGameElement
 import net.createmod.catnip.gui.element.ScreenElement
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
+import net.minecraft.network.chat.Component
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.util.tinyfd.TinyFileDialogs
 import java.nio.file.Files
@@ -60,6 +62,7 @@ class AmethystCatalystScreen(
 
     // state
     private lateinit var picker: EntryScrollInput
+
     private lateinit var folderButton: IconButton
     private lateinit var refreshButton: IconButton
     private lateinit var actionButton: IconButton
@@ -75,6 +78,8 @@ class AmethystCatalystScreen(
 
     private var wasEditing = false
 
+    private var wasLocked = false
+
     private val isLocked get() = be.isBusy || ClientAudioUpload.isBusy || pendingTicks > 0
     private val canInteract get() = be.hasCrystal && !isLocked
 
@@ -89,7 +94,12 @@ class AmethystCatalystScreen(
             else -> entries.getOrNull(i)?.let(Source::Existing) ?: Source.None
         }
 
+    private var busyName: String? = null
+
     // init
+
+    private fun pickerText(key: String) =
+        ModLang.translate("gui.amethyst_catalyst.scroll_input.$key").component()
 
     override fun init() {
         setWindowSize(background.width, background.height)
@@ -98,7 +108,20 @@ class AmethystCatalystScreen(
         clearWidgets()
 
         if (!::picker.isInitialized) {
-            picker = EntryScrollInput(font, 0, 0, PICKER_W, PICKER_H).also {
+            picker = EntryScrollInput(
+                font, 0, 0, PICKER_W, PICKER_H,
+                EntryScrollInputConfig(
+                    autoSelectFirst = true,
+                    showPlaceholderHint = false,
+                    texts = EntryScrollInputConfig.Texts(
+                        placeholderEmpty = pickerText("placeholder_empty"),
+                        tooltipTitle = pickerText("title"),
+                        tooltipScrollToSelect = pickerText("scroll_to_select"),
+                        tooltipEmpty = pickerText("no_uploaded_audio"),
+                        tooltipEmptyInstructions = pickerText("empty_instructions").toMultilineComponent(),
+                    ),
+                ),
+            ).also {
                 it.onUserTyped = { pickedFile = null }
                 it.onRenamed = ::requestRename
             }
@@ -127,7 +150,7 @@ class AmethystCatalystScreen(
             addRenderableWidget(this)
         }
 
-        editButton = AdvancedIconButton(guiLeft + EDIT_X, guiTop + ACTION_Y, ModIcons.I_UPLOAD).apply {
+        editButton = AdvancedIconButton(guiLeft + EDIT_X, guiTop + ACTION_Y, ModIcons.I_RENAME).apply {
             withCallback<IconButton> {
                 if (picker.isEditing) picker.commitEdit() else if (canInteract) picker.beginEdit()
             }
@@ -137,6 +160,7 @@ class AmethystCatalystScreen(
 
         lastActionUi = null
 
+        syncEntries()
         ClientAudioLibrary.refresh()
         updateWidgets()
     }
@@ -148,21 +172,27 @@ class AmethystCatalystScreen(
         when (val s = source) {
             is Source.Local -> {
                 if (!Files.isReadable(s.file)) return
+                busyName = s.file.fileName.toString()
                 ClientAudioUpload.beginFile(s.file, be.blockPos)
-                pickedFile = null; picker.text = ""; lock()
+                pickedFile = null; picker.text = ""; picker.blur(); lock()
             }
 
             is Source.Url -> {
+                busyName = s.url
                 ClientAudioUpload.beginUrl(s.url, be.blockPos)
-                picker.text = ""; lock()
+                picker.text = ""; picker.blur(); lock()
             }
+
             is Source.Existing -> {
+                busyName = s.entry.displayName
                 networkService.sendToServer(DeleteAudioPacket(be.blockPos, s.entry.fileId))
                 picker.selectNew()
                 lock()
             }
 
-            Source.None -> Unit
+            Source.None ->
+                if (picker.isNewMode) ActionUi(ModIcons.I_UPLOAD, "upload", false)
+                else lastActionUi?.copy(enabled = false) ?: ActionUi(ModIcons.I_UPLOAD, "upload", false)
         }
     }
 
@@ -196,7 +226,11 @@ class AmethystCatalystScreen(
         if (!hasCrystal) picker.blur()
         picker.visible = hasCrystal
         picker.active = usable
-        picker.busyLabel = if (be.isUploading) be.uploadingFileName else null
+        picker.busyLabel = when {
+            !isLocked -> null
+            be.isUploading -> be.uploadingFileName ?: busyName
+            else -> busyName
+        }
 
         folderButton.active = usable
         refreshButton.active = usable
@@ -218,6 +252,14 @@ class AmethystCatalystScreen(
         wasUploading = uploading
 
         syncEntries()
+
+        val locked = isLocked
+        if (wasLocked && !locked) {
+            busyName = null
+            picker.rearmAutoSelect()
+        }
+        wasLocked = locked
+
         updateWidgets()
     }
 
@@ -262,7 +304,7 @@ class AmethystCatalystScreen(
 
     private fun applyEditUi() {
         val editing = picker.isEditing
-        editButton.setIcon(if (editing) AllIcons.I_CONFIRM else AllIcons.I_MOVE_GAUGE)
+        editButton.setIcon(if (editing) ModIcons.I_RENAME_CONFIRM else ModIcons.I_RENAME)
         editButton.toolTip.clear()
         editButton.toolTip.addAll(
             ModLang.translate("gui.amethyst_catalyst.${if (editing) "confirm_rename" else "rename"}")

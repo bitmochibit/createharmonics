@@ -17,6 +17,10 @@ import me.mochibit.createharmonics.gui.ModGuiTexture
 import me.mochibit.createharmonics.gui.core.*
 import me.mochibit.createharmonics.gui.widget.AdvancedIconButton
 import me.mochibit.createharmonics.gui.widget.EntryScrollInput
+import me.mochibit.createharmonics.gui.widget.EntryScrollInputConfig
+import me.mochibit.createharmonics.gui.widget.TooltipStyle
+import me.mochibit.createharmonics.gui.widget.applyTooltip
+import me.mochibit.createharmonics.gui.widget.styled
 import me.mochibit.createharmonics.mixin.AbstractWidgetAccessor
 import net.createmod.catnip.gui.AbstractSimiScreen
 import net.createmod.catnip.gui.UIRenderHelper
@@ -45,7 +49,7 @@ class RecordPressBaseScreen(
         private const val CARD_HEADER_HEIGHT = 30
         private const val CARD_PADDING = 4
         private const val CARD_SPACING = 10
-        private const val URL_FIELD_WIDTH_RANDOM = 80
+        private const val URL_FIELD_WIDTH_RANDOM = 95
         private const val URL_FIELD_WIDTH_SEQUENTIAL = 130
         private const val URL_FIELD_HEIGHT = 16
         private const val WEIGHT_FIELD_WIDTH = 30
@@ -60,7 +64,7 @@ class RecordPressBaseScreen(
     private val addTexture = ModGuiTexture("record_press_base", 79, 239, 16, 16)
     private val noteStripTexture = ModGuiTexture("record_press_base", 13, 237, 9, 18)
     private val linkArrowTextureLeft = ModGuiTexture("record_press_base", 112, 239, 10, 16)
-    private val percentageLabelTextureLeft = ModGuiTexture("record_press_base", 114, 221, 8, 16)
+    private val percentageLabelTextureLeft = ModGuiTexture("record_press_base", 113, 221, 8, 16)
 
     private val renderedItem = ItemStack(ModBlocks.RECORD_PRESS_BASE.get())
 
@@ -81,7 +85,7 @@ class RecordPressBaseScreen(
         private var applied: List<AudioMetadata>? = null
 
         private val inputLazy = lazy {
-            EntryScrollInput(font, 0, 0, URL_FIELD_WIDTH_SEQUENTIAL, URL_FIELD_HEIGHT).also {
+            EntryScrollInput(font, 0, 0, URL_FIELD_WIDTH_SEQUENTIAL, URL_FIELD_HEIGHT, pickerConfig()).also {
                 if (linked == null) it.text = initialUrl
                 else it.busyLabel = linkedName
                 it.onUserTyped = { linked = null; linkedName = null }
@@ -104,6 +108,10 @@ class RecordPressBaseScreen(
         val boxes: Sequence<EditBox> get() = sequenceOf(weightBox)
 
         val typingInput: EntryScrollInput? get() = if (inputLazy.isInitialized() && input.isTyping) input else null
+
+        fun tick() {
+            if (inputLazy.isInitialized()) input.tick()
+        }
         fun blur() {
             if (inputLazy.isInitialized()) input.blur()
         }
@@ -139,6 +147,24 @@ class RecordPressBaseScreen(
         fun currentUrl(): String =
             if (!inputLazy.isInitialized()) initialUrl else linked?.toString() ?: input.text.trim()
     }
+
+    private fun pickerText(key: String) =
+        ModLang.translate("gui.record_press_base.scroll_input.$key").component()
+
+    private fun pickerConfig() = EntryScrollInputConfig(
+        selfRenderTooltip = false,
+        autoSelectFirst = false,
+        showPlaceholderEmpty = false,
+        showPlaceholderHint = true,
+        showTooltipHint = false,
+        texts = EntryScrollInputConfig.Texts(
+            placeholderHint = pickerText("placeholder_hint"),
+            tooltipTitle = pickerText("title"),
+            tooltipScrollToSelect = pickerText("scroll_to_select"),
+            tooltipEmpty = pickerText("no_uploaded_audio"),
+            tooltipEmptyInstructions = pickerText("empty_instructions").toMultilineComponent(),
+        ),
+    )
 
 
     private fun newEditBox(langKey: String, maxLength: Int, configure: EditBox.() -> Unit) =
@@ -213,11 +239,8 @@ class RecordPressBaseScreen(
         updateModeTooltip()
     }
 
-    private fun updateModeTooltip() {
-        val key = if (randomMode) "url_random_mode" else "url_sequential_mode"
-        modeButton.toolTip.clear()
-        modeButton.toolTip.addAll(ModLang.translate("gui.record_press_base.$key").component().toMultilineComponent())
-    }
+    private fun updateModeTooltip() =
+        modeButton.applyTooltip(lines(if (randomMode) "url_random_mode" else "url_sequential_mode"), TooltipStyle.SimpleHeader)
 
     // init
 
@@ -260,7 +283,7 @@ class RecordPressBaseScreen(
             withCallback<IconButton> { advanceSelection(+1) }
             zIndex = 100
             toolTipZIndex = 6000
-            setToolTip(ModLang.translate("gui.record_press_base.url_index_increase").component())
+            applyTooltip(lines("url_index_increase"), TooltipStyle.SimpleHeader)
             addRenderableWidget(this)
         }
 
@@ -268,15 +291,15 @@ class RecordPressBaseScreen(
             withCallback<IconButton> { advanceSelection(-1) }
             zIndex = 100
             toolTipZIndex = 6000
-            setToolTip(ModLang.translate("gui.record_press_base.url_index_decrease").component())
+            applyTooltip(lines("url_index_decrease"), TooltipStyle.SimpleHeader)
             addRenderableWidget(this)
         }
 
-        AdvancedIconButton(guiLeft + background.width - 53, buttonY, AllIcons.I_REFRESH).apply {
+        AdvancedIconButton(guiLeft + background.width - 63, buttonY, AllIcons.I_REFRESH).apply {
             withCallback<IconButton> { ClientAudioLibrary.refresh() }
             zIndex = 100
             toolTipZIndex = 6000
-            setToolTip(ModLang.translate("gui.record_press_base.refresh").component())
+            applyTooltip(lines("refresh"))
             addRenderableWidget(this)
         }
     }
@@ -412,27 +435,27 @@ class RecordPressBaseScreen(
         }
 
         if (randomMode) {
-            val weightX = inputX + width + 18
+            val weightX = inputX + width + 10
             scope.decoration(0, 0, z = 3f) { dx, dy ->
                 UIRenderHelper.drawStretched(
-                    this, dx + weightX, dy + inputY, 35, URL_FIELD_HEIGHT, 0, AllGuiTextures.SCHEDULE_CONDITION_MIDDLE,
+                    this, dx + weightX, dy + inputY, 25, URL_FIELD_HEIGHT, 0, AllGuiTextures.SCHEDULE_CONDITION_MIDDLE,
                 )
                 percentageLabelTextureLeft.render(this, dx + weightX - 8, dy + inputY)
-                AllGuiTextures.SCHEDULE_CONDITION_RIGHT.render(this, dx + weightX + 35, dy + inputY)
+                AllGuiTextures.SCHEDULE_CONDITION_RIGHT.render(this, dx + weightX + 25, dy + inputY)
             }
             entry.weightBox.let { box ->
                 box.applyWidth(WEIGHT_FIELD_WIDTH)
                 (box as AbstractWidgetAccessor).setHeight(URL_FIELD_HEIGHT)
                 scope.editBox(
                     widget = box,
-                    localX = weightX + 2,
+                    localX = weightX + 3,
                     localY = inputY + 4,
                     width = WEIGHT_FIELD_WIDTH,
                     height = URL_FIELD_HEIGHT,
                     mouseX = area.mouseX,
                     mouseY = area.mouseY,
                     partialTicks = area.partialTicks,
-                    tooltip = ModLang.translate("gui.record_press_base.weight_input_tooltip").component(),
+                    tooltip = lines("weight_input_tooltip").styled(TooltipStyle.SimpleHeader),
                     z = 4f,
                 )
             }
@@ -515,12 +538,21 @@ class RecordPressBaseScreen(
         }
     }
 
+
+    // helper
+
+    private fun lines(key: String) =
+        ModLang.translate("gui.record_press_base.$key").component().toMultilineComponent()
+
     // input
 
     override fun tick() {
         scrollArea.tick()
         val library = ClientAudioLibrary.entries
-        entries.forEach { it.applyLibrary(library) }
+        entries.forEach {
+            it.applyLibrary(library)
+            it.tick()
+        }
         if (!selectionTouched) current = entries.getOrNull(be.configuration.currentUrlIndex)
         super.tick()
     }

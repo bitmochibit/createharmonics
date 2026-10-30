@@ -46,7 +46,13 @@
   "createharmonics.gui.record_press_base.url_move_up": "Move Up",
   "createharmonics.gui.record_press_base.url_move_down": "Move Down",
   "createharmonics.gui.record_press_base.url_input_tooltip": "Enter a URL to download audio from\nFull URL shown below (may be scrollable if long)",
-  "createharmonics.gui.record_press_base.weight_input_tooltip": "Set the playback weight for this URL (0.00-1.00)\nHigher weight = more likely to play",
+  "createharmonics.gui.record_press_base.weight_input_tooltip": "Audio weight \nNumber that describes the likeliness of the audio being selected, between 0.0 and 1.0",
+  "createharmonics.gui.record_press_base.refresh": "Refresh uploaded audio",
+  "createharmonics.gui.record_press_base.scroll_input.title": "Uploaded audio",
+  "createharmonics.gui.record_press_base.scroll_input.placeholder_hint": "Type an URL or select an audio",
+  "createharmonics.gui.record_press_base.scroll_input.scroll_to_select": "Scroll to select local audio or type an URL",
+  "createharmonics.gui.record_press_base.scroll_input.no_uploaded_audio": "No uploaded audio",
+  "createharmonics.gui.record_press_base.scroll_input.empty_instructions": "Use an Amethyst Catalyst to upload local audio",
   "createharmonics.gui.main_menu.library_management_btn": "Library Management",
   "createharmonics.gui.main_menu.mod_settings_btn": "Mod Settings",
   "createharmonics.gui.main_menu.go_back_btn": "Go Back",
@@ -74,6 +80,19 @@
   "create.item_attributes.record_is_broken": "Record is broken",
   "create.item_attributes.record_is_broken.inverted": "Record is not broken",
   "create.item_attributes.has_url_assigned": "Ethereal source is bound",
-  "create.item_attributes.has_url_assigned.inverted": "Ethereal source is not bound"
+  "create.item_attributes.has_url_assigned.inverted": "Ethereal source is not bound",
+  "createharmonics.gui.amethyst_catalyst.title": "Amethyst Catalyst",
+  "createharmonics.gui.amethyst_catalyst.refresh": "Refresh uploaded audio list",
+  "createharmonics.gui.amethyst_catalyst.rename": "Set the audio's custom name",
+  "createharmonics.gui.amethyst_catalyst.confirm_rename": "Confirm the custom name",
+  "createharmonics.gui.amethyst_catalyst.delete": "Delete the audio",
+  "createharmonics.gui.amethyst_catalyst.pick_file": "Pick a file to upload",
+  "createharmonics.gui.amethyst_catalyst.upload": "Upload audio",
+  "createharmonics.gui.amethyst_catalyst.scroll_input.placeholder_empty": "No saved audio",
+  "createharmonics.gui.amethyst_catalyst.scroll_input.title": "Uploaded audio",
+  "createharmonics.gui.amethyst_catalyst.scroll_input.scroll_to_select": "Scroll to select local audio or type an URL",
+  "createharmonics.gui.amethyst_catalyst.scroll_input.no_uploaded_audio": "No saved audio",
+  "createharmonics.gui.amethyst_catalyst.scroll_input.empty_instructions": "Pick a file or write an URL to upload"
+
 }
 
