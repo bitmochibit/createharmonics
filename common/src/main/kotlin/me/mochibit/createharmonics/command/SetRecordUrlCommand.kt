@@ -3,11 +3,13 @@ package me.mochibit.createharmonics.command
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
+import kotlinx.coroutines.Dispatchers
+import me.mochibit.createharmonics.audio.upload.AudioUploadServer
 import me.mochibit.createharmonics.command.SetRecordUrlCommand.registerCommand
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordUtilities.setAudioUrl
+import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.info
-import me.mochibit.createharmonics.foundation.services.contentService
 import net.minecraft.commands.CommandBuildContext
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
@@ -37,6 +39,7 @@ sealed interface CommandEntry {
     }
 }
 
+
 object SetRecordUrlCommand : CommandEntry {
     override fun registerCommand(
         dispatcher: CommandDispatcher<CommandSourceStack>,
@@ -44,14 +47,38 @@ object SetRecordUrlCommand : CommandEntry {
         context: CommandBuildContext,
     ) {
         dispatcher.register(
-            Commands
-                .literal("set-record-url")
-                .requires { it.hasPermission(4) } // Admin only
+            Commands.literal("createharmonics")
+                .requires { it.hasPermission(4) }
                 .then(
-                    Commands
-                        .argument("url", StringArgumentType.string())
-                        .executes(this::execute),
-                ),
+                    Commands.literal("audioServer")
+                        .then(Commands.literal("status").executes { ctx ->
+                            val msg = if (AudioUploadServer.isRunning)
+                                "Audio server running on ${AudioUploadServer.host}:${AudioUploadServer.port}"
+                            else "Audio server is not running"
+                            ctx.source.sendSuccess({ Component.literal(msg) }, false)
+                            1
+                        })
+                        .then(Commands.literal("restart").executes { ctx ->
+                            val source = ctx.source
+                            modLaunch(Dispatchers.IO) {
+                                val result = runCatching { AudioUploadServer.restart() }
+                                source.server.execute {
+                                    result
+                                        .onSuccess { source.sendSuccess({ Component.literal("Audio server restarted") }, true) }
+                                        .onFailure { source.sendFailure(Component.literal("Restart failed: ${it.message}")) }
+                                }
+                            }
+                            1
+                        })
+                ).then(
+                    Commands.literal("setRecordUrl")
+                        .requires { it.hasPermission(4) }
+                        .then(
+                            Commands
+                                .argument("url", StringArgumentType.string())
+                                .executes(this::execute),
+                        ),
+                )
         )
     }
 

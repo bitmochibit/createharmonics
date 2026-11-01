@@ -133,7 +133,7 @@ class DeleteAudioPacket(
             return
         }
 
-        if (!AudioUploadServer.delete(name, fileId)) return
+        AudioUploadServer.delete(name, fileId)?.let { if (!it) return }
 
         be.tryStartDelete()
         networkService.sendToPlayer(player, AudioListPacket(AudioUploadServer.list(name)))

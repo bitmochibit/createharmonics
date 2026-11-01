@@ -116,7 +116,7 @@ class NeoforgeEventService : EventService {
     }
 
 
-    override fun onConfigReload(listener: (configType: ConfigEvents.ConfigType) -> Unit) {
+    override fun onConfigReload(listener: (modId: String, configType: ConfigEvents.ConfigType) -> Unit) {
         ModEventBus.addListener<ModConfigEvent.Reloading> { e ->
             val convertedConfigType = when (e.config.type) {
                 ModConfig.Type.COMMON -> ConfigEvents.ConfigType.COMMON
@@ -124,7 +124,7 @@ class NeoforgeEventService : EventService {
                 ModConfig.Type.SERVER -> ConfigEvents.ConfigType.SERVER
                 ModConfig.Type.STARTUP -> ConfigEvents.ConfigType.STARTUP
             }
-            listener(convertedConfigType)
+            listener(e.config.modId, convertedConfigType)
         }
     }
 

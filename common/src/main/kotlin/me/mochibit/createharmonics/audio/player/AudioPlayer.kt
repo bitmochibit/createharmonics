@@ -164,9 +164,6 @@ class AudioPlayer(
                     StreamLoadResult.Finished -> stateMachine.send(PlayerIntent.AudioFinished)
 
                     is StreamLoadResult.Failed -> {
-                        if (position > 0) {
-                            "Restarted source playback since it hanged, probably for this url seek is not supported".info()
-                        }
                         if (isActive) {
                             stateMachine.send(PlayerIntent.StreamFailed(result.shouldDisableSeek, result.shouldRetry))
                         }

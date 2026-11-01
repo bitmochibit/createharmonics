@@ -32,7 +32,7 @@ object RecordDurabilityCache: ModEventHandler {
             rebuild()
         }
 
-        eventService.onConfigReload { configType ->
+        eventService.onConfigReload { modId, configType ->
             if (configType == ConfigEvents.ConfigType.SERVER) {
                 rebuild()
             }

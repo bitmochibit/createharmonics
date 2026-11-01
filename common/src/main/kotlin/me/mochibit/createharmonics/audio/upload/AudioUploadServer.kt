@@ -8,6 +8,7 @@ import me.mochibit.createharmonics.foundation.async.repeatingLaunch
 import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.network.packet.AudioServerInfoPacket
 import me.mochibit.createharmonics.foundation.services.networkService
+import me.mochibit.createharmonics.foundation.services.platformService
 import java.net.InetSocketAddress
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -17,108 +18,110 @@ import kotlin.time.Duration.Companion.seconds
 
 object AudioUploadServer {
 
-    @Volatile
-    private var storage: AudioStorageManager = buildStorage()
+    private data class Binding(val host: String, val port: Int)
 
-    @Volatile
-    private var server: HttpServer? = null
+    private class Running(
+        val http: HttpServer,
+        val pool: ExecutorService,
+        val cleaner: Job,
+        val binding: Binding,
+    )
 
-    private var executor: ExecutorService? = null
-    private var ticketCleaner: Job? = null
+    @Volatile private var running: Running? = null
+    @Volatile private var storage: AudioStorageManager? = null
 
-    /** Port the audio server is currently listening on, or 0 if it is not running. */
-    @Volatile
-    var port: Int = 0
-        private set
+    val isRunning get() = running != null
+    val port: Int get() = running?.binding?.port ?: 0
+    val host: String get() = running?.binding?.host ?: ""
 
-    @Volatile
-    var host: String = ""
-        private set
+    private fun requireStorage(): AudioStorageManager =
+        checkNotNull(storage) { "Audio server is not running" }
 
-    val isRunning get() = server != null
+    fun hasFreeSlot(playerName: String): Boolean {
+        val s = storage ?: return false
+        return s.countFiles(playerName) < s.currentConfig().maxFilesPerPlayer
+    }
 
-    fun hasFreeSlot(playerName: String) =
-        storage.countFiles(playerName) < storage.currentConfig().maxFilesPerPlayer
-
-    fun list(playerName: String) = storage.list(playerName)
-
-    fun delete(playerName: String, fileId: String) = storage.delete(playerName, fileId)
-
-    fun rename(playerName: String, fileId: String, newName: String?) = storage.rename(playerName, fileId, newName)
+    fun list(playerName: String) = storage?.list(playerName).orEmpty()
+    fun delete(playerName: String, fileId: String) = storage?.delete(playerName, fileId)
+    fun rename(playerName: String, fileId: String, newName: String?) =
+        storage?.rename(playerName, fileId, newName)
 
     @Synchronized
     fun start() {
-        check(server == null) { "AudioUploadServer already started" }
+        check(running == null) { "AudioUploadServer already started" }
+
+        val binding = configuredBinding()
+        val http = HttpServer.create(InetSocketAddress(binding.host, binding.port), 0)
+        val pool = Executors.newThreadPerTaskExecutor(
+            Thread.ofVirtual().name("createharmonics-audio-http-", 0).factory()
+        )
 
         storage = buildStorage()
-        val boundHost = ModConfigs.server.audioServerIp.get().ifBlank { "0.0.0.0" }
-        val boundPort = ModConfigs.server.audioServerPort.get()
-
-        val httpServer = HttpServer.create(InetSocketAddress(boundHost, boundPort), 0)
-        val pool = Executors.newCachedThreadPool { runnable ->
-            Thread(runnable, "createharmonics-audio-http").apply { isDaemon = true }
-        }
-
         try {
-            httpServer.createContext("/audio/upload", UploadHandler { storage })
-            httpServer.createContext("/audio/stream/", StreamHandler { storage })
-            httpServer.createContext("/audio/info/", InfoHandler { storage })
-            httpServer.executor = pool
-            httpServer.start()
+            http.createContext("/audio/upload", UploadHandler(::requireStorage))
+            http.createContext("/audio/stream/", StreamHandler(::requireStorage))
+            http.createContext("/audio/info/", InfoHandler(::requireStorage))
+            http.executor = pool
+            http.start()
         } catch (e: Exception) {
             pool.shutdownNow()
-            httpServer.stop(0)
+            http.stop(0)
+            storage = null
             throw e
         }
 
-        server = httpServer
-        executor = pool
-        port = boundPort
-        host = boundHost
-
-        ticketCleaner = repeatingLaunch(Dispatchers.IO, Duration.ZERO, 20.seconds) {
+        val cleaner = repeatingLaunch(Dispatchers.IO, Duration.ZERO, 20.seconds) {
             UploadTicketRegistry.purgeExpired()
         }
-
+        running = Running(http, pool, cleaner, binding)
         broadcastPort()
 
-        val config = storage.currentConfig()
-        "Started audio hosting server on $host:$boundPort".info()
+        val config = requireStorage().currentConfig()
+        "Started audio hosting server on ${binding.host}:${binding.port}".info()
         "Make sure that port is forwarded correctly".info()
         "Players files will go in ${config.storageRoot}, max ${config.maxFilesPerPlayer} files (${config.maxFileSizeBytes / 1024 / 1024} MB) for each player".info()
     }
 
     @Synchronized
     fun stop(delaySeconds: Int = 1) {
-        server?.stop(delaySeconds)
-        executor?.shutdown()
-        ticketCleaner?.cancel()
-
-        server = null
-        executor = null
-        ticketCleaner = null
-        port = 0
-
+        val r = running ?: return
+        running = null
+        r.cleaner.cancel()
+        r.http.stop(delaySeconds)
+        r.pool.shutdownNow()
+        storage = null
         broadcastPort()
     }
 
     @Synchronized
-    fun updateStorageConfig() {
-        storage = buildStorage()
+    fun restart() {
+        stop()
+        start()
     }
 
-    /**
-     * Sends the current port (0 = unavailable) to every connected player.
-     * Hops onto the server thread since this can be called from config/reload threads.
-     */
+    @Synchronized
+    fun onConfigReload() {
+        val r = running ?: return
+        storage = buildStorage()
+        if (configuredBinding() != r.binding) {
+            "Audio server binding changed, restarting".info()
+            restart()
+        }
+    }
+
+    private fun configuredBinding() = Binding(
+        ModConfigs.server.audioServerIp.get().ifBlank { "0.0.0.0" },
+        ModConfigs.server.audioServerPort.get(),
+    )
+
     private fun broadcastPort() {
         networkService.broadcast(AudioServerInfoPacket(port, host))
     }
 
     private fun buildStorage() = AudioStorageManager(
-        storageRoot = Path(ModConfigs.server.audioStorageRoot.get()),
+        storageRoot = platformService.serverRootPath.resolve(ModConfigs.server.audioStorageRoot.get()),
         maxFilesPerPlayer = ModConfigs.server.maxFilesPerPlayer.get(),
-        maxFileSizeBytes = ModConfigs.server.maxFileSizeBytes.get()
+        maxFileSizeBytes = ModConfigs.server.maxFileSizeBytes.get(),
     )
 }
-

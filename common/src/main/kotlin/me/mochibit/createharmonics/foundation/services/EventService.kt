@@ -49,7 +49,7 @@ interface DataEvents {
 }
 
 interface ConfigEvents {
-    fun onConfigReload(listener: (configType: ConfigType) -> Unit)
+    fun onConfigReload(listener: (modId: String, configType: ConfigType) -> Unit)
     enum class ConfigType {
         COMMON,
         CLIENT,
