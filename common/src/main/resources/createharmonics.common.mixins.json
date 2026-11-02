@@ -12,7 +12,9 @@
     "RecipeGridHandlerMixin",
     "ServerboundConfigPacketMixin",
     "ShapedRecipeMixin",
-    "ShapelessRecipeMixin"
+    "ShapelessRecipeMixin",
+    "entity.AllayMixin",
+    "entity.ParrotMixin"
   ],
   "client": [
     "ChannelAccessor",

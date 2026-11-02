@@ -90,7 +90,7 @@ object SourceStreamResolver {
         offsetSeconds: Double,
         effectiveSampleRate: Int,
     ): Boolean {
-        val bytesPerSecond = effectiveSampleRate * 2L // 16-bit mono → 2 bytes/sample
+        val bytesPerSecond = effectiveSampleRate * 2L
         var bytesToSkip = (offsetSeconds * bytesPerSecond).toLong()
         if (bytesToSkip % 2 != 0L) {
             bytesToSkip += 1

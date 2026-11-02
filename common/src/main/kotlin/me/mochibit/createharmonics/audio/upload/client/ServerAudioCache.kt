@@ -1,6 +1,5 @@
 package me.mochibit.createharmonics.audio.upload.client
 
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import me.mochibit.createharmonics.audio.upload.ServerAudioReference
 import me.mochibit.createharmonics.foundation.async.modLaunch
@@ -54,7 +53,8 @@ object ServerAudioCache {
     fun evict(ref: ServerAudioReference) {
         val dir = root.resolve(ref.owner).normalize().takeIf { it.startsWith(root) && Files.isDirectory(it) } ?: return
         Files.newDirectoryStream(dir, "${ref.fileId}.*").use { files ->
-            files.forEach { runCatching { Files.deleteIfExists(it) } }
+            files.filterNot { it.fileName.toString().endsWith(".part") }
+                .forEach { runCatching { Files.deleteIfExists(it) } }
         }
     }
 }

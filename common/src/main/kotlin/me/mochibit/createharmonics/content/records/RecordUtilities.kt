@@ -15,6 +15,7 @@ import me.mochibit.createharmonics.foundation.registry.ModItems
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import me.mochibit.createharmonics.foundation.warn
 import me.mochibit.createharmonics.handler.RecordCraftingHandler
+import net.minecraft.core.RegistryAccess
 import net.minecraft.core.component.DataComponents
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.ItemStack
@@ -170,64 +171,61 @@ object RecordUtilities {
             this.effectChain.addBeforeScope(AudioEffect.Scope.MACHINE_CONTROLLED_PITCH, def.create())
         }
 
+        val craftedWithItem = RecordCraftingHandler.getCraftedWithDisc(etherealRecord).copy()
+        val access = level.registryAccess()
+
         if (url.isNotBlank() && FFMPEGProvider.isAvailable() && YTDLProvider.isAvailable()) {
             if (FFMPEGProvider.isProbeAvailable()) {
-                this.request(
-                    AudioRequest.Url(url),
-                )
+                this.fallbackProvider = { discRequest(craftedWithItem, access) }
+                this.request(AudioRequest.Url(url))
                 this.play(initialPos)
                 return
             } else {
                 (
-                    "FFmpeg is correctly installed but it seems ffprobe is missing! \nIf it was installed by the mod" +
-                        " please report this here https://github.com/bitmochibit/createharmonics/issues.\n" +
-                        "If it was installed manually, make sure ffprobe executable is in the same folder as ffmpeg"
-                ).warn()
+                        "FFmpeg is correctly installed but it seems ffprobe is missing! \nIf it was installed by the mod" +
+                                " please report this here https://github.com/bitmochibit/createharmonics/issues.\n" +
+                                "If it was installed manually, make sure ffprobe executable is in the same folder as ffmpeg"
+                        ).warn()
             }
         }
 
         if (ClientConfig.debugAudioPlayer.get()) {
             (
-                "Url play request was ignored! Is it intended?\n" +
-                    "current url = $url\n" +
-                    "ffmpeg available = ${FFMPEGProvider.isAvailable()}\n" +
-                    "ytdlp available = ${YTDLProvider.isAvailable()}\n" +
-                    "ffprobe available = ${FFMPEGProvider.isProbeAvailable()}\n\n" +
-                    "Generally if this is intended, you shouldn't see any AudioPlayer fail notices!"
-            ).debug()
+                    "Url play request was ignored! Is it intended?\n" +
+                            "current url = $url\n" +
+                            "ffmpeg available = ${FFMPEGProvider.isAvailable()}\n" +
+                            "ytdlp available = ${YTDLProvider.isAvailable()}\n" +
+                            "ffprobe available = ${FFMPEGProvider.isProbeAvailable()}\n\n" +
+                            "Generally if this is intended, you shouldn't see any AudioPlayer fail notices!"
+                    ).debug()
         }
 
-        // Try to play audio from the crafted-from record
-        val craftedWithItem = RecordCraftingHandler.getCraftedWithDisc(etherealRecord)
-        val song = JukeboxSong.fromStack(level.registryAccess(), craftedWithItem)
-        if (!song.isPresent) return
+        this.fallbackProvider = null
+        discRequest(craftedWithItem, access)?.let {
+            this.request(it)
+            this.play(initialPos)
+        }
+    }
+
+
+    private fun discRequest(disc: ItemStack, access: RegistryAccess): AudioRequest.Stream? {
+        val song = JukeboxSong.fromStack(access, disc)
+        if (!song.isPresent) return null
 
         val songData = song.get().value()
-        val soundEvent =
-            songData
-                .soundEvent
-                .value()
+        val soundEvent = songData.soundEvent.value()
+        val sampleRate = soundEvent.getStreamDirectly(false).get().use { it.format.sampleRate }
 
-        val sampleRate =
-            soundEvent.getStreamDirectly(false).get().use { audio ->
-                audio.format.sampleRate
-            }
-
-        this.request(
-            AudioRequest.Stream(
-                {
-                    Ogg2PcmInputStream(soundEvent.getStreamDirectly(false).get())
-                },
-                AudioInfo(
-                    audioUrl = "stream",
-                    durationSeconds = 1000,
-                    displayName = songData.description.getString(128),
-                    sampleRate = sampleRate,
-                    isLive = false,
-                ),
+        return AudioRequest.Stream(
+            { Ogg2PcmInputStream(soundEvent.getStreamDirectly(false).get()) },
+            AudioInfo(
+                audioUrl = "stream",
+                durationSeconds = 1000,
+                displayName = songData.description.getString(128),
+                sampleRate = sampleRate,
+                isLive = false,
             ),
         )
-        this.play(initialPos)
     }
 }
 

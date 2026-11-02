@@ -51,6 +51,11 @@ class AudioPlayer(
     @Volatile
     var spatialContextKey: Any? = null
 
+    @Volatile
+    var fallbackProvider: (() -> AudioRequest?)? = null
+
+    private val consecutiveFailures = AtomicInteger(0)
+
     val effectChain = EffectChain()
     val soundEventComposition = SoundEventComposition(soundEffectChain = effectChain)
     val clock = PlaytimeClock()
@@ -124,6 +129,7 @@ class AudioPlayer(
 
     override fun setCurrentRequest(request: AudioRequest) {
         currentAudioRequest = request
+        consecutiveFailures.set(0)
     }
 
     override fun resetRetrySchedule() = retryScheduler.reset()
@@ -164,7 +170,20 @@ class AudioPlayer(
                     StreamLoadResult.Finished -> stateMachine.send(PlayerIntent.AudioFinished)
 
                     is StreamLoadResult.Failed -> {
-                        if (isActive) {
+                        if (!isActive) return@launch
+
+                        val failures = consecutiveFailures.incrementAndGet()
+                        val threshold = if (result.permanent) 1 else 2
+                        val fallback =
+                            if (failures >= threshold) fallbackProvider?.invoke() else null
+
+                        if (fallback != null) {
+                            fallbackProvider = null
+                            consecutiveFailures.set(0)
+                            currentAudioRequest = fallback
+                            stateMachine.send(PlayerIntent.StreamFailed(shouldDisableSeek = false, shouldRetry = false))
+                            stateMachine.send(PlayerIntent.Play(0.0))
+                        } else {
                             stateMachine.send(PlayerIntent.StreamFailed(result.shouldDisableSeek, result.shouldRetry))
                         }
                     }
@@ -235,6 +254,7 @@ class AudioPlayer(
     }
 
     override suspend fun applyStreamReady(intent: PlayerIntent.StreamReady) {
+        consecutiveFailures.set(0)
         currentAudioEffectInputStream = intent.stream
         currentSoundInstance = intent.soundInstance
 

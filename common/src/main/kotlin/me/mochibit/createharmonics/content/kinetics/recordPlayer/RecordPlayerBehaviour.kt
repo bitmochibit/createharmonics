@@ -671,6 +671,9 @@ class RecordPlayerBehaviour(
             PlaybackState.PAUSED -> {
                 if (oldState == PlaybackState.PLAYING) {
                     playtimeClock.pause()
+                    this.be.level?.let {
+                        RecordPlayerHooks.notifyStop(it as ServerLevel, this.pos, this.be.blockState)
+                    }
                 }
             }
 
@@ -678,7 +681,11 @@ class RecordPlayerBehaviour(
                 if (oldState == PlaybackState.PAUSED) {
                     // Resumed from pause, accumulate the paused duration
                     playtimeClock.play()
+                    this.be.level?.let {
+                        RecordPlayerHooks.notifyStart(it as ServerLevel, this.pos, this.be.blockState)
+                    }
                 }
+
             }
 
             else -> {}
@@ -689,12 +696,18 @@ class RecordPlayerBehaviour(
                 val uuid = _recordPlayerUUID?.toString() ?: return
                 registerPlayer(uuid, be)
                 playtimeClock.play()
+                this.be.level?.let {
+                    RecordPlayerHooks.notifyStart(it as ServerLevel, this.pos, this.be.blockState)
+                }
             }
 
             PlaybackState.STOPPED if oldState != PlaybackState.STOPPED -> {
                 val uuid = _recordPlayerUUID?.toString() ?: return
                 unregisterPlayer(uuid, be)
                 playtimeClock.stop()
+                this.be.level?.let {
+                    RecordPlayerHooks.notifyStop(it as ServerLevel, this.pos, this.be.blockState)
+                }
             }
 
             else -> {}
@@ -738,6 +751,9 @@ class RecordPlayerBehaviour(
         if (be.isChunkUnloaded) {
             be.onServer {
                 unregisterPlayer(uuidStr, be)
+                this.be.level?.let {
+                    RecordPlayerHooks.notifyStop(it as ServerLevel, this.pos, this.be.blockState)
+                }
             }
 
             be.level?.onClient { _, _ ->
@@ -759,6 +775,9 @@ class RecordPlayerBehaviour(
         }
 
         be.level?.onServer { serverLevel ->
+            this.be.level?.let {
+                RecordPlayerHooks.notifyStop(it as ServerLevel, this.pos, this.be.blockState)
+            }
             unregisterPlayer(uuidStr, be)
             itemHandler.dropContents(serverLevel, be.blockPos)
         }
@@ -833,16 +852,19 @@ class RecordPlayerBehaviour(
                         if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
                             when (player.state.value) {
                                 PlayerState.PAUSED -> {
+                                    RecordPlayerHooks.notifyClient(level, this.pos, true)
                                     // Resuming from pause — let the internal clock continue
                                     resumeClientPlayer()
                                 }
 
                                 PlayerState.PLAYING -> {
+                                    RecordPlayerHooks.notifyClient(level, this.pos, true)
                                     playtimeClock.play(player.clock.currentPlaytime)
                                 }
 
                                 else -> {
                                     // STOPPED or LOADING
+                                    RecordPlayerHooks.notifyClient(level, this.pos, true)
                                     startClientPlayer(currentRecord, playtimeClock.currentPlaytime)
                                 }
                             }
@@ -850,11 +872,13 @@ class RecordPlayerBehaviour(
                     }
 
                     PlaybackState.PAUSED -> {
+                        RecordPlayerHooks.notifyClient(level, this.pos, false)
                         lastActiveVolume = currentVolume
                         pauseClientPlayer()
                     }
 
                     PlaybackState.STOPPED -> {
+                        RecordPlayerHooks.notifyClient(level, this.pos, false)
                         stopClientPlayer()
                     }
 

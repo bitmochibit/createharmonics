@@ -168,8 +168,11 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
     fun delete(playerName: String, fileId: String): Boolean {
         val metaPath = InputSanitizer.resolveContained(config.storageRoot, playerName, "$fileId.properties")
         val meta = readMetadata(metaPath) ?: return false
-        InputSanitizer.resolveContained(config.storageRoot, playerName, "$fileId.${meta.extension}").deleteIfExists()
-        return metaPath.deleteIfExists()
+        val audioPath = InputSanitizer.resolveContained(config.storageRoot, playerName, "$fileId.${meta.extension}")
+
+        metaPath.deleteIfExists()
+        runCatching { audioPath.deleteIfExists() }
+        return true
     }
 
     private fun writeMetadata(path: Path, meta: AudioMetadata) {

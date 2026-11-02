@@ -4,6 +4,7 @@ import me.mochibit.createharmonics.audio.effect.EffectChain
 import me.mochibit.createharmonics.audio.info.AudioInfo
 import me.mochibit.createharmonics.audio.instance.SampleRatedInstance
 import me.mochibit.createharmonics.audio.stream.AudioEffectInputStream
+import me.mochibit.createharmonics.audio.upload.client.AudioNotFoundException
 import me.mochibit.createharmonics.config.ClientConfig
 import me.mochibit.createharmonics.foundation.debug
 import net.minecraft.client.resources.sounds.SoundInstance
@@ -23,6 +24,7 @@ sealed interface StreamLoadResult {
     data class Failed(
         val shouldDisableSeek: Boolean = false,
         val shouldRetry: Boolean = false,
+        val permanent: Boolean = false,
     ) : StreamLoadResult
 }
 
@@ -39,9 +41,15 @@ class StreamLoader(
 
         val resolved = try {
             SourceStreamResolver.resolveInputStream(source, position)
-        } catch (e: CancellationException) {
+        }
+        catch (e: CancellationException) {
             throw e
-        } catch (e: Exception) {
+        }
+        catch (e: AudioNotFoundException) {
+            logResolutionFailure(e)
+            return StreamLoadResult.Failed(permanent = true)
+        }
+        catch (e: Exception) {
             logResolutionFailure(e)
             return StreamLoadResult.Failed()
         }

@@ -4,8 +4,12 @@ import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpHandler
 import java.io.IOException
 import java.io.RandomAccessFile
+import java.nio.channels.Channels
+import java.nio.channels.FileChannel
 import java.nio.file.Files
 import java.nio.file.NoSuchFileException
+import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import kotlin.math.min
 
 private val AUDIO_MIME_TYPES = mapOf(
@@ -72,7 +76,7 @@ class StreamHandler(
             val range = exchange.requestHeaders.getFirst("Range")?.let { parseRange(it, fileSize) }
 
             if (range == null) {
-                respond(exchange, file.toFile(), 200, 0, fileSize, isHead)
+                respond(exchange, file, 200, 0, fileSize, isHead)
                 return
             }
 
@@ -85,7 +89,7 @@ class StreamHandler(
 
             val clampedEnd = min(end, fileSize - 1)
             exchange.responseHeaders.set("Content-Range", "bytes $start-$clampedEnd/$fileSize")
-            respond(exchange, file.toFile(), 206, start, clampedEnd - start + 1, isHead)
+            respond(exchange, file, 206, start, clampedEnd - start + 1, isHead)
         } catch (e: InvalidInputException) {
             e.printStackTrace()
             exchange.sendPlainText(400, AudioUploadResponse.INVALID_INPUT.name)
@@ -99,7 +103,7 @@ class StreamHandler(
 
     private fun respond(
         exchange: HttpExchange,
-        file: java.io.File,
+        file: Path,
         status: Int,
         start: Long,
         length: Long,
@@ -109,22 +113,18 @@ class StreamHandler(
             exchange.sendResponseHeaders(status, -1)
             return
         }
-        exchange.sendResponseHeaders(status, length)
-        RandomAccessFile(file, "r").use { raf ->
-            writeChunk(exchange, raf, start, length)
-        }
-    }
-
-    private fun writeChunk(exchange: HttpExchange, raf: RandomAccessFile, start: Long, length: Long) {
-        raf.seek(start)
-        val buffer = ByteArray(8 * 1024)
-        var remaining = length
-        exchange.responseBody.use { out ->
-            while (remaining > 0) {
-                val read = raf.read(buffer, 0, min(buffer.size.toLong(), remaining).toInt())
-                if (read == -1) break
-                out.write(buffer, 0, read)
-                remaining -= read
+        FileChannel.open(file, StandardOpenOption.READ).use { channel ->
+            exchange.sendResponseHeaders(status, length)
+            exchange.responseBody.use { out ->
+                val target = Channels.newChannel(out)
+                var position = start
+                var remaining = length
+                while (remaining > 0) {
+                    val sent = channel.transferTo(position, remaining, target)
+                    if (sent <= 0) break
+                    position += sent
+                    remaining -= sent
+                }
             }
         }
     }
