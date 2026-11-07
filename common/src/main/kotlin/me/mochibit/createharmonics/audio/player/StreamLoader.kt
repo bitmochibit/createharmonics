@@ -16,7 +16,7 @@ sealed interface StreamLoadResult {
         val stream: AudioEffectInputStream,
         val soundInstance: SoundInstance,
         val audioInfo: AudioInfo,
-        val position: Double,
+        val startedAt: Double,
     ) : StreamLoadResult
 
     data object Finished : StreamLoadResult
@@ -33,31 +33,28 @@ class StreamLoader(
     private val soundInstanceFactory: SoundInstanceFactory,
     private val player: AudioPlayer,
 ) {
-    suspend fun load(request: AudioRequest, position: Double): StreamLoadResult {
+    suspend fun load(request: AudioRequest, positionProvider: () -> Double): StreamLoadResult {
         val source = AudioSourceResolver.resolve(request)
         if (ClientConfig.debugAudioPlayer.get()) {
             "[STREAM LOADER] Source resolved :${source}".debug()
         }
 
         val resolved = try {
-            SourceStreamResolver.resolveInputStream(source, position)
-        }
-        catch (e: CancellationException) {
+            SourceStreamResolver.resolveInputStream(source, positionProvider)
+        } catch (e: CancellationException) {
             throw e
-        }
-        catch (e: AudioNotFoundException) {
+        } catch (e: AudioNotFoundException) {
             logResolutionFailure(e)
             return StreamLoadResult.Failed(permanent = true)
-        }
-        catch (e: Exception) {
+        } catch (e: Exception) {
             logResolutionFailure(e)
             return StreamLoadResult.Failed()
         }
 
-        return resolved.toLoadResult(position)
+        return resolved.toLoadResult()
     }
 
-    private fun SourceStreamResolver.Result.toLoadResult(position: Double): StreamLoadResult {
+    private fun SourceStreamResolver.Result.toLoadResult(): StreamLoadResult {
         val input = inputStream
         return when {
             status == SourceStreamResolver.Result.StreamStatus.FINISHED -> {
@@ -68,14 +65,11 @@ class StreamLoader(
                 input?.close()
                 StreamLoadResult.Failed(shouldDisableSeek = true, shouldRetry = true)
             }
-            else -> buildReadyResult(input, position)
+            else -> buildReadyResult(input)
         }
     }
 
-    private fun SourceStreamResolver.Result.buildReadyResult(
-        input: InputStream,
-        position: Double,
-    ): StreamLoadResult.Ready {
+    private fun SourceStreamResolver.Result.buildReadyResult(input: InputStream): StreamLoadResult.Ready {
         val stream = AudioEffectInputStream(
             input,
             effectChain,
@@ -86,7 +80,7 @@ class StreamLoader(
         val soundInstance = soundInstanceFactory(player, stream).also {
             if (it is SampleRatedInstance) it.sampleRate = audioInfo.sampleRate.toInt()
         }
-        return StreamLoadResult.Ready(stream, soundInstance, audioInfo, position)
+        return StreamLoadResult.Ready(stream, soundInstance, audioInfo, startedAt)
     }
 
     private fun logResolutionFailure(e: Exception) {

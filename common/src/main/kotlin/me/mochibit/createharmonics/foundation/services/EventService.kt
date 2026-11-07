@@ -30,6 +30,9 @@ interface ServerEvents {
     fun onGameShuttingDown(listener: () -> Unit)
 
     fun onPlayerJoin(listener: (player: Player) -> Unit)
+    fun onPlayerLogout(listener: (player: Player) -> Unit)
+
+    fun onServerTick(listener: (server: MinecraftServer) -> Unit)
 }
 
 interface PlayerTrackingEvents {

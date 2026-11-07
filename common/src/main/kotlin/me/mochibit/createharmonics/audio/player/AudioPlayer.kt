@@ -8,12 +8,10 @@ import me.mochibit.createharmonics.audio.utils.pause
 import me.mochibit.createharmonics.audio.utils.unpause
 import me.mochibit.createharmonics.foundation.async.ClientCoroutineScope
 import me.mochibit.createharmonics.foundation.async.withMainContext
-import me.mochibit.createharmonics.foundation.info
 import net.minecraft.client.Minecraft
 import net.minecraft.client.resources.sounds.SoundInstance
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicLong
 
 typealias SoundInstanceFactory = AudioPlayer.(stream: java.io.InputStream) -> SoundInstance
 
@@ -40,10 +38,14 @@ class AudioPlayer(
     private var startPlaybackJob: Job? = null
 
     private val loadingGeneration = AtomicInteger(0)
-    private val streamResolutionStartMillis = AtomicLong(0)
 
     val playerTerminated = AtomicBoolean(false)
     val isSeekingDisabled = AtomicBoolean(false)
+
+    @Volatile
+    var sharedTimeline: PlaytimeClock? = null
+
+    private val listening = AtomicBoolean(false)
 
     @Volatile
     var spatialContext: AudioSpatialContext? = null
@@ -58,7 +60,7 @@ class AudioPlayer(
 
     val effectChain = EffectChain()
     val soundEventComposition = SoundEventComposition(soundEffectChain = effectChain)
-    val clock = PlaytimeClock()
+    val localClock = PlaytimeClock()
 
     var spatial = SpatialAudioController()
         private set
@@ -101,12 +103,13 @@ class AudioPlayer(
 
 
     fun tick() {
-        clock.tick()
+        localClock.tick()
         spatial.tick(this)
     }
 
     fun close() {
         playerTerminated.set(true)
+        if (listening.compareAndSet(true, false)) notifier.listenerLeft()
         retryScheduler.cancelPending()
         watchdog.stop()
         stateMachine.shutdown()
@@ -120,7 +123,8 @@ class AudioPlayer(
 
     override fun isSeekingDisabled(): Boolean = isSeekingDisabled.get()
 
-    override fun currentPlaytime(): Double = clock.currentPlaytime
+    override fun currentPlaytime(): Double =
+        sharedTimeline?.currentPlaytime ?: localClock.currentPlaytime
 
     override fun isSameSourceAsCurrentRequest(request: AudioRequest): Boolean =
         currentAudioRequest?.isSameSource(request) == true
@@ -145,12 +149,13 @@ class AudioPlayer(
 
         startPlaybackJob?.cancelAndJoin()
         val generation = loadingGeneration.incrementAndGet()
-        streamResolutionStartMillis.set(System.currentTimeMillis())
         stateMachine.transition(PlayerState.LOADING)
+
+        val resolvePosition = { sharedTimeline?.takeIf { it.isPlaying }?.currentPlaytime ?: position }
 
         startPlaybackJob =
             playerScope.launch(Dispatchers.IO) {
-                when (val result = streamLoader.load(request, position)) {
+                when (val result = streamLoader.load(request, resolvePosition)) {
                     is StreamLoadResult.Ready -> {
                         if (!isActive) {
                             result.stream.close()
@@ -161,8 +166,8 @@ class AudioPlayer(
                                 result.stream,
                                 result.soundInstance,
                                 result.audioInfo,
-                                position,
-                                generation
+                                result.startedAt,
+                                generation,
                             ),
                         )
                     }
@@ -194,7 +199,7 @@ class AudioPlayer(
     override suspend fun pausePlayback() {
         val capturedInstance = currentSoundInstance ?: return failPlayback()
 
-        clock.pause()
+        localClock.pause()
         stateMachine.transition(PlayerState.PAUSED)
         withContext(NonCancellable) {
             withMainContext {
@@ -209,7 +214,7 @@ class AudioPlayer(
         withMainContext {
             if (!capturedInstance.unpause()) soundManager.play(capturedInstance)
         }
-        clock.play()
+        localClock.play()
         stateMachine.transition(PlayerState.PLAYING)
     }
 
@@ -224,6 +229,7 @@ class AudioPlayer(
     }
 
     override suspend fun stopPlayback(isSeek: Boolean) {
+        if (!isSeek && listening.compareAndSet(true, false)) notifier.listenerLeft()
         startPlaybackJob?.cancelAndJoin()
         startPlaybackJob = null
 
@@ -233,7 +239,7 @@ class AudioPlayer(
         currentSoundInstance = null
 
         soundEventComposition.stopComposition()
-        clock.stop()
+        localClock.stop()
         isSeekingDisabled.set(false)
 
         withContext(NonCancellable) {
@@ -260,14 +266,12 @@ class AudioPlayer(
 
         if (intent.audioInfo.isLive) isSeekingDisabled.set(true)
 
-        val resolutionElapsed = (System.currentTimeMillis() - streamResolutionStartMillis.get()) / 1000.0
-        val adjustedPos = if (intent.audioInfo.isLive) 0.0 else intent.atPos + resolutionElapsed
-        clock.play(adjustedPos)
-
+        localClock.play(if (intent.audioInfo.isLive) 0.0 else intent.atPos)
 
         withMainContext { soundManager.play(intent.soundInstance) }
         soundEventComposition.makeComposition(intent.soundInstance)
         notifier.audioTitleChanged(intent.audioInfo.displayName)
+        if (listening.compareAndSet(false, true)) notifier.listenerStarted()
         retryScheduler.reset()
     }
 

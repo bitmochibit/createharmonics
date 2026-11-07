@@ -91,8 +91,9 @@ class PlaybackStateMachine(
                 if (actions.hasActiveSoundInstance()) {
                     actions.resumePlayback()
                 } else {
+                    val resumeAt = actions.currentPlaytime()
                     actions.stopPlayback()
-                    actions.startPlayback(actions.currentPlaytime())
+                    actions.startPlayback(resumeAt)
                 }
             }
 

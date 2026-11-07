@@ -20,8 +20,6 @@ import me.mochibit.createharmonics.foundation.extension.remapTo
 import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.inventory.InventorySpec
 import me.mochibit.createharmonics.foundation.inventory.dropContents
-import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
-import me.mochibit.createharmonics.foundation.registry.ModPackets
 import me.mochibit.createharmonics.foundation.services.contentService
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.client.Minecraft
@@ -35,8 +33,6 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
-import net.minecraft.world.Containers
-import net.minecraft.world.SimpleContainer
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
@@ -46,45 +42,10 @@ import kotlin.math.abs
 
 class RecordPlayerBehaviour(
     val be: RecordPlayerBlockEntity,
-) : BlockEntityBehaviour(be) {
+) : BlockEntityBehaviour(be), PlaybackSessionOwner {
     companion object {
         @JvmStatic
         val BEHAVIOUR_TYPE = BehaviourType<RecordPlayerBehaviour>()
-
-        // Static tracking for active record players by their audio player UUID
-        // This prevents UUID conflicts when blocks are copied (Valkyrian Skies, WorldEdit, etc.)
-        // Each block entity must have a unique UUID to ensure only one audio player per block
-        private val activePlayersByUUID = mutableMapOf<String, RecordPlayerBlockEntity>()
-
-        /**
-         * Gets the record player block entity associated with the given player UUID.
-         * This is used to handle stream end events from the client.
-         */
-        fun getBlockEntityByPlayerUUID(playerUUID: String): RecordPlayerBlockEntity? = activePlayersByUUID[playerUUID]
-
-        /**
-         * Registers a record player when it starts playing.
-         */
-        private fun registerPlayer(
-            playerUUID: String,
-            blockEntity: RecordPlayerBlockEntity,
-        ) {
-            activePlayersByUUID[playerUUID] = blockEntity
-        }
-
-        /**
-         * Unregisters a record player when it stops playing.
-         * Only unregisters if the UUID is actually registered to the given block entity.
-         */
-        private fun unregisterPlayer(
-            playerUUID: String,
-            blockEntity: RecordPlayerBlockEntity,
-        ) {
-            blockEntity.level?.onServer {
-                activePlayersByUUID.remove(playerUUID)
-                ModPackets.broadcast(AudioPlayerContextStopPacket(playerUUID))
-            }
-        }
     }
 
     object RecordPlayerInventory {
@@ -214,7 +175,12 @@ class RecordPlayerBehaviour(
     var currentlyLooping = false
         private set
 
-    val playtimeClock = PlaytimeClock()
+    private var session: ServerPlaybackSession? = null
+
+    /**
+     * Server authoritative playtime clock that is the truth source for the players internal clock
+     */
+    val clock = PlaytimeClock()
 
     // Track previous playback mode to detect user changes
     private var previousPlaybackMode: RecordPlayerBlockEntity.PlaybackMode? = null
@@ -265,6 +231,7 @@ class RecordPlayerBehaviour(
                 )
 
             if (player.spatialContextKey !== this.be) {
+                player.sharedTimeline = clock
                 player.spatialContextKey = this.be
                 player.spatialContext =
                     BlockEntityAudioContext(
@@ -333,11 +300,10 @@ class RecordPlayerBehaviour(
                     playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
         }
 
-    private fun ensureTracking() {
-        val uuid = _recordPlayerUUID?.toString() ?: return
-        if (activePlayersByUUID[uuid] == null) {
-            registerPlayer(uuid, be)
-        }
+    private fun ensureSession() {
+        if (session != null) return
+        val id = _recordPlayerUUID?.toString() ?: return
+        session = PlaybackSessions.acquire(id, this, clock)
     }
 
     val isPauseMode: Boolean
@@ -350,12 +316,11 @@ class RecordPlayerBehaviour(
     override fun tick() {
         super.tick()
         val level = be.level ?: return
-        val blockPos = be.blockPos
 
         level.onServer { serverLevel ->
             ensureUUID()
-            playtimeClock.tick()
-            if (playtimeClock.isPlaying) {
+            ensureSession()
+            if (clock.isPlaying) {
                 ticksSinceLastClockSave++
                 if (ticksSinceLastClockSave >= 100) {
                     ticksSinceLastClockSave = 0
@@ -364,7 +329,6 @@ class RecordPlayerBehaviour(
             } else {
                 ticksSinceLastClockSave = 0
             }
-            ensureTracking()
 
             val outputStack = itemHandler.getStackInSlot(RecordPlayerInventory.RECORD_OUTPUT_SLOT)
             if (!outputStack.isEmpty) {
@@ -654,67 +618,32 @@ class RecordPlayerBehaviour(
         updatePlaybackState(PlaybackState.PAUSED, resetTime = false)
     }
 
-    private fun updatePlaybackState(
-        newState: PlaybackState,
-        resetTime: Boolean = false,
-        setCurrentTime: Boolean = false,
-    ) {
-        if (playbackState == newState && !resetTime && !setCurrentTime) {
-            return
-        }
-
+    private fun updatePlaybackState(newState: PlaybackState, resetTime: Boolean = false, setCurrentTime: Boolean = false) {
+        if (playbackState == newState && !resetTime && !setCurrentTime) return
         val oldState = playbackState
         playbackState = newState
 
-        // Handle pause timing
         when (newState) {
             PlaybackState.PAUSED -> {
-                if (oldState == PlaybackState.PLAYING) {
-                    playtimeClock.pause()
-                    this.be.level?.let {
-                        RecordPlayerHooks.notifyStop(it as ServerLevel, this.pos, this.be.blockState)
-                    }
-                }
+                session?.pause()
+                if (oldState == PlaybackState.PLAYING) notifyStop()
             }
-
-            PlaybackState.PLAYING -> {
-                if (oldState == PlaybackState.PAUSED) {
-                    // Resumed from pause, accumulate the paused duration
-                    playtimeClock.play()
-                    this.be.level?.let {
-                        RecordPlayerHooks.notifyStart(it as ServerLevel, this.pos, this.be.blockState)
-                    }
-                }
-
-            }
-
-            else -> {}
-        }
-
-        when (newState) {
             PlaybackState.PLAYING if oldState != PlaybackState.PLAYING -> {
-                val uuid = _recordPlayerUUID?.toString() ?: return
-                registerPlayer(uuid, be)
-                playtimeClock.play()
-                this.be.level?.let {
-                    RecordPlayerHooks.notifyStart(it as ServerLevel, this.pos, this.be.blockState)
-                }
+                if (oldState == PlaybackState.STOPPED) session?.reset() else session?.resume()
+                notifyStart()
+            }
+            PlaybackState.STOPPED -> {
+                session?.reset()
+                if (oldState != PlaybackState.STOPPED) notifyStop()
             }
 
-            PlaybackState.STOPPED if oldState != PlaybackState.STOPPED -> {
-                val uuid = _recordPlayerUUID?.toString() ?: return
-                unregisterPlayer(uuid, be)
-                playtimeClock.stop()
-                this.be.level?.let {
-                    RecordPlayerHooks.notifyStop(it as ServerLevel, this.pos, this.be.blockState)
-                }
-            }
-
-            else -> {}
+            PlaybackState.PLAYING -> {}
         }
-
         be.notifyUpdate()
     }
+
+    private fun notifyStart() = (be.level as? ServerLevel)?.let { RecordPlayerHooks.notifyStart(it, pos, be.blockState) }
+    private fun notifyStop() = (be.level as? ServerLevel)?.let { RecordPlayerHooks.notifyStop(it, pos, be.blockState) }
 
     private fun startClientPlayer(
         currentRecord: ItemStack,
@@ -749,12 +678,7 @@ class RecordPlayerBehaviour(
         playerParticleJob.cancel()
 
         if (be.isChunkUnloaded) {
-            be.onServer {
-                unregisterPlayer(uuidStr, be)
-                this.be.level?.let {
-                    RecordPlayerHooks.notifyStop(it as ServerLevel, this.pos, this.be.blockState)
-                }
-            }
+            be.onServer { PlaybackSessions.release(uuidStr); notifyStop() }
 
             be.level?.onClient { _, _ ->
                 AudioPlayerManager.release(uuidStr)
@@ -778,7 +702,7 @@ class RecordPlayerBehaviour(
             this.be.level?.let {
                 RecordPlayerHooks.notifyStop(it as ServerLevel, this.pos, this.be.blockState)
             }
-            unregisterPlayer(uuidStr, be)
+            PlaybackSessions.release(uuidStr)
             itemHandler.dropContents(serverLevel, be.blockPos)
         }
 
@@ -798,7 +722,7 @@ class RecordPlayerBehaviour(
 
         compound.putBoolean("PlaybackEndedNaturally", playbackEndedNaturally)
 
-        compound.putClock(playtimeClock)
+        compound.putClock(clock)
 
         compound.putLong("AudioPlayCount", audioPlayCount)
         compound.putBoolean("SpeedInterrupted", speedInterrupted)
@@ -834,7 +758,7 @@ class RecordPlayerBehaviour(
             speedInterrupted = compound.getBoolean("SpeedInterrupted")
         }
 
-        compound.updateClock(playtimeClock)
+        compound.updateClock(clock)
 
         if (compound.contains("AudioPlayingTitle")) {
             audioPlayingTitle = compound.getString("AudioPlayingTitle")
@@ -853,19 +777,17 @@ class RecordPlayerBehaviour(
                             when (player.state.value) {
                                 PlayerState.PAUSED -> {
                                     RecordPlayerHooks.notifyClient(level, this.pos, true)
-                                    // Resuming from pause — let the internal clock continue
                                     resumeClientPlayer()
                                 }
 
                                 PlayerState.PLAYING -> {
                                     RecordPlayerHooks.notifyClient(level, this.pos, true)
-                                    playtimeClock.play(player.clock.currentPlaytime)
                                 }
 
                                 else -> {
                                     // STOPPED or LOADING
                                     RecordPlayerHooks.notifyClient(level, this.pos, true)
-                                    startClientPlayer(currentRecord, playtimeClock.currentPlaytime)
+                                    startClientPlayer(currentRecord, clock.currentPlaytime)
                                 }
                             }
                         }
@@ -911,9 +833,17 @@ class RecordPlayerBehaviour(
         }
     }
 
-    fun onAudioTitleUpdate(audioTitle: String) {
+    private fun onAudioTitleUpdate(audioTitle: String) {
         if (audioTitle == "Unknown") return
         audioPlayingTitle = audioTitle
     }
+
+    override fun onClockChanged() = be.notifyUpdate()
+
+    override fun onAllEnded() = onPlaybackEnd()
+
+    override fun onRestartRequested() = onPlaybackEnd(failure = true)
+
+    override fun onTitleChanged(title: String) = onAudioTitleUpdate(title)
 }
 

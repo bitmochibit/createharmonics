@@ -30,23 +30,6 @@ abstract class RecordPlayerBlockEntity(
     state: BlockState,
 ) : KineticBlockEntity(type, pos, state),
     Clearable {
-    companion object {
-        fun handlePlaybackEnd(
-            playerId: String,
-            failure: Boolean = false,
-        ) {
-            val blockEntity = RecordPlayerBehaviour.getBlockEntityByPlayerUUID(playerId)
-            blockEntity?.playerBehaviour?.onPlaybackEnd(failure)
-        }
-
-        fun handleAudioTitleChange(
-            playerId: String,
-            newTitle: String,
-        ) {
-            val blockEntity = RecordPlayerBehaviour.getBlockEntityByPlayerUUID(playerId)
-            blockEntity?.playerBehaviour?.onAudioTitleUpdate(newTitle)
-        }
-    }
 
     enum class PlaybackMode : INamedIconOptions {
         PLAY(AllIcons.I_PLAY),

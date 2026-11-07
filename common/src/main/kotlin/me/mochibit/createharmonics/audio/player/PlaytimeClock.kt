@@ -2,12 +2,17 @@ package me.mochibit.createharmonics.audio.player
 
 import net.minecraft.nbt.CompoundTag
 
-class PlaytimeClock() {
+interface PlaytimeSource {
+    val isPlaying: Boolean
+    val currentPlaytime: Double
+}
+
+class PlaytimeClock(): PlaytimeSource {
     private var offset: Double = 0.0
     private var _isPlaying: Boolean = false
     private var lastTickNano: Long = -1L
 
-    val currentPlaytime: Double get() {
+    override val currentPlaytime: Double get() {
         if (!_isPlaying || lastTickNano == -1L) return offset
         return offset + (System.nanoTime() - lastTickNano) / 1_000_000_000.0
     }
@@ -18,7 +23,7 @@ class PlaytimeClock() {
         updateValues(offset, playing)
     }
 
-    val isPlaying: Boolean get() = _isPlaying
+    override val isPlaying: Boolean get() = _isPlaying
 
     fun tick() {
         if (!_isPlaying) return
@@ -48,6 +53,7 @@ class PlaytimeClock() {
 
     fun pause() {
         if (!_isPlaying) return
+        offset = currentPlaytime
         _isPlaying = false
         lastTickNano = -1L
     }

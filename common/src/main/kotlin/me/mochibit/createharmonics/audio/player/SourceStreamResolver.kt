@@ -17,12 +17,9 @@ object SourceStreamResolver {
         val status: StreamStatus,
         val inputStream: InputStream?,
         val audioInfo: AudioInfo,
+        val startedAt: Double = 0.0,
     ) {
-        enum class StreamStatus {
-            FAILED,
-            FINISHED,
-            OK,
-        }
+        enum class StreamStatus { FAILED, FINISHED, OK }
     }
 
     /**
@@ -34,55 +31,32 @@ object SourceStreamResolver {
      */
     suspend fun resolveInputStream(
         source: AudioSource,
-        pos: Double = 0.0,
+        positionProvider: () -> Double,
     ): Result {
         val info = source.resolveAudioInfo()
-        if (ClientConfig.debugAudioPlayer.get()) {
-            "[INPUT STREAM RESOLVER] Info resolved :${info}".debug()
-        }
-        val adjustedPosition = if (info.isLive) 0.0 else pos
-        val result =
-            when (source) {
-                is HttpAudioSource, is ServerAudioSource -> {
-                    if (adjustedPosition > 0 && info.durationSeconds > 0 && adjustedPosition > info.durationSeconds) {
-                        Result(
-                            status = Result.StreamStatus.FINISHED,
-                            inputStream = null,
-                            info,
-                        )
-                    } else {
-                        Result(
-                            status = Result.StreamStatus.OK,
-                            inputStream =
-                                FFmpegExecutor
-                                    .makeStream(
-                                        info.audioUrl,
-                                        info.sampleRate.toInt(),
-                                        adjustedPosition,
-                                        info.httpHeaders,
-                                        info.isLive,
-                                    )?.first,
-                            info,
-                        )
-                    }
-                }
+        val adjustedPosition = if (info.isLive) 0.0 else positionProvider()
 
-                is StreamAudioSource -> {
-                    val stream = source.streamRetriever()
-                    if (adjustedPosition > 0) {
-                        val positionWithinDuration = skipStreamToOffset(stream, adjustedPosition, info.sampleRate.toInt())
-                        if (!positionWithinDuration) {
-                            return Result(status = Result.StreamStatus.FINISHED, inputStream = null, info)
-                        }
-                    }
-                    return Result(
-                        status = Result.StreamStatus.OK,
-                        inputStream = stream,
-                        info,
-                    )
+        return when (source) {
+            is HttpAudioSource, is ServerAudioSource -> {
+                if (adjustedPosition > 0 && info.durationSeconds > 0 && adjustedPosition > info.durationSeconds) {
+                    Result(Result.StreamStatus.FINISHED, null, info, adjustedPosition)
+                } else {
+                    val stream = FFmpegExecutor
+                        .makeStream(info.audioUrl, info.sampleRate.toInt(), adjustedPosition, info.httpHeaders, info.isLive)
+                        ?.first
+                    Result(Result.StreamStatus.OK, stream, info, adjustedPosition)
                 }
             }
-        return result
+
+            is StreamAudioSource -> {
+                val stream = source.streamRetriever()
+                if (adjustedPosition > 0 && !skipStreamToOffset(stream, adjustedPosition, info.sampleRate.toInt())) {
+                    Result(Result.StreamStatus.FINISHED, null, info, adjustedPosition)
+                } else {
+                    Result(Result.StreamStatus.OK, stream, info, adjustedPosition)
+                }
+            }
+        }
     }
 
     private suspend fun skipStreamToOffset(

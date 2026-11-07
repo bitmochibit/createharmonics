@@ -31,6 +31,7 @@ import net.neoforged.neoforge.event.level.BlockEvent
 import net.neoforged.neoforge.event.level.LevelEvent
 import net.neoforged.neoforge.event.server.ServerStartedEvent
 import net.neoforged.neoforge.event.server.ServerStoppedEvent
+import net.neoforged.neoforge.event.tick.ServerTickEvent
 import net.neoforged.neoforge.items.wrapper.RecipeWrapper
 import java.util.*
 import java.util.function.Supplier
@@ -48,6 +49,12 @@ class NeoforgeEventService : EventService {
         }
     }
 
+    override fun onServerTick(listener: (server: MinecraftServer) -> Unit) {
+        NeoForge.EVENT_BUS.addListener<ServerTickEvent.Post> { e ->
+            listener(e.server)
+        }
+    }
+
     override fun onGameShuttingDown(listener: () -> Unit) {
         NeoForge.EVENT_BUS.addListener<GameShuttingDownEvent> { e ->
             listener()
@@ -56,6 +63,12 @@ class NeoforgeEventService : EventService {
 
     override fun onPlayerJoin(listener: (player: Player) -> Unit) {
         NeoForge.EVENT_BUS.addListener<PlayerEvent.PlayerLoggedInEvent> { e ->
+            listener(e.entity)
+        }
+    }
+
+    override fun onPlayerLogout(listener: (player: Player) -> Unit) {
+        NeoForge.EVENT_BUS.addListener<PlayerEvent.PlayerLoggedOutEvent> { e ->
             listener(e.entity)
         }
     }
