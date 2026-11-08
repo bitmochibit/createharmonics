@@ -12,10 +12,20 @@ class PlaytimeClock(): PlaytimeSource {
     private var _isPlaying: Boolean = false
     private var lastTickNano: Long = -1L
 
-    override val currentPlaytime: Double get() {
-        if (!_isPlaying || lastTickNano == -1L) return offset
-        return offset + (System.nanoTime() - lastTickNano) / 1_000_000_000.0
-    }
+    @Volatile
+    var rate: Double = 1.0
+        set(value) {
+            if (value == field) return
+            offset = currentPlaytime
+            if (_isPlaying) lastTickNano = System.nanoTime()
+            field = value
+        }
+
+    override val currentPlaytime: Double
+        get() {
+            if (!_isPlaying || lastTickNano == -1L) return offset
+            return offset + (System.nanoTime() - lastTickNano) / 1e9 * rate
+        }
 
     constructor(nbt: CompoundTag) : this() {
         val offset = if (nbt.contains("ClockOffset")) nbt.getDouble("ClockOffset") else 0.0
@@ -28,9 +38,7 @@ class PlaytimeClock(): PlaytimeSource {
     fun tick() {
         if (!_isPlaying) return
         val now = System.nanoTime()
-        if (lastTickNano != -1L) {
-            offset += (now - lastTickNano) / 1_000_000_000.0
-        }
+        if (lastTickNano != -1L) offset += (now - lastTickNano) / 1e9 * rate
         lastTickNano = now
     }
 
@@ -68,18 +76,11 @@ class PlaytimeClock(): PlaytimeSource {
 fun CompoundTag.putClock(clock: PlaytimeClock) {
     putDouble("ClockOffset", clock.currentPlaytime)
     putBoolean("ClockWasPlaying", clock.isPlaying)
-    putLong("ClockSerializedAt", System.currentTimeMillis())
 }
 
 fun CompoundTag.updateClock(clock: PlaytimeClock) {
-    val offset = getDouble("ClockOffset")
-    val playing = getBoolean("ClockWasPlaying")
-    val serializedAt = if (contains("ClockSerializedAt")) getLong("ClockSerializedAt") else -1L
-    val transitSec =
-        if (playing && serializedAt != -1L) {
-            ((System.currentTimeMillis() - serializedAt) / 1000.0).coerceIn(0.0, 5.0)
-        } else {
-            0.0
-        }
-    clock.updateValues(offset + transitSec, playing)
+    clock.updateValues(
+        getDouble("ClockOffset"),
+        getBoolean("ClockWasPlaying"),
+    )
 }

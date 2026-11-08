@@ -21,6 +21,7 @@ import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.inventory.InventorySpec
 import me.mochibit.createharmonics.foundation.inventory.dropContents
 import me.mochibit.createharmonics.foundation.services.contentService
+import me.mochibit.createharmonics.foundation.supplier.values.FloatInterpolator
 import net.createmod.catnip.nbt.NBTHelper
 import net.minecraft.client.Minecraft
 import net.minecraft.core.Direction
@@ -39,6 +40,19 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
 import java.util.*
 import kotlin.math.abs
+import kotlin.time.Duration.Companion.seconds
+
+// todo: extract this for the movement behaviour too, so the formula is the same
+object RecordPlayerPitch {
+    fun fromRpm(rpm: Float, min: Float, max: Float): Float {
+        val s = abs(rpm)
+        return when {
+            s < 128f -> min + (1f - min) * ((s - 16f) / 112f).coerceIn(0f, 1f)
+            s > 128f -> 1f + (max - 1f) * ((s - 128f) / 128f).coerceIn(0f, 1f)
+            else -> 1f
+        }
+    }
+}
 
 class RecordPlayerBehaviour(
     val be: RecordPlayerBlockEntity,
@@ -72,12 +86,12 @@ class RecordPlayerBehaviour(
 
     private val maxPitch
         get() =
-            ModConfigs.client.maxPitch
+            ModConfigs.server.maxPitch
                 .get()
                 .toFloat()
     private val minPitch
         get() =
-            ModConfigs.client.minPitch
+            ModConfigs.server.minPitch
                 .get()
                 .toFloat()
 
@@ -94,33 +108,11 @@ class RecordPlayerBehaviour(
 
     private val currentPitch: Float
         get() {
-            // Use static pitch (1.0f) if in static pitch mode
-            if (isStaticPitchMode) {
-                return 1.0f
-            }
-
-            val currSpeed = abs(be.speed)
-
-            val minRpm = 16.0f
-            val midRpm = 128.0f
-            val maxRpm = 256.0f
-
-            return when {
-                currSpeed < midRpm -> {
-                    val t = (currSpeed - minRpm) / (midRpm - minRpm)
-                    minPitch + ((1.0f - minPitch) * t.coerceIn(0f, 1f))
-                }
-
-                currSpeed > midRpm -> {
-                    val t = (currSpeed - midRpm) / (maxRpm - midRpm)
-                    1.0f + ((maxPitch - 1.0f) * t.coerceIn(0f, 1f))
-                }
-
-                else -> {
-                    1.0f
-                }
-            }
+            return if (isStaticPitchMode) 1f else RecordPlayerPitch.fromRpm(be.speed, minPitch, maxPitch)
         }
+
+    private val serverPitch = FloatInterpolator(1f, 4.0.seconds)
+    private var serverPitchInit = false
 
     val soundRadius: Int
         get() {
@@ -318,6 +310,10 @@ class RecordPlayerBehaviour(
         val level = be.level ?: return
 
         level.onServer { serverLevel ->
+            if (!serverPitchInit) { serverPitch.snapTo(currentPitch); serverPitchInit = true }
+            serverPitch.setTarget(currentPitch)
+            serverPitch.tick()
+            clock.rate = serverPitch.getValue().toDouble()
             ensureUUID()
             ensureSession()
             if (clock.isPlaying) {
@@ -459,6 +455,7 @@ class RecordPlayerBehaviour(
         }
 
         level.onClient { level, virtual ->
+            clock.rate = currentPitch.toDouble()
             audioPlayer?.tick()
             if (playbackState == PlaybackState.PLAYING) {
                 lastActiveVolume = currentVolume

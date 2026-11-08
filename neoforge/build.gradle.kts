@@ -26,6 +26,11 @@ neoForge {
             client()
             jvmArguments.add("-XX:TieredStopAtLevel=1")
         }
+        register("clientDev2") {
+            client()
+            jvmArguments.add("-XX:TieredStopAtLevel=1")
+            programArguments.addAll("--username", "Dev2")
+        }
         register("clientDebug") {
             client()
             jvmArguments.add("-XX:TieredStopAtLevel=1")

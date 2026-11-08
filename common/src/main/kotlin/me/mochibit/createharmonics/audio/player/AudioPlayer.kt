@@ -103,6 +103,7 @@ class AudioPlayer(
 
 
     fun tick() {
+        localClock.rate = masterPitchInterpolator.getValue().toDouble()
         localClock.tick()
         spatial.tick(this)
     }
@@ -268,6 +269,11 @@ class AudioPlayer(
 
         localClock.play(if (intent.audioInfo.isLive) 0.0 else intent.atPos)
 
+        spatialContext?.let {
+            spatial.masterPitch.snapTo(it.targetPitch())
+            spatial.masterRadius.snapTo(it.targetRadius())
+            spatial.masterVolume.snapTo(it.targetVolume())
+        }
         withMainContext { soundManager.play(intent.soundInstance) }
         soundEventComposition.makeComposition(intent.soundInstance)
         notifier.audioTitleChanged(intent.audioInfo.displayName)

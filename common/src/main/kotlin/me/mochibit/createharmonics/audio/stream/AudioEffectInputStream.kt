@@ -71,7 +71,7 @@ class AudioEffectInputStream(
         private const val EFFECT_PROCESS_CHUNK_SIZE = 4096
     }
 
-    val cachedMaxPitch: Double by lazy { ModConfigs.client.maxPitch.get() }
+    val cachedMaxPitch: Double by lazy { ModConfigs.server.maxPitch.get() }
 
     private val bytesPerSecond get() = sampleRate * channels * 2 // 16-bit PCM
     private val rawBufferMin get() = (bytesPerSecond * 0.5).toInt()

@@ -190,7 +190,7 @@ class FFmpegExecutor private constructor() {
 
                 if (isLive) {
                     add("-max_muxing_queue_size")
-                    add((512 * ModConfigs.client.maxPitch.get()).toString())
+                    add((512 * ModConfigs.server.maxPitch.get()).toString())
                 }
 
                 add("-vn")

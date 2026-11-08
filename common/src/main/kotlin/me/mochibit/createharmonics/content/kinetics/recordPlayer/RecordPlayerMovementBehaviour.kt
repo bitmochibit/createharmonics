@@ -89,11 +89,11 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             private fun calculateControlledContraptionPitch(context: MovementContext): Float {
                 // Get min and max pitch from config
                 val minPitch =
-                    ModConfigs.client.minPitch
+                    ModConfigs.server.minPitch
                         .get()
                         .toFloat()
                 val maxPitch =
-                    ModConfigs.client.maxPitch
+                    ModConfigs.server.maxPitch
                         .get()
                         .toFloat()
 
@@ -136,11 +136,11 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
             private fun calculateDefaultPitch(animationSpeed: Float): Float {
                 // Get min and max pitch from config
                 val minPitch =
-                    ModConfigs.client.minPitch
+                    ModConfigs.server.minPitch
                         .get()
                         .toFloat()
                 val maxPitch =
-                    ModConfigs.client.maxPitch
+                    ModConfigs.server.maxPitch
                         .get()
                         .toFloat()
 

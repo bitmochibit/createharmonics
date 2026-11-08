@@ -32,6 +32,12 @@ object ServerConfig : ConfigBase() {
     lateinit var maxJukeboxSoundRange: ConfigInt
         private set
 
+    lateinit var minPitch: ConfigFloat
+        private set
+
+    lateinit var maxPitch: ConfigFloat
+        private set
+
     private fun byteSize(
         name: String,
         defaultBytes: Long,
@@ -95,6 +101,10 @@ object ServerConfig : ConfigBase() {
             "maxSoundRange",
             "Maximum sound range (in blocks) for the Andesite Jukebox.",
         )
+
+        minPitch = f(0.5f, 0.1f, 1.0f, "minPitch", "Minimum pitch for audio playback")
+
+        maxPitch = f(2.0f, 1.0f, 4.0f, "maxPitch", "Maximum pitch for audio playback")
     }
 
     fun getRecordDurability(recordType: RecordType): Int? {
