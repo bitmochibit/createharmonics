@@ -11,6 +11,7 @@ import me.mochibit.createharmonics.audio.effect.EffectPreset
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.content.records.RecordType
+import me.mochibit.createharmonics.content.uploader.AmethystCatalystBlockEntity
 import me.mochibit.createharmonics.foundation.registry.ModItems
 import net.createmod.catnip.math.Pointing
 import net.createmod.ponder.api.PonderPalette
@@ -21,6 +22,7 @@ import net.minecraft.core.Direction
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.LeverBlock
 import net.minecraft.world.phys.AABB
@@ -628,6 +630,83 @@ object PonderScenes {
             .text("If in play mode, redstone will only control the volume, but playback will stop when the contraption stops")
             .placeNearTarget()
             .pointAt(topOfPlayer)
+        scene.idle(90)
+
+        scene.markAsFinished()
+    }
+    fun amethystCatalyst(
+        builder: SceneBuilder,
+        util: SceneBuildingUtil,
+    ) {
+        val scene = CreateSceneBuilder(builder)
+        scene.title(
+            "amethyst_catalyst",
+            "Uploading custom audio",
+        )
+        val plateSize = 7
+        val catalyst = util.grid().at(3, 1, 3)
+
+        val plateOffsetX = catalyst.x - plateSize / 2
+        val plateOffsetZ = catalyst.z - plateSize / 2
+
+        scene.configureBasePlate(plateOffsetX, plateOffsetZ, plateSize)
+        scene.addKeyframe()
+        scene.showBasePlate()
+        scene.idle(5)
+        scene.world().showSection(util.select().position(catalyst), Direction.DOWN)
+        scene
+            .overlay()
+            .showText(60)
+            .text("Amethyst Catalysts are blocks that allow you to upload custom audio to the server.")
+            .placeNearTarget()
+            .pointAt(catalyst.center)
+        scene.idle(70)
+
+        scene.addKeyframe()
+        val fallingItem = ItemStack(Items.AMETHYST_SHARD)
+        val fallingItemLink =
+            scene.world().createItemEntity(util.vector().centerOf(4, 4, 4), util.vector().of(.0, -0.1, .0), fallingItem)
+        scene.idle(9)
+        scene.world().modifyEntity(fallingItemLink, Entity::discard)
+        scene.world().modifyBlockEntity(
+            catalyst,
+            AmethystCatalystBlockEntity::class.java,
+        ) {
+            pte: AmethystCatalystBlockEntity ->
+            pte.insertCrystal(ItemStack(Items.AMETHYST_SHARD))
+        }
+        scene.idle(20)
+
+        scene.addKeyframe()
+
+        scene
+            .overlay()
+            .showText(40)
+            .text("To operate, it requires to have an inserted amethyst shard.")
+            .placeNearTarget()
+            .pointAt(catalyst.center)
+
+        scene.idle(50)
+
+        scene
+            .overlay()
+            .showText(40)
+            .text("After that, right-click it, choose your file and press upload. After that, you can also rename the file.")
+            .placeNearTarget()
+            .pointAt(catalyst.center)
+
+        scene.idle(90)
+
+        scene.addKeyframe()
+
+        /*scene.world().modifyBlockEntity(
+            catalyst,
+            AmethystCatalystBlockEntity::class.java,
+        ) {
+                pte: AmethystCatalystBlockEntity ->
+            pte.beamFrame(50f)
+        }*/ //TODO: add laser beam there
+
         scene.idle(90)
 
         scene.markAsFinished()

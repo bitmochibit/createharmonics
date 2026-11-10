@@ -46,6 +46,13 @@ object ModPonders : Registrable {
             PonderScenes::recordPressBase,
             AllCreatePonderTags.KINETIC_APPLIANCES,
         )
+
+        helper.addStoryBoard(
+            ModBlocks.AMETHYST_CATALYST,
+            "amethyst_catalyst",
+            PonderScenes::amethystCatalyst,
+            AllCreatePonderTags.KINETIC_APPLIANCES,
+        )
     }
 
     override fun register(registry: Registry<*>?) {
