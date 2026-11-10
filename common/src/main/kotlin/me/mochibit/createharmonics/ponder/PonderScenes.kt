@@ -681,21 +681,23 @@ object PonderScenes {
 
         scene
             .overlay()
-            .showText(40)
-            .text("To operate, it requires to have an inserted amethyst shard.")
+            .showText(90)
+            .text("To operate, it requires to have an inserted amethyst shard. \nTo insert one, right-click the top side with said crystal.")
             .placeNearTarget()
             .pointAt(catalyst.center)
 
-        scene.idle(50)
+        scene.idle(100)
+
+        scene.addKeyframe()
 
         scene
             .overlay()
-            .showText(40)
+            .showText(60)
             .text("After that, right-click it, choose your file and press upload. After that, you can also rename the file.")
             .placeNearTarget()
             .pointAt(catalyst.center)
 
-        scene.idle(90)
+        scene.idle(70)
 
         scene.addKeyframe()
 
