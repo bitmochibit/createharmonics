@@ -24,8 +24,11 @@ import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.network.chat.Component
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.util.tinyfd.TinyFileDialogs
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.thread
 
 class AmethystCatalystScreen(
     private val be: AmethystCatalystBlockEntity,
@@ -42,6 +45,8 @@ class AmethystCatalystScreen(
         const val ACTION_Y = 55
 
         const val EDIT_X = 34
+
+        val dialogOpen = AtomicBoolean(false)
     }
 
     private sealed interface Source {
@@ -197,24 +202,34 @@ class AmethystCatalystScreen(
     }
 
     private fun pickFile() {
-        if (!canInteract) return
-        Thread({
-            val chosen = MemoryStack.stackPush().use { stack ->
-                val filters = stack.mallocPointer(3)
-                listOf("*.mp3", "*.ogg", "*.wav").forEach { filters.put(stack.UTF8(it)) }
-                filters.flip()
-                TinyFileDialogs.tinyfd_openFileDialog("Audio", null, filters, "Audio files", false)
-            }
-            chosen?.let { path ->
-                Minecraft.getInstance().execute {
-                    if (!canInteract) return@execute
-                    val file = Path.of(path)
-                    picker.selectNew()
-                    picker.text = file.fileName.toString()
-                    pickedFile = file
+        if (!canInteract || !dialogOpen.compareAndSet(false, true)) return
+        thread(name = "createharmonics-file-picker", isDaemon = true) {
+            try {
+                val chosen = MemoryStack.stackPush().use { stack ->
+                    val filters = stack.mallocPointer(3)
+                    listOf("*.mp3", "*.ogg", "*.wav").forEach { filters.put(stack.UTF8(it)) }
+                    filters.flip()
+                    TinyFileDialogs.tinyfd_openFileDialog(
+                        "Audio",
+                        System.getProperty("user.home") + File.separator,
+                        filters,
+                        "Audio files",
+                        false,
+                    )
                 }
+                chosen?.let { path ->
+                    Minecraft.getInstance().execute {
+                        if (!canInteract) return@execute
+                        val file = Path.of(path)
+                        picker.selectNew()
+                        picker.text = file.fileName.toString()
+                        pickedFile = file
+                    }
+                }
+            } finally {
+                dialogOpen.set(false)
             }
-        }, "createharmonics-file-picker").apply { isDaemon = true }.start()
+        }
     }
 
     // tick
@@ -232,7 +247,7 @@ class AmethystCatalystScreen(
             else -> busyName
         }
 
-        folderButton.active = usable
+        folderButton.active = usable && !dialogOpen.get()
         refreshButton.active = usable
         applyActionUi(actionUi(source, usable))
 
