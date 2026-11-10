@@ -4,15 +4,11 @@ import com.simibubi.create.content.kinetics.base.KineticBlock
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
 import com.simibubi.create.content.kinetics.belt.behaviour.DirectBeltInputBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
-import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.INamedIconOptions
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollOptionBehaviour
-import com.simibubi.create.foundation.gui.AllIcons
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
 import me.mochibit.createharmonics.config.ModStressConfig
 import me.mochibit.createharmonics.foundation.extension.lerpTo
-import me.mochibit.createharmonics.foundation.inventory.GenericInventory
 import me.mochibit.createharmonics.foundation.inventory.StorageInventory
-import me.mochibit.createharmonics.foundation.registry.ModIcons
 import net.createmod.catnip.math.AngleHelper
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -24,32 +20,14 @@ import net.minecraft.world.level.block.state.BlockState
 import net.neoforged.neoforge.items.ItemStackHandler
 import kotlin.math.abs
 
+
 abstract class RecordPlayerBlockEntity(
     type: BlockEntityType<*>,
     pos: BlockPos,
     state: BlockState,
 ) : KineticBlockEntity(type, pos, state),
     Clearable {
-
-    enum class PlaybackMode : INamedIconOptions {
-        PLAY(AllIcons.I_PLAY),
-        PAUSE(AllIcons.I_PAUSE),
-        PLAY_STATIC_PITCH(ModIcons.I_PLAY_PITCH_STATIC),
-        PAUSE_STATIC_PITCH(ModIcons.I_PAUSE_PITCH_STATIC),
-        ;
-
-        private val translationKey: String
-        private val icon: AllIcons
-
-        constructor(icon: AllIcons) {
-            this.icon = icon
-            this.translationKey = "createharmonics.record_player.playback_mode." + name.lowercase()
-        }
-
-        override fun getIcon(): AllIcons = icon
-
-        override fun getTranslationKey(): String = translationKey
-    }
+    private companion object { const val DEGREES_PER_TICK_PER_RPM = 1f / 600f }
 
     lateinit var playerBehaviour: RecordPlayerBehaviour
         private set
@@ -67,19 +45,14 @@ abstract class RecordPlayerBlockEntity(
         super.tick()
         if (level?.isClientSide == true && !VisualizationManager.supportsVisualization(level)) {
             visualSpeed = visualSpeed.lerpTo(this.speed, visualSpeedSmoothFactor)
+            previousRotation = accumulatedRotation
+            accumulatedRotation = (accumulatedRotation + visualSpeed * DEGREES_PER_TICK_PER_RPM) % 360.0
         }
-
         refreshNetworkStress()
     }
 
-    fun getRotationAngle(partialTicks: Float): Float {
-        previousRotation = accumulatedRotation
-        val deg = visualSpeed / (360 * 5)
-        accumulatedRotation += deg
-        accumulatedRotation %= 360.0
-
-        return AngleHelper.angleLerp(partialTicks.toDouble(), previousRotation, accumulatedRotation)
-    }
+    fun getRotationAngle(partialTicks: Float): Float =
+        AngleHelper.angleLerp(partialTicks.toDouble(), previousRotation, accumulatedRotation)
 
     override fun remove() {
         super.remove()
@@ -134,35 +107,13 @@ abstract class RecordPlayerBlockEntity(
     }
 
     override fun calculateStressApplied(): Float {
-        val baseImpact = ModStressConfig.getImpact(stressConfigKey)?.asDouble?.toFloat() ?: 0.0f
-
-        val applied =
-            when (playerBehaviour.playbackState) {
-                PlaybackState.STOPPED -> {
-                    0f
-                }
-
-                PlaybackState.PAUSED -> {
-                    if (playerBehaviour.speedInterrupted) {
-                        calculatePlayingStress(baseImpact)
-                    } else {
-                        baseImpact / 4f
-                    }
-                }
-
-                PlaybackState.PLAYING -> {
-                    calculatePlayingStress(baseImpact)
-                }
-            }
-
+        val base = ModStressConfig.getImpact(stressConfigKey)?.asDouble?.toFloat() ?: 0f
+        val applied = RecordPlayerStress.impact(
+            base, playerBehaviour.playbackState, playerBehaviour.speedInterrupted,
+            playerBehaviour.isStaticPitchMode, abs(theoreticalSpeed),
+        )
         lastStressApplied = applied
         return applied
-    }
-
-    private fun calculatePlayingStress(baseImpact: Float): Float {
-        if (!playerBehaviour.isStaticPitchMode) return baseImpact
-        val rpm = abs(theoreticalSpeed)
-        return if (rpm in (0f + Float.MIN_VALUE)..128f) baseImpact * (128f / rpm) else baseImpact
     }
 
     val itemHandler: StorageInventory

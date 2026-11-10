@@ -12,7 +12,6 @@ import dev.engine_room.flywheel.lib.instance.InstanceTypes
 import dev.engine_room.flywheel.lib.instance.TransformedInstance
 import dev.engine_room.flywheel.lib.model.Models
 import dev.engine_room.flywheel.lib.model.baked.PartialModel
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour.Companion.Utils.isPauseModeWithRedstone
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordType
 import me.mochibit.createharmonics.foundation.behaviour.movement.getContextData
@@ -21,7 +20,6 @@ import me.mochibit.createharmonics.foundation.registry.ModPartialModels
 import net.createmod.catnip.animation.AnimationTickHolder
 import net.createmod.catnip.math.AngleHelper
 import net.minecraft.core.Direction
-import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 
@@ -79,20 +77,22 @@ class RecordPlayerActorVisual(
     }
 
     override fun tick() {
+        val data = context.getContextData<RecordPlayerContextData>()
+
         val recordItem = getRecord()
         val newRecordType = recordItem?.recordType
-
         if (newRecordType != cachedRecordType) {
             cachedRecordType = newRecordType
             updateRecordModel(newRecordType)
         }
-        val speed =
-            when {
-                context.disabled -> 0f
-                context.getAnimationSpeed() != 0f -> context.getAnimationSpeed()
-                isPauseModeWithRedstone(context) -> -60f
-                else -> 0f
-            }
+
+        val animationSpeed = context.animationSpeed
+        val speed = when {
+            context.disabled -> 0f
+            animationSpeed != 0f -> animationSpeed
+            data?.settings?.let { it.mode.isPause && it.isPowered } == true -> -60f
+            else -> 0f
+        }
 
         previousRotation = rotation
 

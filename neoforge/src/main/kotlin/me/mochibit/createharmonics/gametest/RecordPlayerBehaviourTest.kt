@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.gametest
 
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity
 import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.PlaybackMode
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBlockEntity
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordType
@@ -92,7 +93,7 @@ class RecordPlayerBehaviourTest {
         val playerBe = helper.getBlockEntity(playerPos) as? RecordPlayerBlockEntity
             ?: return helper.fail("Record Player not found!")
         val playerBehaviour = playerBe.playerBehaviour
-        playerBehaviour.be.playbackMode.value = RecordPlayerBlockEntity.PlaybackMode.PAUSE.ordinal
+        playerBehaviour.be.playbackMode.value = PlaybackMode.PAUSE.ordinal
         playerBehaviour.insertRecord(ItemStack(recordItem))
 
         helper.runAfterDelay(600) {

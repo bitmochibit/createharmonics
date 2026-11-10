@@ -14,3 +14,10 @@ interface AudioSpatialContext {
 
     fun level(): Level?
 }
+
+fun AudioPlayer.bindSpatial(key: Any, clock: PlaytimeClock, context: AudioSpatialContext) {
+    if (spatialContextKey === key) return
+    sharedTimeline = clock
+    spatialContext = context
+    spatialContextKey = key
+}

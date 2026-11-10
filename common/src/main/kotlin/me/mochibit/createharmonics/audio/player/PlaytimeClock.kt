@@ -1,5 +1,6 @@
 package me.mochibit.createharmonics.audio.player
 
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerNbtKeys
 import net.minecraft.nbt.CompoundTag
 
 interface PlaytimeSource {
@@ -7,70 +8,45 @@ interface PlaytimeSource {
     val currentPlaytime: Double
 }
 
-class PlaytimeClock(): PlaytimeSource {
-    private var offset: Double = 0.0
-    private var _isPlaying: Boolean = false
-    private var lastTickNano: Long = -1L
-
-    @Volatile
-    var rate: Double = 1.0
-        set(value) {
-            if (value == field) return
-            offset = currentPlaytime
-            if (_isPlaying) lastTickNano = System.nanoTime()
-            field = value
-        }
-
-    override val currentPlaytime: Double
-        get() {
-            if (!_isPlaying || lastTickNano == -1L) return offset
-            return offset + (System.nanoTime() - lastTickNano) / 1e9 * rate
-        }
+class PlaytimeClock() : PlaytimeSource {
+    private class Snap(val offset: Double, val playing: Boolean, val anchor: Long, val rate: Double) {
+        fun at(now: Long = System.nanoTime()) =
+            if (!playing || anchor == -1L) offset else offset + (now - anchor) / 1e9 * rate
+    }
+    @Volatile private var snap = Snap(0.0, false, -1L, 1.0)
 
     constructor(nbt: CompoundTag) : this() {
-        val offset = if (nbt.contains("ClockOffset")) nbt.getDouble("ClockOffset") else 0.0
-        val playing = if (nbt.contains("ClockWasPlaying")) nbt.getBoolean("ClockWasPlaying") else false
-        updateValues(offset, playing)
+        updateValues(
+            if (nbt.contains(RecordPlayerNbtKeys.CLOCK_OFFSET)) nbt.getDouble(RecordPlayerNbtKeys.CLOCK_OFFSET) else 0.0,
+            nbt.contains("ClockWasPlaying") && nbt.getBoolean("ClockWasPlaying"),
+        )
     }
 
-    override val isPlaying: Boolean get() = _isPlaying
+    var rate: Double
+        get() = snap.rate
+        @Synchronized set(v) {
+            val s = snap; if (v == s.rate) return
+            val now = System.nanoTime()
+            snap = Snap(s.at(now), s.playing, if (s.playing) now else -1L, v)
+        }
 
-    fun tick() {
-        if (!_isPlaying) return
-        val now = System.nanoTime()
-        if (lastTickNano != -1L) offset += (now - lastTickNano) / 1e9 * rate
-        lastTickNano = now
+    override val currentPlaytime get() = snap.at()
+    override val isPlaying get() = snap.playing
+
+    @Synchronized fun tick() {
+        val s = snap; if (!s.playing) return
+        val now = System.nanoTime(); snap = Snap(s.at(now), true, now, s.rate)
     }
-
-    fun updateValues(
-        offset: Double,
-        isPlaying: Boolean,
-    ) {
-        this.offset = offset
-        this._isPlaying = isPlaying
-        this.lastTickNano = if (isPlaying) System.nanoTime() else -1L
+    @Synchronized fun updateValues(offset: Double, isPlaying: Boolean) {
+        snap = Snap(offset, isPlaying, if (isPlaying) System.nanoTime() else -1L, snap.rate)
     }
-
-    fun getValues(): Pair<Double, Boolean> = currentPlaytime to _isPlaying
-
-    fun play(from: Double = offset) {
-        offset = from
-        lastTickNano = System.nanoTime()
-        _isPlaying = true
+    @Synchronized fun play(from: Double = snap.offset) { snap = Snap(from, true, System.nanoTime(), snap.rate) }
+    @Synchronized fun pause() {
+        val s = snap; if (!s.playing) return
+        snap = Snap(s.at(), false, -1L, s.rate)
     }
-
-    fun pause() {
-        if (!_isPlaying) return
-        offset = currentPlaytime
-        _isPlaying = false
-        lastTickNano = -1L
-    }
-
-    fun stop() {
-        offset = 0.0
-        _isPlaying = false
-        lastTickNano = -1L
-    }
+    @Synchronized fun stop() { snap = Snap(0.0, false, -1L, snap.rate) }
+    fun getValues(): Pair<Double, Boolean> = snap.let { it.at() to it.playing }
 }
 
 fun CompoundTag.putClock(clock: PlaytimeClock) {

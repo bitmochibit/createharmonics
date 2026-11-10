@@ -9,21 +9,13 @@ import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import com.simibubi.create.infrastructure.config.AllConfigs
 import dev.engine_room.flywheel.api.visualization.VisualizationContext
 import dev.engine_room.flywheel.api.visualization.VisualizationManager
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
 import me.mochibit.createharmonics.audio.AudioPlayerManager
-import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
+import me.mochibit.createharmonics.audio.ClientPlaybackController
 import me.mochibit.createharmonics.audio.player.*
 import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.config.ServerConfig
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour.Companion.Suppliers.pitchSupplierFactory
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour.Companion.Suppliers.radiusSupplierFactory
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour.Companion.Suppliers.volumeSupplierFactory
-import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerMovementBehaviour.Companion.Utils.isPauseModeWithRedstone
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.RecordPlayerInventory.MAIN_RECORD_SLOT
 import me.mochibit.createharmonics.content.records.RecordUtilities
-import me.mochibit.createharmonics.content.records.RecordUtilities.playFromRecord
-import me.mochibit.createharmonics.foundation.async.every
-import me.mochibit.createharmonics.foundation.async.thenLaunch
 import me.mochibit.createharmonics.foundation.behaviour.movement.SmartMovementBehaviour
 import me.mochibit.createharmonics.foundation.behaviour.movement.Stainable
 import me.mochibit.createharmonics.foundation.behaviour.movement.StopAwareData
@@ -31,14 +23,13 @@ import me.mochibit.createharmonics.foundation.extension.*
 import me.mochibit.createharmonics.foundation.network.packet.AudioPlayerContextStopPacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
+import me.mochibit.createharmonics.foundation.warn
 import net.createmod.catnip.nbt.NBTHelper
-import net.minecraft.client.Minecraft
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
 import net.minecraft.core.particles.ItemParticleOption
 import net.minecraft.core.particles.ParticleTypes
-import net.minecraft.core.particles.ShriekParticleOption
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
@@ -48,27 +39,44 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
 import net.neoforged.neoforge.items.ItemHandlerHelper
 import net.neoforged.neoforge.items.wrapper.CombinedInvWrapper
-import kotlin.math.abs
-import kotlin.random.Random
-import kotlin.time.Duration.Companion.seconds
 
-data class RecordPlayerContextData(
-    val pitchSupplier: FloatSupplier,
-    val volumeSupplier: FloatSupplier,
-    val radiusSupplier: FloatSupplier,
+class RecordPlayerContextData(
+    var settings: RecordPlayerSettings,
     val clock: PlaytimeClock,
-    var particleJob: Job? = null,
-    var movementPlayerInitialized: Boolean = false,
-    var heldItemStack: ItemStack = ItemStack.EMPTY,
-    var playbackState: PlaybackState = PlaybackState.STOPPED,
-    var gracefulStopJob: Job? = null,
-    var ticksSinceLastClockSave: Int = 0,
-    var session: ServerPlaybackSession? = null,
-    var restartRequested: Boolean = false,
-    override var isDirty: Boolean = false,
-    override var stopMovingCalled: Boolean = false,
+    initialState: PlaybackState,
+    animationSpeed: () -> Float,
+    pitchCurve: () -> PitchCurve,
 ) : Stainable, StopAwareData, PlaybackSessionOwner {
+    override var isDirty = false
+    override var stopMovingCalled = false
 
+    var playbackState = initialState
+        set(v) {
+            if (field != v) {
+                field = v; markDirty()
+            }
+        }
+
+    var heldItemStack: ItemStack = ItemStack.EMPTY
+    val gate = PlaybackGate()
+    var session: ServerPlaybackSession? = null
+    var restartRequested = false
+    var contraptionAlive = true
+    var ticksSinceClockSave = 0
+    var particleCooldown = 0
+
+    val pitchSupplier = FloatSupplier {
+        if (settings.mode.isStaticPitch) 1f
+        else pitchCurve().evaluate(
+            animationSpeed(),
+            ModConfigs.server.minPitch.get().toFloat(),
+            ModConfigs.server.maxPitch.get().toFloat(),
+        )
+    }
+    val volumeSupplier = FloatSupplier { settings.volume }
+    val radiusSupplier = FloatSupplier { settings.radius(ServerConfig.maxJukeboxSoundRange.get()) }
+
+    override val isAlive get() = contraptionAlive
     override fun onClockChanged() = markDirty()
     override fun onAllEnded() {
         restartRequested = true
@@ -79,283 +87,64 @@ data class RecordPlayerContextData(
     }
 }
 
-
 class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContextData>() {
-    companion object {
-        const val PLAYER_UUID_KEY = "RecordPlayerUUID"
-        private const val SPEED_THRESHOLD = 0.01f
 
-        object Suppliers {
-            private fun calculateControlledContraptionPitch(context: MovementContext): Float {
-                // Get min and max pitch from config
-                val minPitch =
-                    ModConfigs.server.minPitch
-                        .get()
-                        .toFloat()
-                val maxPitch =
-                    ModConfigs.server.maxPitch
-                        .get()
-                        .toFloat()
-
-                // Use animation speed as a proxy for rotation speed
-                val rotationSpeed = abs(context.animationSpeed)
-
-                // Define speed thresholds based on actual train animation speed values
-                // Observed values: min ~100, half max ~600, max ~1100
-                val maxSpeed = 1200f // Slightly higher than max to leave headroom
-                val relativeSpeed = (rotationSpeed / maxSpeed).coerceIn(0f, 1f)
-
-                // Define the curve: rise from 0-25%, plateau 25-75%, rise 75-100%
-                val lowerThreshold = 0.25f // Reach pitch 1.0 at 25% speed (~300 animation speed)
-                val upperThreshold = 0.75f // Start rising to maxPitch at 75% speed (~900 animation speed)
-
-                return when {
-                    // Rising phase: 0-25% speed -> minPitch to 1.0
-                    relativeSpeed < lowerThreshold -> {
-                        val t = (relativeSpeed / lowerThreshold).coerceIn(0f, 1f)
-                        minPitch + ((1.0f - minPitch) * t)
-                    }
-
-                    // Plateau phase: 25-75% speed -> stay at 1.0
-                    relativeSpeed in lowerThreshold..upperThreshold -> {
-                        1.0f
-                    }
-
-                    // Rising phase: 75-100% speed -> 1.0 to maxPitch
-                    relativeSpeed > upperThreshold -> {
-                        val t = ((relativeSpeed - upperThreshold) / (1.0f - upperThreshold)).coerceIn(0f, 1f)
-                        1.0f + ((maxPitch - 1.0f) * t)
-                    }
-
-                    else -> {
-                        1.0f
-                    }
-                }
-            }
-
-            private fun calculateDefaultPitch(animationSpeed: Float): Float {
-                // Get min and max pitch from config
-                val minPitch =
-                    ModConfigs.server.minPitch
-                        .get()
-                        .toFloat()
-                val maxPitch =
-                    ModConfigs.server.maxPitch
-                        .get()
-                        .toFloat()
-
-                val speed = abs(animationSpeed)
-
-                // Define speed thresholds based on actual animation speed values
-                // Observed values for trains: min ~100, half max ~600, max ~1100
-                val maxSpeed = 1200f // Slightly higher than max to leave headroom
-                val relativeSpeed = (speed / maxSpeed).coerceIn(0f, 1f)
-
-                // Define the curve: rise from 0-25%, plateau 25-75%, rise 75-100%
-                val lowerThreshold = 0.25f // Reach pitch 1.0 at 25% speed (~300 animation speed)
-                val upperThreshold = 0.65f // Start rising to maxPitch at 75% speed (~900 animation speed)
-
-                return when {
-                    // Rising phase: 0-25% speed -> minPitch to 1.0
-                    relativeSpeed < lowerThreshold -> {
-                        val t = (relativeSpeed / lowerThreshold).coerceIn(0f, 1f)
-                        minPitch + ((1.0f - minPitch) * t)
-                    }
-
-                    // Plateau phase: 25-75% speed -> stay at 1.0
-                    relativeSpeed in lowerThreshold..upperThreshold -> {
-                        1.0f
-                    }
-
-                    // Rising phase: 75-100% speed -> 1.0 to maxPitch
-                    relativeSpeed > upperThreshold -> {
-                        val t = ((relativeSpeed - upperThreshold) / (1.0f - upperThreshold)).coerceIn(0f, 1f)
-                        1.0f + ((maxPitch - 1.0f) * t)
-                    }
-
-                    else -> {
-                        1.0f
-                    }
-                }
-            }
-
-            fun pitchSupplierFactory(context: MovementContext): FloatSupplier {
-                val playbackMode =
-                    RecordPlayerBlockEntity.PlaybackMode.entries[context.blockEntityData.getInt("ScrollValue")]
-
-                if (playbackMode == RecordPlayerBlockEntity.PlaybackMode.PLAY_STATIC_PITCH ||
-                    playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
-                ) {
-                    return FloatSupplier { 1.0f }
-                }
-
-                return FloatSupplier {
-                    when (context.contraption.entity) {
-                        is ControlledContraptionEntity -> {
-                            calculateControlledContraptionPitch(context)
-                        }
-
-                        else -> {
-                            // Fallback to animation speed for other contraption types
-                            calculateDefaultPitch(context.animationSpeed)
-                        }
-                    }
-                }
-            }
-
-            fun volumeSupplierFactory(context: MovementContext): FloatSupplier {
-                val redstonePower = context.blockEntityData.getInt("RedstonePower")
-                return FloatSupplier {
-                    if (redstonePower <= 0) return@FloatSupplier 1f
-                    redstonePower.toFloat().remapTo(1f, 15f, 0.1f, 1.0f)
-                }
-            }
-
-            fun radiusSupplierFactory(context: MovementContext): FloatSupplier {
-                val redstonePower = context.blockEntityData.getInt("RedstonePower")
-                return FloatSupplier {
-                    if (redstonePower <= 0) return@FloatSupplier 16f
-                    redstonePower.remapTo(0, 15, 4, ServerConfig.maxJukeboxSoundRange.get()).toFloat()
-                }
-            }
-        }
-
-        object Utils {
-            fun isPauseModeWithRedstone(context: MovementContext): Boolean {
-                val playbackMode =
-                    RecordPlayerBlockEntity.PlaybackMode.entries[context.blockEntityData.getInt("ScrollValue")]
-                val isPauseMode =
-                    playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE ||
-                            playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
-
-                val isPowered = context.blockEntityData.getInt("RedstonePower") > 0
-                return isPauseMode && isPowered
-            }
+    override fun contextDataFactory(context: MovementContext) = RecordPlayerContextData(
+        settings = RecordPlayerSettings.from(context.blockEntityData),
+        clock = PlaytimeClock(context.blockEntityData),
+        initialState = if (context.blockEntityData.contains(RecordPlayerNbtKeys.PLAYBACK_STATE))
+            NBTHelper.readEnum(context.blockEntityData, RecordPlayerNbtKeys.PLAYBACK_STATE, PlaybackState::class.java)
+        else PlaybackState.STOPPED,
+        animationSpeed = { context.animationSpeed },
+        pitchCurve = {
+            if (context.contraption?.entity is ControlledContraptionEntity) PitchCurve.CONTROLLED_CONTRAPTION
+            else PitchCurve.VEHICLE_CONTRAPTION
+        },
+    ).also { data ->
+        context.world.onServer { _ ->
+            playerUuid(context)?.let { data.session = PlaybackSessions.acquire(it, data, data.clock) }
         }
     }
 
-    override fun contextDataFactory(context: MovementContext): RecordPlayerContextData =
-        RecordPlayerContextData(
-            pitchSupplier = pitchSupplierFactory(context),
-            volumeSupplier = volumeSupplierFactory(context),
-            radiusSupplier = radiusSupplierFactory(context),
-            playbackState =
-                if (context.blockEntityData.contains("PlaybackState")) {
-                    val state = NBTHelper.readEnum(context.blockEntityData, "PlaybackState", PlaybackState::class.java)
-                    state
-                } else {
-                    PlaybackState.STOPPED
-                },
-            clock = PlaytimeClock(context.blockEntityData),
-        ).apply {
-            context.world.onServer { _ ->
-                session = PlaybackSessions.acquire(getPlayerUUID(context), this@apply, clock)
-            }
-            context.world.onClient { level, virtual ->
-                this.particleJob =
-                    10.ticks().every {
-                        if (!level.isClientSide) return@every
-                        if (Minecraft.getInstance().isPaused) return@every
-                        val playerUID = getPlayerUUID(context)
-                        val audioPlayer = AudioPlayerManager.get(playerUID) ?: return@every
-                        val displacement = Random.nextInt(4) / 24f
-
-                        val position = context.position ?: return@every
-                        val entity = context.contraption?.entity ?: return@every
-                        if (this@apply.playbackState != PlaybackState.PLAYING) {
-                            return@every
-                        }
-
-                        if (!entity.isAlive) {
-                            cancel()
-                            return@every
-                        }
-
-                        val facing = context.state.getValue(BlockStateProperties.FACING)
-                        val localDirection =
-                            Vec3(facing.stepX.toDouble(), facing.stepY.toDouble(), facing.stepZ.toDouble())
-                        val worldDirection = context.rotation.apply(localDirection).normalize()
-                        val velocity = entity.deltaMovement
-
-                        val spawnPos =
-                            position
-                                .add(worldDirection.scale(0.7 + displacement))
-                                .add(velocity)
-
-                        when (audioPlayer.state.value) {
-                            PlayerState.LOADING -> {
-                                context.world.addParticle(
-                                    ShriekParticleOption(2),
-                                    false,
-                                    spawnPos.x,
-                                    spawnPos.y,
-                                    spawnPos.z,
-                                    0.0,
-                                    12.5,
-                                    0.0,
-                                )
-                            }
-
-                            PlayerState.PLAYING -> {
-                                context.world.addParticle(
-                                    ParticleTypes.NOTE,
-                                    spawnPos.x + velocity.x,
-                                    spawnPos.y + velocity.y,
-                                    spawnPos.z + velocity.z,
-                                    worldDirection.x * 0.5,
-                                    worldDirection.y * 0.5,
-                                    worldDirection.z * 0.5,
-                                )
-                            }
-
-                            else -> {}
-                        }
-                    }
-            }
-        }
-
     override fun onStopTracking(blockEntityData: CompoundTag) {
-        if (!blockEntityData.contains(PLAYER_UUID_KEY)) return
-        val playerId = blockEntityData.getUUID(PLAYER_UUID_KEY).toString()
-        ModPackets.broadcast(AudioPlayerContextStopPacket(playerId))
+        if (!blockEntityData.contains(RecordPlayerNbtKeys.UUID)) return
+        ModPackets.broadcast(AudioPlayerContextStopPacket(blockEntityData.getUUID(RecordPlayerNbtKeys.UUID).toString()))
     }
 
     override fun write(
-        target: CompoundTag,
-        contextData: RecordPlayerContextData,
-        context: MovementContext,
-        syncType: SyncType,
-        provider: HolderLookup.Provider,
+        target: CompoundTag, contextData: RecordPlayerContextData, context: MovementContext,
+        syncType: SyncType, provider: HolderLookup.Provider
     ) {
         target.apply {
             putClock(contextData.clock)
-            put("HeldRecordItem", contextData.heldItemStack.toNBT(provider))
-            if (syncType != SyncType.DISK) {
-                // PlayState syncs only over network (otherwise it overloads the block's playstate when disassembled lol)
-                writeEnum("PlaybackStateMoving", contextData.playbackState)
-            }
+            put(RecordPlayerNbtKeys.HELD_RECORD, contextData.heldItemStack.toNBT(provider))
+            if (syncType != SyncType.DISK) writeEnum(
+                RecordPlayerNbtKeys.PLAYBACK_STATE_MOVING,
+                contextData.playbackState
+            )
         }
     }
 
     override fun read(
-        context: MovementContext,
-        from: CompoundTag,
-        target: RecordPlayerContextData,
-        syncType: SyncType,
-        provider: HolderLookup.Provider,
+        context: MovementContext, from: CompoundTag, target: RecordPlayerContextData,
+        syncType: SyncType, provider: HolderLookup.Provider
     ) {
         target.apply {
-            context.world.onClient { _, _ ->
-                if (from.contains("ClockOffset")) from.updateClock(clock)
+            if (from.contains(RecordPlayerNbtKeys.CLOCK_OFFSET)) {
+                when {
+                    context.world.isClientSide -> from.updateClock(clock)
+                    syncType == SyncType.DISK -> clock.updateValues(
+                        from.getDouble(RecordPlayerNbtKeys.CLOCK_OFFSET),
+                        false
+                    )
+                }
             }
-
-            if (from.contains("HeldRecordItem")) {
-                heldItemStack = ItemStack.parseOptional(provider, from.getCompound("HeldRecordItem"))
-            }
-
-            if (syncType != SyncType.DISK && from.contains("PlaybackStateMoving")) {
-                playbackState = from.readEnum("PlaybackStateMoving")
-            }
+            if (from.contains(RecordPlayerNbtKeys.HELD_RECORD))
+                heldItemStack = ItemStack.parseOptional(provider, from.getCompound(RecordPlayerNbtKeys.HELD_RECORD))
+            if (from.contains(RecordPlayerNbtKeys.REDSTONE_POWER) || from.contains(RecordPlayerNbtKeys.SCROLL_VALUE))
+                settings = RecordPlayerSettings.from(from)
+            if (syncType != SyncType.DISK && from.contains(RecordPlayerNbtKeys.PLAYBACK_STATE_MOVING))
+                playbackState = from.readEnum(RecordPlayerNbtKeys.PLAYBACK_STATE_MOVING)
         }
     }
 
@@ -380,196 +169,97 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
     }
 
     override fun tick(context: MovementContext) {
-        context.world.onServer {
-            val data = getContextData(context)
-            val session = data.session ?: return@onServer
-            val currentRecord = getRecordItem(context)
-            if (currentRecord != data.heldItemStack) {
-                data.heldItemStack = currentRecord
-                data.markDirty()
-            }
+        context.world.onServer { tickServer(context) }
+        context.world.onClient { _, _ -> tickClient(context) }
+    }
 
-            val contraptionEntity = context.contraption?.entity
-            val isDisassembled = contraptionEntity == null || !contraptionEntity.isAlive
+    private fun tickServer(context: MovementContext) {
+        val data = getContextData(context)
+        val session = data.session ?: return
 
-            val newState: PlaybackState =
-                if (isDisassembled || currentRecord == ItemStack.EMPTY) {
-                    PlaybackState.STOPPED
-                } else if (!context.disabled &&
-                    (
-                            abs(context.animationSpeed) >= SPEED_THRESHOLD ||
-                                    context.stall ||
-                                    isPauseModeWithRedstone(context)
-                            )
-                ) {
-                    PlaybackState.PLAYING
-                } else {
-                    PlaybackState.PAUSED
-                }
-
-            if (data.restartRequested) {
-                data.restartRequested = false
-                if (newState == PlaybackState.PLAYING) {
-                    data.playbackState = PlaybackState.STOPPED
-                    resyncData(context, true)
-                    return@onServer
-                }
-            }
-
-            if (data.playbackState != newState) {
-                if (newState == PlaybackState.PLAYING && data.playbackState == PlaybackState.STOPPED) {
-                    handleRecordUse(context)
-                }
-                if (newState == PlaybackState.PLAYING) {
-                    data.playbackState = newState
-                }
-            }
-
-            when (newState) {
-                PlaybackState.PLAYING -> {
-                    data.gracefulStopJob?.cancel()
-                    data.gracefulStopJob = null
-                    session.resume()
-                }
-
-                PlaybackState.PAUSED -> {
-                    if (data.gracefulStopJob == null && data.playbackState != PlaybackState.PAUSED) {
-                        data.gracefulStopJob = 1.seconds.thenLaunch {
-                            session.pause()
-                            data.playbackState = PlaybackState.PAUSED
-                            resyncData(context, false)
-                            data.gracefulStopJob = null
-                        }
-                    }
-                }
-
-                PlaybackState.STOPPED -> {
-                    if (data.gracefulStopJob == null && data.playbackState != PlaybackState.STOPPED) {
-                        if (data.heldItemStack.isEmpty) {
-                            session.reset()
-                            data.playbackState = PlaybackState.STOPPED
-                            data.markDirty()
-                        } else {
-                            data.gracefulStopJob = 1.seconds.thenLaunch {
-                                session.reset()
-                                data.playbackState = PlaybackState.STOPPED
-                                resyncData(context, false)
-                                data.gracefulStopJob = null
-                            }
-                        }
-                    }
-                }
-            }
-
-            data.ticksSinceLastClockSave++
-            if (data.ticksSinceLastClockSave >= 100) {
-                data.ticksSinceLastClockSave = 0
-                data.markDirty()
-            }
-
-            resyncData(context, true)
+        val record = getRecordItem(context)
+        if (!ItemStack.matches(record, data.heldItemStack)) {
+            data.heldItemStack = record.copy()
+            data.markDirty()
         }
 
-        context.world.onClient { _, _ ->
-            val data = getContextData(context)
-            val player = getAudioPlayer(context)
+        val entity = context.contraption?.entity
+        data.contraptionAlive = entity != null && entity.isAlive
+        val target = MovementPlaybackPolicy.target(
+            disassembled = !data.contraptionAlive,
+            hasRecord = !record.isEmpty,
+            disabled = context.disabled,
+            animationSpeed = context.animationSpeed,
+            stalled = context.stall,
+            pauseModeWithRedstone = data.settings.mode.isPause && data.settings.isPowered,
+        )
 
-            player.tick()
-
-            if (!data.isDirty) return
-            data.clean()
-
-
-            val newState = data.playbackState
-            when (newState) {
-                PlaybackState.PLAYING -> {
-                    if (player.state.value == PlayerState.PLAYING) return
-
-                    when (player.state.value) {
-                        PlayerState.PAUSED -> {
-                            player.play()
-                        }
-
-                        PlayerState.STOPPED,
-                            -> {
-                            val record = getRecordItem(context)
-                            player.playFromRecord(record, data.clock.currentPlaytime, context.world)
-                        }
-
-                        else -> {}
-                    }
-                }
-
-                PlaybackState.PAUSED -> {
-                    if (player.state.value == PlayerState.PAUSED) {
-                        return
-                    }
-
-                    player.pause()
-                }
-
-                PlaybackState.STOPPED -> {
-                    if (player.state.value == PlayerState.STOPPED) {
-                        return
-                    }
-                    player.stop()
-                }
+        if (data.restartRequested) {
+            data.restartRequested = false
+            if (target == PlaybackState.PLAYING) {
+                data.playbackState = PlaybackState.STOPPED
+                resyncData(context, true)
+                return
             }
+        }
+
+        data.gate.next(data.playbackState, target, immediate = record.isEmpty)?.let { to ->
+            when (to) {
+                PlaybackState.PLAYING -> if (data.playbackState == PlaybackState.STOPPED) handleRecordUse(context)
+                PlaybackState.PAUSED -> session.pause()
+                PlaybackState.STOPPED -> session.reset()
+            }
+            data.playbackState = to
+        }
+        if (data.playbackState == PlaybackState.PLAYING) session.resume()
+
+        if (++data.ticksSinceClockSave >= 100) {
+            data.ticksSinceClockSave = 0; data.markDirty()
+        }
+        resyncData(context, true)
+    }
+
+    private fun tickClient(context: MovementContext) {
+        val data = getContextData(context)
+        val id = playerUuid(context) ?: return
+        val player = if (data.playbackState == PlaybackState.STOPPED) AudioPlayerManager.get(id)
+        else AudioPlayerManager.getOrCreate(id).also {
+            it.bindSpatial(
+                context, data.clock,
+                ContraptionAudioContext(context, data.volumeSupplier, data.pitchSupplier, data.radiusSupplier)
+            )
+        }
+        player?.tick()
+
+        if (player != null && data.playbackState == PlaybackState.PLAYING && --data.particleCooldown <= 0) {
+            data.particleCooldown = 10
+            val pos = context.position
+            val entity = context.contraption?.entity
+            if (pos != null && entity != null)
+                RecordPlayerParticles.emitMoving(
+                    context.world,
+                    player.state.value,
+                    pos,
+                    worldFacing(context),
+                    entity.deltaMovement
+                )
+        }
+
+        if (!data.isDirty) return
+        data.clean()
+        player?.let {
+            ClientPlaybackController.apply(
+                it,
+                data.playbackState,
+                context.world,
+                { data.heldItemStack },
+                data.clock.currentPlaytime
+            )
         }
     }
 
     override fun stopMoving(context: MovementContext) {
-        context.world.onServer {
-            val data = getContextData(context)
-            data.stopMovingCalled = true
-        }
-    }
-
-    fun getAudioPlayer(context: MovementContext): AudioPlayer {
-        val playerId = getPlayerUUID(context)
-        val data = getContextData(context)
-
-        if (!data.movementPlayerInitialized) {
-            data.movementPlayerInitialized = true
-        }
-
-        val player =
-            AudioPlayerManager.getOrCreate(
-                playerId,
-                provider = { stream ->
-                    StreamingSoundInstance.simpleFactory(
-                        this,
-                        stream,
-                        SoundEvents.EMPTY,
-                    )
-                },
-                effectChainConfiguration = { player ->
-
-                },
-            )
-
-        if (player.spatialContextKey !== context) {
-            player.spatialContextKey = context
-            player.sharedTimeline = data.clock
-            player.spatialContext =
-                ContraptionAudioContext(
-                    context,
-                    data.volumeSupplier,
-                    data.pitchSupplier,
-                    data.radiusSupplier,
-                )
-        }
-
-        return player
-    }
-
-    fun getPlayerUUID(context: MovementContext): String {
-        require(
-            context.blockEntityData.contains(PLAYER_UUID_KEY),
-        ) {
-            "Player UUID not found, something is very wrong here! Try replacing the record player block on the contraption ${context.localPos}"
-        }
-        return context.blockEntityData.getUUID(PLAYER_UUID_KEY).toString()
+        context.world.onServer { getContextData(context).stopMovingCalled = true }
     }
 
     private fun handleRecordUse(context: MovementContext) {
@@ -585,43 +275,33 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
                 result.shouldReplace -> {
                     result.replacementStack?.let {
                         storage.setStackInSlot(
-                            RecordPlayerBehaviour.RecordPlayerInventory.MAIN_RECORD_SLOT,
-                            it
+                            MAIN_RECORD_SLOT, it
                         )
                     }
                 }
 
                 result.isBroken -> {
                     storage.setStackInSlot(
-                        RecordPlayerBehaviour.RecordPlayerInventory.MAIN_RECORD_SLOT,
-                        ItemStack.EMPTY
+                        MAIN_RECORD_SLOT, ItemStack.EMPTY
                     )
                     val itemStack = (result as RecordUtilities.RecordUseResult.Broken).dropStack.copy()
 
-                    val remainder: ItemStack =
-                        if (AllConfigs
-                                .server()
-                                .kinetics.moveItemsToStorage
-                                .get()
-                        ) {
-                            val otherStorages =
-                                context.contraption.storage.allItemStorages
-                                    .filterKeys { it != context.localPos }
-                                    .values
-                                    .toTypedArray()
+                    val remainder: ItemStack = if (AllConfigs.server().kinetics.moveItemsToStorage.get()) {
+                        val otherStorages =
+                            context.contraption.storage.allItemStorages.filterKeys { it != context.localPos }.values.toTypedArray()
 
-                            if (otherStorages.isNotEmpty()) {
-                                ItemHandlerHelper.insertItem(
-                                    CombinedInvWrapper(*otherStorages),
-                                    itemStack,
-                                    false,
-                                )
-                            } else {
-                                itemStack
-                            }
+                        if (otherStorages.isNotEmpty()) {
+                            ItemHandlerHelper.insertItem(
+                                CombinedInvWrapper(*otherStorages),
+                                itemStack,
+                                false,
+                            )
                         } else {
                             itemStack
                         }
+                    } else {
+                        itemStack
+                    }
 
                     val vec = context.position ?: return
                     val pos = BlockPos.containing(vec)
@@ -655,14 +335,19 @@ class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContext
         }
     }
 
-    private fun getRecordItem(context: MovementContext): ItemStack {
-        if (context.world.isClientSide) {
-            val contextData = getContextData(context)
-            return contextData.heldItemStack
-        }
-        val handler =
-            context.contraption.storage.allItemStorages[context.localPos] as? WrapperMountedItemStorage<*>
-                ?: return ItemStack.EMPTY
-        return handler.getStackInSlot(RecordPlayerBehaviour.RecordPlayerInventory.MAIN_RECORD_SLOT)
+
+    private fun worldFacing(context: MovementContext): Vec3 {
+        val f = context.state.getValue(BlockStateProperties.FACING)
+        return context.rotation.apply(Vec3(f.stepX.toDouble(), f.stepY.toDouble(), f.stepZ.toDouble())).normalize()
     }
+
+    private fun getRecordItem(context: MovementContext): ItemStack =
+        if (context.world.isClientSide) getContextData(context).heldItemStack
+        else (context.contraption.storage.allItemStorages[context.localPos] as? WrapperMountedItemStorage<*>)
+            ?.getStackInSlot(MAIN_RECORD_SLOT) ?: ItemStack.EMPTY
+
+    private fun playerUuid(context: MovementContext): String? =
+        context.blockEntityData.takeIf { it.contains(RecordPlayerNbtKeys.UUID) }?.getUUID(RecordPlayerNbtKeys.UUID)
+            ?.toString()
+            ?: run { "Missing UUID from a record player in a contraption!".warn(); null }
 }

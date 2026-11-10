@@ -3,16 +3,12 @@ package me.mochibit.createharmonics.foundation.behaviour.movement
 import com.simibubi.create.api.behaviour.movement.MovementBehaviour
 import com.simibubi.create.content.contraptions.AbstractContraptionEntity
 import com.simibubi.create.content.contraptions.behaviour.MovementContext
-import me.mochibit.createharmonics.foundation.eventbus.EventBus
 import me.mochibit.createharmonics.foundation.network.packet.ContraptionBlockDataChangedPacket
 import me.mochibit.createharmonics.foundation.registry.ModPackets
-import me.mochibit.createharmonics.foundation.services.eventService
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.StructureBlockInfo
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.collections.set
 
 interface Stainable {
@@ -34,42 +30,9 @@ interface StopAwareData {
 abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
     abstract fun contextDataFactory(context: MovementContext): Data
 
-    companion object {
-        private val trackingCounts = ConcurrentHashMap<Int, AtomicInteger>()
-    }
-
     enum class SyncType {
         NET,
         DISK,
-    }
-
-    init {
-        eventService.onPlayerStartTrackingEntity { player, entity ->
-            if (entity !is AbstractContraptionEntity) return@onPlayerStartTrackingEntity
-
-            trackingCounts.getOrPut(entity.id) { AtomicInteger(0) }.incrementAndGet()
-
-            entity.contraption.actors.forEach { (_, context) ->
-                context.resync()
-            }
-        }
-
-        eventService.onPlayerStopTrackingEntity { player, entity ->
-            if (entity !is AbstractContraptionEntity) return@onPlayerStopTrackingEntity
-
-            val remaining = trackingCounts[entity.id]?.decrementAndGet() ?: 0
-            if (remaining <= 0) {
-                trackingCounts.remove(entity.id)
-
-                entity.contraption.actors.forEach { (_, context) ->
-                    val data = context.temporaryData as? Data ?: return@forEach
-                    if (data is StopAwareData && data.stopMovingCalled) {
-                        return@forEach
-                    }
-                    context.blockEntityData?.let { onStopTracking(it) }
-                }
-            }
-        }
     }
 
     abstract fun onStopTracking(blockEntityData: CompoundTag)
@@ -138,6 +101,12 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
         context.contraption.entity.setBlockData(context.localPos, block)
         data.clean()
     }
+
+    fun notifyStoppedTracking(context: MovementContext) {
+        val data = context.temporaryData ?: return
+        if (data is StopAwareData && data.stopMovingCalled) return
+        context.blockEntityData?.let(::onStopTracking)
+    }
 }
 
 /**
@@ -146,15 +115,6 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
  */
 
 inline fun <reified DataType> MovementContext.getContextData(): DataType? = this.temporaryData as? DataType
-
-fun MovementContext.resync() {
-    val actor = this.contraption.getActorAt(localPos) ?: return
-    val state = actor.left.state
-    val behaviour = MovementBehaviour.REGISTRY.get(state)
-    if (behaviour is SmartMovementBehaviour<*>) {
-        behaviour.resyncData(this)
-    }
-}
 
 fun AbstractContraptionEntity.handleBlockDataChange(
     localPos: BlockPos,
@@ -177,3 +137,5 @@ fun AbstractContraptionEntity.setBlockData(
     contraption.blocks[localPos] = newInfo
     ModPackets.sendToTrackingEntity(ContraptionBlockDataChangedPacket(id, localPos, newInfo.nbt ?: CompoundTag()), this)
 }
+
+

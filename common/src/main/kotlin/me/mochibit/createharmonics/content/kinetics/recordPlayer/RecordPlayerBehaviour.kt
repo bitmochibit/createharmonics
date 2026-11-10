@@ -5,25 +5,19 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.virtualWorld.VirtualRenderWorld
 import me.mochibit.createharmonics.audio.AudioPlayerManager
+import me.mochibit.createharmonics.audio.ClientPlaybackController
 import me.mochibit.createharmonics.audio.instance.StreamingSoundInstance
 import me.mochibit.createharmonics.audio.player.*
-import me.mochibit.createharmonics.config.ModConfigs
 import me.mochibit.createharmonics.config.ServerConfig
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBehaviour.RecordPlayerInventory.MAIN_RECORD_SLOT
 import me.mochibit.createharmonics.content.records.EtherealRecordItem
 import me.mochibit.createharmonics.content.records.RecordUtilities
-import me.mochibit.createharmonics.content.records.RecordUtilities.playFromRecord
-import me.mochibit.createharmonics.foundation.async.every
 import me.mochibit.createharmonics.foundation.extension.onClient
 import me.mochibit.createharmonics.foundation.extension.onServer
-import me.mochibit.createharmonics.foundation.extension.remapTo
-import me.mochibit.createharmonics.foundation.extension.ticks
 import me.mochibit.createharmonics.foundation.inventory.InventorySpec
 import me.mochibit.createharmonics.foundation.inventory.dropContents
 import me.mochibit.createharmonics.foundation.services.contentService
-import me.mochibit.createharmonics.foundation.supplier.values.FloatInterpolator
 import net.createmod.catnip.nbt.NBTHelper
-import net.minecraft.client.Minecraft
 import net.minecraft.core.Direction
 import net.minecraft.core.HolderLookup
 import net.minecraft.core.particles.ItemParticleOption
@@ -40,19 +34,6 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
 import java.util.*
 import kotlin.math.abs
-import kotlin.time.Duration.Companion.seconds
-
-// todo: extract this for the movement behaviour too, so the formula is the same
-object RecordPlayerPitch {
-    fun fromRpm(rpm: Float, min: Float, max: Float): Float {
-        val s = abs(rpm)
-        return when {
-            s < 128f -> min + (1f - min) * ((s - 16f) / 112f).coerceIn(0f, 1f)
-            s > 128f -> 1f + (max - 1f) * ((s - 128f) / 128f).coerceIn(0f, 1f)
-            else -> 1f
-        }
-    }
-}
 
 class RecordPlayerBehaviour(
     val be: RecordPlayerBlockEntity,
@@ -67,8 +48,7 @@ class RecordPlayerBehaviour(
         const val RECORD_OUTPUT_SLOT = 1
 
         val SpecBasis = InventorySpec(
-            size = 2,
-            isItemValid = { slot, stack ->
+            size = 2, isItemValid = { slot, stack ->
                 when {
                     stack.isEmpty -> true
                     else -> {
@@ -80,20 +60,8 @@ class RecordPlayerBehaviour(
                         }
                     }
                 }
-            }
-        )
+            })
     }
-
-    private val maxPitch
-        get() =
-            ModConfigs.server.maxPitch
-                .get()
-                .toFloat()
-    private val minPitch
-        get() =
-            ModConfigs.server.minPitch
-                .get()
-                .toFloat()
 
     private var _recordPlayerUUID: UUID? = null
     val recordPlayerUUID: UUID?
@@ -106,40 +74,28 @@ class RecordPlayerBehaviour(
         be.notifyUpdate()
     }
 
+    private val settings get() = RecordPlayerSettings(be.playbackMode.get(), redstonePower)
+    private val maxRange get() = ServerConfig.maxJukeboxSoundRange.get()
+
+    val isStaticPitchMode get() = be.playbackMode.get().isStaticPitch
+    val isPauseMode get() = be.playbackMode.get().isPause
+
     private val currentPitch: Float
-        get() {
-            return if (isStaticPitchMode) 1f else RecordPlayerPitch.fromRpm(be.speed, minPitch, maxPitch)
-        }
+        get() = if (isStaticPitchMode) 1f else PitchCurve.RPM.evaluate(be.speed)
 
-    private val serverPitch = FloatInterpolator(1f, 4.0.seconds)
-    private var serverPitchInit = false
-
-    val soundRadius: Int
-        get() {
-            if (redstonePower <= 0) return 16
-            return redstonePower.remapTo(1, 15, 4, ServerConfig.maxJukeboxSoundRange.get())
-        }
+    val soundRadius: Int get() = settings.radius(maxRange).toInt()
 
     @Volatile
     private var lastActiveVolume: Float = 1f
+
     val currentVolume: Float
         get() {
-            val playerState = audioPlayer?.state?.value
-            val isDecaying =
-                playbackState == PlaybackState.PAUSED
-
-            if (isDecaying || (
-                        playerState != PlayerState.PLAYING &&
-                                playerState != PlayerState.LOADING
-                        )
-            ) {
-                return lastActiveVolume
-            }
-
+            val ps = obtainAudioPlayer()?.state?.value
+            if (playbackState == PlaybackState.PAUSED || (ps != PlayerState.PLAYING && ps != PlayerState.LOADING)) return lastActiveVolume
             return when {
-                redstonePower <= 0 && isPauseMode -> 0.0f
-                redstonePower <= 0 -> 1f
-                else -> redstonePower.toFloat().remapTo(1f, 15f, 0.1f, 1.0f)
+                settings.isPowered -> settings.volume
+                settings.mode.isPause -> 0f
+                else -> 1f
             }
         }
 
@@ -175,7 +131,7 @@ class RecordPlayerBehaviour(
     val clock = PlaytimeClock()
 
     // Track previous playback mode to detect user changes
-    private var previousPlaybackMode: RecordPlayerBlockEntity.PlaybackMode? = null
+    private var previousPlaybackMode: PlaybackMode? = null
 
     // Track if playback ended naturally (to prevent auto-restart)
     private var playbackEndedNaturally = false
@@ -183,114 +139,52 @@ class RecordPlayerBehaviour(
     // Flag to request restart on next tick (for redstone looping)
     private var shouldRestartOnNextTick = false
 
-    val itemHandler = contentService.createInventoryFromSpec(
-        RecordPlayerInventory.SpecBasis,
-        onChange = { _: Int ->
-            val hasDisc = !getStackInSlot(MAIN_RECORD_SLOT).isEmpty
-            if (!hasDisc) {
-                this@RecordPlayerBehaviour.onAudioTitleUpdate("")
-            }
-            be.level?.setBlockAndUpdate(
-                be.blockPos,
-                be.blockState.setValue(RecordPlayerTrait.HAS_ETHEREAL_RECORD, hasDisc),
-            )
-            be.notifyUpdate()
-        },
-        onLoad = {
-            be.notifyUpdate()
+    val itemHandler = contentService.createInventoryFromSpec(RecordPlayerInventory.SpecBasis, onChange = { _: Int ->
+        val hasDisc = !getStackInSlot(MAIN_RECORD_SLOT).isEmpty
+        if (!hasDisc) {
+            this@RecordPlayerBehaviour.onAudioTitleUpdate("")
         }
-    )
+        be.level?.setBlockAndUpdate(
+            be.blockPos,
+            be.blockState.setValue(RecordPlayerTrait.HAS_ETHEREAL_RECORD, hasDisc),
+        )
+        be.notifyUpdate()
+    }, onLoad = {
+        (0 until this.getSlots()).forEach { RecordUtilities.migrateLegacyUrl(getStackInSlot(it)) }
+        be.notifyUpdate()
+    })
 
     private var pendingRecordUse = false
     private var ticksSinceLastClockSave = 0
 
-    private val audioPlayer: AudioPlayer?
-        get() {
-            val uuid = _recordPlayerUUID ?: return null
-            val player =
-                AudioPlayerManager.getOrCreate(
-                    id = uuid.toString(),
-                    provider = { stream ->
-                        StreamingSoundInstance.simpleFactory(
-                            this,
-                            stream,
-                            SoundEvents.EMPTY,
-                        )
-                    },
-                    effectChainConfiguration = { player ->
-
-                    },
+    private fun obtainAudioPlayer(): AudioPlayer? {
+        val uuid = _recordPlayerUUID ?: return null
+        val player = AudioPlayerManager.getOrCreate(
+            id = uuid.toString(),
+            provider = { stream ->
+                StreamingSoundInstance.simpleFactory(
+                    this,
+                    stream,
+                    SoundEvents.EMPTY,
                 )
+            },
+            effectChainConfiguration = { player ->
 
-            if (player.spatialContextKey !== this.be) {
-                player.sharedTimeline = clock
-                player.spatialContextKey = this.be
-                player.spatialContext =
-                    BlockEntityAudioContext(
-                        this.be,
-                        { currentVolume },
-                        { currentPitch },
-                        { soundRadius.toFloat() },
-                    )
-            }
+            },
+        )
 
-            return player
-        }
+        player.bindSpatial(
+            be,
+            clock,
+            BlockEntityAudioContext(be, { currentVolume }, { currentPitch }, { settings.radius(maxRange) })
+        )
+
+        return player
+    }
 
     private val particleRandom: RandomSource = RandomSource.create()
 
-    //TODO: remove this and replace with a proper ticker
-    private val playerParticleJob =
-        10.ticks().every {
-            val level = this@RecordPlayerBehaviour.be.level ?: return@every
-            if (!level.isClientSide) return@every
-            if (Minecraft.getInstance().isPaused) return@every
-            if (!level.isLoaded(be.blockPos)) return@every
-            val player = AudioPlayerManager.get(recordPlayerUUID.toString()) ?: return@every
-            if (playbackState != PlaybackState.PLAYING || this@RecordPlayerBehaviour.be.level is VirtualRenderWorld) {
-                return@every
-            }
-            val be = this@RecordPlayerBehaviour.be
-            val pos = Vec3.atBottomCenterOf(be.blockPos).add(0.0, 1.2, 0.0)
-            val displacement = particleRandom.nextInt(4) / 24f
-            when (player.state.value) {
-                PlayerState.LOADING -> {
-                    level.addParticle(
-                        ShriekParticleOption(2),
-                        false,
-                        pos.x,
-                        pos.y,
-                        pos.z,
-                        0.0,
-                        12.5,
-                        0.0,
-                    )
-                }
-
-                PlayerState.PLAYING -> {
-                    level.addParticle(
-                        ParticleTypes.NOTE,
-                        pos.x + displacement,
-                        pos.y + displacement,
-                        pos.z + displacement,
-                        particleRandom.nextFloat().toDouble(),
-                        0.0,
-                        0.0,
-                    )
-                }
-
-                else -> {}
-            }
-        }
-
     override fun getType(): BehaviourType<RecordPlayerBehaviour> = BEHAVIOUR_TYPE
-
-    val isStaticPitchMode: Boolean
-        get() {
-            val playbackMode = be.playbackMode.get()
-            return playbackMode == RecordPlayerBlockEntity.PlaybackMode.PLAY_STATIC_PITCH ||
-                    playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
-        }
 
     private fun ensureSession() {
         if (session != null) return
@@ -298,168 +192,88 @@ class RecordPlayerBehaviour(
         session = PlaybackSessions.acquire(id, this, clock)
     }
 
-    val isPauseMode: Boolean
-        get() {
-            val playbackMode = be.playbackMode.get()
-            return playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE ||
-                    playbackMode == RecordPlayerBlockEntity.PlaybackMode.PAUSE_STATIC_PITCH
+    override fun lazyTick() {
+        val level = be.level ?: return
+        level.onClient { l, _ ->
+            if (playbackState != PlaybackState.PLAYING) return@onClient
+            val player = recordPlayerUUID?.let { AudioPlayerManager.get(it.toString()) } ?: return@onClient
+            RecordPlayerParticles.emitStatic(l, player.state.value, be.blockPos)
         }
+    }
 
     override fun tick() {
         super.tick()
         val level = be.level ?: return
 
         level.onServer { serverLevel ->
-            if (!serverPitchInit) { serverPitch.snapTo(currentPitch); serverPitchInit = true }
-            serverPitch.setTarget(currentPitch)
-            serverPitch.tick()
-            clock.rate = serverPitch.getValue().toDouble()
+            clock.rate = currentPitch.toDouble()
             ensureUUID()
             ensureSession()
-            if (clock.isPlaying) {
-                ticksSinceLastClockSave++
-                if (ticksSinceLastClockSave >= 100) {
-                    ticksSinceLastClockSave = 0
-                    be.setChanged()
-                }
-            } else {
-                ticksSinceLastClockSave = 0
-            }
+            saveClockPeriodically()
 
-            val outputStack = itemHandler.getStackInSlot(RecordPlayerInventory.RECORD_OUTPUT_SLOT)
-            if (!outputStack.isEmpty) {
-                tryEjectOutputSlot(outputStack, serverLevel)
-            }
+            itemHandler.getStackInSlot(RecordPlayerInventory.RECORD_OUTPUT_SLOT)
+                .takeIf { !it.isEmpty }?.let { tryEjectOutputSlot(it, serverLevel) }
 
             if (pendingRecordUse) {
-                pendingRecordUse = false
-                if (hasRecord()) {
-                    handleRecordUse()
-                }
+                pendingRecordUse = false; if (hasRecord()) handleRecordUse()
             }
-            val currentSpeed = abs(be.speed)
-            val hasDisc = hasRecord()
-            val isPowered = redstonePower > 0
-            val playbackMode = be.playbackMode.get()
 
-            // Handle restart request (for looping)
             if (shouldRestartOnNextTick) {
                 shouldRestartOnNextTick = false
-                if (hasDisc && currentSpeed > 0.0f) {
-                    // Start playing from the beginning
-                    updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = true)
+                if (hasRecord() && abs(be.speed) > 0f) {
+                    updatePlaybackState(PlaybackState.PLAYING, force = true)
                     audioPlayCount += 1
                     pendingRecordUse = true
                 }
                 return@onServer
             }
-
-            // Track mode changes
-            val playbackModeChanged = previousPlaybackMode != playbackMode
-            previousPlaybackMode = playbackMode
-
-            when {
-                !hasDisc -> {
-                    if (playbackState != PlaybackState.STOPPED) {
-                        updatePlaybackState(PlaybackState.STOPPED, resetTime = true)
-                        audioPlayCount = 0
-                        audioPlayingTitle = null
-                    }
-                    // Reset flags when record is removed
-                    playbackEndedNaturally = false
-                }
-
-                currentSpeed == 0.0f -> {
-                    // No RPM power - pause if playing
-                    if (playbackState == PlaybackState.PLAYING) {
-                        updatePlaybackState(PlaybackState.PAUSED, resetTime = false)
-                        speedInterrupted = true
-                    }
-                }
-
-                currentSpeed > 0.0f -> {
-                    // Has RPM power - determine behavior based on mode and redstone
-
-                    if (playbackMode == RecordPlayerBlockEntity.PlaybackMode.PLAY ||
-                        playbackMode == RecordPlayerBlockEntity.PlaybackMode.PLAY_STATIC_PITCH
-                    ) {
-                        // PLAY MODE (normal or static pitch)
-                        if (redstonePower == 15) {
-                            currentlyLooping = true
-                            // Play mode + Redstone: Always play and loop
-                            playbackEndedNaturally = false
-                            if (playbackState != PlaybackState.PLAYING) {
-                                updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = true)
-                                audioPlayCount += 1
-                                pendingRecordUse = true
-                            }
-                        } else {
-                            currentlyLooping = false
-                            // Play mode + No redstone: Play once then stop
-                            when (playbackState) {
-                                PlaybackState.STOPPED -> {
-                                    // Start playing if just inserted or mode changed (but not after natural end)
-                                    if (!playbackEndedNaturally) {
-                                        updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = true)
-                                        audioPlayCount += 1
-                                        pendingRecordUse = true
-                                    }
-                                }
-
-                                PlaybackState.PAUSED -> {
-                                    // Resume if mode changed to PLAY
-                                    when {
-                                        playbackModeChanged -> {
-                                            updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = false)
-                                        }
-
-                                        speedInterrupted -> {
-                                            updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = false)
-                                            speedInterrupted = false
-                                        }
-                                    }
-                                }
-
-                                PlaybackState.PLAYING -> {
-                                    // Already playing, continue
-                                }
-                            }
-                        }
-                    } else {
-                        // PAUSE MODE (normal or static pitch)
-                        if (isPowered) {
-                            currentlyLooping = true
-                            // Pause mode + Redstone: Redstone controls playback (play/loop when powered)
-                            playbackEndedNaturally = false
-                            if (playbackState != PlaybackState.PLAYING) {
-                                // Redstone powered - start or resume playing
-                                val shouldResetTime = playbackState == PlaybackState.STOPPED
-                                updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = shouldResetTime)
-                                if (shouldResetTime) {
-                                    audioPlayCount += 1
-                                    pendingRecordUse = true
-                                }
-                            }
-                        } else {
-                            currentlyLooping = false
-                            // Pause mode + No redstone: Stay paused (don't auto-play on insert)
-                            if (playbackState == PlaybackState.PLAYING) {
-                                updatePlaybackState(PlaybackState.PAUSED, resetTime = false)
-                                speedInterrupted = false
-                            }
-                            // If STOPPED, stay STOPPED (don't auto-start)
-                        }
-                    }
-                }
-            }
+            applyPolicy()
         }
 
         level.onClient { level, virtual ->
             clock.rate = currentPitch.toDouble()
-            audioPlayer?.tick()
+            obtainAudioPlayer()?.tick()
             if (playbackState == PlaybackState.PLAYING) {
                 lastActiveVolume = currentVolume
             }
+        }
+    }
+
+    private fun applyPolicy() {
+        val mode = be.playbackMode.get()
+        val modeChanged = previousPlaybackMode != mode
+        previousPlaybackMode = mode
+        val hadDisc = hasRecord()
+
+        val d = PlaybackPolicy.decide(
+            PlaybackInputs(
+                hadDisc, abs(be.speed) > 0f, mode.isPause, redstonePower, playbackState,
+                modeChanged, playbackEndedNaturally, speedInterrupted, currentlyLooping,
+            )
+        )
+        currentlyLooping = d.looping
+        speedInterrupted = d.speedInterrupted
+        playbackEndedNaturally = d.endedNaturally
+        if (d.state != playbackState) {
+            if (!hadDisc) {
+                audioPlayCount = 0; audioPlayingTitle = null
+            }
+            updatePlaybackState(d.state)
+        }
+        if (d.startsNewPlay) {
+            audioPlayCount += 1; pendingRecordUse = true
+        }
+    }
+
+    private fun saveClockPeriodically() {
+        if (clock.isPlaying) {
+            ticksSinceLastClockSave++
+            if (ticksSinceLastClockSave >= 100) {
+                ticksSinceLastClockSave = 0
+                be.setChanged()
+            }
+        } else {
+            ticksSinceLastClockSave = 0
         }
     }
 
@@ -478,12 +292,11 @@ class RecordPlayerBehaviour(
                     val itemStack = (result as RecordUtilities.RecordUseResult.Broken).dropStack.copy()
 
                     val facing = be.blockState.getValue(BlockStateProperties.FACING)
-                    val dropPos =
-                        Vec3.atCenterOf(be.blockPos).add(
-                            facing.stepX * 0.7,
-                            facing.stepY * 0.7,
-                            facing.stepZ * 0.7,
-                        )
+                    val dropPos = Vec3.atCenterOf(be.blockPos).add(
+                        facing.stepX * 0.7,
+                        facing.stepY * 0.7,
+                        facing.stepZ * 0.7,
+                    )
 
                     level.playSound(null, be.blockPos, SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, .7f, 1.7f)
                     level.playSound(null, be.blockPos, SoundEvents.SMALL_AMETHYST_BUD_BREAK, SoundSource.PLAYERS)
@@ -513,9 +326,7 @@ class RecordPlayerBehaviour(
         val facing = be.blockState.getValue(BlockStateProperties.FACING)
 
         val funnelResult =
-            this.be
-                .getBehaviour(DirectBeltInputBehaviour.TYPE)
-                ?.tryExportingToBeltFunnel(stack, facing.opposite, false)
+            this.be.getBehaviour(DirectBeltInputBehaviour.TYPE)?.tryExportingToBeltFunnel(stack, facing.opposite, false)
         if (funnelResult != null && funnelResult.count != stack.count) {
             itemHandler.setStackInSlot(RecordPlayerInventory.RECORD_OUTPUT_SLOT, funnelResult)
             be.notifyUpdate()
@@ -536,12 +347,11 @@ class RecordPlayerBehaviour(
             }
         }
 
-        val dropPos =
-            Vec3.atCenterOf(be.blockPos).add(
-                facing.stepX * 0.7,
-                facing.stepY * 0.7,
-                facing.stepZ * 0.7,
-            )
+        val dropPos = Vec3.atCenterOf(be.blockPos).add(
+            facing.stepX * 0.7,
+            facing.stepY * 0.7,
+            facing.stepZ * 0.7,
+        )
         itemHandler.setStackInSlot(RecordPlayerInventory.RECORD_OUTPUT_SLOT, ItemStack.EMPTY)
         val itemEntity = ItemEntity(level, dropPos.x, dropPos.y, dropPos.z, stack)
         itemEntity.setDeltaMovement(facing.stepX * 0.2, 0.2, facing.stepZ * 0.2)
@@ -577,7 +387,6 @@ class RecordPlayerBehaviour(
 
     fun setRecord(discItem: ItemStack) {
         itemHandler.setStackInSlot(MAIN_RECORD_SLOT, discItem)
-        // Reset the flag when a new record is inserted (not when removing)
         if (!discItem.isEmpty) {
             playbackEndedNaturally = false
         }
@@ -592,15 +401,15 @@ class RecordPlayerBehaviour(
     fun startPlayer() {
         when {
             !hasRecord() -> {
-                updatePlaybackState(PlaybackState.STOPPED, resetTime = true)
+                updatePlaybackState(PlaybackState.STOPPED, force = true)
             }
 
             abs(be.speed) <= 0.0f -> {
-                updatePlaybackState(PlaybackState.PAUSED, resetTime = false)
+                updatePlaybackState(PlaybackState.PAUSED)
             }
 
             else -> {
-                updatePlaybackState(PlaybackState.PLAYING, setCurrentTime = true)
+                updatePlaybackState(PlaybackState.PLAYING, force = true)
                 audioPlayCount += 1
                 pendingRecordUse = true
             }
@@ -608,15 +417,15 @@ class RecordPlayerBehaviour(
     }
 
     fun stopPlayer() {
-        updatePlaybackState(PlaybackState.STOPPED, resetTime = true)
+        updatePlaybackState(PlaybackState.STOPPED, force = true)
     }
 
     fun pausePlayer() {
-        updatePlaybackState(PlaybackState.PAUSED, resetTime = false)
+        updatePlaybackState(PlaybackState.PAUSED)
     }
 
-    private fun updatePlaybackState(newState: PlaybackState, resetTime: Boolean = false, setCurrentTime: Boolean = false) {
-        if (playbackState == newState && !resetTime && !setCurrentTime) return
+    private fun updatePlaybackState(newState: PlaybackState, force: Boolean = false) {
+        if (playbackState == newState && !force) return
         val oldState = playbackState
         playbackState = newState
 
@@ -625,10 +434,12 @@ class RecordPlayerBehaviour(
                 session?.pause()
                 if (oldState == PlaybackState.PLAYING) notifyStop()
             }
+
             PlaybackState.PLAYING if oldState != PlaybackState.PLAYING -> {
                 if (oldState == PlaybackState.STOPPED) session?.reset() else session?.resume()
                 notifyStart()
             }
+
             PlaybackState.STOPPED -> {
                 session?.reset()
                 if (oldState != PlaybackState.STOPPED) notifyStop()
@@ -639,70 +450,30 @@ class RecordPlayerBehaviour(
         be.notifyUpdate()
     }
 
-    private fun notifyStart() = (be.level as? ServerLevel)?.let { RecordPlayerHooks.notifyStart(it, pos, be.blockState) }
+    private fun notifyStart() =
+        (be.level as? ServerLevel)?.let { RecordPlayerHooks.notifyStart(it, pos, be.blockState) }
+
     private fun notifyStop() = (be.level as? ServerLevel)?.let { RecordPlayerHooks.notifyStop(it, pos, be.blockState) }
-
-    private fun startClientPlayer(
-        currentRecord: ItemStack,
-        initialPos: Double = 0.0,
-    ) {
-        val level = be.level ?: return
-        val player = audioPlayer ?: return
-
-        player.playFromRecord(
-            currentRecord,
-            initialPos,
-            level,
-        )
-    }
-
-    private fun resumeClientPlayer() {
-        audioPlayer?.play()
-    }
-
-    private fun pauseClientPlayer() {
-        audioPlayer?.pause()
-    }
-
-    private fun stopClientPlayer() {
-        audioPlayer?.stop()
-    }
 
 
     override fun unload() {
-        val uuidStr = recordPlayerUUID?.toString() ?: return
-
-        playerParticleJob.cancel()
-
-        if (be.isChunkUnloaded) {
+        val uuidStr = recordPlayerUUID?.toString()
+        if (uuidStr != null && be.isChunkUnloaded) {
             be.onServer { PlaybackSessions.release(uuidStr); notifyStop() }
-
-            be.level?.onClient { _, _ ->
-                AudioPlayerManager.release(uuidStr)
-            }
+            be.level?.onClient { _, _ -> AudioPlayerManager.release(uuidStr) }
         }
-
         contentService.invalidateBlockEntityStorage(be)
         super.unload()
     }
 
     override fun destroy() {
-        val uuidStr = recordPlayerUUID?.toString() ?: return
-
-        playerParticleJob.cancel()
-
-        be.level?.onClient { _, _ ->
-            AudioPlayerManager.release(uuidStr)
-        }
-
+        val uuidStr = recordPlayerUUID?.toString()
+        be.level?.onClient { _, _ -> uuidStr?.let(AudioPlayerManager::release) }
         be.level?.onServer { serverLevel ->
-            this.be.level?.let {
-                RecordPlayerHooks.notifyStop(it as ServerLevel, this.pos, this.be.blockState)
-            }
-            PlaybackSessions.release(uuidStr)
+            notifyStop()
+            uuidStr?.let(PlaybackSessions::release)
             itemHandler.dropContents(serverLevel, be.blockPos)
         }
-
         super.destroy()
     }
 
@@ -761,50 +532,16 @@ class RecordPlayerBehaviour(
             audioPlayingTitle = compound.getString("AudioPlayingTitle")
         }
 
-        if (compound.contains("PlaybackState")) {
-            val newPlaybackState = NBTHelper.readEnum(compound, "PlaybackState", PlaybackState::class.java)
-            val oldPlaybackState = playbackState
-
-            be.level?.onClient { level, virtual ->
-                val player = audioPlayer ?: return@onClient
-                when (newPlaybackState) {
-                    PlaybackState.PLAYING -> {
-                        val currentRecord = getRecord()
-                        if (!currentRecord.isEmpty && currentRecord.item is EtherealRecordItem) {
-                            when (player.state.value) {
-                                PlayerState.PAUSED -> {
-                                    RecordPlayerHooks.notifyClient(level, this.pos, true)
-                                    resumeClientPlayer()
-                                }
-
-                                PlayerState.PLAYING -> {
-                                    RecordPlayerHooks.notifyClient(level, this.pos, true)
-                                }
-
-                                else -> {
-                                    // STOPPED or LOADING
-                                    RecordPlayerHooks.notifyClient(level, this.pos, true)
-                                    startClientPlayer(currentRecord, clock.currentPlaytime)
-                                }
-                            }
-                        }
-                    }
-
-                    PlaybackState.PAUSED -> {
-                        RecordPlayerHooks.notifyClient(level, this.pos, false)
-                        lastActiveVolume = currentVolume
-                        pauseClientPlayer()
-                    }
-
-                    PlaybackState.STOPPED -> {
-                        RecordPlayerHooks.notifyClient(level, this.pos, false)
-                        stopClientPlayer()
-                    }
-
-                    else -> {}
-                }
+        if (compound.contains(RecordPlayerNbtKeys.PLAYBACK_STATE)) {
+            val newState = NBTHelper.readEnum(compound, RecordPlayerNbtKeys.PLAYBACK_STATE, PlaybackState::class.java)
+            be.level?.onClient { level, _ ->
+                val player = obtainAudioPlayer() ?: return@onClient
+                if (newState == PlaybackState.PLAYING && getRecordItem() == null) return@onClient
+                RecordPlayerHooks.notifyClient(level, pos, newState == PlaybackState.PLAYING)
+                if (newState == PlaybackState.PAUSED) lastActiveVolume = currentVolume
+                ClientPlaybackController.apply(player, newState, level, ::getRecord, clock.currentPlaytime)
             }
-            playbackState = newPlaybackState
+            playbackState = newState
         }
 
         if (compound.contains("AudioPlayCount")) {
@@ -822,11 +559,11 @@ class RecordPlayerBehaviour(
 
         if (isFullyPowered) {
             playbackEndedNaturally = false
-            updatePlaybackState(PlaybackState.STOPPED, resetTime = true)
+            updatePlaybackState(PlaybackState.STOPPED, force = true)
             shouldRestartOnNextTick = true
         } else {
             playbackEndedNaturally = true
-            updatePlaybackState(PlaybackState.STOPPED, resetTime = true)
+            updatePlaybackState(PlaybackState.STOPPED, force = true)
         }
     }
 

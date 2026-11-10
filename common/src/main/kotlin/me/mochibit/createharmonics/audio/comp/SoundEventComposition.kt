@@ -13,7 +13,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
-import java.util.UUID
+import java.util.*
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
 
@@ -65,6 +65,7 @@ class SoundEventComposition(
     val soundList: List<SoundEventDef> get() = entries.map { it.def }
     val isRunning: Boolean get() = entries.any { it.instances.isNotEmpty() || it.jobs.isNotEmpty() }
 
+    @Synchronized
     fun makeComposition(referenceSoundInstance: SoundInstance) {
         soundEffectChain.removeEffect(mixer)
         mixer.clearSources()
@@ -73,6 +74,7 @@ class SoundEventComposition(
         entries.toList().forEach { startEntry(it, referenceSoundInstance) }
     }
 
+    @Synchronized
     fun stopComposition() {
         soundEffectChain.removeEffect(mixer)
         entries.toList().forEach { stopEntry(it) }
@@ -80,24 +82,31 @@ class SoundEventComposition(
         referenceSoundInstance = null
     }
 
+    @Synchronized
     fun add(def: SoundEventDef) {
         val entry = ActiveEntry(def)
         entries.add(entry)
         referenceSoundInstance?.let { startEntry(entry, it) }
     }
 
+    @Synchronized
     fun remove(def: SoundEventDef) {
         val entry = entries.find { it.def == def } ?: return
         stopEntry(entry)
         entries.remove(entry)
     }
 
+    @Synchronized
+    fun clear() = removeAll { true }
+
+    @Synchronized
     fun removeAll(predicate: (SoundEventDef) -> Boolean) {
         val toRemove = entries.filter { predicate(it.def) }
         toRemove.forEach { stopEntry(it) }
         entries.removeAll(toRemove)
     }
 
+    @Synchronized
     fun replace(
         old: SoundEventDef,
         new: SoundEventDef,
@@ -122,33 +131,38 @@ class SoundEventComposition(
                     if (Random.nextFloat() <= probability) {
                         val id =
                             UUID.randomUUID().toString() +
-                                entry.def.event.location
-                                    .toString()
-                        entry.instances.add(id)
-                        mixer.addSource(
-                            id,
-                            entry.def.event
-                                .getStreamDirectly(false)
-                                .get(),
-                            entry.def.mixLevel,
-                        )
+                                    entry.def.event.location
+                                        .toString()
+                        synchronized(this@SoundEventComposition) {
+                            entry.instances.add(id)
+                            mixer.addSource(
+                                id,
+                                entry.def.event
+                                    .getStreamDirectly(false)
+                                    .get(),
+                                entry.def.mixLevel,
+                            )
+                        }
                     }
                 }
             entry.jobs.add(job)
         } else {
             val id =
                 UUID.randomUUID().toString() +
-                    entry.def.event.location
-                        .toString()
-            entry.instances.add(id)
-            mixer.addSource(
-                id,
-                entry.def.event
-                    .getStreamDirectly(isLooping)
-                    .get(),
-                entry.def.mixLevel,
-                !isLooping,
-            )
+                        entry.def.event.location
+                            .toString()
+
+            synchronized(this@SoundEventComposition) {
+                entry.instances.add(id)
+                mixer.addSource(
+                    id,
+                    entry.def.event
+                        .getStreamDirectly(isLooping)
+                        .get(),
+                    entry.def.mixLevel,
+                    !isLooping,
+                )
+            }
         }
     }
 

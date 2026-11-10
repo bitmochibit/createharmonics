@@ -7,34 +7,45 @@ import me.mochibit.createharmonics.foundation.registry.ModPackets
 import me.mochibit.createharmonics.foundation.services.eventService
 import java.util.UUID
 
-//TODO refactor the audio package to clarify what code is client only
 
 /**
  * Server side playback tracker.
  *
  */
-class ServerPlaybackSession(val clock: PlaytimeClock) {
+class ServerPlaybackSession(initialClock: PlaytimeClock, @Volatile var owner: PlaybackSessionOwner?) {
+    var clock = initialClock
+        private set
+
     init { clock.pause() }
 
     companion object {
         private const val END_TIMEOUT_TICKS = 200
+        private const val STALE_TIMEOUT_TICKS = 200
     }
 
-    var owner: PlaybackSessionOwner? = null
-
+    private var staleTicks = 0
 
     private val listeners = HashSet<UUID>()
     private val ended = HashSet<UUID>()
     private var ticksSinceFirstEnd = 0
     private var suspended = false
 
-    fun tick() {
-        clock.tick()
-        if (ended.isEmpty()) { ticksSinceFirstEnd = 0; return }
-        if (++ticksSinceFirstEnd >= END_TIMEOUT_TICKS) {
-            listeners.retainAll(ended)
-            checkAllEnded()
+    fun rebind(newOwner: PlaybackSessionOwner, newClock: PlaytimeClock) {
+        if (newClock !== clock) {
+            newClock.updateValues(clock.currentPlaytime, clock.isPlaying)
+            clock = newClock
         }
+        owner = newOwner
+        staleTicks = 0
+    }
+
+    fun tick(): Boolean {
+        clock.tick()
+        staleTicks = if (owner?.isAlive == false) staleTicks + 1 else 0
+        if (staleTicks >= STALE_TIMEOUT_TICKS) return true
+        if (ended.isEmpty()) { ticksSinceFirstEnd = 0; return false }
+        if (++ticksSinceFirstEnd >= END_TIMEOUT_TICKS) { listeners.retainAll(ended); checkAllEnded() }
+        return false
     }
 
     fun onStarted(id: UUID) {
@@ -65,9 +76,6 @@ class ServerPlaybackSession(val clock: PlaytimeClock) {
         }
     }
 
-    fun restore(offset: Double) {
-        if (listeners.isEmpty() && !clock.isPlaying) clock.updateValues(offset, false)
-    }
 
     fun pause() {
         if (suspended) return
@@ -101,6 +109,7 @@ interface PlaybackSessionOwner {
     fun onAllEnded()
     fun onRestartRequested()
     fun onTitleChanged(title: String) {}
+    val isAlive: Boolean get() = true
 }
 
 @AutoHandler
@@ -110,8 +119,8 @@ object PlaybackSessions : ModEventHandler {
     fun get(id: String): ServerPlaybackSession? = sessions[id]
 
 
-    fun acquire(id: String, owner: PlaybackSessionOwner, clock: PlaytimeClock) =
-        ServerPlaybackSession(clock).also { it.owner = owner; sessions[id] = it }
+    fun acquire(id: String, owner: PlaybackSessionOwner, clock: PlaytimeClock): ServerPlaybackSession =
+        sessions.compute(id) { _, old -> old?.also { it.rebind(owner, clock) } ?: ServerPlaybackSession(clock, owner) }!!
 
     fun release(id: String) {
         if (sessions.remove(id) == null) return
@@ -120,7 +129,13 @@ object PlaybackSessions : ModEventHandler {
 
     fun removeListener(playerUuid: UUID) = sessions.values.toList().forEach { it.onLeft(playerUuid) }
 
-    fun tick() = sessions.values.forEach { it.tick() }
+    fun tick() {
+        val it = sessions.entries.iterator()
+        while (it.hasNext()) {
+            val (id, s) = it.next()
+            if (s.tick()) { it.remove(); ModPackets.broadcast(AudioPlayerContextStopPacket(id)) }
+        }
+    }
 
     fun clear() = sessions.clear()
 
