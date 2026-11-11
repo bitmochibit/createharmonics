@@ -14,7 +14,8 @@ class SpecItemHandler(
 
     private var loading = false
 
-    override fun isItemValid(slot: Int, stack: ItemStack) = spec.isItemValid(slot, stack)
+    override fun isItemValid(slot: Int, stack: ItemStack) =
+        spec.canInsert(slot) && spec.isItemValid(slot, stack)
     override fun getSlotLimit(slot: Int) = spec.slotLimit(slot)
     override fun onContentsChanged(slot: Int) { if (!loading) onChangeListener(slot) }
     override fun onLoad() = onLoadListener()
@@ -27,6 +28,10 @@ class SpecItemHandler(
         try { spec.serializer.read(this, registries, tag) } finally { loading = false }
         onLoad()
     }
+
+    override fun insertItem(slot: Int, stack: ItemStack, simulate: Boolean): ItemStack =
+        if (!spec.canInsert(slot)) stack else super.insertItem(slot, stack, simulate)
+
 
     override fun extractItem(slot: Int, amount: Int, simulate: Boolean): ItemStack =
         if (!spec.canExtract(slot)) ItemStack.EMPTY else super.extractItem(slot, amount, simulate)

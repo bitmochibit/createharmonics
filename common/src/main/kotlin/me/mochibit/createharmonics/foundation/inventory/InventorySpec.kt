@@ -11,4 +11,5 @@ data class InventorySpec(
     val slotLimit: (slot: Int) -> Int = { 99 },
     val serializer: InventorySerializer = ItemListSerializer,
     val canExtract: (Int) -> Boolean = { true },
+    val canInsert: (Int) -> Boolean = { true },
 )

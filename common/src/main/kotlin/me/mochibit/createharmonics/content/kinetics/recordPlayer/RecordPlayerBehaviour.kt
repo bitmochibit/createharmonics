@@ -48,19 +48,12 @@ class RecordPlayerBehaviour(
         const val RECORD_OUTPUT_SLOT = 1
 
         val SpecBasis = InventorySpec(
-            size = 2, isItemValid = { slot, stack ->
-                when {
-                    stack.isEmpty -> true
-                    else -> {
-                        val item = stack.item as? EtherealRecordItem
-                        when {
-                            item == null -> false
-                            slot == MAIN_RECORD_SLOT -> !item.isRecordBroken()
-                            else -> true
-                        }
-                    }
-                }
-            })
+            size = 2,
+            isItemValid = { slot, stack ->
+                stack.isEmpty || (stack.item as? EtherealRecordItem)?.let { slot != MAIN_RECORD_SLOT || !it.isRecordBroken() } == true
+            },
+            canInsert = { it == MAIN_RECORD_SLOT },
+        )
     }
 
     private var _recordPlayerUUID: UUID? = null
