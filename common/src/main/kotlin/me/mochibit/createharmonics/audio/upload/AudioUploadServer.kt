@@ -3,17 +3,23 @@ package me.mochibit.createharmonics.audio.upload
 import com.sun.net.httpserver.HttpServer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import me.mochibit.createharmonics.config.ModConfigs
+import me.mochibit.createharmonics.foundation.async.modLaunch
 import me.mochibit.createharmonics.foundation.async.repeatingLaunch
+import me.mochibit.createharmonics.foundation.err
 import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.network.packet.AudioServerInfoPacket
 import me.mochibit.createharmonics.foundation.services.networkService
 import me.mochibit.createharmonics.foundation.services.platformService
+import java.net.BindException
 import java.net.InetSocketAddress
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.io.path.Path
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 object AudioUploadServer {
@@ -34,6 +40,9 @@ object AudioUploadServer {
     val port: Int get() = running?.binding?.port ?: 0
     val host: String get() = running?.binding?.host ?: ""
 
+    @Volatile private var starting: Job? = null
+
+
     private fun requireStorage(): AudioStorageManager =
         checkNotNull(storage) { "Audio server is not running" }
 
@@ -47,16 +56,46 @@ object AudioUploadServer {
     fun rename(playerName: String, fileId: String, newName: String?) =
         storage?.rename(playerName, fileId, newName)
 
-    @Synchronized
-    fun start() {
-        check(running == null) { "AudioUploadServer already started" }
 
+    fun start() {
+        synchronized(this) {
+            if (running != null || starting?.isActive == true) return
+            starting = modLaunch(Dispatchers.IO) {
+                try {
+                    bindWithRetry()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    "Audio server failed to start: ${e.message}".err()
+                }
+            }
+        }
+    }
+
+    private suspend fun bindWithRetry(attempts: Int = 25, retryDelay: Duration = 200.milliseconds) {
         val binding = configuredBinding()
-        val http = HttpServer.create(InetSocketAddress(binding.host, binding.port), 0)
+        var last: BindException? = null
+        repeat(attempts) {
+            try {
+                val http = HttpServer.create(InetSocketAddress(binding.host, binding.port), 0)
+                install(http, binding)
+                return
+            } catch (e: BindException) {
+                last = e
+                delay(retryDelay)
+            }
+        }
+        throw checkNotNull(last)
+    }
+
+    private fun install(http: HttpServer, binding: Binding) = synchronized(this) {
+        if (starting?.isActive != true) {
+            http.stop(0)
+            return
+        }
         val pool = Executors.newThreadPerTaskExecutor(
             Thread.ofVirtual().name("createharmonics-audio-http-", 0).factory()
         )
-
         storage = buildStorage()
         try {
             http.createContext("/audio/upload", UploadHandler(::requireStorage))
@@ -83,8 +122,11 @@ object AudioUploadServer {
         "Players files will go in ${config.storageRoot}, max ${config.maxFilesPerPlayer} files (${config.maxFileSizeBytes / 1024 / 1024} MB) for each player".info()
     }
 
+
     @Synchronized
     fun stop(delaySeconds: Int = 1) {
+        starting?.cancel()
+        starting = null
         val r = running ?: return
         running = null
         r.cleaner.cancel()
@@ -108,6 +150,19 @@ object AudioUploadServer {
             "Audio server binding changed, restarting".info()
             restart()
         }
+    }
+
+    private fun createServer(binding: Binding, attempts: Int = 15): HttpServer {
+        var last: java.net.BindException? = null
+        repeat(attempts) {
+            try {
+                return HttpServer.create(InetSocketAddress(binding.host, binding.port), 0)
+            } catch (e: java.net.BindException) {
+                last = e
+                Thread.sleep(200)
+            }
+        }
+        throw checkNotNull(last)
     }
 
     private fun configuredBinding() = Binding(

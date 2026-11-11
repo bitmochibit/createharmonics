@@ -17,7 +17,7 @@ import java.net.URLEncoder
 object OnJoinSendAudioServerPort: ModEventHandler{
     override fun setupEvents() {
         eventService.onPlayerJoin { player ->
-            if (player !is ServerPlayer) return@onPlayerJoin
+            if (player !is ServerPlayer || !AudioUploadServer.isRunning) return@onPlayerJoin
             networkService.sendToPlayer(player, AudioServerInfoPacket(AudioUploadServer.port, AudioUploadServer.host))
         }
     }

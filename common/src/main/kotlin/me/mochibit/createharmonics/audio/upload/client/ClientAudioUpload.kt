@@ -80,6 +80,10 @@ object ClientAudioUpload {
 
     private fun begin(pos: BlockPos, label: String, prepare: suspend () -> PreparedUpload) {
         if (isBusy) return
+        if (AudioServerEndpoint.port <= 0) {
+            AudioUploadResponse.SERVER_NOT_RUNNING.sendToChat()
+            return
+        }
         isBusy = true
         pending = Pending(prepare, pos)
         networkService.sendToServer(RequestAudioUpload(pos, label))

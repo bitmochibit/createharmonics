@@ -7,6 +7,7 @@ import me.mochibit.createharmonics.ModRegistrate
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerRenderer
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerVisual
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.andesiteJukebox.AndesiteJukeboxBlockEntity
+import me.mochibit.createharmonics.content.kinetics.recordPlayer.brassJukebox.BrassJukeboxBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseBlockEntity
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseRenderer
 import me.mochibit.createharmonics.content.uploader.AmethystCatalystBlockEntity
@@ -33,20 +34,20 @@ object ModBlockEntities : Registrable {
                 }
             }.register()
 
-//    val BRASS_JUKEBOX: BlockEntityEntry<BrassJukeboxBlockEntity> =
-//        ModRegistrate
-//            .blockEntity("brass_jukebox", ::BrassJukeboxBlockEntity)
-//            .visual({
-//                SimpleBlockEntityVisualizer.Factory { ctx, be, pt ->
-//                    RecordPlayerVisual(ctx, be, pt)
-//                }
-//            }, false)
-//            .validBlocks(ModBlocks.BRASS_JUKEBOX)
-//            .renderer {
-//                NonNullFunction { ctx ->
-//                    RecordPlayerRenderer(ctx)
-//                }
-//            }.register()
+    val BRASS_JUKEBOX: BlockEntityEntry<BrassJukeboxBlockEntity> =
+        ModRegistrate
+            .blockEntity("brass_jukebox", ::BrassJukeboxBlockEntity)
+            .visual({
+                SimpleBlockEntityVisualizer.Factory { ctx, be, pt ->
+                    RecordPlayerVisual(ctx, be, pt)
+                }
+            }, false)
+            .validBlocks(ModBlocks.BRASS_JUKEBOX)
+            .renderer {
+                NonNullFunction { ctx ->
+                    RecordPlayerRenderer(ctx)
+                }
+            }.register()
 
     val RECORD_PRESS_BASE: BlockEntityEntry<RecordPressBaseBlockEntity> =
         ModRegistrate

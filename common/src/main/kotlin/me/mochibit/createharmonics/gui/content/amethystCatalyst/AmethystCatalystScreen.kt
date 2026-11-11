@@ -2,6 +2,7 @@ package me.mochibit.createharmonics.gui.content.amethystCatalyst
 
 import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
+import me.mochibit.createharmonics.audio.bin.BinProvider
 import me.mochibit.createharmonics.audio.upload.AudioMetadata
 import me.mochibit.createharmonics.audio.upload.client.ClientAudioLibrary
 import me.mochibit.createharmonics.audio.upload.client.ClientAudioUpload
@@ -46,7 +47,23 @@ class AmethystCatalystScreen(
 
         const val EDIT_X = 34
 
-        val dialogOpen = AtomicBoolean(false)
+        private val dialogOpen = AtomicBoolean(false)
+        private val AUDIO_GLOBS = listOf("*.mp3", "*.ogg", "*.wav")
+        private fun onPath(name: String) =
+            System.getenv("PATH").orEmpty().split(File.pathSeparator)
+                .any { it.isNotEmpty() && Files.isExecutable(Path.of(it, name)) }
+
+        private fun linuxDialogCommand(): List<String>? = when {
+            onPath("zenity") -> listOf(
+                "zenity", "--file-selection", "--title=Audio",
+                "--file-filter=Audio files | ${AUDIO_GLOBS.joinToString(" ")}",
+            )
+            onPath("kdialog") -> listOf(
+                "kdialog", "--getopenfilename", System.getProperty("user.home"),
+                "${AUDIO_GLOBS.joinToString(" ")}|Audio files",
+            )
+            else -> null
+        }
     }
 
     private sealed interface Source {
@@ -100,6 +117,9 @@ class AmethystCatalystScreen(
         }
 
     private var busyName: String? = null
+
+    @Volatile private var dialogProcess: Process? = null
+    @Volatile private var closed = false
 
     // init
 
@@ -201,32 +221,38 @@ class AmethystCatalystScreen(
         }
     }
 
+    private fun chooseFile(): String? {
+        val cmd = linuxDialogCommand().takeIf { BinProvider.isLinux }
+            ?: return chooseFileTinyfd()
+        val proc = ProcessBuilder(cmd).redirectError(ProcessBuilder.Redirect.DISCARD).start()
+        dialogProcess = proc
+        val out = proc.inputStream.bufferedReader().readText().trim()
+        return out.takeIf { proc.waitFor() == 0 && it.isNotEmpty() }
+    }
+
+    private fun chooseFileTinyfd(): String? = MemoryStack.stackPush().use { stack ->
+        val filters = stack.mallocPointer(AUDIO_GLOBS.size)
+        AUDIO_GLOBS.forEach { filters.put(stack.UTF8(it)) }
+        filters.flip()
+        TinyFileDialogs.tinyfd_openFileDialog(
+            "Audio", System.getProperty("user.home") + File.separator, filters, "Audio files", false,
+        )
+    }
+
     private fun pickFile() {
         if (!canInteract || !dialogOpen.compareAndSet(false, true)) return
         thread(name = "createharmonics-file-picker", isDaemon = true) {
             try {
-                val chosen = MemoryStack.stackPush().use { stack ->
-                    val filters = stack.mallocPointer(3)
-                    listOf("*.mp3", "*.ogg", "*.wav").forEach { filters.put(stack.UTF8(it)) }
-                    filters.flip()
-                    TinyFileDialogs.tinyfd_openFileDialog(
-                        "Audio",
-                        System.getProperty("user.home") + File.separator,
-                        filters,
-                        "Audio files",
-                        false,
-                    )
-                }
-                chosen?.let { path ->
-                    Minecraft.getInstance().execute {
-                        if (!canInteract) return@execute
-                        val file = Path.of(path)
-                        picker.selectNew()
-                        picker.text = file.fileName.toString()
-                        pickedFile = file
-                    }
+                val chosen = chooseFile()
+                if (chosen != null) Minecraft.getInstance().execute {
+                    if (closed || !canInteract) return@execute
+                    val file = Path.of(chosen)
+                    picker.selectNew()
+                    picker.text = file.fileName.toString()
+                    pickedFile = file
                 }
             } finally {
+                dialogProcess = null
                 dialogOpen.set(false)
             }
         }
@@ -346,6 +372,8 @@ class AmethystCatalystScreen(
     // input
 
     override fun removed() {
+        closed = true
+        dialogProcess?.destroy()
         if (::picker.isInitialized) picker.commitEdit()
         super.removed()
     }
