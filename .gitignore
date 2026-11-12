@@ -24,3 +24,5 @@
 
 local.properties
 /buildSrc/build/
+/buildSrc/.kotlin/
+/buildSrc/.gradle/
