@@ -24,3 +24,6 @@
 /neoforge/src/generated/
 /neoforge/run/
 local.properties
+/buildSrc/build/
+/buildSrc/.kotlin/
+/buildSrc/.gradle/
