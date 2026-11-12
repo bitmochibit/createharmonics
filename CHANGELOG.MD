@@ -1,3 +1,8 @@
+# Create: Harmonics - 1.1.8
+
+### Bug fixes
+- Fixed ffmpeg not being able to auto install
+
 # Create: Harmonics - 1.1.7
 
 ### Bug fixes

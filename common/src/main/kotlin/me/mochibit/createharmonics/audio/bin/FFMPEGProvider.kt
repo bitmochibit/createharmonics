@@ -67,31 +67,40 @@ object FFMPEGProvider : BinProvider("ffmpeg") {
             }
         }
 
+
+    private val httpClient: HttpClient by lazy {
+        HttpClient
+            .newBuilder()
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .build()
+    }
     private fun fetchLatestUrl(
         variant: String,
         extension: String,
     ): String {
-        val client = HttpClient.newHttpClient()
-
         val request =
             HttpRequest
                 .newBuilder()
-                .uri(URI.create("https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/latest"))
+                .uri(URI.create("https://api.github.com/repos/FFmpeg-Builds/FFmpeg-Builds/releases/tags/latest"))
                 .header("Accept", "application/vnd.github+json")
                 .GET()
                 .build()
 
-        val body = client.send(request, HttpResponse.BodyHandlers.ofString()).body()
-        val json = Json.parseToJsonElement(body).jsonObject
+        val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+        check(response.statusCode() == 200) {
+            "GitHub API returned HTTP ${response.statusCode()}: ${response.body().take(200)}"
+        }
 
         val assets =
-            json["assets"]?.jsonArray
+            Json
+                .parseToJsonElement(response.body())
+                .jsonObject["assets"]
+                ?.jsonArray
                 ?: error("No assets found in the latest release")
 
         val asset =
-            assets.firstOrNull { element ->
-                val name = element.jsonObject["name"]?.jsonPrimitive?.content ?: ""
-                name.endsWith("-$variant.$extension")
+            assets.firstOrNull {
+                it.jsonObject["name"]?.jsonPrimitive?.content?.endsWith("-$variant.$extension") == true
             } ?: error("No asset found for variant='$variant', extension='$extension'")
 
         return asset.jsonObject["browser_download_url"]!!.jsonPrimitive.content
