@@ -9,6 +9,13 @@ import net.minecraft.util.Mth
 import net.minecraft.world.phys.Vec3
 
 
+/**
+ * Mod sound scape
+ *
+ * @constructor Creates a new ModSoundScape
+ * @property pitch
+ * @property group
+ */
 class ModSoundScape(private val pitch: Float, private val group: ModSoundScapes.AmbienceGroup) {
     private val pitchGroup = ModSoundScapes.getGroupFromPitch(pitch)
 
@@ -17,27 +24,61 @@ class ModSoundScape(private val pitch: Float, private val group: ModSoundScapes.
 
     private var cachedMeanPos: Vec3? = null
 
+    /**
+     * Continuous
+     *
+     * @param sound
+     * @param relativeVolume the relative volume
+     * @param relativePitch the relative pitch
+     * @return the mod sound scape
+     */
     fun continuous(sound: SoundEvent, relativeVolume: Float, relativePitch: Float): ModSoundScape = apply {
         continuousSounds += ModContinuousSound(sound, this, pitch * relativePitch, relativeVolume)
     }
 
+    /**
+     * Repeating
+     *
+     * @param sound
+     * @param relativeVolume the relative volume
+     * @param relativePitch the relative pitch
+     * @param delay
+     * @return the mod sound scape
+     */
     fun repeating(sound: SoundEvent, relativeVolume: Float, relativePitch: Float, delay: Int): ModSoundScape = apply {
         repeatingSounds += ModRepeatingSound(sound, this, pitch * relativePitch, relativeVolume, delay)
     }
 
+    /**
+     * Play
+     *
+     */
     fun play() {
         continuousSounds.forEach { Minecraft.getInstance().soundManager.play(it) }
     }
 
+    /**
+     * Tick
+     *
+     */
     fun tick() {
         if (AnimationTickHolder.getTicks() % ModSoundScapes.UPDATE_INTERVAL == 0) cachedMeanPos = null
         repeatingSounds.forEach(ModRepeatingSound::tick)
     }
 
+    /**
+     * Removes
+     *
+     */
     fun remove() {
         continuousSounds.forEach(ModContinuousSound::remove)
     }
 
+    /**
+     * Returns the mean pos
+     *
+     * @return the vec3
+     */
     fun getMeanPos(): Vec3 = cachedMeanPos ?: computeMeanPos().also { cachedMeanPos = it }
 
     private fun computeMeanPos(): Vec3 {

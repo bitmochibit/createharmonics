@@ -9,20 +9,44 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntity
 
+/**
+ * On client on the receiver [BlockEntity]
+ *
+ * @param block
+ * @receiver
+ */
 inline fun BlockEntity.onClient(block: () -> Unit) {
     level?.takeIf { it.isClientSide }?.let { block() }
 }
 
+/**
+ * On server on the receiver [BlockEntity]
+ *
+ * @param block
+ * @receiver
+ */
 inline fun BlockEntity.onServer(block: () -> Unit) {
     level?.takeIf { !it.isClientSide }?.let { block() }
 }
 
+/**
+ * On server on the receiver [Level]
+ *
+ * @param block
+ * @receiver
+ */
 inline fun Level.onServer(block: (level: ServerLevel) -> Unit) {
     if (!isClientSide) {
         block(this as ServerLevel)
     }
 }
 
+/**
+ * On client on the receiver [Level]
+ *
+ * @param block
+ * @receiver
+ */
 inline fun Level.onClient(block: (level: ClientLevel, virtual: Boolean) -> Unit) {
     if (!isClientSide) return
 

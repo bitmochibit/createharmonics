@@ -5,6 +5,15 @@ import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntity
 import org.joml.Vector3d
 
+/**
+ * Block entity audio context
+ *
+ * @constructor Creates a new BlockEntityAudioContext
+ * @property be
+ * @property volume
+ * @property pitch
+ * @property radius
+ */
 class BlockEntityAudioContext(
     private val be: BlockEntity,
     private val volume: FloatSupplier,

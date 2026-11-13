@@ -11,6 +11,21 @@ import net.minecraft.util.RandomSource
 import org.joml.Vector3d
 import java.io.InputStream
 
+/**
+ * Simple stream sound instance
+ *
+ * @constructor
+ * @param audioPlayer the audio player
+ * @param inStream the in stream
+ * @param soundEvent the sound event
+ * @param randomSource the random source
+ * @param soundSource the sound source
+ * @param looping
+ * @param delay
+ * @param attenuation
+ * @param relative
+ * @param sampleRate the sample rate
+ */
 class SimpleStreamSoundInstance(
     audioPlayer: AudioPlayer,
     inStream: InputStream,

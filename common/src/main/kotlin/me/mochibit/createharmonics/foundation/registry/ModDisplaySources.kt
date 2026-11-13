@@ -8,6 +8,12 @@ import me.mochibit.createharmonics.content.kinetics.recordPlayer.displaySource.P
 import me.mochibit.createharmonics.foundation.info
 import net.minecraft.core.Registry
 
+/**
+ * Mod display sources
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ModDisplaySources
+ */
 @AutoRegister
 object ModDisplaySources : Registrable {
     override val registrationOrder = 1

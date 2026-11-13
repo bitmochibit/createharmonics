@@ -12,6 +12,12 @@ import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import java.time.Instant
 
+/**
+ * Block pos serializer
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new BlockPosSerializer
+ */
 object BlockPosSerializer : KSerializer<BlockPos> {
     override val descriptor: SerialDescriptor =
         PrimitiveSerialDescriptor("net.minecraft.core.BlockPos", PrimitiveKind.LONG)
@@ -35,6 +41,12 @@ object BlockPosSerializer : KSerializer<BlockPos> {
         }
 }
 
+/**
+ * Compound tag serializer
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new CompoundTagSerializer
+ */
 object CompoundTagSerializer : KSerializer<CompoundTag> {
     override val descriptor: SerialDescriptor =
         PrimitiveSerialDescriptor("net.minecraft.nbt.CompoundTag", PrimitiveKind.STRING)

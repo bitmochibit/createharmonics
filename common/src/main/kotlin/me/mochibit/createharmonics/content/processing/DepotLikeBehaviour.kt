@@ -33,12 +33,21 @@ import net.minecraft.world.level.block.Block
 import net.minecraft.world.phys.Vec3
 import kotlin.math.min
 
+/**
+ * Depot like behaviour
+ *
+ * @constructor
+ * @param be
+ */
 abstract class DepotLikeBehaviour(
     be: SmartBlockEntity,
 ) : BlockEntityBehaviour(be) {
 
     /**
      * Works strictly with [DepotLikeBehaviour], and it's just an abstraction layer for accessing the behavior's inventory
+     *
+     * @constructor Creates a new DepotLikeInventory
+     * @property behaviour
      */
     class DepotLikeInventory(
         private val behaviour: DepotLikeBehaviour,
@@ -103,6 +112,12 @@ abstract class DepotLikeBehaviour(
             }
         }
 
+        /**
+         * Companion
+         * Companion object — holds factory methods and constants for the enclosing class.
+         *
+         * @constructor Creates a new Companion
+         */
         companion object {
             private const val MAIN_SLOT = 0
         }
@@ -130,16 +145,35 @@ abstract class DepotLikeBehaviour(
         itemHandler = DepotLikeInventory(this)
     }
 
+    /**
+     * Enables the merging
+     *
+     * @return the depot like behaviour
+     */
     fun enableMerging(): DepotLikeBehaviour {
         allowMerge = true
         return this
     }
 
+    /**
+     * With callback
+     *
+     * @param changeListener the change listener
+     * @receiver
+     * @return the depot like behaviour
+     */
     fun withCallback(changeListener: (ItemStack) -> Unit): DepotLikeBehaviour {
         onHeldInserted = changeListener
         return this
     }
 
+    /**
+     * Only accepts
+     *
+     * @param filter
+     * @receiver
+     * @return the depot like behaviour
+     */
     fun onlyAccepts(filter: (ItemStack) -> Boolean): DepotLikeBehaviour {
         acceptedItems = filter
         return this
@@ -239,6 +273,12 @@ abstract class DepotLikeBehaviour(
         }
     }
 
+    /**
+     * Tick
+     *
+     * @param heldItem the held item
+     * @return `true` if the condition holds, `false` otherwise
+     */
     protected fun tick(heldItem: TransportedItemStack): Boolean {
         heldItem.prevBeltPosition = heldItem.beltPosition
         heldItem.prevSideOffset = heldItem.sideOffset
@@ -250,6 +290,12 @@ abstract class DepotLikeBehaviour(
         return diff < 1 / 16f
     }
 
+    /**
+     * Tick outgoing
+     *
+     * @param outgoingItem the outgoing item
+     * @return `true` if the condition holds, `false` otherwise
+     */
     protected fun tickOutgoing(outgoingItem: TransportedItemStack): Boolean {
         outgoingItem.prevBeltPosition = outgoingItem.beltPosition
         outgoingItem.prevSideOffset = outgoingItem.sideOffset
@@ -300,6 +346,11 @@ abstract class DepotLikeBehaviour(
         return false
     }
 
+    /**
+     * Try eject output to belts
+     *
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun tryEjectOutputToBelts(): Boolean {
         if (blockEntity.isVirtual) {
             // Add the current held item to the output buffer for ejection attempts
@@ -421,11 +472,21 @@ abstract class DepotLikeBehaviour(
         }
     }
 
+    /**
+     * Adds the sub behaviours
+     *
+     * @param behaviours
+     */
     abstract fun addSubBehaviours(behaviours: MutableList<BlockEntityBehaviour>)
 
     val heldItemStack: ItemStack
         get() = heldItem?.stack ?: ItemStack.EMPTY
 
+    /**
+     * Returns `true` if merge items
+     *
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun canMergeItems(): Boolean = allowMerge
 
     val presentStackSize: Int
@@ -455,6 +516,13 @@ abstract class DepotLikeBehaviour(
             return fromGetter - cumulativeStackSize
         }
 
+    /**
+     * Adds
+     *
+     * @param newHeldItem the new held item
+     * @param simulate
+     * @return the item stack
+     */
     fun insert(
         newHeldItem: TransportedItemStack,
         simulate: Boolean,
@@ -549,10 +617,19 @@ abstract class DepotLikeBehaviour(
         return returned
     }
 
+    /**
+     * Removes the held item
+     *
+     */
     fun removeHeldItem() {
         this.heldItem = null
     }
 
+    /**
+     * Sets the centered held item
+     *
+     * @param heldItem the held item
+     */
     fun setCenteredHeldItem(heldItem: TransportedItemStack?) {
         this.heldItem = heldItem
         heldItem?.let {
@@ -561,6 +638,12 @@ abstract class DepotLikeBehaviour(
         }
     }
 
+    /**
+     * Returns `true` if occupied
+     *
+     * @param side
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun isOccupied(side: Direction?): Boolean {
         if (!heldItemStack.isEmpty && !canMergeItems()) return true
         if (!isOutputEmpty && !canMergeItems()) return true
@@ -568,6 +651,14 @@ abstract class DepotLikeBehaviour(
         return false
     }
 
+    /**
+     * Try inserting from side
+     *
+     * @param transportedStack the transported stack
+     * @param side
+     * @param simulate
+     * @return the item stack
+     */
     fun tryInsertingFromSide(
         transportedStack: TransportedItemStack,
         side: Direction,
@@ -592,15 +683,40 @@ abstract class DepotLikeBehaviour(
         return remainder
     }
 
+    /**
+     * Converts the held output
+     *
+     * @param heldItem the held item
+     * @param heldOutput the held output
+     * @return the transported item stack
+     */
     open fun transformHeldOutput(
         heldItem: TransportedItemStack?,
         heldOutput: TransportedItemStack?,
     ): TransportedItemStack? = heldOutput
 
+    /**
+     * Handles the only data
+     *
+     * @param input
+     * @return `true` if the condition holds, `false` otherwise
+     */
     open fun processOnlyData(input: TransportedItemStack): Boolean = false
 
+    /**
+     * Handles the data
+     *
+     * @param input
+     * @return the item stack
+     */
     open fun processData(input: TransportedItemStack): ItemStack = input.stack
 
+    /**
+     * Handles the recipe processing
+     *
+     * @param maxDistanceFromCentre the max distance from centre
+     * @param processFunction the process function
+     */
     fun applyRecipeProcessing(
         maxDistanceFromCentre: Float,
         processFunction: java.util.function.Function<TransportedItemStack, TransportedResult>,
@@ -657,7 +773,18 @@ abstract class DepotLikeBehaviour(
             return true
         }
 
+    /**
+     * Returns the world position of
+     *
+     * @return the vec3
+     */
     fun getWorldPositionOf(): Vec3 = VecHelper.getCenterOf(blockEntity.blockPos)
 
+    /**
+     * Returns `true` if item valid
+     *
+     * @param stack
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun isItemValid(stack: ItemStack): Boolean = acceptedItems(stack)
 }

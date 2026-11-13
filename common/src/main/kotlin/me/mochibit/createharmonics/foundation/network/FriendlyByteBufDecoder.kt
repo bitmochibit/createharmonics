@@ -6,6 +6,12 @@ import kotlinx.serialization.encoding.AbstractDecoder
 import kotlinx.serialization.encoding.CompositeDecoder
 import net.minecraft.network.FriendlyByteBuf
 
+/**
+ * Friendly byte buf decoder
+ *
+ * @constructor Creates a new FriendlyByteBufDecoder
+ * @property buf
+ */
 @OptIn(ExperimentalSerializationApi::class)
 class FriendlyByteBufDecoder(
     internal val buf: FriendlyByteBuf,

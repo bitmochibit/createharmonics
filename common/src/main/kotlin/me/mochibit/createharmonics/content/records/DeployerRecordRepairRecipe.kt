@@ -26,6 +26,15 @@ import net.minecraft.world.level.block.entity.BlockEntity
 import net.neoforged.neoforge.items.wrapper.EmptyItemHandler
 import net.neoforged.neoforge.items.wrapper.RecipeWrapper
 
+/**
+ * Deployer record repair recipe
+ *
+ * @constructor
+ * @property capturedInput the captured input
+ * @property data
+ * @property be
+ * @param params
+ */
 class DeployerRecordRepairRecipe(
     params: ItemApplicationRecipeParams,
     private val capturedInput: RecipeWrapper,

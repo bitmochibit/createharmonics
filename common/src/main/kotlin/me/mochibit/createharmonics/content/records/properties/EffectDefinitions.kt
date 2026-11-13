@@ -17,14 +17,45 @@ import net.neoforged.bus.api.IEventBus
 import net.neoforged.neoforge.registries.DeferredRegister
 import java.util.function.Supplier
 
+/**
+ * Audio effect definition
+ *
+ */
 interface AudioEffectDefinition {
+    /**
+     * Codec
+     *
+     * @return the map codec
+     */
     fun codec(): MapCodec<out AudioEffectDefinition>
+
+    /**
+     * Creates a new
+     *
+     * @return the audio effect
+     */
     fun create(): AudioEffect
 
+    /**
+     * Fidelity
+     *
+     * @return the float
+     */
     fun fidelity(): Float? = null
 
+    /**
+     * Flavors
+     *
+     * @return the effect attributes
+     */
     fun flavors(): Set<RecordType.EffectAttribute> = emptySet()
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         val CODEC: Codec<AudioEffectDefinition> by lazy {
             ModAudioEffectDefinitions.REGISTRY.byNameCodec().dispatch({ it.codec() }, { it })
@@ -32,11 +63,24 @@ interface AudioEffectDefinition {
     }
 }
 
+/**
+ * Bit crush definition
+ * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+ *
+ * @constructor Creates a new BitCrushDefinition
+ * @property quality
+ */
 data class BitCrushDefinition(val quality: Float) : AudioEffectDefinition {
     override fun codec() = CODEC
     override fun create(): AudioEffect = BitCrushEffect(quality = quality, scope = AudioEffect.Scope.INTRINSIC_EFFECT)
     override fun fidelity() = quality
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         val CODEC: MapCodec<BitCrushDefinition> = RecordCodecBuilder.mapCodec { i ->
             i.group(Codec.floatRange(0f, 1f).fieldOf("quality").forGetter { it.quality }).apply(i, ::BitCrushDefinition)
@@ -44,9 +88,29 @@ data class BitCrushDefinition(val quality: Float) : AudioEffectDefinition {
     }
 }
 
+/**
+ * Eq band definition
+ * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+ *
+ * @constructor Creates a new EQBandDefinition
+ * @property frequency
+ * @property quality
+ * @property gain
+ */
 data class EQBandDefinition(val frequency: Float, val quality: Float, val gain: Float) {
+    /**
+     * Converts the band
+     *
+     * @return the eq band
+     */
     fun toBand() = EQBand(frequency = frequency, quality = quality, gain = gain)
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         val CODEC: Codec<EQBandDefinition> = RecordCodecBuilder.create { i ->
             i.group(
@@ -58,6 +122,13 @@ data class EQBandDefinition(val frequency: Float, val quality: Float, val gain: 
     }
 }
 
+/**
+ * Equalizer definition
+ * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+ *
+ * @constructor Creates a new EqualizerDefinition
+ * @property bands
+ */
 data class EqualizerDefinition(val bands: List<EQBandDefinition>) : AudioEffectDefinition {
     override fun codec() = CODEC
     override fun create(): AudioEffect =
@@ -66,6 +137,12 @@ data class EqualizerDefinition(val bands: List<EQBandDefinition>) : AudioEffectD
     override fun flavors() =
         if (bands.any { it.frequency <= 120f && it.gain >= 3f }) setOf(RecordType.EffectAttribute.BASSY) else emptySet()
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         val CODEC: MapCodec<EqualizerDefinition> = RecordCodecBuilder.mapCodec { i ->
             i.group(EQBandDefinition.CODEC.listOf().fieldOf("bands").forGetter { it.bands }).apply(i, ::EqualizerDefinition)

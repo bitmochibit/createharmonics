@@ -5,10 +5,23 @@ import kotlin.math.pow
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
+/**
+ * Float interpolator
+ *
+ * @constructor
+ * @param initial
+ * @param interpolationDuration the interpolation duration
+ */
 class FloatInterpolator(
     initial: Float = 0f,
     interpolationDuration: Duration = 150.milliseconds,
 ) : FloatSupplier {
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         private const val TICKS_PER_SECOND = 20f
     }
@@ -32,16 +45,30 @@ class FloatInterpolator(
 
     override fun getValue(): Float = current
 
+    /**
+     * Sets the target
+     *
+     * @param value
+     */
     fun setTarget(value: Float) {
         target = value
     }
 
+    /**
+     * Snap to
+     *
+     * @param value
+     */
     @Synchronized
     fun snapTo(value: Float) {
         current = value
         target = value
     }
 
+    /**
+     * Tick
+     *
+     */
     @Synchronized
     fun tick() {
         val t = target

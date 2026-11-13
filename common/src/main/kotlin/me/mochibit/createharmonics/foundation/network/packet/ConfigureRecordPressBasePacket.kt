@@ -9,6 +9,13 @@ import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPres
 import me.mochibit.createharmonics.content.processing.recordPressBase.RecordPressBaseConfiguration
 import net.minecraft.core.BlockPos
 
+/**
+ * Initialises the record press base packet
+ *
+ * @constructor Creates a new ConfigureRecordPressBasePacket
+ * @property blockPos the block pos
+ * @property configuration
+ */
 @AutoPacket
 @Serializable
 class ConfigureRecordPressBasePacket(

@@ -11,6 +11,12 @@ import java.nio.file.attribute.FileTime
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
+/**
+ * Server audio cache
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ServerAudioCache
+ */
 object ServerAudioCache {
     private val root: Path by lazy {
         Minecraft.getInstance().gameDirectory.toPath()
@@ -26,11 +32,24 @@ object ServerAudioCache {
         return p
     }
 
+    /**
+     * Cached file
+     *
+     * @param ref
+     * @param ext
+     * @return the path
+     */
     fun cachedFile(ref: ServerAudioReference, ext: String): Path? =
         path(ref, ext).takeIf { Files.isRegularFile(it) }?.also {
             runCatching { Files.setLastModifiedTime(it, FileTime.from(Instant.now())) }
         }
 
+    /**
+     * Prefetch
+     *
+     * @param ref
+     * @param ext
+     */
     fun prefetch(ref: ServerAudioReference, ext: String) {
         val target = path(ref, ext)
         val key = "${ref.owner}/${ref.fileId}"
@@ -50,6 +69,11 @@ object ServerAudioCache {
         }
     }
 
+    /**
+     * Evict
+     *
+     * @param ref
+     */
     fun evict(ref: ServerAudioReference) {
         val dir = root.resolve(ref.owner).normalize().takeIf { it.startsWith(root) && Files.isDirectory(it) } ?: return
         Files.newDirectoryStream(dir, "${ref.fileId}.*").use { files ->

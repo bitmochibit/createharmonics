@@ -9,6 +9,12 @@ import net.minecraft.core.Registry
 import net.minecraft.core.component.DataComponentType
 import net.minecraft.core.registries.Registries
 
+/**
+ * Mod data components
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ModDataComponents
+ */
 @AutoRegister
 object ModDataComponents : Registrable {
     val RECORD_URL = ModRegistrate.dataComponent("record_url", Codec.STRING)
@@ -18,6 +24,14 @@ object ModDataComponents : Registrable {
         "Registering data components..".info()
     }
 
+    /**
+     * Data component on the receiver [CreateRegistrate]
+     *
+     * @param T
+     * @param name
+     * @param codec
+     * @return the registry entry
+     */
     inline fun <reified T> CreateRegistrate.dataComponent(
         name: String,
         codec: Codec<T>,

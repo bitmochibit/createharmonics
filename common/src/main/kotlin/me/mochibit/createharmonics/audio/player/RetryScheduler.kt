@@ -13,7 +13,16 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 
-
+/**
+ * Retry scheduler
+ *
+ * @constructor Creates a new RetryScheduler
+ * @property scope
+ * @property baseDelay the base delay
+ * @property maxDelay the max delay
+ * @property maxAttempts the max attempts
+ * @property onRetry the on retry
+ */
 class RetryScheduler(
     private val scope: CoroutineScope,
     private val baseDelay: Duration = 1.seconds,
@@ -29,16 +38,28 @@ class RetryScheduler(
     val isRetryPending: Boolean
         get() = pendingJob?.isActive == true
 
+    /**
+     * Resets
+     *
+     */
     fun reset() {
         cancelPending()
         attempt.set(0)
     }
 
+    /**
+     * Stops the pending
+     *
+     */
     fun cancelPending() {
         pendingJob?.cancel()
         pendingJob = null
     }
 
+    /**
+     * Schedule retry
+     *
+     */
     fun scheduleRetry() {
         val currentAttempt = attempt.getAndIncrement()
         if (currentAttempt >= maxAttempts) {

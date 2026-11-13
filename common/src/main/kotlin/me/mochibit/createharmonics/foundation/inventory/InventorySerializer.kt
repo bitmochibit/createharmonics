@@ -6,11 +6,36 @@ import net.minecraft.nbt.ListTag
 import net.minecraft.nbt.Tag
 import net.minecraft.world.item.ItemStack
 
+/**
+ * Inventory serializer
+ *
+ */
 interface InventorySerializer {
+    /**
+     * Sets
+     *
+     * @param inv
+     * @param registries
+     * @return the compound tag
+     */
     fun write(inv: StorageInventory, registries: HolderLookup.Provider): CompoundTag
+
+    /**
+     * Returns
+     *
+     * @param inv
+     * @param registries
+     * @param tag
+     */
     fun read(inv: StorageInventory, registries: HolderLookup.Provider, tag: CompoundTag)
 }
 
+/**
+ * Item list serializer
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ItemListSerializer
+ */
 object ItemListSerializer : InventorySerializer {
     override fun write(inv: StorageInventory, registries: HolderLookup.Provider): CompoundTag {
         val list = ListTag()

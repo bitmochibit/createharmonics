@@ -1,5 +1,11 @@
 package me.mochibit.createharmonics.audio.bin
 
+/**
+ * Ytdl provider
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new YTDLProvider
+ */
 object YTDLProvider : BinProvider(
     "yt-dlp",
 ) {

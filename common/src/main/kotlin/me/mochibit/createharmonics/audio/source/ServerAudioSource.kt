@@ -7,6 +7,12 @@ import me.mochibit.createharmonics.audio.upload.client.AudioServerClient
 import me.mochibit.createharmonics.audio.upload.client.AudioServerEndpoint
 import me.mochibit.createharmonics.audio.upload.client.ServerAudioCache
 
+/**
+ * Server audio source
+ *
+ * @constructor Creates a new ServerAudioSource
+ * @property ref
+ */
 class ServerAudioSource(val ref: ServerAudioReference) : AudioSource {
     override suspend fun resolveAudioInfo(): AudioInfo {
         val audioMetadata = try {

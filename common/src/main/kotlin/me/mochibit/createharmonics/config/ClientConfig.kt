@@ -3,6 +3,12 @@ package me.mochibit.createharmonics.config
 import net.createmod.catnip.config.ConfigBase
 import net.neoforged.neoforge.common.ModConfigSpec
 
+/**
+ * Client config
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ClientConfig
+ */
 object ClientConfig : ConfigBase() {
 
     lateinit var reverberatorScanRadius: ConfigInt

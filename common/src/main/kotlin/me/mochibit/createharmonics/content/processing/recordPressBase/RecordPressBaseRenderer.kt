@@ -19,6 +19,12 @@ import net.minecraft.world.level.Level
 import net.minecraft.world.phys.Vec3
 import kotlin.random.Random
 
+/**
+ * Record press base renderer
+ *
+ * @constructor
+ * @param context
+ */
 class RecordPressBaseRenderer(
     context: BlockEntityRendererProvider.Context,
 ) : SafeBlockEntityRenderer<RecordPressBaseBlockEntity>() {
@@ -33,7 +39,24 @@ class RecordPressBaseRenderer(
         renderItemsOf(be, partialTicks, ms, buffer, light, overlay, be.behaviour)
     }
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
+        /**
+         * Displays the items of
+         *
+         * @param be
+         * @param partialTicks the partial ticks
+         * @param ms
+         * @param buffer
+         * @param light
+         * @param overlay
+         * @param depotBehaviour the depot behaviour
+         */
         fun renderItemsOf(
             be: SmartBlockEntity,
             partialTicks: Float,
@@ -152,6 +175,20 @@ class RecordPressBaseRenderer(
             ms.popPose()
         }
 
+        /**
+         * Displays the item
+         *
+         * @param level
+         * @param ms
+         * @param buffer
+         * @param light
+         * @param overlay
+         * @param itemStack the item stack
+         * @param angle
+         * @param r
+         * @param itemPosition the item position
+         * @param alwaysUpright the always upright
+         */
         fun renderItem(
             level: Level?,
             ms: PoseStack,

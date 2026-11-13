@@ -5,6 +5,11 @@ import kotlin.math.roundToInt
 /**
  * High-pass filter effect.
  * Removes low frequencies, creating a thin/tinny sound.
+ *
+ * @constructor Creates a new HighPassFilterEffect
+ * @property cutoffFrequency the cutoff frequency
+ * @property resonance
+ * @property scope
  */
 class HighPassFilterEffect(
     // Hz

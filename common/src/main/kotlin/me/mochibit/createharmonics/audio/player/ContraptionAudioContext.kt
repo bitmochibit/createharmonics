@@ -5,6 +5,15 @@ import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import net.minecraft.world.level.Level
 import org.joml.Vector3d
 
+/**
+ * Contraption audio context
+ *
+ * @constructor Creates a new ContraptionAudioContext
+ * @property movementContext the movement context
+ * @property volume
+ * @property pitch
+ * @property radius
+ */
 class ContraptionAudioContext(
     private val movementContext: MovementContext,
     private val volume: FloatSupplier,

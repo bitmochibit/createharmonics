@@ -9,6 +9,12 @@ import net.minecraft.core.Registry
 import net.minecraft.core.registries.Registries
 import net.minecraft.world.item.crafting.RecipeType
 
+/**
+ * Mod recipe types
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ModRecipeTypes
+ */
 @AutoRegister
 object ModRecipeTypes : Registrable {
 

@@ -7,6 +7,12 @@ import me.mochibit.createharmonics.foundation.eventbus.ModEventHandler
 import me.mochibit.createharmonics.foundation.services.eventService
 import java.util.UUID
 
+/**
+ * Contraption tracking
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ContraptionTracking
+ */
 @AutoHandler
 object ContraptionTracking : ModEventHandler {
     private val trackers = HashMap<Int, MutableSet<UUID>>()

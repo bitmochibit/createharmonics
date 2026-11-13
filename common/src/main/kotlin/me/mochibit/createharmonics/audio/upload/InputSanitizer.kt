@@ -7,6 +7,8 @@ import java.util.UUID
 
 /**
  * Input sanitizer, welp
+ *
+ * @constructor Creates a new InputSanitizer
  */
 object InputSanitizer {
 
@@ -20,31 +22,68 @@ object InputSanitizer {
 
     private val EXTENSION_REGEX = Regex("[a-z0-9]{1,8}")
 
+    /**
+     * Validates the player name
+     *
+     * @param raw
+     * @return the string
+     * @throws InvalidInputException
+     */
     fun validatePlayerName(raw: String?): String =
         raw?.takeIf { PLAYER_NAME.matches(it) }
             ?: throw InvalidInputException("Invalid player name")
 
+    /**
+     * Validates the file id
+     *
+     * @param raw
+     * @return the string
+     * @throws InvalidInputException
+     */
     fun validateFileId(raw: String?): String =
         raw?.takeIf { FILE_ID.matches(it) && runCatching { UUID.fromString(it) }.isSuccess }
             ?: throw InvalidInputException("Invalid file id")
 
+    /**
+     * Extension from
+     *
+     * @param fileName the file name
+     * @return the string
+     */
     fun extensionFrom(fileName: String?): String {
         val ext = fileName?.substringAfterLast('.', "")?.lowercase().orEmpty()
         return if (EXTENSION_REGEX.matches(ext)) ext else "bin"
     }
 
+    /**
+     * Validates the extension
+     *
+     * @param ext
+     * @return the string
+     * @throws InvalidInputException
+     */
     fun validateExtension(ext: String): String {
         val lower = ext.lowercase()
         if (!EXTENSION_REGEX.matches(lower)) throw InvalidInputException("Invalid extension")
         return lower
     }
 
+    /**
+     * Creates a new file id
+     *
+     * @return the string
+     */
     fun newFileId(): String = UUID.randomUUID().toString()
 
     /**
      * Resolves [segments] under [base] and guarantees, via canonical path
      * containment, that the result cannot escape [base].
      * this should be foolproof.
+     *
+     * @param base
+     * @param segments
+     * @return the path
+     * @throws InvalidInputException
      */
     fun resolveContained(base: Path, vararg segments: String): Path {
         val baseReal = Files.createDirectories(base).toRealPath()
@@ -62,4 +101,10 @@ object InputSanitizer {
     }
 }
 
+/**
+ * Invalid input exception
+ *
+ * @constructor
+ * @param message
+ */
 class InvalidInputException(message: String) : RuntimeException(message)

@@ -18,6 +18,18 @@ import kotlin.math.max
 import kotlin.math.min
 
 
+/**
+ * Entry scroll input config
+ * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+ *
+ * @constructor Creates a new EntryScrollInputConfig
+ * @property autoSelectFirst the auto select first
+ * @property selfRenderTooltip the self render tooltip
+ * @property showPlaceholderEmpty the show placeholder empty
+ * @property showPlaceholderHint the show placeholder hint
+ * @property showTooltipHint the show tooltip hint
+ * @property texts
+ */
 data class EntryScrollInputConfig(
     val autoSelectFirst: Boolean = false,
     val selfRenderTooltip: Boolean = true,
@@ -26,6 +38,19 @@ data class EntryScrollInputConfig(
     val showTooltipHint: Boolean = true,
     val texts: Texts = Texts(),
 ) {
+    /**
+     * Texts
+     * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+     *
+     * @constructor Creates a new Texts
+     * @property placeholderHint the placeholder hint
+     * @property placeholderEmpty the placeholder empty
+     * @property tooltipTitle the tooltip title
+     * @property tooltipScrollToSelect the tooltip scroll to select
+     * @property tooltipHint the tooltip hint
+     * @property tooltipEmpty the tooltip empty
+     * @property tooltipEmptyInstructions the tooltip empty instructions
+     */
     data class Texts(
         val placeholderHint: Component = default("placeholder_hint"),
         val placeholderEmpty: Component = default("placeholder_empty"),
@@ -62,6 +87,7 @@ private fun default(key: String): Component =
  * @param width The total width of the widget.
  * @param height The total height of the widget.
  * @property config The [Configurable][EntryScrollInputConfig] instance defining texts and behavior rules.
+ * @constructor
  */
 class EntryScrollInput(
     private val font: Font,
@@ -119,12 +145,22 @@ class EntryScrollInput(
         titled(config.texts.tooltipTitle.plainCopy())
     }
 
+    /**
+     * Sets the entries
+     *
+     * @param names
+     */
     fun setEntries(names: List<String>) {
         if (names == entryNames) return
         entryNames = names
         applyOptions()
     }
 
+    /**
+     * Filters
+     *
+     * @param index
+     */
     fun select(index: Int?) {
         autoSelectConsumed = true
         selected = index?.takeIf { it in entryNames.indices }
@@ -132,6 +168,10 @@ class EntryScrollInput(
         syncBox()
     }
 
+    /**
+     * Filters the new
+     *
+     */
     fun selectNew() {
         autoSelectConsumed = true
         selected = null
@@ -139,6 +179,10 @@ class EntryScrollInput(
         onSelected()
     }
 
+    /**
+     * Rearm auto select
+     *
+     */
     fun rearmAutoSelect() {
         autoSelectConsumed = false
         if (maybeAutoSelect()) {
@@ -157,8 +201,16 @@ class EntryScrollInput(
         return true
     }
 
+    /**
+     * Blur
+     *
+     */
     fun blur() = commitEdit().also { box.isFocused = false }
 
+    /**
+     * Starts the edit
+     *
+     */
     fun beginEdit() {
         val index = selected ?: return
         editing = true
@@ -170,6 +222,10 @@ class EntryScrollInput(
         box.setHighlightPos(0)
     }
 
+    /**
+     * Commit edit
+     *
+     */
     fun commitEdit() {
         if (!editing) return
         val index = selected

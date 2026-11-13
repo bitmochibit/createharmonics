@@ -5,6 +5,12 @@ import me.mochibit.createharmonics.foundation.services.platformService
 import net.minecraft.world.level.Level
 import org.joml.Vector3d
 
+/**
+ * Sable compat impl
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new SableCompatImpl
+ */
 internal object SableCompatImpl : SableCompat {
     override fun projectOutOfSubLevel(
         level: Level,

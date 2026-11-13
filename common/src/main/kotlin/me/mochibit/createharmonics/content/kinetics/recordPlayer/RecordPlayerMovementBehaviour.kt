@@ -40,6 +40,16 @@ import net.minecraft.world.phys.Vec3
 import net.neoforged.neoforge.items.ItemHandlerHelper
 import net.neoforged.neoforge.items.wrapper.CombinedInvWrapper
 
+/**
+ * Record player context data
+ *
+ * @constructor
+ * @property settings
+ * @property clock
+ * @param initialState the initial state
+ * @param animationSpeed the animation speed
+ * @param pitchCurve the pitch curve
+ */
 class RecordPlayerContextData(
     var settings: RecordPlayerSettings,
     val clock: PlaytimeClock,
@@ -87,6 +97,11 @@ class RecordPlayerContextData(
     }
 }
 
+/**
+ * Record player movement behaviour
+ *
+ * @constructor Creates a new RecordPlayerMovementBehaviour
+ */
 class RecordPlayerMovementBehaviour : SmartMovementBehaviour<RecordPlayerContextData>() {
 
     override fun contextDataFactory(context: MovementContext) = RecordPlayerContextData(

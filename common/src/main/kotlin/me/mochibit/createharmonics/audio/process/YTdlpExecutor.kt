@@ -19,12 +19,35 @@ import me.mochibit.createharmonics.foundation.err
 import java.nio.file.Files
 import java.nio.file.Path
 
+/**
+ * Downloaded audio
+ * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+ *
+ * @constructor Creates a new DownloadedAudio
+ * @property file
+ * @property title
+ * @property artist
+ */
 data class DownloadedAudio(val file: Path, val title: String?, val artist: String?)
 
+/**
+ * Y tdlp executor
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new YTdlpExecutor
+ */
 object YTdlpExecutor {
     private const val SEGMENT_DURATION_CEILING_S = 300
 
 
+    /**
+     * Extract audio info
+     * Suspending function — must be called from a coroutine or another suspending function.
+     *
+     * @param youtubeUrl the youtube url
+     * @return the audio info
+     * @throws IllegalStateException
+     */
     suspend fun extractAudioInfo(youtubeUrl: String): AudioInfo =
         withContext(Dispatchers.IO) {
             try {
@@ -135,6 +158,15 @@ object YTdlpExecutor {
             }
         }
 
+    /**
+     * Download
+     * Suspending function — must be called from a coroutine or another suspending function.
+     *
+     * @param url
+     * @param targetDir the target dir
+     * @return the downloaded audio
+     * @throws IllegalStateException
+     */
     suspend fun download(url: String, targetDir: Path): DownloadedAudio {
         if (!YTDLProvider.isAvailable()) error("YTDLProvider not available")
         val ytdlPath = YTDLProvider.getExecutablePath() ?: error("YTDLP not found")

@@ -12,6 +12,12 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.component.CustomData
 
+/**
+ * Record crafting handler
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new RecordCraftingHandler
+ */
 object RecordCraftingHandler : CommonEventHandler {
     private const val CRAFTED_WITH_DISC_KEY = "crafted_with_disc"
 
@@ -21,6 +27,12 @@ object RecordCraftingHandler : CommonEventHandler {
 
     private fun isEtherealRecord(stack: ItemStack): Boolean = stack.item is EtherealRecordItem
 
+    /**
+     * Returns the crafted with disc
+     *
+     * @param stack
+     * @return the item stack
+     */
     fun getCraftedWithDisc(stack: ItemStack): ItemStack {
         val resLocStr = getOrMigrateCraftedWith(stack) ?: return ItemStack.EMPTY
         val resLoc = ResourceLocation.tryParse(resLocStr) ?: return ItemStack.EMPTY
@@ -28,6 +40,12 @@ object RecordCraftingHandler : CommonEventHandler {
         return if (item == Items.AIR) ItemStack.EMPTY else ItemStack(item)
     }
 
+    /**
+     * Sets the crafted with disc
+     *
+     * @param stack
+     * @param withDisc the with disc
+     */
     fun setCraftedWithDisc(
         stack: ItemStack,
         withDisc: ItemStack,

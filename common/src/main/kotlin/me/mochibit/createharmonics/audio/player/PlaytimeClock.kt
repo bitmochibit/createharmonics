@@ -3,13 +3,30 @@ package me.mochibit.createharmonics.audio.player
 import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerNbtKeys
 import net.minecraft.nbt.CompoundTag
 
+/**
+ * Playtime source
+ *
+ * @property isPlaying the is playing
+ * @property currentPlaytime the current playtime
+ */
 interface PlaytimeSource {
     val isPlaying: Boolean
     val currentPlaytime: Double
 }
 
+/**
+ * Playtime clock
+ *
+ * @constructor Creates a new PlaytimeClock
+ */
 class PlaytimeClock() : PlaytimeSource {
     private class Snap(val offset: Double, val playing: Boolean, val anchor: Long, val rate: Double) {
+        /**
+         * At
+         *
+         * @param now
+         * @return the double
+         */
         fun at(now: Long = System.nanoTime()) =
             if (!playing || anchor == -1L) offset else offset + (now - anchor) / 1e9 * rate
     }
@@ -33,27 +50,70 @@ class PlaytimeClock() : PlaytimeSource {
     override val currentPlaytime get() = snap.at()
     override val isPlaying get() = snap.playing
 
+    /**
+     * Tick
+     *
+     */
     @Synchronized fun tick() {
         val s = snap; if (!s.playing) return
         val now = System.nanoTime(); snap = Snap(s.at(now), true, now, s.rate)
     }
+
+    /**
+     * Sets the values
+     *
+     * @param offset
+     * @param isPlaying the is playing
+     */
     @Synchronized fun updateValues(offset: Double, isPlaying: Boolean) {
         snap = Snap(offset, isPlaying, if (isPlaying) System.nanoTime() else -1L, snap.rate)
     }
+
+    /**
+     * Play
+     *
+     * @param from
+     */
     @Synchronized fun play(from: Double = snap.offset) { snap = Snap(from, true, System.nanoTime(), snap.rate) }
+
+    /**
+     * Pause
+     *
+     */
     @Synchronized fun pause() {
         val s = snap; if (!s.playing) return
         snap = Snap(s.at(), false, -1L, s.rate)
     }
+
+    /**
+     * Stops
+     *
+     */
     @Synchronized fun stop() { snap = Snap(0.0, false, -1L, snap.rate) }
+
+    /**
+     * Returns the values
+     *
+     * @return the pair
+     */
     fun getValues(): Pair<Double, Boolean> = snap.let { it.at() to it.playing }
 }
 
+/**
+ * Sets the clock on the receiver [CompoundTag]
+ *
+ * @param clock
+ */
 fun CompoundTag.putClock(clock: PlaytimeClock) {
     putDouble("ClockOffset", clock.currentPlaytime)
     putBoolean("ClockWasPlaying", clock.isPlaying)
 }
 
+/**
+ * Sets the clock on the receiver [CompoundTag]
+ *
+ * @param clock
+ */
 fun CompoundTag.updateClock(clock: PlaytimeClock) {
     clock.updateValues(
         getDouble("ClockOffset"),

@@ -4,6 +4,12 @@ import me.mochibit.createharmonics.content.kinetics.recordPlayer.AllDirectionRec
 import me.mochibit.createharmonics.foundation.registry.ModBlockEntities
 import net.minecraft.world.level.block.entity.BlockEntityType
 
+/**
+ * Andesite jukebox block
+ *
+ * @constructor
+ * @param properties
+ */
 class AndesiteJukeboxBlock(
     properties: Properties,
 ) : AllDirectionRecordPlayerBlock(properties) {

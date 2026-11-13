@@ -9,6 +9,9 @@ import java.nio.charset.StandardCharsets
 /**
  * POST /audio/upload?player=<name>&ext=<ext>[&title=...][&artist=...][&filename=...]
  * Body: raw audio bytes.
+ *
+ * @constructor Creates a new UploadHandler
+ * @property storageProvider the storage provider
  */
 class UploadHandler(private val storageProvider:
                     () -> AudioStorageManager) : HttpHandler {

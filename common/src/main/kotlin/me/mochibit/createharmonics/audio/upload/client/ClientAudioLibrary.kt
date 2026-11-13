@@ -6,6 +6,8 @@ import me.mochibit.createharmonics.foundation.services.networkService
 
 /**
  * Local audio library of the uploaded audios on the server
+ *
+ * @constructor Creates a new ClientAudioLibrary
  */
 object ClientAudioLibrary {
     @Volatile var loaded = false
@@ -14,11 +16,20 @@ object ClientAudioLibrary {
     @Volatile var entries: List<AudioMetadata> = emptyList()
         private set
 
+    /**
+     * Sets
+     *
+     * @param list
+     */
     fun update(list: List<AudioMetadata>) {
         entries = list
         loaded = true
     }
 
+    /**
+     * Resets
+     *
+     */
     fun refresh() = networkService.sendToServer(
         RequestAudioList()
     )

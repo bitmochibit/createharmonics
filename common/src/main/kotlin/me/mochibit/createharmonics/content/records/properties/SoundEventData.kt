@@ -7,6 +7,17 @@ import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.sounds.SoundEvent
 import net.minecraft.util.RandomSource
 
+/**
+ * Sound event data
+ * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+ *
+ * @constructor Creates a new SoundEventData
+ * @property sound
+ * @property looping
+ * @property relative
+ * @property volume
+ * @property probability
+ */
 data class SoundEventData(
     val sound: SoundEvent,
     val looping: Boolean,
@@ -14,6 +25,11 @@ data class SoundEventData(
     val volume: Float,
     val probability: Float,
 ) {
+    /**
+     * Creates a new
+     *
+     * @return the sound event def
+     */
     fun create(): SoundEventComposition.SoundEventDef =
         if (probability >= 1f) {
             SoundEventComposition.SoundEventDef(
@@ -26,6 +42,12 @@ data class SoundEventData(
             )
         }
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         val CODEC: Codec<SoundEventData> = RecordCodecBuilder.create { i ->
             i.group(

@@ -14,6 +14,14 @@ import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.TooltipFlag
 
+/**
+ * Ethereal record item
+ *
+ * @constructor
+ * @property recordType the record type
+ * @property brokenVariant the broken variant
+ * @param props
+ */
 class EtherealRecordItem(
     val recordType: RecordType,
     props: Properties,
@@ -25,6 +33,12 @@ class EtherealRecordItem(
         }
     },
 ) {
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         val JUKEBOX_DISCS: List<Item> by lazy {
             BuiltInRegistries.ITEM
@@ -36,6 +50,11 @@ class EtherealRecordItem(
         }
     }
 
+    /**
+     * Returns `true` if record broken
+     *
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun isRecordBroken(): Boolean = brokenVariant
 
     override fun isDamageable(stack: ItemStack): Boolean = recordType.uses > 0 && !isRecordBroken()

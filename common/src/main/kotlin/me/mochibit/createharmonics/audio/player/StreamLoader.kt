@@ -11,7 +11,22 @@ import net.minecraft.client.resources.sounds.SoundInstance
 import java.io.InputStream
 import kotlin.coroutines.cancellation.CancellationException
 
+/**
+ * Stream load result
+ * Sealed hierarchy — all subtypes are known at compile time, ideal for exhaustive `when`.
+ *
+ */
 sealed interface StreamLoadResult {
+    /**
+     * Ready
+     * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+     *
+     * @constructor Creates a new Ready
+     * @property stream
+     * @property soundInstance the sound instance
+     * @property audioInfo the audio info
+     * @property startedAt the started at
+     */
     data class Ready(
         val stream: AudioEffectInputStream,
         val soundInstance: SoundInstance,
@@ -19,8 +34,23 @@ sealed interface StreamLoadResult {
         val startedAt: Double,
     ) : StreamLoadResult
 
+    /**
+     * Finished
+     * Singleton object — a single shared instance.
+     *
+     * @constructor Creates a new Finished
+     */
     data object Finished : StreamLoadResult
 
+    /**
+     * Failed
+     * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+     *
+     * @constructor Creates a new Failed
+     * @property shouldDisableSeek the should disable seek
+     * @property shouldRetry the should retry
+     * @property permanent
+     */
     data class Failed(
         val shouldDisableSeek: Boolean = false,
         val shouldRetry: Boolean = false,
@@ -28,11 +58,29 @@ sealed interface StreamLoadResult {
     ) : StreamLoadResult
 }
 
+/**
+ * Stream loader
+ *
+ * @constructor Creates a new StreamLoader
+ * @property effectChain the effect chain
+ * @property soundInstanceFactory the sound instance factory
+ * @property player
+ */
 class StreamLoader(
     private val effectChain: EffectChain,
     private val soundInstanceFactory: SoundInstanceFactory,
     private val player: AudioPlayer,
 ) {
+    /**
+     * Returns
+     * Suspending function — must be called from a coroutine or another suspending function.
+     *
+     * @param request
+     * @param positionProvider the position provider
+     * @receiver
+     * @return the stream load result
+     * @throws e
+     */
     suspend fun load(request: AudioRequest, positionProvider: () -> Double): StreamLoadResult {
         val source = AudioSourceResolver.resolve(request)
         if (ClientConfig.debugAudioPlayer.get()) {

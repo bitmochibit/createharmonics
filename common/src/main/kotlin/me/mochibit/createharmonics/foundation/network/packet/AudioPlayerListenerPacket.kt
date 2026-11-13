@@ -4,6 +4,13 @@ import kotlinx.serialization.Serializable
 import me.mochibit.createharmonics.audio.player.ListenerEvent
 import me.mochibit.createharmonics.audio.player.PlaybackSessions
 
+/**
+ * Audio player listener packet
+ *
+ * @constructor Creates a new AudioPlayerListenerPacket
+ * @property audioPlayerId the audio player id
+ * @property event
+ */
 @AutoPacket
 @Serializable
 class AudioPlayerListenerPacket(

@@ -19,10 +19,23 @@ import net.minecraft.world.item.JukeboxSong
 import net.minecraft.world.level.Level
 import java.util.concurrent.ConcurrentHashMap
 
+/**
+ * Record playback
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new RecordPlayback
+ */
 object RecordPlayback {
     private var ffprobeWarned = false
     private val sampleRates = ConcurrentHashMap<ResourceLocation, Float>()
 
+    /**
+     * Play from record on the receiver [AudioPlayer]
+     *
+     * @param etherealRecord the ethereal record
+     * @param initialPos the initial pos
+     * @param level
+     */
     fun AudioPlayer.playFromRecord(
         etherealRecord: ItemStack,
         initialPos: Double = 0.0,

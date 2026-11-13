@@ -33,12 +33,26 @@ import java.util.UUID
 import kotlin.math.ceil
 import kotlin.math.max
 
+/**
+ * Amethyst catalyst block entity
+ *
+ * @constructor
+ * @param type
+ * @param pos
+ * @param state
+ */
 class AmethystCatalystBlockEntity(
     type: BlockEntityType<*>,
     pos: BlockPos,
     state: BlockState,
 ) : SmartBlockEntity(type, pos, state), Clearable {
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         const val CRYSTAL_SLOT = 0
         private const val TICK_SOUND_INTERVAL = 10L
@@ -49,30 +63,89 @@ class AmethystCatalystBlockEntity(
         private const val UPLOAD_IDLE_TIMEOUT = 20 * 60 * 10
     }
 
-    enum class CrystalChangeOutcome { INSERTED, REMOVED }
+    /**
+     * Crystal change outcome
+     * Enum — a fixed set of named constants.
+     *
+     * @constructor Creates a new CrystalChangeOutcome
+     */
+    enum class CrystalChangeOutcome {
+        /**
+         * Inserted
+         *
+         * @constructor Creates a new INSERTED
+         */
+        INSERTED,
 
+        /**
+         * Removed
+         *
+         * @constructor Creates a new REMOVED
+         */
+        REMOVED }
+
+    /**
+     * Phase sound
+     *
+     * @constructor Creates a new PhaseSound
+     * @property event
+     * @property volume
+     * @property pitch
+     */
     class PhaseSound(val event: SoundEvent, val volume: Float = 1f, val pitch: Float = 1f)
 
-    // beam state machine
+    /**
+     * Phase
+     * Enum — a fixed set of named constants.
+     *
+     * @constructor Creates a new Phase
+     * @property hasBeam the has beam
+     * @property onStart the on start
+     * @property onEnd the on end
+     * @property onTick the on tick
+     */// beam state machine
     enum class Phase(
         val hasBeam: Boolean = false,
         val onStart: PhaseSound? = null,
         val onEnd: PhaseSound? = null,
         val onTick: PhaseSound? = null,
     ) {
+        /**
+         * Idle
+         *
+         * @constructor Creates a new IDLE
+         */
         IDLE,
+
+        /**
+         * Uploading
+         *
+         * @constructor Creates a new UPLOADING
+         */
         UPLOADING(
             hasBeam = true,
             onStart = PhaseSound(SoundEvents.BEACON_ACTIVATE, 1f, 1.5f),
             onEnd = PhaseSound(SoundEvents.AMETHYST_BLOCK_CHIME, 1f, 1.5f),
             onTick = PhaseSound(SoundEvents.AMETHYST_BLOCK_RESONATE, 0.4f, 1.8f),
         ),
+
+        /**
+         * Deleting
+         *
+         * @constructor Creates a new DELETING
+         */
         DELETING(
             hasBeam = true,
             onStart = PhaseSound(SoundEvents.BEACON_DEACTIVATE, 1f, 1.2f),
             onEnd = PhaseSound(SoundEvents.AMETHYST_CLUSTER_BREAK, 1f, 1f),
             onTick = PhaseSound(SoundEvents.AMETHYST_BLOCK_RESONATE, 0.4f, 0.8f),
         ),
+
+        /**
+         * Cooldown
+         *
+         * @constructor Creates a new COOLDOWN
+         */
         COOLDOWN
     }
 
@@ -128,7 +201,12 @@ class AmethystCatalystBlockEntity(
     private val beamLength: Float
         get() = level?.let { (it.maxBuildHeight - blockPos.y - 1).coerceAtLeast(0).toFloat() } ?: 0f
 
-    /** Called by the renderer every frame. */
+    /**
+     * Called by the renderer every frame.
+     *
+     * @param partialTicks the partial ticks
+     * @return the beam frame
+     */
     fun beamFrame(partialTicks: Float): BeamFrame? {
         val level = level ?: return null
         return beam.frame(level.gameTime + partialTicks, beamLength)
@@ -138,8 +216,19 @@ class AmethystCatalystBlockEntity(
     val hasCrystal: Boolean
         get() = !itemHandler.getStackInSlot(CRYSTAL_SLOT).isEmpty
 
+    /**
+     * Returns the crystal
+     *
+     * @return the item stack
+     */
     fun getCrystal(): ItemStack = itemHandler.getStackInSlot(CRYSTAL_SLOT).copy()
 
+    /**
+     * Adds the crystal
+     *
+     * @param crystalItem the crystal item
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun insertCrystal(crystalItem: ItemStack): Boolean {
         if (hasCrystal) return false
         if (!crystalItem.`is`(Items.AMETHYST_SHARD)) return false
@@ -151,6 +240,11 @@ class AmethystCatalystBlockEntity(
         return true
     }
 
+    /**
+     * Pop crystal
+     *
+     * @return the item stack
+     */
     fun popCrystal(): ItemStack {
         val stack = getCrystal()
         itemHandler.setStackInSlot(CRYSTAL_SLOT, ItemStack.EMPTY)
@@ -163,6 +257,11 @@ class AmethystCatalystBlockEntity(
         return stack
     }
 
+    /**
+     * Shock
+     *
+     * @param player
+     */
     fun shock(player: Player) {
         val sl = level as? ServerLevel ?: return
         if (player.isCreative) return
@@ -185,7 +284,10 @@ class AmethystCatalystBlockEntity(
 
     /**
      * Reserves the block entity for an upload session.
+     *
      * @return an [UploadSession], or null if the block is already busy
+     * @param fileName the file name
+     * @param owner
      */
     fun tryReserve(fileName: String, owner: UUID): UploadSession? {
         if (isBusy) return null
@@ -199,6 +301,11 @@ class AmethystCatalystBlockEntity(
         return s
     }
 
+    /**
+     * Stops the upload
+     *
+     * @param requester
+     */
     fun cancelUpload(requester: UUID) {
         if (!isUploading || sessionOwner != requester) return
         session?.cancel()
@@ -213,7 +320,11 @@ class AmethystCatalystBlockEntity(
         startCooldown()
     }
 
-    /** @return false if the block is already busy */
+    /**
+     * Try start delete
+     *
+     * @return false if the block is already busy
+     */
     fun tryStartDelete(): Boolean {
         if (isBusy) return false
         deleteTicksLeft = BeamTiming.extendTicks(beamLength).toInt() + 1

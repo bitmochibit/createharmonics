@@ -8,17 +8,46 @@ import me.mochibit.createharmonics.foundation.inventory.StorageInventory
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.material.FluidState
 
+/**
+ * Content service
+ *
+ */
 interface ContentService {
-    // Helpers for platform-specific features
+    /**
+     * Returns the viscosity
+     *
+     * @param fluidState the fluid state
+     * @return the int
+     */// Helpers for platform-specific features
     fun getViscosity(fluidState: FluidState): Int
 
+    /**
+     * Invalidate block entity storage
+     *
+     * @param be
+     */
     fun invalidateBlockEntityStorage(be: BlockEntity)
 
+    /**
+     * Creates a new inventory from spec
+     *
+     * @param spec
+     * @param onChange the on change
+     * @receiver
+     * @param onLoad the on load
+     * @receiver
+     * @return the storage inventory
+     */
     fun createInventoryFromSpec(spec: InventorySpec,
                                 onChange: GenericInventory.(slot: Int) -> Unit = {},
                                 onLoad: GenericInventory.() -> Unit = {}
                                 ): StorageInventory
 
+    /**
+     * Simple record player mounted storage
+     *
+     * @return the registry entry
+     */
     fun simpleRecordPlayerMountedStorage(): RegistryEntry<MountedItemStorageType<*>, *>
 }
 

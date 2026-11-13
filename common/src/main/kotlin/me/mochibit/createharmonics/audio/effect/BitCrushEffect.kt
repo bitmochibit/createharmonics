@@ -7,6 +7,9 @@ import kotlin.math.roundToInt
  * Simulates low-quality audio by reducing bit depth and sample rate.
  *
  * @param quality Audio quality from 0.0 (lowest quality/most crushed) to 1.0 (full quality/no effect)
+ * @constructor Creates a new BitCrushEffect
+ * @property quality
+ * @property scope
  */
 class BitCrushEffect(
     private val quality: Float = 1.0f,

@@ -10,9 +10,21 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.seconds
 
+/**
+ * Handles the lifecycle manager
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ProcessLifecycleManager
+ */
 object ProcessLifecycleManager {
     private val processes = ConcurrentHashMap<Long, Process>()
 
+    /**
+     * Adds the process
+     *
+     * @param process
+     * @return the long
+     */
     fun registerProcess(process: Process): Long {
         val pid = process.pid()
         processes[pid] = process
@@ -22,13 +34,27 @@ object ProcessLifecycleManager {
     /**
      * Unregister a process without attempting to destroy it.
      * Use this when the process has already been terminated externally.
+     *
+     * @param id
      */
     fun unregisterProcess(id: Long) {
         processes.remove(id)
     }
 
+    /**
+     * Returns `true` if alive
+     *
+     * @param id
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun isAlive(id: Long): Boolean = processes[id]?.isAlive ?: false
 
+    /**
+     * Returns the exit code
+     *
+     * @param id
+     * @return the int
+     */
     fun getExitCode(id: Long): Int? {
         val process = processes[id] ?: return null
         return if (process.isAlive) {
@@ -38,6 +64,12 @@ object ProcessLifecycleManager {
         }
     }
 
+    /**
+     * Removes the process
+     *
+     * @param id
+     * @return the job
+     */
     fun destroyProcess(id: Long) =
         ModCoroutineScope.launch(Dispatchers.IO) {
             val process = processes.remove(id) ?: return@launch
@@ -53,6 +85,10 @@ object ProcessLifecycleManager {
             }
         }
 
+    /**
+     * Stops the all
+     *
+     */
     fun shutdownAll() {
         processes.keys.toList().forEach { id ->
             processes.remove(id)?.let { process ->

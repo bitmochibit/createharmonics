@@ -13,6 +13,12 @@ import java.net.InetSocketAddress
 import java.net.URI
 import java.net.URLEncoder
 
+/**
+ * On join send audio server port
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new OnJoinSendAudioServerPort
+ */
 @AutoHandler
 object OnJoinSendAudioServerPort: ModEventHandler{
     override fun setupEvents() {
@@ -27,6 +33,8 @@ object OnJoinSendAudioServerPort: ModEventHandler{
 
 /**
  * Holder for determining the hostname and port for the audio server
+ *
+ * @constructor Creates a new AudioServerEndpoint
  */
 object AudioServerEndpoint {
     @Volatile var port = 0
@@ -39,6 +47,16 @@ object AudioServerEndpoint {
             ?.hostString ?: "127.0.0.1"
     }
 
+    /**
+     * Upload uri
+     *
+     * @param filename
+     * @param durationSeconds the duration seconds
+     * @param sampleRate the sample rate
+     * @param title
+     * @param artist
+     * @return the uri
+     */
     fun uploadUri(
         filename: String,
         durationSeconds: Int,
@@ -56,8 +74,21 @@ object AudioServerEndpoint {
         return URI("http://${resolveHost()}:${requirePort()}/audio/upload?$query")
     }
 
+    /**
+     * Info uri
+     *
+     * @param ref
+     * @return the uri
+     */
     fun infoUri(ref: ServerAudioReference): URI = URI("http://${resolveHost()}:${requirePort()}/audio/info/${enc(ref.owner)}/${enc(ref.fileId)}")
 
+    /**
+     * Stream url
+     *
+     * @param ref
+     * @param extension
+     * @return the string
+     */
     fun streamUrl(ref: ServerAudioReference, extension: String): String =
         "http://${resolveHost()}:${requirePort()}/audio/stream/${enc(ref.owner)}/${enc(ref.fileId)}.$extension"
 

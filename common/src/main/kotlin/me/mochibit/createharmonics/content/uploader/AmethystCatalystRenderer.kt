@@ -24,9 +24,21 @@ import org.joml.Vector3f
 import kotlin.math.PI
 import kotlin.math.sin
 
+/**
+ * Amethyst catalyst renderer
+ *
+ * @constructor
+ * @param context
+ */
 class AmethystCatalystRenderer(context: Context) :
     SmartBlockEntityRenderer<AmethystCatalystBlockEntity>(context) {
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         private const val SPIN_DEGREES_PER_TICK = 3.0
         private const val BOB_AMPLITUDE = 1.0 / 16.0
@@ -102,6 +114,12 @@ class AmethystCatalystRenderer(context: Context) :
 }
 
 
+/**
+ * Catalyst beam
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new CatalystBeam
+ */
 object CatalystBeam {
     private const val INNER_RADIUS = 0.05f
     private const val GLOW_RADIUS = 0.07f
@@ -119,6 +137,17 @@ object CatalystBeam {
         Vector3f(CORNER_POSITION, CORNER_Y, CORNER_POSITION),
     )
 
+    /**
+     * Displays
+     *
+     * @param ms
+     * @param buffer
+     * @param frame
+     * @param gameTime the game time
+     * @param partialTicks the partial ticks
+     * @param color
+     * @param tipY the tip y
+     */
     fun render(
         ms: PoseStack,
         buffer: MultiBufferSource,

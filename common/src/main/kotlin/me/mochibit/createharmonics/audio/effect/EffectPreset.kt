@@ -19,19 +19,46 @@ import net.minecraft.world.level.material.FluidState
 import org.joml.Vector3d
 import kotlin.time.Duration.Companion.milliseconds
 
+/**
+ * Position vector
+ *
+ * @constructor Creates a new PositionVector
+ * @property value
+ */
 @JvmInline
 value class PositionVector(
     val value: Vector3d,
 )
 
+/**
+ * Cursor vector
+ *
+ * @constructor Creates a new CursorVector
+ * @property value
+ */
 @JvmInline
 value class CursorVector(
     val value: Vector3d,
 )
 
+/**
+ * Effect preset
+ * Sealed hierarchy — all subtypes are known at compile time, ideal for exhaustive `when`.
+ *
+ */
 sealed interface EffectPreset {
+    /**
+     * Sets
+     *
+     * @param audioPlayer the audio player
+     */
     fun update(audioPlayer: AudioPlayer)
 
+    /**
+     * Abstract effect preset
+     *
+     * @constructor Creates a new AbstractEffectPreset
+     */
     abstract class AbstractEffectPreset : EffectPreset {
         protected val positionVec = PositionVector(Vector3d())
         protected val cursorVec = CursorVector(Vector3d())
@@ -57,17 +84,44 @@ sealed interface EffectPreset {
             }
         }
 
+        /**
+         * On external update
+         *
+         * @param audioPlayer the audio player
+         * @param level
+         */
         fun onExternalUpdate(audioPlayer: AudioPlayer, level: Level) {
             heavyUpdateCooldown = heavyUpdateRate
             heavyUpdate(audioPlayer, level)
         }
 
+        /**
+         * Tick
+         *
+         */
         protected open fun tick() {}
 
+        /**
+         * Heavy update
+         *
+         * @param audioPlayer the audio player
+         * @param level
+         */
         protected abstract fun heavyUpdate(audioPlayer: AudioPlayer, level: Level)
     }
 
+    /**
+     * Underwater filter
+     *
+     * @constructor Creates a new UnderwaterFilter
+     */
     class UnderwaterFilter : AbstractEffectPreset() {
+        /**
+         * Companion
+         * Companion object — holds factory methods and constants for the enclosing class.
+         *
+         * @constructor Creates a new Companion
+         */
         companion object {
             val effectScope: AudioEffect.Scope =
                 AudioEffect.Scope.register(
@@ -148,6 +202,10 @@ sealed interface EffectPreset {
 
     /**
      * Applies a [ReverbEffect] whose parameters are modulated by nearby mineral blocks:
+     *
+     * @constructor Creates a new Reverberator
+     * @property scanRadiusProvider the scan radius provider
+     * @property maxEffectiveBlocks the max effective blocks
      */
     class Reverberator(
         private val scanRadiusProvider: () -> Int = { ModConfigs.client.reverberatorScanRadius.get() },
@@ -160,6 +218,12 @@ sealed interface EffectPreset {
         val dampingInterpolated = FloatInterpolator(BASE_DAMPING, 900.milliseconds)
         val wetMixInterpolated = FloatInterpolator(BASE_WET_MIX, 900.milliseconds)
 
+        /**
+         * Companion
+         * Companion object — holds factory methods and constants for the enclosing class.
+         *
+         * @constructor Creates a new Companion
+         */
         companion object {
             val effectScope: AudioEffect.Scope =
                 AudioEffect.Scope.register(

@@ -10,9 +10,22 @@ import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
 import net.minecraft.world.item.ItemStack
 
+/**
+ * Record player mounted storage logic
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new RecordPlayerMountedStorageLogic
+ */
 object RecordPlayerMountedStorageLogic {
     private val RANDOM = RandomSource.create()
 
+    /**
+     * Handles the interaction
+     *
+     * @param inv
+     * @param player
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun handleInteraction(inv: StorageInventory, player: ServerPlayer): Boolean {
         val slot = RecordPlayerBehaviour.RecordPlayerInventory.MAIN_RECORD_SLOT
         val itemInHand = player.mainHandItem

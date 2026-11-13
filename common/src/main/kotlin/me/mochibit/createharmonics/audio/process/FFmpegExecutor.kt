@@ -23,7 +23,18 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
+/**
+ * F fmpeg executor
+ *
+ * @constructor Creates a new FFmpegExecutor
+ */
 class FFmpegExecutor private constructor() {
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         /** Minimum timeout (minutes) regardless of seek position. */
         private const val BASE_TIMEOUT_MINUTES = 2L
@@ -36,6 +47,13 @@ class FFmpegExecutor private constructor() {
          *
          * The returned stream is a [SequenceInputStream] that prepends the first
          * chunk already consumed during readiness probing, so no audio data is lost.
+         *
+         * @param url
+         * @param sampleRate the sample rate
+         * @param seekSeconds the seek seconds
+         * @param headers
+         * @param isLive the is live
+         * @return the pair
          */
         suspend fun makeStream(
             url: String,
@@ -89,8 +107,19 @@ class FFmpegExecutor private constructor() {
     val inputStream: InputStream?
         get() = process?.inputStream
 
+    /**
+     * Returns `true` if running
+     *
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun isRunning(): Boolean = process?.isAlive == true
 
+    /**
+     * Returns the seek string
+     *
+     * @param seconds
+     * @return the string
+     */
     fun getSeekString(seconds: Double): String {
         val totalMilliseconds = (seconds * 1000).toLong()
         val hours = totalMilliseconds / 3600000
@@ -105,6 +134,12 @@ class FFmpegExecutor private constructor() {
      * (blocking read, no polling) or the dynamic timeout elapses.
      *
      * @return The first chunk of raw PCM bytes if the stream started successfully, null otherwise.
+     * @param url
+     * @param sampleRate the sample rate
+     * @param seekSeconds the seek seconds
+     * @param headers
+     * @param isLive the is live
+     * @throws e
      */
     suspend fun createStream(
         url: String,

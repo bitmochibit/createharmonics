@@ -11,6 +11,10 @@ import kotlin.math.sin
  * @param frequency Center frequency in Hz
  * @param quality Q factor (bandwidth control, typically 0.5 to 10.0)
  * @param gain Gain in dB (-20 to +20)
+ * @constructor Creates a new EQBand
+ * @property frequency
+ * @property quality
+ * @property gain
  */
 data class EQBand(
     val frequency: Float,
@@ -25,6 +29,9 @@ data class EQBand(
  * Uses biquad filters for each band with adjustable gain and quality.
  *
  * @param bands List of EQ bands to apply
+ * @constructor Creates a new EqualizerEffect
+ * @property bands
+ * @property scope
  */
 class EqualizerEffect(
     private var bands: List<EQBand> =
@@ -176,6 +183,15 @@ class EqualizerEffect(
         private var y1 = 0f
         private var y2 = 0f
 
+        /**
+         * Sets the coefficients
+         *
+         * @param b0
+         * @param b1
+         * @param b2
+         * @param a1
+         * @param a2
+         */
         fun setCoefficients(
             b0: Float,
             b1: Float,
@@ -190,6 +206,12 @@ class EqualizerEffect(
             this.a2 = a2
         }
 
+        /**
+         * Handles
+         *
+         * @param input
+         * @return the float
+         */
         fun process(input: Float): Float {
             val output = b0 * input + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
 
@@ -202,6 +224,10 @@ class EqualizerEffect(
             return output
         }
 
+        /**
+         * Resets
+         *
+         */
         fun reset() {
             x1 = 0f
             x2 = 0f

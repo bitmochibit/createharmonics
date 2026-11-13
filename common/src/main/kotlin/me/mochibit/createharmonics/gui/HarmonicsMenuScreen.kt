@@ -24,6 +24,12 @@ import net.minecraft.network.chat.TextColor
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.util.Mth
 
+/**
+ * Harmonics menu screen
+ *
+ * @constructor Creates a new HarmonicsMenuScreen
+ * @property parent
+ */
 class HarmonicsMenuScreen(
     private val parent: Screen?,
 ) : AbstractSimiScreen() {

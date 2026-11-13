@@ -26,11 +26,23 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.level.block.state.properties.BooleanProperty
 import net.minecraft.world.phys.BlockHitResult
 
+/**
+ * Horizontal record player block
+ *
+ * @constructor
+ * @param properties
+ */
 abstract class HorizontalRecordPlayerBlock(
     properties: Properties,
 ) : HorizontalKineticBlock(properties),
     IBE<RecordPlayerBlockEntity>,
     RecordPlayerTrait {
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         private val RANDOM = RandomSource.create()
         val POWERED = BlockStateProperties.POWERED

@@ -5,6 +5,10 @@ import kotlin.math.roundToInt
 /**
  * Volume/gain control effect.
  * Useful for normalizing audio or creating fade effects.
+ *
+ * @constructor Creates a new VolumeEffect
+ * @property volumeFunction the volume function
+ * @property scope
  */
 class VolumeEffect(
     private val volumeFunction: (timeInSeconds: Double) -> Float,
@@ -29,9 +33,19 @@ class VolumeEffect(
 
     override fun getName(): String = "Volume"
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         /**
          * Create a fade-in effect.
+         *
+         * @param durationSeconds the duration seconds
+         * @param scope
+         * @return the volume effect
          */
         fun fadeIn(
             durationSeconds: Double,
@@ -43,6 +57,11 @@ class VolumeEffect(
 
         /**
          * Create a fade-out effect.
+         *
+         * @param startTime the start time
+         * @param durationSeconds the duration seconds
+         * @param scope
+         * @return the volume effect
          */
         fun fadeOut(
             startTime: Double,

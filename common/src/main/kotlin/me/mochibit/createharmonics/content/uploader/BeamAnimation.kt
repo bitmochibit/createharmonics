@@ -7,6 +7,12 @@ typealias Easing = (Float) -> Float
 
 //todo abstract this stuff
 
+/**
+ * Easings
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new Easings
+ */
 object Easings {
     val LINEAR: Easing = { it }
     val EASE_IN: Easing = { x -> x * x * x }
@@ -20,16 +26,52 @@ private fun track(time: Float, start: Float, duration: Float, easing: Easing): F
     easing(((time - start) / duration).coerceIn(0f, 1f))
 
 
+/**
+ * Beam timing
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new BeamTiming
+ */
 object BeamTiming {
     const val BLOCKS_PER_TICK = 8f
     const val MIN_HOLD_TICKS = 60f
 
+    /**
+     * Travel ticks
+     *
+     * @param length
+     * @return the float
+     */
     fun travelTicks(length: Float) = (length / BLOCKS_PER_TICK).coerceAtLeast(1f)
+
+    /**
+     * Extend ticks
+     *
+     * @param length
+     * @return the float
+     */
     fun extendTicks(length: Float) = travelTicks(length)
+
+    /**
+     * Retract ticks
+     *
+     * @param length
+     * @param descending
+     * @return the float
+     */
     fun retractTicks(length: Float, descending: Boolean) =
         travelTicks(length)
 }
 
+/**
+ * Beam frame
+ *
+ * @constructor Creates a new BeamFrame
+ * @property descending
+ * @property length
+ * @property head
+ * @property tail
+ */
 class BeamFrame(
     val descending: Boolean,
     val length: Float,
@@ -37,6 +79,11 @@ class BeamFrame(
     val tail: Float,
 )
 
+/**
+ * Beam animator
+ *
+ * @constructor Creates a new BeamAnimator
+ */
 class BeamAnimator {
     private var startTick = -1L
     private var retractTick = -1L
@@ -44,12 +91,25 @@ class BeamAnimator {
 
     val active get() = startTick >= 0
 
+    /**
+     * Starts
+     *
+     * @param descending
+     * @param now
+     */
     fun start(descending: Boolean, now: Long) {
         this.descending = descending
         startTick = now
         retractTick = -1L
     }
 
+    /**
+     * Tick
+     *
+     * @param now
+     * @param length
+     * @param keepAlive the keep alive
+     */
     fun tick(now: Long, length: Float, keepAlive: Boolean) {
         if (!active) return
         if (retractTick < 0) {
@@ -61,6 +121,13 @@ class BeamAnimator {
         }
     }
 
+    /**
+     * Frame
+     *
+     * @param now
+     * @param length
+     * @return the beam frame
+     */
     fun frame(now: Float, length: Float): BeamFrame? {
         if (!active) return null
         val travel = BeamTiming.travelTicks(length)

@@ -12,6 +12,12 @@ import me.mochibit.createharmonics.foundation.services.clientEventService
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.TitleScreen
 
+/**
+ * Lib disclaimer handler
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new LibDisclaimerHandler
+ */
 @AutoHandler
 object LibDisclaimerHandler : ModEventHandler {
     private var hasShownDisclaimer = false

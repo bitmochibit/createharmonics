@@ -7,7 +7,12 @@ import me.mochibit.createharmonics.foundation.warn
 import java.io.IOException
 
 
-/** GET /audio/info/<playerName>/<fileId> */
+/**
+ * GET /audio/info/<playerName>/<fileId>
+ *
+ * @constructor Creates a new InfoHandler
+ * @property storageProvider the storage provider
+ */
 class InfoHandler(private val storageProvider: () -> AudioStorageManager) : HttpHandler {
     override fun handle(exchange: HttpExchange) {
         try {

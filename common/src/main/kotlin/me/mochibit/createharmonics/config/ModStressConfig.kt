@@ -19,6 +19,8 @@ import java.util.function.DoubleSupplier
  *
  * This object manages stress-related values for all blocks added by CreateHarmonics,
  * allowing server administrators to fine-tune mechanical contraption behavior.
+ *
+ * @constructor Creates a new ModStressConfig
  */
 object ModStressConfig : ConfigBase() {
     // Bump this version to reset configured values on major config changes
@@ -83,14 +85,22 @@ object ModStressConfig : ConfigBase() {
 
     /**
      * Sets a block to have no stress impact (0 SU).
+     *
+     * @param B
+     * @param P
+     * @return the non null unary operator
      */
     fun <B : Block, P> setNoImpact(): NonNullUnaryOperator<BlockBuilder<B, P>> = setImpact(0.0)
 
     /**
      * Configures the stress impact for a block during registration.
+     *
      * @param value The stress impact in Stress Units (must be between MIN_STRESS_VALUE and MAX_STRESS_VALUE)
      * @throws IllegalArgumentException if the value is out of range
      * @throws IllegalStateException if called on a non-Harmonics block
+     * @param B
+     * @param P
+     * @return the non null unary operator
      */
     fun <B : Block, P> setImpact(value: Double): NonNullUnaryOperator<BlockBuilder<B, P>> {
         require(value in MIN_STRESS_VALUE..MAX_STRESS_VALUE) {
@@ -106,9 +116,13 @@ object ModStressConfig : ConfigBase() {
 
     /**
      * Configures the stress capacity for a block during registration.
+     *
      * @param value The stress capacity in Stress Units (must be between MIN_STRESS_VALUE and MAX_STRESS_VALUE)
      * @throws IllegalArgumentException if the value is out of range
      * @throws IllegalStateException if called on a non-Harmonics block
+     * @param B
+     * @param P
+     * @return the non null unary operator
      */
     fun <B : Block, P> setCapacity(value: Double): NonNullUnaryOperator<BlockBuilder<B, P>> {
         require(value in MIN_STRESS_VALUE..MAX_STRESS_VALUE) {
@@ -124,6 +138,7 @@ object ModStressConfig : ConfigBase() {
 
     /**
      * Gets the configured stress impact for a block.
+     *
      * @param block The block to query
      * @return A DoubleSupplier providing the stress impact value, or null if not configured
      */
@@ -134,6 +149,7 @@ object ModStressConfig : ConfigBase() {
 
     /**
      * Gets the configured stress capacity for a block.
+     *
      * @param block The block to query
      * @return A DoubleSupplier providing the stress capacity value, or null if not configured
      */

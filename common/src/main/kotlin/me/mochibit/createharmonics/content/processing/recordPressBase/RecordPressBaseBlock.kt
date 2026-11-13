@@ -39,12 +39,24 @@ import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.shapes.CollisionContext
 import net.minecraft.world.phys.shapes.VoxelShape
 
+/**
+ * Record press base block
+ *
+ * @constructor
+ * @param properties
+ */
 class RecordPressBaseBlock(
     properties: Properties,
 ) : Block(properties),
     IBE<RecordPressBaseBlockEntity>,
     IWrenchable,
     ProperWaterloggedBlock {
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         private val RANDOM = RandomSource.create()
     }

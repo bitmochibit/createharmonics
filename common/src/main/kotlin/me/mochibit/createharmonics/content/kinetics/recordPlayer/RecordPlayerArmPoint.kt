@@ -10,6 +10,15 @@ import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.JukeboxBlock
 import net.minecraft.world.level.block.state.BlockState
 
+/**
+ * Record player arm point
+ *
+ * @constructor
+ * @param type
+ * @param level
+ * @param pos
+ * @param state
+ */
 class RecordPlayerArmPoint(
     type: ArmInteractionPointType,
     level: Level,

@@ -5,6 +5,14 @@ import net.minecraft.core.BlockPos
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 
+/**
+ * Andesite jukebox block entity
+ *
+ * @constructor
+ * @param type
+ * @param pos
+ * @param state
+ */
 class AndesiteJukeboxBlockEntity(
     type: BlockEntityType<AndesiteJukeboxBlockEntity>,
     pos: BlockPos,

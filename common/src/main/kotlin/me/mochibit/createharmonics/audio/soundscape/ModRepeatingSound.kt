@@ -6,6 +6,16 @@ import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundSource
 import kotlin.math.max
 
+/**
+ * Mod repeating sound
+ *
+ * @constructor
+ * @property event
+ * @property scape
+ * @property sharedPitch the shared pitch
+ * @property relativeVolume the relative volume
+ * @param repeatDelay the repeat delay
+ */
 class ModRepeatingSound(
     private val event: SoundEvent,
     private val scape: ModSoundScape,
@@ -19,6 +29,10 @@ class ModRepeatingSound(
         this.repeatDelay = max(1, repeatDelay)
     }
 
+    /**
+     * Tick
+     *
+     */
     fun tick() {
         if (AnimationTickHolder.getTicks() % repeatDelay != 0) return
 

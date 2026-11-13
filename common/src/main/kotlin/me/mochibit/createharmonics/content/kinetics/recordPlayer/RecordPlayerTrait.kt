@@ -17,12 +17,35 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BooleanProperty
 import net.minecraft.world.phys.BlockHitResult
 
+/**
+ * Record player trait
+ *
+ */
 interface RecordPlayerTrait {
+    /**
+     * Returns the record player block entity
+     *
+     * @param level
+     * @param pos
+     * @return the record player block entity
+     */
     fun getRecordPlayerBlockEntity(
         level: Level,
         pos: BlockPos,
     ): RecordPlayerBlockEntity? = level.getBlockEntity(pos) as? RecordPlayerBlockEntity
 
+    /**
+     * Handles the record use
+     *
+     * @param state
+     * @param level
+     * @param pos
+     * @param player
+     * @param hand
+     * @param hit
+     * @param facing
+     * @return the item interaction result
+     */
     fun handleRecordUse(
         state: BlockState,
         level: Level,
@@ -94,6 +117,12 @@ interface RecordPlayerTrait {
         return ItemInteractionResult.SUCCESS
     }
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         val HAS_ETHEREAL_RECORD: BooleanProperty = BooleanProperty.create("has_ethereal_record")
     }

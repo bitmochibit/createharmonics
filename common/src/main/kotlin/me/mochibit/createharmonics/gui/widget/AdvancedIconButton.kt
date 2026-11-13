@@ -10,6 +10,24 @@ import net.createmod.catnip.gui.element.ScreenElement
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.network.chat.Component
 
+/**
+ * Advanced icon button
+ *
+ * @constructor
+ * @property onHoverBg the on hover bg
+ * @property onClickBg the on click bg
+ * @property onDisabledBg the on disabled bg
+ * @property iconOffsetX the icon offset x
+ * @property iconOffsetY the icon offset y
+ * @property zIndex the z index
+ * @property toolTipZIndex the tool tip z index
+ * @property defaultButton the default button
+ * @param x
+ * @param y
+ * @param icon
+ * @param width
+ * @param height
+ */
 class AdvancedIconButton(
     x: Int,
     y: Int,
@@ -85,6 +103,12 @@ class AdvancedIconButton(
         }
     }
 
+    /**
+     * Displays the background
+     *
+     * @param graphics
+     * @param button
+     */
     fun drawBackground(
         graphics: GuiGraphics,
         button: ScreenElement,

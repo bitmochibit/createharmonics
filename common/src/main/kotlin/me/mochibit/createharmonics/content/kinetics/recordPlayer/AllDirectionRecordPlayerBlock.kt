@@ -24,11 +24,23 @@ import net.minecraft.world.level.block.state.StateDefinition
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.BlockHitResult
 
+/**
+ * All direction record player block
+ *
+ * @constructor
+ * @param properties
+ */
 abstract class AllDirectionRecordPlayerBlock(
     properties: Properties,
 ) : DirectionalKineticBlock(properties),
     IBE<RecordPlayerBlockEntity>,
     RecordPlayerTrait {
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         private val RANDOM = RandomSource.create()
         val POWERED = BlockStateProperties.POWERED

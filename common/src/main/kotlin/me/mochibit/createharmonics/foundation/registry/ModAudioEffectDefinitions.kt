@@ -13,6 +13,12 @@ import net.minecraft.core.MappedRegistry
 import net.minecraft.core.Registry
 import net.minecraft.resources.ResourceKey
 
+/**
+ * Mod audio effect definitions
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ModAudioEffectDefinitions
+ */
 @AutoRegister(RegistryPhase.PRE_FREEZE)
 object ModAudioEffectDefinitions : Registrable {
     val KEY: ResourceKey<Registry<MapCodec<out AudioEffectDefinition>>> =

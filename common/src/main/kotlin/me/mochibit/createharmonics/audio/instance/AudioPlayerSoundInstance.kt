@@ -19,6 +19,16 @@ import net.minecraft.util.valueproviders.ConstantFloat
 import net.minecraft.world.level.Level
 import org.joml.Vector3d
 
+/**
+ * Audio player sound instance
+ *
+ * @constructor
+ * @property audioPlayer the audio player
+ * @property streamSound the stream sound
+ * @param soundEvent the sound event
+ * @param soundSource the sound source
+ * @param randomSoundInstance the random sound instance
+ */
 abstract class AudioPlayerSoundInstance(
     private val audioPlayer: AudioPlayer,
     soundEvent: SoundEvent,
@@ -145,6 +155,10 @@ abstract class AudioPlayerSoundInstance(
         }
     }
 
+    /**
+     * Release native effects
+     *
+     */
     internal fun releaseNativeEffects() {
         if (!nativeAttached) return
         val channelHandle = engine.instanceToChannel[this] ?: run {

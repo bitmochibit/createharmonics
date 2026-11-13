@@ -17,6 +17,13 @@ import me.mochibit.createharmonics.foundation.debug
 import me.mochibit.createharmonics.foundation.info
 
 
+/**
+ * Playback state machine
+ *
+ * @constructor Creates a new PlaybackStateMachine
+ * @property scope
+ * @property actions
+ */
 class PlaybackStateMachine(
     private val scope: CoroutineScope,
     private val actions: PlaybackActions,
@@ -26,10 +33,27 @@ class PlaybackStateMachine(
     private val _state = MutableStateFlow(PlayerState.STOPPED)
     val state: StateFlow<PlayerState> = _state.asStateFlow()
 
+    /**
+     * Sends
+     *
+     * @param intent
+     * @return the channel result
+     */
     fun send(intent: PlayerIntent) = intents.trySend(intent)
 
+    /**
+     * Stops
+     *
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun shutdown() = intents.close()
 
+    /**
+     * Starts
+     *
+     * @return the job
+     * @throws e
+     */
     fun start(): Job =
         scope.launch(Dispatchers.IO) {
             try {
@@ -57,12 +81,22 @@ class PlaybackStateMachine(
             }
         }
 
+    /**
+     * Transition
+     *
+     * @param next
+     */
     fun transition(next: PlayerState) {
         val current = _state.value
         check(current.canTransitionTo(next)) { "Invalid transition: $current → $next" }
         _state.value = next
     }
 
+    /**
+     * Force state
+     *
+     * @param next
+     */
     fun forceState(next: PlayerState) {
         _state.value = next
     }

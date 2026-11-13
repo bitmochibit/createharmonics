@@ -34,12 +34,24 @@ import net.minecraft.world.item.ItemStack
 import org.lwjgl.glfw.GLFW
 import java.util.*
 
+/**
+ * Record press base screen
+ *
+ * @constructor Creates a new RecordPressBaseScreen
+ * @property be
+ */
 class RecordPressBaseScreen(
     private val be: RecordPressBaseBlockEntity,
 ) : AbstractSimiScreen(
     ModLang.translate("gui.record_press_base.title").component()
 ) {
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         private const val SCROLL_AREA_X = 3
         private const val SCROLL_AREA_Y = 16
@@ -109,9 +121,18 @@ class RecordPressBaseScreen(
 
         val typingInput: EntryScrollInput? get() = if (inputLazy.isInitialized() && input.isTyping) input else null
 
+        /**
+         * Tick
+         *
+         */
         fun tick() {
             if (inputLazy.isInitialized()) input.tick()
         }
+
+        /**
+         * Blur
+         *
+         */
         fun blur() {
             if (inputLazy.isInitialized()) input.blur()
         }
@@ -120,6 +141,11 @@ class RecordPressBaseScreen(
             input.selectedEntryIndex?.let { applied?.getOrNull(it) }
                 ?.let { ServerAudioReference(localName, it.fileId) }
 
+        /**
+         * Handles the library
+         *
+         * @param list
+         */
         fun applyLibrary(list: List<AudioMetadata>) {
             if (list !== applied) {
                 applied = list
@@ -138,12 +164,22 @@ class RecordPressBaseScreen(
             }
         }
 
+        /**
+         * Converts the config
+         *
+         * @return the audio entry
+         */
         fun toConfig() = RecordPressBaseConfiguration.AudioEntry(
             url = currentUrl(),
             weight = weight,
             name = linkedName,
         )
 
+        /**
+         * Current url
+         *
+         * @return the string
+         */
         fun currentUrl(): String =
             if (!inputLazy.isInitialized()) initialUrl else linked?.toString() ?: input.text.trim()
     }

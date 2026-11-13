@@ -10,10 +10,21 @@ import net.createmod.ponder.api.registration.PonderTagRegistrationHelper
 import net.minecraft.core.Registry
 import net.minecraft.resources.ResourceLocation
 
+/**
+ * Mod ponders
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ModPonders
+ */
 @AutoRegister
 object ModPonders : Registrable {
     override val registrationOrder = 5
 
+    /**
+     * Adds the tags
+     *
+     * @param rawHelper the raw helper
+     */
     fun addTags(rawHelper: PonderTagRegistrationHelper<ResourceLocation>) {
         val helper = rawHelper.withKeyFunction(RegistryEntry<*, *>::getId)
 
@@ -29,6 +40,11 @@ object ModPonders : Registrable {
             .add(ModBlocks.RECORD_PRESS_BASE)
     }
 
+    /**
+     * Adds the scenes
+     *
+     * @param rawHelper the raw helper
+     */
     fun addScenes(rawHelper: PonderSceneRegistrationHelper<ResourceLocation>) {
         val helper: PonderSceneRegistrationHelper<ItemProviderEntry<*, *>?> =
             rawHelper.withKeyFunction(RegistryEntry<*, *>::getId)

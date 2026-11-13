@@ -10,6 +10,11 @@ import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper
 import net.minecraft.resources.ResourceLocation
 
+/**
+ * Mod ponder plugin
+ *
+ * @constructor Creates a new ModPonderPlugin
+ */
 class ModPonderPlugin : PonderPlugin {
     override fun getModId(): String = CreateHarmonicsMod.MOD_ID
 

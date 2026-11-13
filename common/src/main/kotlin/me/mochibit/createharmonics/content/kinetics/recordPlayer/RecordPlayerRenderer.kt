@@ -21,6 +21,12 @@ import net.minecraft.client.renderer.RenderType
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 
+/**
+ * Record player renderer
+ *
+ * @constructor Creates a new RecordPlayerRenderer
+ * @property context
+ */
 class RecordPlayerRenderer(
     val context: BlockEntityRendererProvider.Context,
 ) : SafeBlockEntityRenderer<RecordPlayerBlockEntity>() {
@@ -62,7 +68,21 @@ class RecordPlayerRenderer(
         }
     }
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
+        /**
+         * Displays the in contraption
+         *
+         * @param context
+         * @param renderWorld the render world
+         * @param matrices
+         * @param buffer
+         */
         fun renderInContraption(
             context: MovementContext,
             renderWorld: VirtualRenderWorld,

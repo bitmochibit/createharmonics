@@ -25,6 +25,13 @@ import net.minecraft.network.chat.CommonComponents
 import org.apache.commons.lang3.mutable.MutableObject
 import java.util.function.Consumer
 
+/**
+ * Starts the lib menu button
+ *
+ * @constructor
+ * @param x
+ * @param y
+ */
 class OpenLibMenuButton(
     x: Int,
     y: Int,
@@ -53,7 +60,21 @@ class OpenLibMenuButton(
         graphics.renderItem(icon, x + 2, y + 2)
     }
 
+    /**
+     * Menu rows
+     * Singleton object — a single shared instance.
+     *
+     * @constructor Creates a new MenuRows
+     */
     data object MenuRows {
+        /**
+         * Single menu row
+         * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+         *
+         * @constructor Creates a new SingleMenuRow
+         * @property leftTextKey the left text key
+         * @property rightTextKey the right text key
+         */
         data class SingleMenuRow(
             val leftTextKey: String,
             val rightTextKey: String = "",
@@ -76,18 +97,39 @@ class OpenLibMenuButton(
                 SingleMenuRow("menu.returnToMenu"),
             )
 
+        /**
+         * Left text keys on the receiver [List<SingleMenuRow>]
+         *
+         * @return the strings
+         */
         fun List<SingleMenuRow>.leftTextKeys(): List<String> =
             this.map {
                 it.leftTextKey
             }
 
+        /**
+         * Right text keys on the receiver [List<SingleMenuRow>]
+         *
+         * @return the strings
+         */
         fun List<SingleMenuRow>.rightTextKeys(): List<String> =
             this.map {
                 it.rightTextKey
             }
     }
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
+        /**
+         * Click
+         *
+         * @param b
+         */
         @Suppress("UNUSED_PARAMETER")
         fun click(b: Button?) {
             ScreenOpener.open(HarmonicsMenuScreen(Minecraft.getInstance().screen))
@@ -95,6 +137,12 @@ class OpenLibMenuButton(
     }
 }
 
+/**
+ * Main menu handler
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new MainMenuHandler
+ */
 @AutoHandler
 object MainMenuHandler : ModEventHandler {
     override fun setupEvents() {

@@ -11,6 +11,12 @@ import net.minecraft.world.item.Item
 import net.minecraft.world.item.Rarity
 import java.util.EnumMap
 
+/**
+ * Mod items
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ModItems
+ */
 @AutoRegister
 object ModItems : Registrable {
     override val registrationOrder = 3
@@ -57,15 +63,39 @@ object ModItems : Registrable {
             .register()
     }
 
+    /**
+     * Returns the ethereal record item
+     *
+     * @param recordType the record type
+     * @return the item entry
+     */
     fun getEtherealRecordItem(recordType: RecordType): ItemEntry<EtherealRecordItem> = ETHEREAL_RECORDS.getValue(recordType)
 
+    /**
+     * Returns the broken ethereal record item
+     *
+     * @param recordType the record type
+     * @return the item entry
+     */
     fun getBrokenEtherealRecordItem(recordType: RecordType): ItemEntry<EtherealRecordItem>? = BROKEN_ETHEREAL_RECORDS[recordType]
 
+    /**
+     * Broken variant of
+     *
+     * @param recordType the record type
+     * @return the item
+     */
     fun brokenVariantOf(recordType: RecordType): Item? = BROKEN_ETHEREAL_RECORDS[recordType]?.get()
 
     override fun register(registry: Registry<*>?) {
         "Registering items".info()
     }
 
+    /**
+     * Ethereal record on the receiver [ModItems]
+     *
+     * @param recordType the record type
+     * @return the ethereal record item
+     */
     infix fun ModItems.etherealRecord(recordType: RecordType): EtherealRecordItem = getEtherealRecordItem(recordType).get()
 }

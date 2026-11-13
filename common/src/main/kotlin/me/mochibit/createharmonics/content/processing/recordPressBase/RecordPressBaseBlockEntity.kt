@@ -8,6 +8,14 @@ import net.minecraft.world.Clearable
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 
+/**
+ * Record press base block entity
+ *
+ * @constructor
+ * @param type
+ * @param pos
+ * @param state
+ */
 class RecordPressBaseBlockEntity(
     type: BlockEntityType<*>,
     pos: BlockPos,

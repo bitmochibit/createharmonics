@@ -7,6 +7,12 @@ import me.mochibit.createharmonics.foundation.services.networkService
 import net.minecraft.core.Registry
 import kotlin.reflect.KClass
 
+/**
+ * Mod packets
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ModPackets
+ */
 @AutoRegister
 object ModPackets : Registrable, NetworkService by networkService {
     val packetClasses: List<KClass<out ModPacket>> =

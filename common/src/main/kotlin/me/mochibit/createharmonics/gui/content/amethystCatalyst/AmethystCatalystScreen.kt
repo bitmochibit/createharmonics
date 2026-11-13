@@ -31,6 +31,12 @@ import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
+/**
+ * Amethyst catalyst screen
+ *
+ * @constructor Creates a new AmethystCatalystScreen
+ * @property be
+ */
 class AmethystCatalystScreen(
     private val be: AmethystCatalystBlockEntity,
 ) : AbstractSimiScreen(ModLang.translate("gui.amethyst_catalyst.title").component()) {
@@ -67,9 +73,39 @@ class AmethystCatalystScreen(
     }
 
     private sealed interface Source {
+        /**
+         * None
+         * Singleton object — a single shared instance.
+         *
+         * @constructor Creates a new None
+         */
         data object None : Source
+
+        /**
+         * Local
+         * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+         *
+         * @constructor Creates a new Local
+         * @property file
+         */
         data class Local(val file: Path) : Source
+
+        /**
+         * Url
+         * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+         *
+         * @constructor Creates a new Url
+         * @property url
+         */
         data class Url(val url: String) : Source
+
+        /**
+         * Existing
+         * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+         *
+         * @constructor Creates a new Existing
+         * @property entry
+         */
         data class Existing(val entry: AudioMetadata) : Source
     }
 

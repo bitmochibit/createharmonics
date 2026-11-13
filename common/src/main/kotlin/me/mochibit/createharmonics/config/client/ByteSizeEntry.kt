@@ -13,19 +13,69 @@ import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.neoforged.neoforge.common.ModConfigSpec
 
+/**
+ * Byte unit
+ * Enum — a fixed set of named constants.
+ *
+ * @constructor Creates a new ByteUnit
+ * @property label
+ * @property factor
+ */
 enum class ByteUnit(val label: String, val factor: Long) {
+    /**
+     * Kb
+     *
+     * @constructor Creates a new KB
+     */
     KB("KB", 1L shl 10),
+
+    /**
+     * Mb
+     *
+     * @constructor Creates a new MB
+     */
     MB("MB", 1L shl 20),
+
+    /**
+     * Gb
+     *
+     * @constructor Creates a new GB
+     */
     GB("GB", 1L shl 30);
 
+    /**
+     * Next
+     *
+     * @return the byte unit
+     */
     fun next(): ByteUnit = entries[(ordinal + 1) % entries.size]
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
+        /**
+         * Best for
+         *
+         * @param bytes
+         * @return the byte unit
+         */
         fun bestFor(bytes: Long): ByteUnit =
             entries.lastOrNull { bytes >= it.factor && bytes % it.factor == 0L } ?: KB
     }
 }
 
+/**
+ * Byte size entry
+ *
+ * @constructor
+ * @property valueSpec the value spec
+ * @param label
+ * @param value
+ */
 class ByteSizeEntry(
     label: String,
     value: ModConfigSpec.ConfigValue<Long>,
@@ -133,11 +183,24 @@ class ByteSizeEntry(
         amountField.render(graphics, mouseX, mouseY, partialTicks)
     }
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         private const val UNIT_WIDTH = 40
         private const val OK_COLOR = 0xFFFFFF
         private const val ERROR_COLOR = 0xFF5555
 
+        /**
+         * Accepts
+         *
+         * @param configValue the config value
+         * @param valueSpec the value spec
+         * @return `true` if the condition holds, `false` otherwise
+         */
         @JvmStatic
         fun accepts(configValue: ModConfigSpec.ConfigValue<*>, valueSpec: ModConfigSpec.ValueSpec): Boolean {
             if (configValue !is ModConfigSpec.LongValue) return false

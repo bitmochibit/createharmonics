@@ -17,12 +17,33 @@ import java.nio.file.StandardCopyOption
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
 
+/**
+ * Audio not found exception
+ *
+ * @constructor
+ * @param ref
+ */
 class AudioNotFoundException(ref: ServerAudioReference) : Exception("Audio $ref no longer exists on the server")
+
+/**
+ * Audio server client
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new AudioServerClient
+ */
 object AudioServerClient {
     private val http = HttpClient.newBuilder()
         .connectTimeout(3.seconds.toJavaDuration())
         .build()
 
+    /**
+     * Returns the info
+     * Suspending function — must be called from a coroutine or another suspending function.
+     *
+     * @param ref
+     * @return the audio metadata
+     * @throws AudioNotFoundException
+     */
     suspend fun fetchInfo(ref: ServerAudioReference): AudioMetadata = withContext(Dispatchers.IO) {
         val uri = AudioServerEndpoint.infoUri(ref)
 
@@ -41,6 +62,13 @@ object AudioServerClient {
         Json.decodeFromString<AudioMetadata>(response.body())
     }
 
+    /**
+     * Download
+     * Suspending function — must be called from a coroutine or another suspending function.
+     *
+     * @param url
+     * @param target
+     */
     suspend fun download(url: String, target: Path) = withContext(Dispatchers.IO) {
         val response = http.send(HttpRequest.newBuilder(URI(url)).GET().build(), HttpResponse.BodyHandlers.ofInputStream())
         check(response.statusCode() == 200) { "HTTP ${response.statusCode()}" }

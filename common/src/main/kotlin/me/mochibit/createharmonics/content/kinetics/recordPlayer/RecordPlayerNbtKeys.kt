@@ -1,5 +1,11 @@
 package me.mochibit.createharmonics.content.kinetics.recordPlayer
 
+/**
+ * Record player nbt keys
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new RecordPlayerNbtKeys
+ */
 object RecordPlayerNbtKeys {
     const val UUID = "RecordPlayerUUID"
     const val SCROLL_VALUE = "ScrollValue"

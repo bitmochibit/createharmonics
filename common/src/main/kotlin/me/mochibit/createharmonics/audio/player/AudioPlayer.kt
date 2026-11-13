@@ -16,6 +16,13 @@ import java.util.concurrent.atomic.AtomicInteger
 typealias SoundInstanceFactory = AudioPlayer.(stream: java.io.InputStream) -> SoundInstance
 
 
+/**
+ * Audio player
+ *
+ * @constructor Creates a new AudioPlayer
+ * @property playerId the player id
+ * @property soundInstanceFactory the sound instance factory
+ */
 class AudioPlayer(
     val playerId: String,
     private val soundInstanceFactory: SoundInstanceFactory,
@@ -91,23 +98,59 @@ class AudioPlayer(
         watchdog.start()
     }
 
+    /**
+     * Play
+     *
+     * @param initialPosition the initial position
+     * @return the channel result
+     */
     fun play(initialPosition: Double = 0.0) = stateMachine.send(PlayerIntent.Play(initialPosition))
 
+    /**
+     * Pause
+     *
+     * @return the channel result
+     */
     fun pause() = stateMachine.send(PlayerIntent.Pause)
 
+    /**
+     * Stops
+     *
+     * @return the channel result
+     */
     fun stop() = stateMachine.send(PlayerIntent.Stop)
 
+    /**
+     * Seek
+     *
+     * @param position
+     * @return the channel result
+     */
     fun seek(position: Double) = stateMachine.send(PlayerIntent.Seek(position))
 
+    /**
+     * Request
+     *
+     * @param req
+     * @return the channel result
+     */
     fun request(req: AudioRequest) = stateMachine.send(PlayerIntent.NewRequest(req))
 
 
+    /**
+     * Tick
+     *
+     */
     fun tick() {
         localClock.rate = masterPitchInterpolator.getValue().toDouble()
         localClock.tick()
         spatial.tick(this)
     }
 
+    /**
+     * Stops
+     *
+     */
     fun close() {
         playerTerminated.set(true)
         if (listening.compareAndSet(true, false)) notifier.listenerLeft()
@@ -116,8 +159,18 @@ class AudioPlayer(
         stateMachine.shutdown()
     }
 
+    /**
+     * On stream end
+     *
+     * @return the channel result
+     */
     internal fun onStreamEnd() = stateMachine.send(PlayerIntent.AudioFinished)
 
+    /**
+     * On stream hang
+     *
+     * @return the channel result
+     */
     internal fun onStreamHang() = stateMachine.send(PlayerIntent.AudioHanged)
 
     override fun hasActiveSoundInstance(): Boolean = currentSoundInstance != null

@@ -22,6 +22,12 @@ import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
 
 
+/**
+ * Instant serializer
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new InstantSerializer
+ */
 object InstantSerializer : KSerializer<Instant> {
     override val descriptor = PrimitiveSerialDescriptor("Instant", PrimitiveKind.STRING)
     override fun serialize(encoder: Encoder, value: Instant) = encoder.encodeString(value.toString())
@@ -29,6 +35,22 @@ object InstantSerializer : KSerializer<Instant> {
 }
 
 const val MAX_DISPLAY_NAME_LENGTH = 64
+
+/**
+ * Audio metadata
+ * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+ *
+ * @constructor Creates a new AudioMetadata
+ * @property fileId the file id
+ * @property extension
+ * @property playerName the player name
+ * @property originalFileName the original file name
+ * @property customName the custom name
+ * @property sizeBytes the size bytes
+ * @property durationSeconds the duration seconds
+ * @property sampleRate the sample rate
+ * @property uploadedAt the uploaded at
+ */
 @Serializable
 data class AudioMetadata(
     val fileId: String,
@@ -44,15 +66,44 @@ data class AudioMetadata(
     val displayName
         get() = customName?.ifBlank { null } ?: originalFileName?.ifBlank { null } ?: fileId
 }
+
+/**
+ * Quota exceeded exception
+ *
+ * @constructor
+ * @param message
+ */
 class QuotaExceededException(message: String) : RuntimeException(message)
+
+/**
+ * File too large exception
+ *
+ * @constructor
+ * @param message
+ */
 class FileTooLargeException(message: String) : RuntimeException(message)
 
+/**
+ * Audio storage configuration
+ * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+ *
+ * @constructor Creates a new AudioStorageConfiguration
+ * @property storageRoot the storage root
+ * @property maxFilesPerPlayer the max files per player
+ * @property maxFileSizeBytes the max file size bytes
+ */
 data class AudioStorageConfiguration(
     val storageRoot: Path,
     val maxFilesPerPlayer: Int,
     val maxFileSizeBytes: Long,
 )
 
+/**
+ * Audio storage manager
+ *
+ * @constructor Creates a new AudioStorageManager
+ * @property config
+ */
 class AudioStorageManager(private val config: AudioStorageConfiguration) {
 
     constructor(
@@ -63,11 +114,22 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
         AudioStorageConfiguration(storageRoot, maxFilesPerPlayer, maxFileSizeBytes)
     )
 
+    /**
+     * Current config
+     *
+     * @return the audio storage configuration
+     */
     fun currentConfig(): AudioStorageConfiguration = this.config.copy()
 
     private fun playerDir(playerName: String): Path =
         InputSanitizer.resolveContained(config.storageRoot, playerName)
 
+    /**
+     * Calculates the files
+     *
+     * @param playerName the player name
+     * @return the int
+     */
     fun countFiles(playerName: String): Int {
         val dir = playerDir(playerName)
         if (!dir.exists()) return 0
@@ -81,6 +143,19 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
      * per-file size limit *while copying* (never trusting Content-Length
      * alone) and the per-player file count quota up front. Any partial
      * file is removed on failure.
+     *
+     * @param playerName the player name
+     * @param originalFileName the original file name
+     * @param extension
+     * @param durationSeconds the duration seconds
+     * @param sampleRate the sample rate
+     * @param body
+     * @param onProgress the on progress
+     * @receiver
+     * @param beforeCommit the before commit
+     * @receiver
+     * @return the audio metadata
+     * @throws QuotaExceededException
      */
     fun store(
         playerName: String,
@@ -137,6 +212,14 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
         }
     }
 
+    /**
+     * Rename
+     *
+     * @param playerName the player name
+     * @param fileId the file id
+     * @param newName the new name
+     * @return the audio metadata
+     */
     fun rename(playerName: String, fileId: String, newName: String?): AudioMetadata? {
         val metaPath = InputSanitizer.resolveContained(config.storageRoot, playerName, "$fileId.properties")
         val meta = readMetadata(metaPath) ?: return null
@@ -148,12 +231,27 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
         return meta.copy(customName = cleaned).also { writeMetadata(metaPath, it) }
     }
 
+    /**
+     * Resolve audio file
+     *
+     * @param playerName the player name
+     * @param fileId the file id
+     * @param extension
+     * @return the path
+     * @throws NoSuchFileException
+     */
     fun resolveAudioFile(playerName: String, fileId: String, extension: String): Path {
         val target = InputSanitizer.resolveContained(config.storageRoot, playerName, "$fileId.$extension")
         if (!Files.isRegularFile(target)) throw NoSuchFileException(target.toString())
         return target
     }
 
+    /**
+     * List
+     *
+     * @param playerName the player name
+     * @return the audio metadatas
+     */
     fun list(playerName: String): List<AudioMetadata> {
         val dir = playerDir(playerName)
         if (!dir.exists()) return emptyList()
@@ -162,9 +260,23 @@ class AudioStorageManager(private val config: AudioStorageConfiguration) {
         }
     }
 
+    /**
+     * Returns
+     *
+     * @param playerName the player name
+     * @param fileId the file id
+     * @return the audio metadata
+     */
     fun find(playerName: String, fileId: String): AudioMetadata? =
         readMetadata(InputSanitizer.resolveContained(config.storageRoot, playerName, "$fileId.properties"))
 
+    /**
+     * Removes
+     *
+     * @param playerName the player name
+     * @param fileId the file id
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun delete(playerName: String, fileId: String): Boolean {
         val metaPath = InputSanitizer.resolveContained(config.storageRoot, playerName, "$fileId.properties")
         val meta = readMetadata(metaPath) ?: return false

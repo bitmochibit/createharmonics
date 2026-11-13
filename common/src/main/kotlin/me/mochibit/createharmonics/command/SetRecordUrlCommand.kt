@@ -16,14 +16,39 @@ import net.minecraft.commands.Commands
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.player.Player
 
+/**
+ * Command entry
+ * Sealed hierarchy — all subtypes are known at compile time, ideal for exhaustive `when`.
+ *
+ */
 sealed interface CommandEntry {
+    /**
+     * Adds the command
+     *
+     * @param dispatcher
+     * @param env
+     * @param context
+     */
     fun registerCommand(
         dispatcher: CommandDispatcher<CommandSourceStack>,
         env: Commands.CommandSelection,
         context: CommandBuildContext,
     )
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
+        /**
+         * Adds the all
+         *
+         * @param dispatcher
+         * @param env
+         * @param context
+         */
         fun registerAll(
             dispatcher: CommandDispatcher<CommandSourceStack>,
             env: Commands.CommandSelection,
@@ -40,6 +65,12 @@ sealed interface CommandEntry {
 }
 
 
+/**
+ * Sets the record url command
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new SetRecordUrlCommand
+ */
 object SetRecordUrlCommand : CommandEntry {
     override fun registerCommand(
         dispatcher: CommandDispatcher<CommandSourceStack>,

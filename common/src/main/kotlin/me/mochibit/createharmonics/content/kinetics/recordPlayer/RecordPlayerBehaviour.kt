@@ -35,14 +35,32 @@ import net.minecraft.world.phys.Vec3
 import java.util.*
 import kotlin.math.abs
 
+/**
+ * Record player behaviour
+ *
+ * @constructor Creates a new RecordPlayerBehaviour
+ * @property be
+ */
 class RecordPlayerBehaviour(
     val be: RecordPlayerBlockEntity,
 ) : BlockEntityBehaviour(be), PlaybackSessionOwner {
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         @JvmStatic
         val BEHAVIOUR_TYPE = BehaviourType<RecordPlayerBehaviour>()
     }
 
+    /**
+     * Record player inventory
+     * Singleton object — a single shared instance.
+     *
+     * @constructor Creates a new RecordPlayerInventory
+     */
     object RecordPlayerInventory {
         const val MAIN_RECORD_SLOT = 0
         const val RECORD_OUTPUT_SLOT = 1
@@ -270,6 +288,10 @@ class RecordPlayerBehaviour(
         }
     }
 
+    /**
+     * Handles the record use
+     *
+     */
     fun handleRecordUse() {
         be.level?.onServer { level ->
             val record = getRecord()
@@ -352,13 +374,29 @@ class RecordPlayerBehaviour(
         be.notifyUpdate()
     }
 
+    /**
+     * Redstone power changed
+     *
+     * @param power
+     */
     fun redstonePowerChanged(power: Int) {
         redstonePower = power
         be.notifyUpdate()
     }
 
+    /**
+     * Returns `true` if record
+     *
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun hasRecord(): Boolean = !itemHandler.getStackInSlot(MAIN_RECORD_SLOT).isEmpty
 
+    /**
+     * Adds the record
+     *
+     * @param discItem the disc item
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun insertRecord(discItem: ItemStack): Boolean {
         if (hasRecord()) return false
         val item = discItem.item
@@ -369,6 +407,11 @@ class RecordPlayerBehaviour(
         return true
     }
 
+    /**
+     * Pop record
+     *
+     * @return the item stack
+     */
     fun popRecord(): ItemStack? {
         if (!hasRecord()) return null
         val item = itemHandler.getStackInSlot(MAIN_RECORD_SLOT).copy()
@@ -376,8 +419,18 @@ class RecordPlayerBehaviour(
         return item
     }
 
+    /**
+     * Returns the record
+     *
+     * @return the item stack
+     */
     fun getRecord(): ItemStack = itemHandler.getStackInSlot(MAIN_RECORD_SLOT).copy()
 
+    /**
+     * Sets the record
+     *
+     * @param discItem the disc item
+     */
     fun setRecord(discItem: ItemStack) {
         itemHandler.setStackInSlot(MAIN_RECORD_SLOT, discItem)
         if (!discItem.isEmpty) {
@@ -385,12 +438,21 @@ class RecordPlayerBehaviour(
         }
     }
 
+    /**
+     * Returns the record item
+     *
+     * @return the ethereal record item
+     */
     fun getRecordItem(): EtherealRecordItem? {
         val recordStack = getRecord()
         if (recordStack.isEmpty || recordStack.item !is EtherealRecordItem) return null
         return recordStack.item as EtherealRecordItem
     }
 
+    /**
+     * Starts the player
+     *
+     */
     fun startPlayer() {
         when {
             !hasRecord() -> {
@@ -409,10 +471,18 @@ class RecordPlayerBehaviour(
         }
     }
 
+    /**
+     * Stops the player
+     *
+     */
     fun stopPlayer() {
         updatePlaybackState(PlaybackState.STOPPED, force = true)
     }
 
+    /**
+     * Pause player
+     *
+     */
     fun pausePlayer() {
         updatePlaybackState(PlaybackState.PAUSED)
     }
@@ -543,6 +613,11 @@ class RecordPlayerBehaviour(
         }
     }
 
+    /**
+     * On playback end
+     *
+     * @param failure
+     */
     fun onPlaybackEnd(failure: Boolean = false) {
         if (failure) {
             shouldRestartOnNextTick = true

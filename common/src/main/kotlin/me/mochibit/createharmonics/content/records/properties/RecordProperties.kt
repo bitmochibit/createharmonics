@@ -8,6 +8,17 @@ import net.minecraft.core.Registry
 import net.minecraft.resources.ResourceKey
 import net.minecraft.util.ExtraCodecs
 
+/**
+ * Record properties
+ * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+ *
+ * @constructor Creates a new RecordProperties
+ * @property durability
+ * @property unbreakable
+ * @property audioEffects the audio effects
+ * @property soundEvents the sound events
+ * @property explicitAttributes the explicit attributes
+ */
 data class RecordProperties(
     val durability: Int,
     val unbreakable: Boolean,
@@ -29,6 +40,12 @@ data class RecordProperties(
         }
     }
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         val KEY: ResourceKey<Registry<RecordProperties>> =
             ResourceKey.createRegistryKey("record_properties".asResource())

@@ -16,15 +16,23 @@ import net.minecraft.nbt.Tag
 import net.minecraft.world.item.ItemStack
 
 /**
- *
  * This behaviour handles:
  * - Accepting Ethereal Records from belt conveyors and other sources
  * - Assigning audio URLs to Ethereal Records
  * - Ejecting processed records back onto conveyors
+ *
+ * @constructor Creates a new RecordPressBaseBehaviour
+ * @property be
  */
 class RecordPressBaseBehaviour(
     private val be: RecordPressBaseBlockEntity,
 ) : DepotLikeBehaviour(be) {
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         @JvmStatic
         val BEHAVIOUR_TYPE = BehaviourType<RecordPressBaseBehaviour>()

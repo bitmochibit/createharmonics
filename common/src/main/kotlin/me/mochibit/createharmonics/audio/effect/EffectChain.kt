@@ -1,10 +1,30 @@
 package me.mochibit.createharmonics.audio.effect
 
+/**
+ * Scope anchor
+ * Sealed hierarchy — all subtypes are known at compile time, ideal for exhaustive `when`.
+ *
+ * @constructor Creates a new ScopeAnchor
+ */
 sealed class ScopeAnchor {
+    /**
+     * Before
+     * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+     *
+     * @constructor Creates a new Before
+     * @property scope
+     */
     data class Before(
         val scope: AudioEffect.Scope,
     ) : ScopeAnchor()
 
+    /**
+     * After
+     * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+     *
+     * @constructor Creates a new After
+     * @property scope
+     */
     data class After(
         val scope: AudioEffect.Scope,
     ) : ScopeAnchor()
@@ -13,6 +33,10 @@ sealed class ScopeAnchor {
 /**
  * Manages a chain of audio effects that are applied sequentially.
  * Effects are applied in the order they were added.
+ *
+ * @constructor Creates a new EffectChain
+ * @property effects
+ * @property scope
  */
 class EffectChain(
     @Volatile private var effects: List<AudioEffect> = emptyList(),
@@ -89,6 +113,8 @@ class EffectChain(
 
     /**
      * Add an effect at the end of the chain.
+     *
+     * @param effect
      */
     @Synchronized
     fun addEffect(effect: AudioEffect) {
@@ -104,10 +130,11 @@ class EffectChain(
 
     /**
      * Insert an effect at a specific position in the chain.
+     *
      * @param index The position to insert at. Supports:
-     *              - Positive: 0 = first, 1 = second, etc.
-     *              - Negative: -1 = at end, -2 = before last, etc.
-     *              - Out of bounds indices wrap around circularly
+     * - Positive: 0 = first, 1 = second, etc.
+     * - Negative: -1 = at end, -2 = before last, etc.
+     * - Out of bounds indices wrap around circularly
      * @param effect The effect to insert.
      */
     @Synchronized
@@ -121,6 +148,8 @@ class EffectChain(
 
     /**
      * Add an effect as the first effect in the chain.
+     *
+     * @param effect
      */
     @Synchronized
     fun addEffectFirst(effect: AudioEffect) {
@@ -129,6 +158,8 @@ class EffectChain(
 
     /**
      * Add an effect as the last effect in the chain.
+     *
+     * @param effect
      */
     @Synchronized
     fun addEffectLast(effect: AudioEffect) {
@@ -137,6 +168,8 @@ class EffectChain(
 
     /**
      * Remove a specific effect instance from the chain.
+     *
+     * @param effect
      */
     @Synchronized
     fun removeEffect(effect: AudioEffect) {
@@ -145,10 +178,12 @@ class EffectChain(
 
     /**
      * Remove an effect at a specific index.
+     *
      * @param index The position to remove from. Supports:
-     *              - Positive: 0 = first, 1 = second, etc.
-     *              - Negative: -1 = last, -2 = second-to-last, etc.
-     *              - Out of bounds indices wrap around circularly
+     * - Positive: 0 = first, 1 = second, etc.
+     * - Negative: -1 = last, -2 = second-to-last, etc.
+     * - Out of bounds indices wrap around circularly
+     * @param removeOnlyIfBased the remove only if based
      */
     @Synchronized
     fun removeEffectAt(
@@ -162,6 +197,12 @@ class EffectChain(
         effects = effects.filterIndexed { i, _ -> i != normalizedIndex }
     }
 
+    /**
+     * Adds the before index
+     *
+     * @param index
+     * @param effect
+     */
     @Synchronized
     fun addBeforeIndex(
         index: Int,
@@ -175,6 +216,12 @@ class EffectChain(
             }
     }
 
+    /**
+     * Adds the after index
+     *
+     * @param index
+     * @param effect
+     */
     @Synchronized
     fun addAfterIndex(
         index: Int,
@@ -188,6 +235,11 @@ class EffectChain(
             }
     }
 
+    /**
+     * Clean all except scopes
+     *
+     * @param scopes
+     */
     @Synchronized
     fun cleanAllExceptScopes(vararg scopes: AudioEffect.Scope) {
         val toRemove = effects.filter { it.scope !in scopes }
@@ -195,6 +247,11 @@ class EffectChain(
         toRemove.forEach { runCatching { it.reset() } }
     }
 
+    /**
+     * Clean only scopes
+     *
+     * @param scopes
+     */
     @Synchronized
     fun cleanOnlyScopes(vararg scopes: AudioEffect.Scope) {
         val toRemove = effects.filter { it.scope in scopes }
@@ -202,6 +259,12 @@ class EffectChain(
         toRemove.forEach { runCatching { it.reset() } }
     }
 
+    /**
+     * Adds the with anchor
+     *
+     * @param effect
+     * @param anchor
+     */
     fun addWithAnchor(
         effect: AudioEffect,
         anchor: ScopeAnchor?,
@@ -213,11 +276,23 @@ class EffectChain(
         }
     }
 
+    /**
+     * Adds the before scope
+     *
+     * @param scope
+     * @param effect
+     */
     fun addBeforeScope(
         scope: AudioEffect.Scope,
         effect: AudioEffect,
     ) = addBeforeIndex(getEffects().indexOfFirst { it.scope == scope }, effect)
 
+    /**
+     * Adds the after scope
+     *
+     * @param scope
+     * @param effect
+     */
     fun addAfterScope(
         scope: AudioEffect.Scope,
         effect: AudioEffect,
@@ -225,6 +300,7 @@ class EffectChain(
 
     /**
      * Move an effect from one position to another.
+     *
      * @param fromIndex The current index of the effect (supports negative/wrapping).
      * @param toIndex The target index for the effect (supports negative/wrapping).
      */
@@ -247,6 +323,7 @@ class EffectChain(
 
     /**
      * Replace an effect at a specific index.
+     *
      * @param index The position to replace at (supports negative/wrapping).
      * @param effect The new effect.
      */
@@ -262,6 +339,8 @@ class EffectChain(
 
     /**
      * Set all effects in the chain, replacing any existing effects.
+     *
+     * @param newEffects the new effects
      */
     @Synchronized
     fun setEffects(newEffects: List<AudioEffect>) {
@@ -278,22 +357,30 @@ class EffectChain(
 
     /**
      * Check if the chain is empty (no effects).
+     *
+     * @return `true` if the condition holds, `false` otherwise
      */
     fun isEmpty(): Boolean = effects.isEmpty()
 
     /**
      * Get the number of effects in the chain.
+     *
+     * @return the int
      */
     fun size(): Int = effects.size
 
     /**
      * Get a copy of the current effects list.
+     *
+     * @return the audio effects
      */
     fun getEffects(): List<AudioEffect> = effects.toList()
 
     /**
      * Get the effect at a specific index (supports negative/wrapping).
+     *
      * @param index The position (0 = first, -1 = last, etc.)
+     * @return the audio effect
      */
     fun getEffectAt(index: Int): AudioEffect? {
         if (effects.isEmpty()) return null
@@ -303,13 +390,23 @@ class EffectChain(
 
     /**
      * Find the index of a specific effect instance.
+     *
      * @return The index of the effect, or -1 if not found.
+     * @param effect
      */
     fun indexOf(effect: AudioEffect): Int = effects.indexOf(effect)
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         /**
          * Create an empty effect chain (pass-through).
+         *
+         * @return the effect chain
          */
         fun empty(): EffectChain = EffectChain()
     }

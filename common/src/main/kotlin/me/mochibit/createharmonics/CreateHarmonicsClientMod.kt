@@ -12,9 +12,19 @@ import me.mochibit.createharmonics.foundation.services.eventService
 import me.mochibit.createharmonics.ponder.ModPonderPlugin
 import net.createmod.ponder.foundation.PonderIndex
 
+/**
+ * Creates a new harmonics client mod
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new CreateHarmonicsClientMod
+ */
 object CreateHarmonicsClientMod {
     private var initialized = false
 
+    /**
+     * Initialises
+     *
+     */
     fun setup() {
         if (initialized) {
             return "Client side was already initialized".err()

@@ -13,6 +13,12 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import java.util.function.BiPredicate
 
+/**
+ * Mod item attribute types
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ModItemAttributeTypes
+ */
 @AutoRegister(RegistryPhase.PRE_FREEZE)
 object ModItemAttributeTypes : Registrable {
     val ETHEREAL_RECORD_DESTROYED =

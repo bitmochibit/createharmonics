@@ -12,14 +12,56 @@ import me.mochibit.createharmonics.config.ClientConfig
 import me.mochibit.createharmonics.foundation.debug
 import java.io.InputStream
 
+/**
+ * Source stream resolver
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new SourceStreamResolver
+ */
 object SourceStreamResolver {
+    /**
+     * Result
+     * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+     *
+     * @constructor Creates a new Result
+     * @property status
+     * @property inputStream the input stream
+     * @property audioInfo the audio info
+     * @property startedAt the started at
+     */
     data class Result(
         val status: StreamStatus,
         val inputStream: InputStream?,
         val audioInfo: AudioInfo,
         val startedAt: Double = 0.0,
     ) {
-        enum class StreamStatus { FAILED, FINISHED, OK }
+        /**
+         * Stream status
+         * Enum — a fixed set of named constants.
+         *
+         * @constructor Creates a new StreamStatus
+         */
+        enum class StreamStatus {
+            /**
+             * Failed
+             *
+             * @constructor Creates a new FAILED
+             */
+            FAILED,
+
+            /**
+             * Finished
+             *
+             * @constructor Creates a new FINISHED
+             */
+            FINISHED,
+
+            /**
+             * Ok
+             *
+             * @constructor Creates a new OK
+             */
+            OK }
     }
 
     /**
@@ -28,6 +70,11 @@ object SourceStreamResolver {
      * If it can't make it will simply return null.
      *
      * If needed, the returned [InputStream] can be seeked to a certain position
+     *
+     * @param source
+     * @param positionProvider the position provider
+     * @receiver
+     * @return the result
      */
     suspend fun resolveInputStream(
         source: AudioSource,

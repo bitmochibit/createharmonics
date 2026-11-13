@@ -5,6 +5,15 @@ import net.minecraft.client.resources.sounds.SoundInstance
 import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundSource
 
+/**
+ * Mod continuous sound
+ *
+ * @constructor
+ * @property scape
+ * @property sharedPitch the shared pitch
+ * @property relativeVolume the relative volume
+ * @param event
+ */
 open class ModContinuousSound(
     event: SoundEvent,
     private val scape: ModSoundScape,
@@ -17,6 +26,10 @@ open class ModContinuousSound(
         this.relative = false
     }
 
+    /**
+     * Removes
+     *
+     */
     fun remove() {
         stop()
     }

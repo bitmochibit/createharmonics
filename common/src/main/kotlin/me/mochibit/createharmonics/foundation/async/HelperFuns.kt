@@ -29,19 +29,64 @@ private fun currentScope(): CoroutineScope =
         ServerCoroutineScope
     }
 
+/**
+ * On client thread
+ * Suspending function — must be called from a coroutine or another suspending function.
+ *
+ * @param block
+ * @receiver
+ */
 suspend fun onClientThread(block: suspend CoroutineScope.() -> Unit) = withContext(ModDispatchers.Client(), block)
 
+/**
+ * On server thread
+ * Suspending function — must be called from a coroutine or another suspending function.
+ *
+ * @param block
+ * @receiver
+ */
 suspend fun onServerThread(block: suspend CoroutineScope.() -> Unit) = withContext(ModDispatchers.Server(), block)
 
+/**
+ * Starts the on client
+ *
+ * @param block
+ * @receiver
+ * @return the job
+ */
 fun launchOnClient(block: suspend CoroutineScope.() -> Unit) = ClientCoroutineScope.launch(ModDispatchers.Client(), block = block)
 
+/**
+ * Starts the on server
+ *
+ * @param block
+ * @receiver
+ * @return the job
+ */
 fun launchOnServer(block: suspend CoroutineScope.() -> Unit) = ServerCoroutineScope.launch(ModDispatchers.Server(), block = block)
 
+/**
+ * Mod launch
+ *
+ * @param context
+ * @param block
+ * @receiver
+ * @return the job
+ */
 fun modLaunch(
     context: CoroutineContext = Dispatchers.Default,
     block: suspend CoroutineScope.() -> Unit,
 ) = currentScope().launch(context, block = block)
 
+/**
+ * Delayed launch
+ *
+ * @param context
+ * @param delay
+ * @param block
+ * @receiver
+ * @return the job
+ */
 fun delayedLaunch(
     context: CoroutineContext = Dispatchers.Default,
     delay: kotlin.time.Duration,
@@ -51,8 +96,25 @@ fun delayedLaunch(
     block()
 }
 
+/**
+ * Then launch on the receiver [kotlin.time.Duration]
+ *
+ * @param block
+ * @receiver
+ * @return the job
+ */
 infix fun kotlin.time.Duration.thenLaunch(block: suspend CoroutineScope.() -> Unit) = delayedLaunch(delay = this, block = block)
 
+/**
+ * Repeating launch
+ *
+ * @param context
+ * @param initialDelay the initial delay
+ * @param delay
+ * @param block
+ * @receiver
+ * @return the job
+ */
 fun repeatingLaunch(
     context: CoroutineContext = Dispatchers.Default,
     initialDelay: kotlin.time.Duration = kotlin.time.Duration.ZERO,
@@ -70,8 +132,24 @@ fun repeatingLaunch(
     }
 }
 
+/**
+ * Every on the receiver [kotlin.time.Duration]
+ *
+ * @param block
+ * @receiver
+ * @return the job
+ */
 infix fun kotlin.time.Duration.every(block: suspend CoroutineScope.() -> Unit) = repeatingLaunch(delay = this, block = block)
 
+/**
+ * With main context
+ * Suspending function — must be called from a coroutine or another suspending function.
+ *
+ * @param T
+ * @param block
+ * @receiver
+ * @return the t
+ */
 suspend fun <T> withMainContext(block: suspend CoroutineScope.() -> T): T =
     withContext(
         currentMainDispatcher,

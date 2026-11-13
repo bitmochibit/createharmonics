@@ -9,6 +9,11 @@ import me.mochibit.createharmonics.content.kinetics.recordPlayer.RecordPlayerBeh
 import me.mochibit.createharmonics.foundation.locale.ModLang
 import net.minecraft.network.chat.MutableComponent
 
+/**
+ * Player status display source
+ *
+ * @constructor Creates a new PlayerStatusDisplaySource
+ */
 class PlayerStatusDisplaySource : SingleLineDisplaySource() {
     override fun provideLine(
         context: DisplayLinkContext,

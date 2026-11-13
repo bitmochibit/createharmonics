@@ -56,6 +56,11 @@ private class DisplayRecipeParams(
     }
 }
 
+/**
+ * Mod jei plugin
+ *
+ * @constructor Creates a new ModJeiPlugin
+ */
 @JeiPlugin
 class ModJeiPlugin : IModPlugin {
     private var recordRepairCategory: CreateRecipeCategory<DeployerApplicationRecipe>? = null
@@ -91,7 +96,18 @@ class ModJeiPlugin : IModPlugin {
             .build("record_repair".asResource()) { info -> RecordRepairCategory(info) }
 }
 
+/**
+ * Record repair jei recipes
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new RecordRepairJEIRecipes
+ */
 object RecordRepairJEIRecipes {
+    /**
+     * Creates a new display holderses
+     *
+     * @return the recipe holder<deployer application recipe>s
+     */
     fun buildDisplayHolders(): List<RecipeHolder<DeployerApplicationRecipe>> {
         val level = Minecraft.getInstance().level ?: return emptyList()
         val access = level.registryAccess()
@@ -159,6 +175,12 @@ object RecordRepairJEIRecipes {
         RecipeHolder(id, DynamicRepairRecipe(DisplayRecipeParams(processedItem, heldItem, results), dynamicOutputs))
 }
 
+/**
+ * Record repair category
+ *
+ * @constructor
+ * @param info
+ */
 class RecordRepairCategory(
     info: Info<DeployerApplicationRecipe>,
 ) : CreateRecipeCategory<DeployerApplicationRecipe>(info) {

@@ -10,6 +10,12 @@ import net.minecraft.client.Minecraft
 import net.minecraft.server.MinecraftServer
 import kotlin.coroutines.CoroutineContext
 
+/**
+ * Mod dispatchers
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ModDispatchers
+ */
 object ModDispatchers : ModEventHandler {
     private var currentServer: MinecraftServer? = null
 
@@ -23,6 +29,11 @@ object ModDispatchers : ModEventHandler {
         }
     }
 
+    /**
+     * Client
+     *
+     * @constructor Creates a new Client
+     */
     class Client : CoroutineDispatcher() {
         override fun dispatch(
             context: CoroutineContext,
@@ -36,6 +47,11 @@ object ModDispatchers : ModEventHandler {
         }
     }
 
+    /**
+     * Server
+     *
+     * @constructor Creates a new Server
+     */
     class Server : CoroutineDispatcher() {
         override fun dispatch(
             context: CoroutineContext,

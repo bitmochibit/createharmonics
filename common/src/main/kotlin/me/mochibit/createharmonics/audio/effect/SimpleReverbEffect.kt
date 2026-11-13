@@ -3,6 +3,15 @@ package me.mochibit.createharmonics.audio.effect
 import me.mochibit.createharmonics.foundation.supplier.values.FloatSupplier
 import org.lwjgl.openal.EXTEfx
 
+/**
+ * Simple reverb effect
+ *
+ * @constructor Creates a new SimpleReverbEffect
+ * @property roomSizeSupplier the room size supplier
+ * @property dampingSupplier the damping supplier
+ * @property wetMixSupplier the wet mix supplier
+ * @property scope
+ */
 class SimpleReverbEffect(
     private val roomSizeSupplier: FloatSupplier,
     private val dampingSupplier: FloatSupplier,

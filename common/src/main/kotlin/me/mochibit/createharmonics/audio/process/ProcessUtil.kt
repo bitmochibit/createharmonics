@@ -1,8 +1,25 @@
 package me.mochibit.createharmonics.audio.process
 
 import kotlinx.coroutines.*
+
+/**
+ * Handles the output
+ * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+ *
+ * @constructor Creates a new ProcessOutput
+ * @property exitCode the exit code
+ * @property stdout
+ * @property stderr
+ */
 data class ProcessOutput(val exitCode: Int, val stdout: String, val stderr: String)
 
+/**
+ * Handles the process
+ * Suspending function — must be called from a coroutine or another suspending function.
+ *
+ * @param command
+ * @return the process output
+ */
 suspend fun runProcess(command: List<String>): ProcessOutput = withContext(Dispatchers.IO) {
     val process = ProcessBuilder(command).redirectErrorStream(false).start()
     val processId = ProcessLifecycleManager.registerProcess(process)

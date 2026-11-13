@@ -5,10 +5,27 @@ import java.nio.ByteBuffer
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.math.roundToInt
 
+/**
+ * Mixer effect
+ *
+ * @constructor Creates a new MixerEffect
+ * @property mixName the mix name
+ * @property scope
+ */
 class MixerEffect(
     val mixName: String = "DefaultMixName",
     override val scope: AudioEffect.Scope = AudioEffect.Scope.PERMANENT,
 ) : AudioEffect {
+    /**
+     * Mixed source
+     * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+     *
+     * @constructor Creates a new MixedSource
+     * @property id
+     * @property stream
+     * @property level
+     * @property autoRemoveOnExhaust the auto remove on exhaust
+     */
     data class MixedSource(
         val id: String,
         val stream: AudioStream,
@@ -18,6 +35,14 @@ class MixerEffect(
 
     private val sources = CopyOnWriteArrayList<MixedSource>()
 
+    /**
+     * Adds the source
+     *
+     * @param id
+     * @param stream
+     * @param level
+     * @param autoRemoveOnExhaust the auto remove on exhaust
+     */
     fun addSource(
         id: String,
         stream: AudioStream,
@@ -28,18 +53,32 @@ class MixerEffect(
         sources.add(MixedSource(id, stream, level, autoRemoveOnExhaust))
     }
 
+    /**
+     * Removes the source
+     *
+     * @param id
+     */
     fun removeSource(id: String) {
         val removed = sources.filter { it.id == id }
         sources.removeIf { it.id == id }
         removed.forEach { runCatching { it.stream.close() } }
     }
 
+    /**
+     * Removes the sources
+     *
+     */
     fun clearSources() {
         val snapshot = sources.toList()
         sources.clear()
         snapshot.forEach { runCatching { it.stream.close() } }
     }
 
+    /**
+     * Returns `true` if sources
+     *
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun hasSources(): Boolean = sources.isNotEmpty()
 
     override fun process(

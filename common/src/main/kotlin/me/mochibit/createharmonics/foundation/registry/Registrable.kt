@@ -5,6 +5,12 @@ import me.mochibit.createharmonics.foundation.services.classScanningService
 import me.mochibit.createharmonics.foundation.services.platformService
 import net.minecraft.core.Registry
 
+/**
+ * Registrable
+ *
+ * @property registrationOrder the registration order
+ * @property targetEnvironment the target environment
+ */
 interface Registrable {
     /**
      * The registration order priority. Lower values are registered first.
@@ -20,21 +26,62 @@ interface Registrable {
      */
     val targetEnvironment: PlatformService.Environment?
         get() = null
+
+    /**
+     * Adds
+     *
+     * @param registry
+     */
     fun register(registry: Registry<*>? = null)
 }
 
+/**
+ * Registry phase
+ * Enum — a fixed set of named constants.
+ *
+ * @constructor Creates a new RegistryPhase
+ */
 enum class RegistryPhase {
+    /**
+     * Pre freeze
+     *
+     * @constructor Creates a new PRE_FREEZE
+     */
     PRE_FREEZE,
+
+    /**
+     * Common
+     *
+     * @constructor Creates a new COMMON
+     */
     COMMON
 }
 
+/**
+ * Auto register
+ *
+ * @constructor Creates a new AutoRegister
+ * @property phase
+ */
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class AutoRegister(val phase: RegistryPhase = RegistryPhase.COMMON)
 
 
+/**
+ * Auto registrar
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new AutoRegistrar
+ */
 object AutoRegistrar {
 
+    /**
+     * Adds the all
+     *
+     * @param phase
+     * @param registry
+     */
     fun registerAll(phase: RegistryPhase, registry: Registry<*>? = null) {
         val platform = platformService
 

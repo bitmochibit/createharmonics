@@ -17,6 +17,14 @@ import java.util.*
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
 
+/**
+ * Sound event composition
+ *
+ * @constructor
+ * @property soundEffectChain the sound effect chain
+ * @property mixerAnchor the mixer anchor
+ * @param soundList the sound list
+ */
 class SoundEventComposition(
     soundList: List<SoundEventDef> = listOf(),
     val soundEffectChain: EffectChain,
@@ -24,18 +32,52 @@ class SoundEventComposition(
 ) {
     private val mixer = MixerEffect("SoundCompositionMixer", AudioEffect.Scope.SOUND_COMPOSITION_MIXER)
 
+    /**
+     * Anchor before
+     *
+     * @param scope
+     */
     fun anchorBefore(scope: AudioEffect.Scope) {
         mixerAnchor = ScopeAnchor.Before(scope)
     }
 
+    /**
+     * Anchor after
+     *
+     * @param scope
+     */
     fun anchorAfter(scope: AudioEffect.Scope) {
         mixerAnchor = ScopeAnchor.After(scope)
     }
 
+    /**
+     * Removes the anchor
+     *
+     */
     fun clearAnchor() {
         mixerAnchor = null
     }
 
+    /**
+     * Sound event def
+     * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+     *
+     * @constructor Creates a new SoundEventDef
+     * @property event
+     * @property source
+     * @property randomSource the random source
+     * @property looping
+     * @property delay
+     * @property attenuation
+     * @property relative
+     * @property needStream the need stream
+     * @property posSupplier the pos supplier
+     * @property pitchSupplier the pitch supplier
+     * @property volumeSupplier the volume supplier
+     * @property radiusSupplier the radius supplier
+     * @property probabilitySupplier the probability supplier
+     * @property mixLevel the mix level
+     */
     data class SoundEventDef(
         val event: SoundEvent,
         val source: SoundSource? = null,
@@ -65,6 +107,11 @@ class SoundEventComposition(
     val soundList: List<SoundEventDef> get() = entries.map { it.def }
     val isRunning: Boolean get() = entries.any { it.instances.isNotEmpty() || it.jobs.isNotEmpty() }
 
+    /**
+     * Creates a new composition
+     *
+     * @param referenceSoundInstance the reference sound instance
+     */
     @Synchronized
     fun makeComposition(referenceSoundInstance: SoundInstance) {
         soundEffectChain.removeEffect(mixer)
@@ -74,6 +121,10 @@ class SoundEventComposition(
         entries.toList().forEach { startEntry(it, referenceSoundInstance) }
     }
 
+    /**
+     * Stops the composition
+     *
+     */
     @Synchronized
     fun stopComposition() {
         soundEffectChain.removeEffect(mixer)
@@ -82,6 +133,11 @@ class SoundEventComposition(
         referenceSoundInstance = null
     }
 
+    /**
+     * Adds
+     *
+     * @param def
+     */
     @Synchronized
     fun add(def: SoundEventDef) {
         val entry = ActiveEntry(def)
@@ -89,6 +145,11 @@ class SoundEventComposition(
         referenceSoundInstance?.let { startEntry(entry, it) }
     }
 
+    /**
+     * Removes
+     *
+     * @param def
+     */
     @Synchronized
     fun remove(def: SoundEventDef) {
         val entry = entries.find { it.def == def } ?: return
@@ -96,9 +157,19 @@ class SoundEventComposition(
         entries.remove(entry)
     }
 
+    /**
+     * Removes
+     *
+     */
     @Synchronized
     fun clear() = removeAll { true }
 
+    /**
+     * Removes the all
+     *
+     * @param predicate
+     * @receiver
+     */
     @Synchronized
     fun removeAll(predicate: (SoundEventDef) -> Boolean) {
         val toRemove = entries.filter { predicate(it.def) }
@@ -106,6 +177,12 @@ class SoundEventComposition(
         entries.removeAll(toRemove)
     }
 
+    /**
+     * Replace
+     *
+     * @param old
+     * @param new
+     */
     @Synchronized
     fun replace(
         old: SoundEventDef,

@@ -15,6 +15,8 @@ import kotlin.coroutines.CoroutineContext
 /**
  * Coroutine scope for tasks that should live as long as the game is running.
  * Only cancelled on game shutdown.
+ *
+ * @constructor Creates a new ModCoroutineScope
  */
 object ModCoroutineScope : CoroutineScope {
     private val supervisor = SupervisorJob()
@@ -27,9 +29,20 @@ object ModCoroutineScope : CoroutineScope {
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Default + supervisor + exceptionHandler
 
+    /**
+     * Creates a new child supervisor
+     *
+     * @return the completable job
+     */
     internal fun createChildSupervisor(): CompletableJob = SupervisorJob(supervisor)
 }
 
+/**
+ * Event bus scope
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new EventBusScope
+ */
 object EventBusScope : CoroutineScope {
     private val exceptionHandler =
         CoroutineExceptionHandler { _, throwable ->
@@ -45,6 +58,8 @@ object EventBusScope : CoroutineScope {
  * Coroutine scope for client-side tasks.
  * Cancelled when the client disconnects from a server or the game shuts down.
  * A fresh scope is automatically created after cancellation for the next session.
+ *
+ * @constructor Creates a new ClientCoroutineScope
  */
 object ClientCoroutineScope : CoroutineScope {
     private val exceptionHandler =
@@ -60,10 +75,18 @@ object ClientCoroutineScope : CoroutineScope {
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Default + supervisor + exceptionHandler
 
+    /**
+     * Stops the children
+     *
+     */
     fun cancelChildren() {
         coroutineContext.cancelChildren()
     }
 
+    /**
+     * Resets
+     *
+     */
     fun reset() {
         coroutineContext.cancel()
         supervisor = ModCoroutineScope.createChildSupervisor()
@@ -74,6 +97,8 @@ object ClientCoroutineScope : CoroutineScope {
  * Coroutine scope for server-side tasks.
  * Cancelled when the server stops or the game shuts down.
  * A fresh scope is automatically created after cancellation for the next session.
+ *
+ * @constructor Creates a new ServerCoroutineScope
  */
 object ServerCoroutineScope : CoroutineScope {
     private val exceptionHandler =
@@ -89,10 +114,18 @@ object ServerCoroutineScope : CoroutineScope {
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Default + supervisor + exceptionHandler
 
+    /**
+     * Stops the children
+     *
+     */
     fun cancelChildren() {
         coroutineContext.cancelChildren()
     }
 
+    /**
+     * Resets
+     *
+     */
     fun reset() {
         coroutineContext.cancel()
         supervisor = ModCoroutineScope.createChildSupervisor()

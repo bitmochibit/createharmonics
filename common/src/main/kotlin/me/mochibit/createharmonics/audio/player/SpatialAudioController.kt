@@ -7,6 +7,11 @@ import net.minecraft.world.level.Level
 import kotlin.time.Duration.Companion.seconds
 
 
+/**
+ * Spatial audio controller
+ *
+ * @constructor Creates a new SpatialAudioController
+ */
 class SpatialAudioController {
     val masterVolume = FloatInterpolator(1f, 4.0.seconds)
     val masterPitch = FloatInterpolator(1f, 4.0.seconds)
@@ -18,6 +23,11 @@ class SpatialAudioController {
     private val effectPresets: List<EffectPreset.AbstractEffectPreset> =
         listOf(underwaterFilter, reverberator)
 
+    /**
+     * Tick
+     *
+     * @param player
+     */
     fun tick(player: AudioPlayer) {
         val ctx = player.spatialContext ?: return
 
@@ -34,6 +44,13 @@ class SpatialAudioController {
         }
     }
 
+    /**
+     * Sends the block update
+     *
+     * @param player
+     * @param level
+     * @param pos
+     */
     fun notifyBlockUpdate(player: AudioPlayer, level: Level, pos: BlockPos) {
         for (preset in effectPresets) {
             val radius = preset.externalUpdateRadius

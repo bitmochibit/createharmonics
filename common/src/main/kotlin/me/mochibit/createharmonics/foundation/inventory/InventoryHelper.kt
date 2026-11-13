@@ -9,6 +9,8 @@ import net.minecraft.world.level.Level
  * Attempts to insert the [stack] in the first available slot
  *
  * @return remainder stack that could not be inserted
+ * @param stack
+ * @param simulate
  */
 fun GenericInventory.insertAnywhere(stack: ItemStack, simulate: Boolean = false): ItemStack {
     var rest = stack
@@ -25,6 +27,8 @@ fun GenericInventory.insertAnywhere(stack: ItemStack, simulate: Boolean = false)
  * Attempts to insert [stack] first merging with compatible slots, then looks for empty slots
  *
  * @return remainder stack that could not be inserted
+ * @param stack
+ * @param simulate
  */
 fun GenericInventory.insertStacked(stack: ItemStack, simulate: Boolean = false): ItemStack {
     if (stack.isEmpty) return stack
@@ -44,6 +48,10 @@ fun GenericInventory.insertStacked(stack: ItemStack, simulate: Boolean = false):
     return rest
 }
 
+/**
+ * Removes the content on the receiver [MutableInventory]
+ *
+ */
 fun MutableInventory.clearContent() {
     for (slot in 0 until getSlots()) {
         this.setStackInSlot(slot, ItemStack.EMPTY)
@@ -53,6 +61,9 @@ fun MutableInventory.clearContent() {
 
 /**
  * Drop the inventory contents following the logic of [Containers.dropContents]
+ *
+ * @param level
+ * @param pos
  */
 fun GenericInventory.dropContents(level: Level, pos: BlockPos) {
     for (i in 0 until getSlots()) {
@@ -62,6 +73,9 @@ fun GenericInventory.dropContents(level: Level, pos: BlockPos) {
 
 /**
  * Can the current stack [this] be stacked with [other]?
+ *
+ * @param other
+ * @return `true` if the condition holds, `false` otherwise
  */
 fun ItemStack.canStackAmounts(other: ItemStack): Boolean =
     ItemStack.isSameItemSameComponents(this, other) && this.count + other.count <= this.maxStackSize

@@ -16,6 +16,10 @@ import net.minecraft.world.phys.Vec3
 
 /**
  * Request to the server on what port the audio server is hosted to, and after received the port will be updated
+ *
+ * @constructor Creates a new AudioServerInfoPacket
+ * @property port
+ * @property host
  */
 @AutoPacket
 @Serializable
@@ -26,6 +30,13 @@ data class AudioServerInfoPacket(val port: Int, val host: String) : S2CPacket {
     }
 }
 
+/**
+ * Request audio upload
+ *
+ * @constructor Creates a new RequestAudioUpload
+ * @property blockPos the block pos
+ * @property fileName the file name
+ */
 @AutoPacket
 @Serializable
 class RequestAudioUpload(
@@ -71,6 +82,12 @@ class RequestAudioUpload(
     }
 }
 
+/**
+ * Stops the audio upload packet
+ *
+ * @constructor Creates a new CancelAudioUploadPacket
+ * @property blockPos the block pos
+ */
 @AutoPacket
 @Serializable
 class CancelAudioUploadPacket(@Contextual val blockPos: BlockPos) : C2SPacket {
@@ -81,12 +98,27 @@ class CancelAudioUploadPacket(@Contextual val blockPos: BlockPos) : C2SPacket {
     }
 }
 
+/**
+ * Audio upload granted packet
+ * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+ *
+ * @constructor Creates a new AudioUploadGrantedPacket
+ * @property token
+ * @property expiresInSeconds the expires in seconds
+ */
 @AutoPacket
 @Serializable
 data class AudioUploadGrantedPacket(val token: String, val expiresInSeconds: Int) : S2CPacket {
     override fun handle(context: ClientPacketContext) = ClientAudioUpload.onGranted(this)
 }
 
+/**
+ * Audio upload denied packet
+ * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+ *
+ * @constructor Creates a new AudioUploadDeniedPacket
+ * @property reason
+ */
 @AutoPacket
 @Serializable
 data class AudioUploadDeniedPacket(val reason: AudioUploadResponse) : S2CPacket {
@@ -95,6 +127,11 @@ data class AudioUploadDeniedPacket(val reason: AudioUploadResponse) : S2CPacket 
 
 // Actions
 
+/**
+ * Request audio list
+ *
+ * @constructor Creates a new RequestAudioList
+ */
 @AutoPacket
 @Serializable
 class RequestAudioList : C2SPacket {
@@ -109,6 +146,13 @@ class RequestAudioList : C2SPacket {
 
 }
 
+/**
+ * Removes the audio packet
+ *
+ * @constructor Creates a new DeleteAudioPacket
+ * @property blockPos the block pos
+ * @property fileId the file id
+ */
 @AutoPacket
 @Serializable
 class DeleteAudioPacket(
@@ -141,6 +185,14 @@ class DeleteAudioPacket(
 
 }
 
+/**
+ * Rename audio packet
+ *
+ * @constructor Creates a new RenameAudioPacket
+ * @property blockPos the block pos
+ * @property fileId the file id
+ * @property newName the new name
+ */
 @AutoPacket
 @Serializable
 class RenameAudioPacket(
@@ -164,6 +216,12 @@ class RenameAudioPacket(
 }
 
 
+/**
+ * Audio list packet
+ *
+ * @constructor Creates a new AudioListPacket
+ * @property entries
+ */
 @AutoPacket
 @Serializable
 class AudioListPacket(val entries: List<AudioMetadata>) : S2CPacket {

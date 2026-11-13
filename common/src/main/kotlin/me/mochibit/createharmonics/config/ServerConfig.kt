@@ -6,6 +6,12 @@ import me.mochibit.createharmonics.foundation.services.platformService
 import net.createmod.catnip.config.ConfigBase
 import net.neoforged.neoforge.common.ModConfigSpec
 
+/**
+ * Server config
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ServerConfig
+ */
 object ServerConfig : ConfigBase() {
 
     lateinit var audioServerIp: CValue<String, ModConfigSpec.ConfigValue<String>>
@@ -107,6 +113,12 @@ object ServerConfig : ConfigBase() {
         maxPitch = f(2.0f, 1.0f, 4.0f, "maxPitch", "Maximum pitch for audio playback")
     }
 
+    /**
+     * Returns the record durability
+     *
+     * @param recordType the record type
+     * @return the int
+     */
     fun getRecordDurability(recordType: RecordType): Int? {
         val configInt = recordDurabilities[recordType] ?: return null
         return try {

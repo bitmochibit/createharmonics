@@ -11,11 +11,23 @@ import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipInputStream
 
+/**
+ * Bin installer
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new BinInstaller
+ */
 object BinInstaller {
     private val installationLocks = ConcurrentHashMap<String, Any>()
 
     /**
      * Install a binary provider
+     *
+     * @param provider
+     * @param providerName the provider name
+     * @param progressCallback the progress callback
+     * @return `true` if the condition holds, `false` otherwise
+     * @throws IOException
      */
     fun install(
         provider: BinProvider,

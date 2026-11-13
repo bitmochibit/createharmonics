@@ -8,6 +8,20 @@ import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
 import org.joml.Vector3d
 
+/**
+ * Simple tickable sound instance
+ *
+ * @constructor
+ * @param audioPlayer the audio player
+ * @param soundEvent the sound event
+ * @param soundSource the sound source
+ * @param randomSource the random source
+ * @param looping
+ * @param delay
+ * @param attenuation
+ * @param relative
+ * @param needStream the need stream
+ */
 class SimpleTickableSoundInstance(
     audioPlayer: AudioPlayer,
     soundEvent: SoundEvent,

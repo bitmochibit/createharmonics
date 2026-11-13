@@ -11,6 +11,11 @@ import me.mochibit.createharmonics.foundation.locale.ModLang
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.MutableComponent
 
+/**
+ * Audio name display source
+ *
+ * @constructor Creates a new AudioNameDisplaySource
+ */
 class AudioNameDisplaySource : SingleLineDisplaySource() {
     private fun String.codePointArray(): IntArray = codePoints().toArray()
 
@@ -177,6 +182,12 @@ class AudioNameDisplaySource : SingleLineDisplaySource() {
         size: Int,
     ): FlapDisplaySection = FlapDisplaySection(size.toFloat() * 7.0f, "instant", false, false)
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         private const val SCROLL_SPEED = 1
         private const val WRAP_HOLD = 10

@@ -23,6 +23,14 @@ import net.minecraft.core.Direction
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 
+/**
+ * Record player actor visual
+ *
+ * @constructor
+ * @param vCtx the v ctx
+ * @param vRw the v rw
+ * @param mCtx the m ctx
+ */
 class RecordPlayerActorVisual(
     vCtx: VisualizationContext,
     vRw: VirtualRenderWorld,

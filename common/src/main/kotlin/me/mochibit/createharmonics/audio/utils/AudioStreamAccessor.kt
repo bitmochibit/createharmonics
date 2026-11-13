@@ -26,6 +26,12 @@ val soundEngineAccessor: SoundEngineAccessor by lazy {
     engine as SoundEngineAccessor
 }
 
+/**
+ * Returns the stream directly on the receiver [SoundInstance]
+ *
+ * @param looping
+ * @return the completable future
+ */
 fun SoundInstance.getStreamDirectly(looping: Boolean): CompletableFuture<AudioStream> {
     val soundBuffers = soundEngineAccessor.soundBuffers
     this.resolve(mcSoundManager)
@@ -33,6 +39,11 @@ fun SoundInstance.getStreamDirectly(looping: Boolean): CompletableFuture<AudioSt
     return soundBuffers.getStream(this.sound.path, looping)
 }
 
+/**
+ * Pause on the receiver [SoundInstance]
+ *
+ * @return `true` if the condition holds, `false` otherwise
+ */
 fun SoundInstance.pause(): Boolean {
     if (this is StreamingSoundInstance) {
         if (!currentAudioStreamDelegate.isInitialized()) return false
@@ -46,6 +57,11 @@ fun SoundInstance.pause(): Boolean {
     return true
 }
 
+/**
+ * Unpause on the receiver [SoundInstance]
+ *
+ * @return `true` if the condition holds, `false` otherwise
+ */
 fun SoundInstance.unpause(): Boolean {
     if (this is StreamingSoundInstance) {
         if (!currentAudioStreamDelegate.isInitialized()) return false
@@ -59,6 +75,12 @@ fun SoundInstance.unpause(): Boolean {
     return true
 }
 
+/**
+ * Returns the stream directly on the receiver [SoundEvent]
+ *
+ * @param looping
+ * @return the completable future
+ */
 fun SoundEvent.getStreamDirectly(looping: Boolean = false): CompletableFuture<AudioStream> {
     val mc = Minecraft.getInstance()
     val soundBuffers =

@@ -7,7 +7,23 @@ import me.mochibit.createharmonics.content.records.RecordPlayback.playFromRecord
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 
+/**
+ * Client playback controller
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ClientPlaybackController
+ */
 object ClientPlaybackController {
+    /**
+     * Handles
+     *
+     * @param player
+     * @param target
+     * @param level
+     * @param record
+     * @receiver
+     * @param positionSeconds the position seconds
+     */
     fun apply(player: AudioPlayer, target: PlaybackState, level: Level, record: () -> ItemStack, positionSeconds: Double) {
         when (target) {
             PlaybackState.PLAYING -> when (player.state.value) {

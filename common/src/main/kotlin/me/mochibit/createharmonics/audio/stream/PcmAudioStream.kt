@@ -8,7 +8,12 @@ import java.nio.ByteOrder
 import javax.sound.sampled.AudioFormat
 import kotlin.math.min
 
-//todo maybe convert this to some advanced configuration?
+/**
+ * Audio latency config
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new AudioLatencyConfig
+ *///todo maybe convert this to some advanced configuration?
 object AudioLatencyConfig {
     /** AL Buffer length in seconds */
     const val AL_BUFFER_SECONDS = 0.05f
@@ -20,14 +25,38 @@ object AudioLatencyConfig {
     const val MAX_DSP_LOOKAHEAD_SECONDS = 0.12
 }
 
+/**
+ * Pausable audio stream
+ *
+ */
 interface PausableAudioStream {
+    /**
+     * Returns `true` if paused
+     *
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun isPaused(): Boolean
 
+    /**
+     * Pause
+     *
+     */
     fun pause()
 
+    /**
+     * Resume
+     *
+     */
     fun resume()
 }
 
+/**
+ * Pcm audio stream
+ *
+ * @constructor Creates a new PcmAudioStream
+ * @property inputStream the input stream
+ * @property sampleRate the sample rate
+ */
 class PcmAudioStream(
     private val inputStream: InputStream,
     val sampleRate: Int = 44100,

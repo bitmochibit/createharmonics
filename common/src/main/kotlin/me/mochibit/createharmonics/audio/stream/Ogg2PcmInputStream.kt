@@ -4,6 +4,13 @@ import net.minecraft.client.sounds.AudioStream
 import java.io.InputStream
 import java.nio.ByteBuffer
 
+/**
+ * Ogg2 pcm input stream
+ *
+ * @constructor Creates a new Ogg2PcmInputStream
+ * @property ogg
+ * @property chunkSize the chunk size
+ */
 class Ogg2PcmInputStream(
     val ogg: AudioStream,
     private val chunkSize: Int = 16384,

@@ -11,6 +11,10 @@ import kotlin.math.roundToInt
  *
  * @param cutoffFrequencySupplier Supplier for cutoff frequency in Hz
  * @param resonanceSupplier Supplier for resonance/Q factor (0.0 to ~10.0, with 0.707 being "flat")
+ * @constructor Creates a new LowPassFilterEffect
+ * @property cutoffFrequencySupplier the cutoff frequency supplier
+ * @property resonanceSupplier the resonance supplier
+ * @property scope
  */
 class LowPassFilterEffect(
     private val cutoffFrequencySupplier: FloatSupplier,

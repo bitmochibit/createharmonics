@@ -9,12 +9,17 @@ import java.util.ServiceLoader
  * ```kotlin
  * val helper: IPlatformHelper = ServiceUtil.load(IPlatformHelper::class.java)
  * ```
+ *
+ * @constructor Creates a new ServiceUtil
  */
 object ServiceUtil {
     /**
      * Loads the first available implementation of [serviceClass] from the classpath.
      *
      * @throws NoSuchElementException if no implementation is registered for [serviceClass].
+     * @param T
+     * @param serviceClass the service class
+     * @return the t
      */
     fun <T> load(serviceClass: Class<T>): T =
         ServiceLoader
@@ -35,5 +40,8 @@ object ServiceUtil {
  * ```kotlin
  * val helper: IPlatformHelper = loadService()
  * ```
+ *
+ * @param T
+ * @return the t
  */
 inline fun <reified T> loadService(): T = ServiceUtil.load(T::class.java)

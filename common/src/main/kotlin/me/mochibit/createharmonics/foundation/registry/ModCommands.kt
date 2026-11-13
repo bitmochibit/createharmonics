@@ -5,6 +5,12 @@ import me.mochibit.createharmonics.foundation.info
 import me.mochibit.createharmonics.foundation.services.eventService
 import net.minecraft.core.Registry
 
+/**
+ * Mod commands
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ModCommands
+ */
 @AutoRegister
 object ModCommands : Registrable {
     override fun register(registry: Registry<*>?) {

@@ -10,6 +10,12 @@ import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.sounds.SoundEvent
 
+/**
+ * Mod sounds
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ModSounds
+ */
 @AutoRegister
 object ModSounds : Registrable {
     val SLIDING_STONE = ModRegistrate.sound("sliding_stone")
@@ -19,6 +25,13 @@ object ModSounds : Registrable {
         "Registering mod sounds..".info()
     }
 
+    /**
+     * Sound on the receiver [CreateRegistrate]
+     *
+     * @param name
+     * @param soundPath the sound path
+     * @return the registry entry
+     */
     fun CreateRegistrate.sound(
         name: String,
         soundPath: String = name,

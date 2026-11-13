@@ -4,10 +4,23 @@ import me.mochibit.createharmonics.foundation.locale.ModLang
 import net.minecraft.client.Minecraft
 import java.io.File
 
+/**
+ * Library download url unavailable
+ *
+ * @constructor
+ * @param message
+ */
 class LibraryDownloadUrlUnavailable(
     message: String,
 ) : Exception(message)
 
+/**
+ * Bin provider
+ *
+ * @constructor Creates a new BinProvider
+ * @property providerName the provider name
+ * @property directory
+ */
 abstract class BinProvider(
     protected val providerName: String,
 
@@ -20,6 +33,12 @@ abstract class BinProvider(
             .normalize()
             .toFile(),
 ) {
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         private val debugLinux = false
 
@@ -51,6 +70,10 @@ abstract class BinProvider(
                 .toFile()
     }
 
+    /**
+     * Creates a new provider folder
+     *
+     */
     fun buildProviderFolder() {
         if (!providersFolder.exists()) {
             providersFolder.mkdirs()
@@ -89,6 +112,8 @@ abstract class BinProvider(
 
     /**
      * Check if the binary is available and executable
+     *
+     * @return `true` if the condition holds, `false` otherwise
      */
     fun isAvailable(): Boolean {
         val execPath = getExecutablePath()
@@ -97,6 +122,8 @@ abstract class BinProvider(
 
     /**
      * Get the path to the executable, if it exists
+     *
+     * @return the string
      */
     fun getExecutablePath(): String? {
         cachedExecutablePath?.let { cached ->
@@ -118,9 +145,20 @@ abstract class BinProvider(
         cachedExecutablePath = null
     }
 
+    /**
+     * Returns the executable base name
+     *
+     * @return the string
+     */
     protected open fun getExecutableBaseName(): String = providerName
     private fun getExecutableName(): String = if (isWindows) "$providerName.exe" else getExecutableBaseName()
 
+    /**
+     * Returns the binary
+     *
+     * @param name
+     * @return the file
+     */
     internal fun findBinary(name: String): File? {
         val exeName = if (isWindows) "$name.exe" else name
         return findExecutable(directory, exeName)
@@ -159,16 +197,28 @@ abstract class BinProvider(
         return null
     }
 
+    /**
+     * Validates the executable
+     *
+     * @param file
+     */
     internal fun ensureExecutable(file: File) {
         if (!file.canExecute()) {
             file.setExecutable(true, false)
         }
     }
 
+    /**
+     * Returns the executable name internal
+     *
+     * @return the string
+     */
     internal fun getExecutableNameInternal(): String = getExecutableName()
 
     /**
      * Get the download URL for this platform
+     *
+     * @return the string
      */
     abstract fun getDownloadUrl(): String
 }

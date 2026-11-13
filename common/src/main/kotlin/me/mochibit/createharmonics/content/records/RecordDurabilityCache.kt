@@ -8,10 +8,23 @@ import me.mochibit.createharmonics.foundation.services.ConfigEvents
 import me.mochibit.createharmonics.foundation.services.eventService
 import net.minecraft.core.RegistryAccess
 
+/**
+ * Record durability cache
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new RecordDurabilityCache
+ */
 @AutoHandler
 object RecordDurabilityCache: ModEventHandler {
     @Volatile private var access: RegistryAccess? = null
     @Volatile private var uses: Map<RecordType, Int> = emptyMap()
+
+    /**
+     * Returns
+     *
+     * @param type
+     * @return the int
+     */
     operator fun get(type: RecordType): Int = uses[type] ?: RecordProperties.FALLBACK.durability
 
 

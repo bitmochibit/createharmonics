@@ -21,6 +21,14 @@ import net.neoforged.neoforge.items.ItemStackHandler
 import kotlin.math.abs
 
 
+/**
+ * Record player block entity
+ *
+ * @constructor
+ * @param type
+ * @param pos
+ * @param state
+ */
 abstract class RecordPlayerBlockEntity(
     type: BlockEntityType<*>,
     pos: BlockPos,
@@ -51,6 +59,12 @@ abstract class RecordPlayerBlockEntity(
         refreshNetworkStress()
     }
 
+    /**
+     * Returns the rotation angle
+     *
+     * @param partialTicks the partial ticks
+     * @return the float
+     */
     fun getRotationAngle(partialTicks: Float): Float =
         AngleHelper.angleLerp(partialTicks.toDouble(), previousRotation, accumulatedRotation)
 
@@ -83,6 +97,11 @@ abstract class RecordPlayerBlockEntity(
         }
     }
 
+    /**
+     * Handles the inventory to block
+     *
+     * @param wrapped
+     */
     fun applyInventoryToBlock(wrapped: ItemStackHandler) {
         for (i in 0 until itemHandler.getSlots()) {
             itemHandler.setStackInSlot(i, if (i < wrapped.slots) wrapped.getStackInSlot(i) else ItemStack.EMPTY)
@@ -91,6 +110,10 @@ abstract class RecordPlayerBlockEntity(
 
     private var cachedStressImpact = Float.NaN
 
+    /**
+     * Resets the network stress
+     *
+     */
     fun refreshNetworkStress() {
         if (level?.isClientSide == true || !hasNetwork()) return
         val newStress = calculateStressApplied()

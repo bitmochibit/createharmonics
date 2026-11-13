@@ -22,6 +22,12 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
+/**
+ * Audio upload server
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new AudioUploadServer
+ */
 object AudioUploadServer {
 
     private data class Binding(val host: String, val port: Int)
@@ -46,17 +52,51 @@ object AudioUploadServer {
     private fun requireStorage(): AudioStorageManager =
         checkNotNull(storage) { "Audio server is not running" }
 
+    /**
+     * Returns `true` if free slot
+     *
+     * @param playerName the player name
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun hasFreeSlot(playerName: String): Boolean {
         val s = storage ?: return false
         return s.countFiles(playerName) < s.currentConfig().maxFilesPerPlayer
     }
 
+    /**
+     * List
+     *
+     * @param playerName the player name
+     * @return the audio metadatas
+     */
     fun list(playerName: String) = storage?.list(playerName).orEmpty()
+
+    /**
+     * Removes
+     *
+     * @param playerName the player name
+     * @param fileId the file id
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun delete(playerName: String, fileId: String) = storage?.delete(playerName, fileId)
+
+    /**
+     * Rename
+     *
+     * @param playerName the player name
+     * @param fileId the file id
+     * @param newName the new name
+     * @return the audio metadata
+     */
     fun rename(playerName: String, fileId: String, newName: String?) =
         storage?.rename(playerName, fileId, newName)
 
 
+    /**
+     * Starts
+     *
+     * @throws e
+     */
     fun start() {
         synchronized(this) {
             if (running != null || starting?.isActive == true) return
@@ -123,6 +163,11 @@ object AudioUploadServer {
     }
 
 
+    /**
+     * Stops
+     *
+     * @param delaySeconds the delay seconds
+     */
     @Synchronized
     fun stop(delaySeconds: Int = 1) {
         starting?.cancel()
@@ -136,12 +181,20 @@ object AudioUploadServer {
         broadcastPort()
     }
 
+    /**
+     * Restart
+     *
+     */
     @Synchronized
     fun restart() {
         stop()
         start()
     }
 
+    /**
+     * On config reload
+     *
+     */
     @Synchronized
     fun onConfigReload() {
         val r = running ?: return

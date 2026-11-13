@@ -10,6 +10,12 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 
+/**
+ * Ffmpeg provider
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new FFMPEGProvider
+ */
 object FFMPEGProvider : BinProvider("ffmpeg") {
     @Volatile
     private var cachedFfprobePath: String? = null
@@ -27,6 +33,11 @@ object FFMPEGProvider : BinProvider("ffmpeg") {
             return cachedFfprobePath
         }
 
+    /**
+     * Returns `true` if probe available
+     *
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun isProbeAvailable(): Boolean {
         val execPath = ffprobePath
         return execPath != null && File(execPath).let { it.exists() && it.canExecute() }

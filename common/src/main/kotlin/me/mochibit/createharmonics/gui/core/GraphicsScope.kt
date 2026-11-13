@@ -5,6 +5,12 @@ import net.minecraft.client.gui.GuiGraphics
 
 /**
  * Executes [block] always and safely surrounded by push and pop pose.
+ *
+ * @param translateX the translate x
+ * @param translateY the translate y
+ * @param translateZ the translate z
+ * @param block
+ * @receiver
  */
 inline fun GuiGraphics.poseScoped(
     translateX: Float = 0f,
@@ -23,13 +29,32 @@ inline fun GuiGraphics.poseScoped(
     }
 }
 
+/**
+ * Layer on the receiver [GuiGraphics]
+ *
+ * @param z
+ * @param block
+ * @receiver
+ */
 inline fun GuiGraphics.layer(z: Float, block: GuiGraphics.() -> Unit) =
     poseScoped(translateZ = z, block = block)
 
+/**
+ * Scissor guard
+ *
+ * @constructor Creates a new ScissorGuard
+ */
 class ScissorGuard {
     private val stack = ArrayDeque<Rect>()
     val current: Rect? get() = stack.lastOrNull()
 
+    /**
+     * Adds
+     *
+     * @param graphics
+     * @param area
+     * @return the rect
+     */
     fun push(graphics: GuiGraphics, area: Rect): Rect {
         val effective = current?.intersect(area) ?: area
         stack.addLast(effective)
@@ -37,6 +62,11 @@ class ScissorGuard {
         return effective
     }
 
+    /**
+     * Pop
+     *
+     * @param graphics
+     */
     fun pop(graphics: GuiGraphics) {
         check(stack.isNotEmpty()) { "ScissorGuard.pop() called without before calling push" }
         stack.removeLast()
@@ -51,6 +81,10 @@ class ScissorGuard {
  * Exactly as OpenGL's scissor works, it defines a rectangle, called scissor box ([area]) and while it's enabled
  * only what's inside the area can be updated to the screen.
  *
+ * @param guard
+ * @param area
+ * @param block
+ * @receiver
  */
 inline fun GuiGraphics.scissorScoped(guard: ScissorGuard, area: Rect, block: GuiGraphics.() -> Unit) {
     guard.push(this, area)

@@ -6,10 +6,26 @@ import net.minecraft.client.multiplayer.MultiPlayerGameMode
 import net.minecraft.client.player.LocalPlayer
 import net.minecraft.network.Connection
 
+/**
+ * Client event service
+ *
+ */
 interface ClientEventService {
+    /**
+     * On client tick
+     *
+     * @param tickPhase the tick phase
+     * @param listener
+     * @receiver
+     */
     fun onClientTick(tickPhase: EventPhase, listener: () -> Unit)
 
-    // client game server
+    /**
+     * On client disconnect
+     *
+     * @param listener
+     * @receiver
+     */// client game server
     fun onClientDisconnect(
         listener: (
                 controller: MultiPlayerGameMode?,
@@ -20,6 +36,13 @@ interface ClientEventService {
 
     //gui
 
+    /**
+     * On screen init
+     *
+     * @param initPhase the init phase
+     * @param listener
+     * @receiver
+     */
     fun onScreenInit(
         initPhase: EventPhase,
         listener: (
@@ -33,8 +56,25 @@ interface ClientEventService {
 
 val clientEventService: ClientEventService by lazy { loadService<ClientEventService>() }
 
+/**
+ * Event phase
+ * Enum — a fixed set of named constants.
+ *
+ * @constructor Creates a new EventPhase
+ */
 enum class EventPhase {
+    /**
+     * Starts
+     *
+     * @constructor Creates a new START
+     */
     START,
+
+    /**
+     * Stops
+     *
+     * @constructor Creates a new END
+     */
     END,
 }
 

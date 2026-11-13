@@ -19,6 +19,12 @@ import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import net.minecraft.util.FormattedCharSequence
 
+/**
+ * Library disclaimer screen
+ *
+ * @constructor Creates a new LibraryDisclaimerScreen
+ * @property parent
+ */
 class LibraryDisclaimerScreen(
     private val parent: Screen?,
 ) : Screen(ModLang.translate("gui.library_setup.title").component()) {
@@ -40,6 +46,13 @@ class LibraryDisclaimerScreen(
         val top: Int get() = y
         val bottom: Int get() = y + height
 
+        /**
+         * Returns `true` if
+         *
+         * @param mouseX the mouse x
+         * @param mouseY the mouse y
+         * @return `true` if the condition holds, `false` otherwise
+         */
         fun contains(
             mouseX: Int,
             mouseY: Int,
@@ -47,7 +60,27 @@ class LibraryDisclaimerScreen(
     }
 
     // UI State
-    private enum class State { DISCLAIMER, STATUS, SKIPPED }
+    private enum class State {
+        /**
+         * Disclaimer
+         *
+         * @constructor Creates a new DISCLAIMER
+         */
+        DISCLAIMER,
+
+        /**
+         * Status
+         *
+         * @constructor Creates a new STATUS
+         */
+        STATUS,
+
+        /**
+         * Skipped
+         *
+         * @constructor Creates a new SKIPPED
+         */
+        SKIPPED }
 
     private var currentState = State.DISCLAIMER
     private var hoveredCardIndex: Int? = null
@@ -91,11 +124,26 @@ class LibraryDisclaimerScreen(
         const val TITLE_Y = 25
         const val SUBTITLE_Y = 55
 
-        // Responsive card sizing
+        /**
+         * Returns the card width
+         *
+         * @param screenWidth the screen width
+         * @return the int
+         */// Responsive card sizing
         fun getCardWidth(screenWidth: Int): Int = (screenWidth * 0.5f).toInt().coerceIn(280, 400)
 
+        /**
+         * Returns the compact card height
+         *
+         * @return the int
+         */
         fun getCompactCardHeight(): Int = 50
 
+        /**
+         * Returns the expanded card height
+         *
+         * @return the int
+         */
         fun getExpandedCardHeight(): Int = 60
     }
 

@@ -15,6 +15,12 @@ import me.mochibit.createharmonics.content.uploader.AmethystCatalystRenderer
 import me.mochibit.createharmonics.foundation.info
 import net.minecraft.core.Registry
 
+/**
+ * Mod block entities
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ModBlockEntities
+ */
 @AutoRegister
 object ModBlockEntities : Registrable {
     override val registrationOrder = 3

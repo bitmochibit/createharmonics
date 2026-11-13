@@ -10,6 +10,14 @@ import net.minecraft.client.Minecraft
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 
+/**
+ * Contraption block data changed packet
+ *
+ * @constructor Creates a new ContraptionBlockDataChangedPacket
+ * @property entityID the entity id
+ * @property localPos the local pos
+ * @property newData the new data
+ */
 @AutoPacket
 @Serializable
 class ContraptionBlockDataChangedPacket(

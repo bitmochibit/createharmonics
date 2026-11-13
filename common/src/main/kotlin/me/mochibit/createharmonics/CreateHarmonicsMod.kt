@@ -14,6 +14,12 @@ import net.minecraft.core.Registry
 import net.minecraft.resources.ResourceKey
 import net.minecraft.world.item.CreativeModeTab
 
+/**
+ * Creates a new harmonics mod
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new CreateHarmonicsMod
+ */
 object CreateHarmonicsMod {
     const val MOD_ID = "createharmonics"
     private var initialized = false
@@ -37,10 +43,21 @@ object CreateHarmonicsMod {
             return _registrate
         }
 
+    /**
+     * Common pre freeze setup
+     *
+     * @param registry
+     */
     fun commonPreFreezeSetup(registry: Registry<*>) {
         AutoRegistrar.registerAll(RegistryPhase.PRE_FREEZE, registry)
     }
 
+    /**
+     * Common setup
+     *
+     * @param registrateConfiguration the registrate configuration
+     * @receiver
+     */
     fun commonSetup(registrateConfiguration: CreateRegistrate.() -> Unit) {
         if (initialized) {
             return "Common was already initialized".err()

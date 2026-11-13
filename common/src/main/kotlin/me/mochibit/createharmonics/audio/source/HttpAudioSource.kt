@@ -7,6 +7,9 @@ import me.mochibit.createharmonics.audio.info.AudioInfo
  *
  * Duration and title are resolved lazily via a single ffprobe call that reads
  * the container metadata without downloading any audio data.
+ *
+ * @constructor Creates a new HttpAudioSource
+ * @property url
  */
 class HttpAudioSource(
     private val url: String,

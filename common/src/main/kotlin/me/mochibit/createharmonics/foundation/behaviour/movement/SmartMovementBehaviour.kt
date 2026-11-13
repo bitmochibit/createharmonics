@@ -11,32 +11,90 @@ import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.StructureBlockInfo
 import kotlin.collections.set
 
+/**
+ * Stainable
+ *
+ * @property isDirty the is dirty
+ */
 interface Stainable {
     var isDirty: Boolean
 
+    /**
+     * Mark dirty
+     *
+     */
     fun markDirty() {
         isDirty = true
     }
 
+    /**
+     * Clean
+     *
+     */
     fun clean() {
         isDirty = false
     }
 }
 
+/**
+ * Stops the aware data
+ *
+ * @property stopMovingCalled the stop moving called
+ */
 interface StopAwareData {
     var stopMovingCalled: Boolean
 }
 
+/**
+ * Smart movement behaviour
+ *
+ * @param Data
+ * @constructor Creates a new SmartMovementBehaviour
+ */
 abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
+    /**
+     * Context data factory
+     *
+     * @param context
+     * @return the data
+     */
     abstract fun contextDataFactory(context: MovementContext): Data
 
+    /**
+     * Resets the type
+     * Enum — a fixed set of named constants.
+     *
+     * @constructor Creates a new SyncType
+     */
     enum class SyncType {
+        /**
+         * Net
+         *
+         * @constructor Creates a new NET
+         */
         NET,
+
+        /**
+         * Disk
+         *
+         * @constructor Creates a new DISK
+         */
         DISK,
     }
 
+    /**
+     * On stop tracking
+     *
+     * @param blockEntityData the block entity data
+     */
     abstract fun onStopTracking(blockEntityData: CompoundTag)
 
+    /**
+     * Returns the context data
+     *
+     * @param context
+     * @return the data
+     */
     @Suppress("UNCHECKED_CAST")
     fun getContextData(context: MovementContext): Data {
         if (context.temporaryData == null) {
@@ -53,6 +111,12 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
 
     /**
      * Serialize data in compound tags for disk and networking
+     *
+     * @param target
+     * @param contextData the context data
+     * @param context
+     * @param syncType the sync type
+     * @param provider
      */
     abstract fun write(
         target: CompoundTag,
@@ -64,6 +128,12 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
 
     /**
      * Deserialize data and updates [target]
+     *
+     * @param context
+     * @param from
+     * @param target
+     * @param syncType the sync type
+     * @param provider
      */
     abstract fun read(
         context: MovementContext,
@@ -77,6 +147,11 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
         write(context.data, getContextData(context), context, SyncType.DISK, context.world.registryAccess())
     }
 
+    /**
+     * Resets the from block
+     *
+     * @param context
+     */
     fun syncFromBlock(context: MovementContext) {
         val nbt = context.contraption.blocks[context.localPos]?.nbt ?: return
         val data = getContextData(context)
@@ -86,6 +161,9 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
 
     /**
      * Equivalent to [com.simibubi.create.foundation.blockEntity.SmartBlockEntity.setChanged] but for contraptions
+     *
+     * @param context
+     * @param checkForDirty the check for dirty
      */
     fun resyncData(
         context: MovementContext,
@@ -102,6 +180,11 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
         data.clean()
     }
 
+    /**
+     * Sends the stopped tracking
+     *
+     * @param context
+     */
     fun notifyStoppedTracking(context: MovementContext) {
         val data = context.temporaryData ?: return
         if (data is StopAwareData && data.stopMovingCalled) return
@@ -112,10 +195,19 @@ abstract class SmartMovementBehaviour<Data : Stainable> : MovementBehaviour {
 /**
  * Create mod lacks a way to update contraption block data without replacing the entire block state
  * This function updates the block data of a contraption block and syncs it to clients
+ *
+ * @param DataType
+ * @return the data type
  */
 
 inline fun <reified DataType> MovementContext.getContextData(): DataType? = this.temporaryData as? DataType
 
+/**
+ * Handles the block data change on the receiver [AbstractContraptionEntity]
+ *
+ * @param localPos the local pos
+ * @param newData the new data
+ */
 fun AbstractContraptionEntity.handleBlockDataChange(
     localPos: BlockPos,
     newData: CompoundTag,
@@ -130,6 +222,12 @@ fun AbstractContraptionEntity.handleBlockDataChange(
     }
 }
 
+/**
+ * Sets the block data on the receiver [AbstractContraptionEntity]
+ *
+ * @param localPos the local pos
+ * @param newInfo the new info
+ */
 fun AbstractContraptionEntity.setBlockData(
     localPos: BlockPos,
     newInfo: StructureBlockInfo,

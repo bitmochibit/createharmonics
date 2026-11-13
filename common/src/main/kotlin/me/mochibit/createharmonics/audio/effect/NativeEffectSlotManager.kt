@@ -5,6 +5,12 @@ import org.lwjgl.openal.AL11
 import org.lwjgl.openal.ALC10
 import org.lwjgl.openal.EXTEfx
 
+/**
+ * Native effect slot manager
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new NativeEffectSlotManager
+ */
 object NativeEffectSlotManager {
     private class SlotHandle(val auxSlot: Int) {
         val effects = HashMap<Int, Int>()
@@ -32,6 +38,12 @@ object NativeEffectSlotManager {
         return valid
     }
 
+    /**
+     * Adds
+     *
+     * @param sourceId the source id
+     * @param effect
+     */
     fun attach(sourceId: Int, effect: NativeAudioEffect) {
         ensureChecked()
         if (!efxSupported) return
@@ -61,6 +73,12 @@ object NativeEffectSlotManager {
         clearAlError()
     }
 
+    /**
+     * Resets the params
+     *
+     * @param sourceId the source id
+     * @param effect
+     */
     fun syncParams(sourceId: Int, effect: NativeAudioEffect) {
         val handle = slotsBySource[sourceId] ?: return
 
@@ -76,6 +94,11 @@ object NativeEffectSlotManager {
         clearAlError()
     }
 
+    /**
+     * Detach
+     *
+     * @param sourceId the source id
+     */
     fun detach(sourceId: Int) {
         val handle = slotsBySource.remove(sourceId) ?: return
 

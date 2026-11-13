@@ -13,6 +13,12 @@ import net.minecraft.core.Registry
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.state.BlockState
 
+/**
+ * Mod arm interaction points
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ModArmInteractionPoints
+ */
 @AutoRegister
 object ModArmInteractionPoints : Registrable {
     override val registrationOrder = 3
@@ -32,6 +38,11 @@ object ModArmInteractionPoints : Registrable {
     override fun register(registry: Registry<*>?) {
     }
 
+    /**
+     * Record press base type
+     *
+     * @constructor Creates a new RecordPressBaseType
+     */
     class RecordPressBaseType : ArmInteractionPointType() {
         override fun canCreatePoint(
             level: Level,
@@ -46,6 +57,11 @@ object ModArmInteractionPoints : Registrable {
         ): ArmInteractionPoint = RecordPressBaseArmInteractionPoint(this, level, pos, state)
     }
 
+    /**
+     * Record player type
+     *
+     * @constructor Creates a new RecordPlayerType
+     */
     class RecordPlayerType : AllArmInteractionPointTypes.JukeboxType() {
         override fun canCreatePoint(
             level: Level?,

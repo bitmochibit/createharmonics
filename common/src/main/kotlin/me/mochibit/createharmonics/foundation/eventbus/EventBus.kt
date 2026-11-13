@@ -12,6 +12,12 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlin.reflect.KClass
 
 
+/**
+ * Event bus
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new EventBus
+ */
 object EventBus {
     @PublishedApi
     internal val eventFlows = ConcurrentHashMap<Pair<KClass<*>, EventPriority>, MutableSharedFlow<ModEvent>>()
@@ -19,6 +25,13 @@ object EventBus {
     @PublishedApi
     internal val syncListeners = ConcurrentHashMap<KClass<*>, MutableList<(ModEvent) -> Unit>>()
 
+    /**
+     * On sync
+     *
+     * @param T
+     * @param handler
+     * @receiver
+     */
     inline fun <reified T : ModEvent> onSync(noinline handler: (T) -> Unit) {
         val list =
             syncListeners.getOrPut(T::class) {
@@ -28,6 +41,13 @@ object EventBus {
         list.add(handler as (ModEvent) -> Unit)
     }
 
+    /**
+     * Flow for
+     *
+     * @param klass
+     * @param priority
+     * @return the mutable shared flow
+     */
     fun flowFor(
         klass: KClass<*>,
         priority: EventPriority,
@@ -41,6 +61,8 @@ object EventBus {
 
     /**
      * Post [event] fire-and-forget across all priority tiers.
+     *
+     * @param event
      */
     fun post(event: ModEvent) {
         syncListeners[event::class]?.forEach { listener ->
@@ -62,6 +84,8 @@ object EventBus {
 
     /**
      * Post [event] and suspend until each priority tier has processed it in order.
+     *
+     * @param event
      */
     suspend fun postAndAwait(event: ModEvent) {
         EventPriority.entries.forEach { priority ->
@@ -76,6 +100,9 @@ object EventBus {
      * @param listenSubclasses If `true`, also matches subtype instances of [T].
      * @param ignoreCancelled  If `true` (default), skips cancelled events.
      * @return A [Job] — cancel it to unsubscribe.
+     * @param T
+     * @param handler
+     * @receiver
      */
     inline fun <reified T : ModEvent> on(
         priority: EventPriority = EventPriority.NORMAL,
@@ -85,6 +112,19 @@ object EventBus {
     ): Job = on(T::class, priority, listenSubclasses, ignoreCancelled, handler)
 
 
+    /**
+     * On
+     *
+     * @param T
+     * @param klass
+     * @param priority
+     * @param listenSubclasses the listen subclasses
+     * @param ignoreCancelled the ignore cancelled
+     * @param handler
+     * @receiver
+     * @return the job
+     * @throws e
+     */
     @PublishedApi
     internal fun <T : ModEvent> on(
         klass: KClass<T>,
@@ -122,6 +162,11 @@ object EventBus {
 
     /**
      * Suspend until the next event of type [T] is posted, then return it.
+     *
+     * @param T
+     * @param listenSubclasses the listen subclasses
+     * @param priority
+     * @return the t
      */
     suspend inline fun <reified T : ModEvent> awaitFirst(
         listenSubclasses: Boolean = false,

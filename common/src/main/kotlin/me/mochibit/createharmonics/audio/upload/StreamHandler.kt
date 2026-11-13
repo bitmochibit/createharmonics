@@ -26,6 +26,9 @@ private val AUDIO_MIME_TYPES = mapOf(
 
 /**
  * GET/HEAD /audio/stream/<playerName>/<fileId>
+ *
+ * @constructor Creates a new StreamHandler
+ * @property storageProvider the storage provider
  */
 class StreamHandler(
     private val storageProvider: () -> AudioStorageManager,

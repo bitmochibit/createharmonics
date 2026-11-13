@@ -9,6 +9,8 @@ import java.util.EnumMap
  * In this case it's okay to use forge code for config
  *
  * There are some adapters for fabric that ports forge's config system.
+ *
+ * @constructor Creates a new ModConfigs
  */
 object ModConfigs {
     val configs: EnumMap<ModConfig.Type, ConfigBase> = EnumMap(ModConfig.Type::class.java)
@@ -17,6 +19,14 @@ object ModConfigs {
     val client: ClientConfig = registerConfig({ ClientConfig }, ModConfig.Type.CLIENT) as ClientConfig
     val server: ServerConfig = registerConfig({ ServerConfig }, ModConfig.Type.SERVER) as ServerConfig
 
+    /**
+     * Adds the config
+     *
+     * @param factory
+     * @receiver
+     * @param type
+     * @return the config base
+     */
     fun registerConfig(
         factory: () -> ConfigBase,
         type: ModConfig.Type,

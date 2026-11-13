@@ -11,6 +11,14 @@ import net.minecraft.world.level.chunk.LevelChunkSection
 import net.minecraft.world.level.material.FluidState
 import net.minecraft.world.level.material.Fluids
 
+/**
+ * Returns the fluid state on the receiver [Level]
+ *
+ * @param x
+ * @param y
+ * @param z
+ * @return the fluid state
+ */
 fun Level.getFluidState(
     x: Int,
     y: Int,
@@ -24,6 +32,15 @@ fun Level.getFluidState(
     }
 }
 
+/**
+ * Returns the block state on the receiver [Level]
+ *
+ * @param x
+ * @param y
+ * @param z
+ * @return the block state
+ * @throws ReportedException
+ */
 fun Level.getBlockState(
     x: Int,
     y: Int,

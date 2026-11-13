@@ -6,21 +6,49 @@ import java.util.concurrent.atomic.AtomicInteger
 /**
  * Base interface for audio effects that can be chained together.
  * Each effect processes audio samples and can modify them in any way.
+ *
+ * @property scope
  */
 interface AudioEffect {
+    /**
+     * Scope
+     *
+     * @property id
+     * @property pipelineOrder the pipeline order
+     */
     interface Scope {
         val id: String
         val pipelineOrder: Int
 
+        /**
+         * Default scope
+         * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+         *
+         * @constructor Creates a new DefaultScope
+         * @property id
+         * @property pipelineOrder the pipeline order
+         */
         data class DefaultScope(
             override val id: String,
             override val pipelineOrder: Int,
         ) : Scope
 
+        /**
+         * Registry
+         * Companion object — holds factory methods and constants for the enclosing class.
+         *
+         * @constructor Creates a new Registry
+         */
         companion object Registry {
             private val scopes = ConcurrentHashMap<String, Scope>()
             private val orderCounter = AtomicInteger(0)
 
+            /**
+             * Adds
+             *
+             * @param scope
+             * @return the scope
+             */
             fun register(scope: Scope): Scope {
                 require(!scopes.containsKey(scope.id)) {
                     "Scope '${scope.id}' is already registered"
@@ -30,11 +58,26 @@ interface AudioEffect {
                 return scope
             }
 
+            /**
+             * Returns
+             *
+             * @param id
+             * @return the scope
+             */
             fun get(id: String): Scope? = scopes[id]
 
+            /**
+             * All
+             *
+             * @return the scopes
+             */
             fun all(): List<Scope> = scopes.values.sortedBy { it.pipelineOrder }
 
-            /** Returns a unique pipeline order value, safe for concurrent callers. */
+            /**
+             * Returns a unique pipeline order value, safe for concurrent callers.
+             *
+             * @return the int
+             */
             fun nextOrder(): Int = orderCounter.getAndIncrement()
 
             val PERMANENT = register(DefaultScope("permanent", 0))
@@ -68,6 +111,8 @@ interface AudioEffect {
     /**
      * Boolean to check if the effect is currently running at base values, so virtually no effect is applied. This can be used to skip processing for optimization.
      * Or to delay its removal or addition.
+     *
+     * @return `true` if the condition holds, `false` otherwise
      */
     fun isBaseValues(): Boolean = false
 
@@ -75,17 +120,26 @@ interface AudioEffect {
 
     /**
      * Get a human-readable name for this effect (for debugging/logging).
+     *
+     * @return the string
      */
     fun getName(): String = this::class.simpleName ?: "UnknownEffect"
 }
 
 /**
  * Interface for OpenAL effects, compatible with the EffectChain
+ *
+ * @property alEffectType the al effect type
  */
 interface NativeAudioEffect: AudioEffect {
     val alEffectType: Int
 
     override fun process(samples: ShortArray, timeInSeconds: Double, sampleRate: Int): ShortArray = samples
 
+    /**
+     * Handles the params
+     *
+     * @param effectId the effect id
+     */
     fun applyParams(effectId: Int)
 }

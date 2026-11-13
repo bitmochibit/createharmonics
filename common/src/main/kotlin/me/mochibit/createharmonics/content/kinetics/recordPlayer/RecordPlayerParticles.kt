@@ -8,10 +8,23 @@ import net.minecraft.world.level.Level
 import net.minecraft.world.phys.Vec3
 import kotlin.random.Random
 
+/**
+ * Record player particles
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new RecordPlayerParticles
+ */
 object RecordPlayerParticles {
     private fun shriek(level: Level, p: Vec3) =
         level.addParticle(ShriekParticleOption(2), false, p.x, p.y, p.z, 0.0, 12.5, 0.0)
 
+    /**
+     * Sends the static
+     *
+     * @param level
+     * @param state
+     * @param blockPos the block pos
+     */
     fun emitStatic(level: Level, state: PlayerState, blockPos: BlockPos) {
         val pos = Vec3.atBottomCenterOf(blockPos).add(0.0, 1.2, 0.0)
         val d = Random.nextInt(4) / 24.0
@@ -24,6 +37,15 @@ object RecordPlayerParticles {
         }
     }
 
+    /**
+     * Sends the moving
+     *
+     * @param level
+     * @param state
+     * @param position
+     * @param dir
+     * @param velocity
+     */
     fun emitMoving(level: Level, state: PlayerState, position: Vec3, dir: Vec3, velocity: Vec3) {
         val spawn = position.add(dir.scale(0.7 + Random.nextInt(4) / 24.0)).add(velocity)
         when (state) {

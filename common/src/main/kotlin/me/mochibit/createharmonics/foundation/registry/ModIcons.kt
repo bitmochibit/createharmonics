@@ -17,6 +17,12 @@ import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.phys.Vec3
 import org.joml.Matrix4f
 
+/**
+ * Mod icons
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ModIcons
+ */
 @AutoRegister
 object ModIcons : Registrable {
     override val targetEnvironment: PlatformService.Environment

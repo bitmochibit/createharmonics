@@ -5,6 +5,11 @@ import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.network.chat.Component
 import net.minecraft.util.FormattedCharSequence
 
+/**
+ * Converts the multiline components on the receiver [Component]
+ *
+ * @return the components
+ */
 fun Component.toMultilineComponent(): List<Component> {
     val text = this.string
     if (!text.contains("\n")) {
@@ -16,6 +21,15 @@ fun Component.toMultilineComponent(): List<Component> {
     }
 }
 
+/**
+ * Displays the multiline tooltip on the receiver [GuiGraphics]
+ *
+ * @param font
+ * @param component
+ * @param x
+ * @param y
+ * @param maxWidth the max width
+ */
 fun GuiGraphics.renderMultilineTooltip(
     font: Font,
     component: Component,
@@ -24,6 +38,16 @@ fun GuiGraphics.renderMultilineTooltip(
     maxWidth: Int = 200,
 ) = renderTooltip(font, font.split(component, maxWidth), x, y)
 
+/**
+ * Displays the centered string on the receiver [GuiGraphics]
+ *
+ * @param font
+ * @param text
+ * @param x
+ * @param y
+ * @param color
+ * @param maxWidth the max width
+ */
 fun GuiGraphics.drawCenteredString(
     font: Font,
     text: Component,

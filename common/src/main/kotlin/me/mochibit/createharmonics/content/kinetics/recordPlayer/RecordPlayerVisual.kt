@@ -21,6 +21,14 @@ import net.createmod.catnip.math.AngleHelper
 import net.minecraft.core.Direction
 import java.util.function.Consumer
 
+/**
+ * Record player visual
+ *
+ * @constructor
+ * @param context
+ * @param blockEntity the block entity
+ * @param partialTick the partial tick
+ */
 class RecordPlayerVisual(
     context: VisualizationContext,
     blockEntity: RecordPlayerBlockEntity,

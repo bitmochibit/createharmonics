@@ -5,6 +5,19 @@ import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.EditBox
 import net.minecraft.network.chat.Component
 
+/**
+ * Card scope
+ *
+ * @constructor Creates a new CardScope
+ * @property graphics
+ * @property registry
+ * @property baseX the base x
+ * @property baseY the base y
+ * @property absoluteBaseX the absolute base x
+ * @property absoluteBaseY the absolute base y
+ * @property scrollOffsetInt the scroll offset int
+ * @property clip
+ */
 class CardScope(
     private val graphics: GuiGraphics,
     private val registry: InteractionRegistry,
@@ -18,6 +31,19 @@ class CardScope(
     private fun localX(x: Double) = x - (absoluteBaseX - baseX)
     private fun localY(y: Double) = y - (absoluteBaseY - baseY) - scrollOffsetInt
 
+    /**
+     * Button
+     *
+     * @param localX the local x
+     * @param localY the local y
+     * @param size
+     * @param tooltip
+     * @param draw
+     * @receiver
+     * @param onClick the on click
+     * @receiver
+     * @param z
+     */
     fun button(
         localX: Int,
         localY: Int,
@@ -38,6 +64,20 @@ class CardScope(
         )
     }
 
+    /**
+     * Edit box
+     *
+     * @param widget
+     * @param localX the local x
+     * @param localY the local y
+     * @param width
+     * @param height
+     * @param mouseX the mouse x
+     * @param mouseY the mouse y
+     * @param partialTicks the partial ticks
+     * @param tooltip
+     * @param z
+     */
     fun editBox(
         widget: EditBox,
         localX: Int,
@@ -72,6 +112,20 @@ class CardScope(
         )
     }
 
+    /**
+     * Scroll input
+     *
+     * @param widget
+     * @param localX the local x
+     * @param localY the local y
+     * @param width
+     * @param height
+     * @param mouseX the mouse x
+     * @param mouseY the mouse y
+     * @param partialTicks the partial ticks
+     * @param tooltip
+     * @param z
+     */
     fun scrollInput(
         widget: EntryScrollInput,
         localX: Int, localY: Int, width: Int, height: Int,
@@ -95,6 +149,15 @@ class CardScope(
         )
     }
 
+    /**
+     * Decoration
+     *
+     * @param localX the local x
+     * @param localY the local y
+     * @param z
+     * @param draw
+     * @receiver
+     */
     fun decoration(localX: Int, localY: Int, z: Float = 0f, draw: GuiGraphics.(x: Int, y: Int) -> Unit) {
         graphics.layer(z) { draw(baseX + localX, baseY + localY) }
     }

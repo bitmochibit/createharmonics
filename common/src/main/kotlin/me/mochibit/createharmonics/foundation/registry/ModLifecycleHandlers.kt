@@ -18,6 +18,12 @@ import me.mochibit.createharmonics.foundation.services.platformService
 import net.minecraft.client.multiplayer.ClientLevel
 import net.minecraft.core.Registry
 
+/**
+ * Mod lifecycle handlers
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ModLifecycleHandlers
+ */
 @AutoRegister
 object ModLifecycleHandlers : Registrable {
     override fun register(registry: Registry<*>?) {

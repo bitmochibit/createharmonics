@@ -21,14 +21,31 @@ private class ChunkedByteBuffer {
     @Volatile var size: Int = 0
         private set
 
+    /**
+     * Returns `true` if empty
+     *
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun isEmpty(): Boolean = size == 0
 
+    /**
+     * Adds
+     *
+     * @param chunk
+     */
     fun add(chunk: ByteArray) = lock.withLock {
         chunks.addLast(chunk)
         size += chunk.size
     }
 
-    /** Copies up to [length] bytes into [dest] starting at [offset]. Returns the number of bytes copied. */
+    /**
+     * Copies up to [length] bytes into [dest] starting at [offset]. Returns the number of bytes copied.
+     *
+     * @param dest
+     * @param offset
+     * @param length
+     * @return the int
+     */
     fun drainInto(dest: ByteArray, offset: Int, length: Int): Int = lock.withLock {
         var remaining = length
         var pos = offset
@@ -44,19 +61,39 @@ private class ChunkedByteBuffer {
         length - remaining
     }
 
-    /** Drains up to [maxBytes] into a freshly allocated array (used to move data between buffers). */
+    /**
+     * Drains up to [maxBytes] into a freshly allocated array (used to move data between buffers).
+     *
+     * @param maxBytes the max bytes
+     * @return the byte array
+     */
     fun drainChunk(maxBytes: Int): ByteArray = lock.withLock {
         val result = ByteArray(minOf(maxBytes, size))
         drainInto(result, 0, result.size)
         result
     }
 
+    /**
+     * Removes
+     *
+     */
     fun clear() = lock.withLock {
         chunks.clear()
         size = 0
     }
 }
 
+/**
+ * Audio effect input stream
+ *
+ * @constructor Creates a new AudioEffectInputStream
+ * @property audioStream the audio stream
+ * @property effectChain the effect chain
+ * @property sampleRate the sample rate
+ * @property onStreamEnd the on stream end
+ * @property onStreamHang the on stream hang
+ * @property channels
+ */
 class AudioEffectInputStream(
     private val audioStream: InputStream,
     private val effectChain: EffectChain,
@@ -66,6 +103,12 @@ class AudioEffectInputStream(
     private val channels: Int = 1,
 ) : InputStream() {
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         private const val RAW_BUFFER_SECONDS = 2.0
         private const val EFFECT_PROCESS_CHUNK_SIZE = 4096

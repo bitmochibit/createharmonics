@@ -8,6 +8,12 @@ import net.minecraft.core.Registry
 import java.util.EnumMap
 import kotlin.collections.set
 
+/**
+ * Mod partial models
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ModPartialModels
+ */
 @AutoRegister
 object ModPartialModels : Registrable {
     private val recordModels =
@@ -19,6 +25,12 @@ object ModPartialModels : Registrable {
 
     val amethystModel = block("amethyst_catalyst/amethyst_visual")
 
+    /**
+     * Returns the record model
+     *
+     * @param type
+     * @return the partial model
+     */
     fun getRecordModel(type: RecordType): PartialModel = recordModels.getValue(type)
 
     private fun block(path: String): PartialModel = PartialModel.of("block/$path".asResource())

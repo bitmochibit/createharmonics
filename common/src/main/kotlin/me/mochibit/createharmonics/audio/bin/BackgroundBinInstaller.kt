@@ -11,11 +11,19 @@ import net.minecraft.client.gui.components.toasts.SystemToast
 import net.minecraft.network.chat.Component
 import java.util.concurrent.atomic.AtomicBoolean
 
+/**
+ * Background bin installer
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new BackgroundBinInstaller
+ */
 object BackgroundBinInstaller {
     private val installationInProgress = AtomicBoolean(false)
 
     /**
      * Check if installation is currently in progress
+     *
+     * @return `true` if the condition holds, `false` otherwise
      */
     fun isInstalling(): Boolean = installationInProgress.get()
 

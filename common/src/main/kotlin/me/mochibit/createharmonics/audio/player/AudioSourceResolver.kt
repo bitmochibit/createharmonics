@@ -7,7 +7,19 @@ import me.mochibit.createharmonics.audio.source.ServerAudioSource
 import me.mochibit.createharmonics.audio.source.StreamAudioSource
 import me.mochibit.createharmonics.audio.upload.ServerAudioReference
 
+/**
+ * Audio source resolver
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new AudioSourceResolver
+ */
 object AudioSourceResolver {
+    /**
+     * Resolve
+     *
+     * @param request
+     * @return the audio source
+     */
     fun resolve(request: AudioRequest): AudioSource =
         when (request) {
             is AudioRequest.Stream -> {

@@ -12,6 +12,12 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.Vec3
 import java.util.function.BiPredicate
 
+/**
+ * Record player value box transform
+ *
+ * @constructor
+ * @param allowedDirections the allowed directions
+ */
 class RecordPlayerValueBoxTransform(
     allowedDirections: BiPredicate<BlockState, Direction>,
 ) : CenteredSideValueBoxTransform(allowedDirections) {

@@ -21,19 +21,59 @@ import net.minecraft.world.level.Level
 import kotlin.math.ceil
 import kotlin.math.ln
 
+/**
+ * Repair kind
+ * Enum — a fixed set of named constants.
+ *
+ * @constructor Creates a new RepairKind
+ * @property serial
+ * @property priority
+ */
 enum class RepairKind(private val serial: String, val priority: Int) : StringRepresentable {
+    /**
+     * Glue
+     *
+     * @constructor Creates a new GLUE
+     */
     GLUE("glue", 200),
+
+    /**
+     * Full
+     *
+     * @constructor Creates a new FULL
+     */
     FULL("full", 150),
+
+    /**
+     * Partial
+     *
+     * @constructor Creates a new PARTIAL
+     */
     PARTIAL("partial", 120),
     ;
 
     override fun getSerializedName() = serial
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         val CODEC: Codec<RepairKind> = StringRepresentable.fromEnum(RepairKind::values)
     }
 }
 
+/**
+ * Record repair recipe
+ *
+ * @constructor Creates a new RecordRepairRecipe
+ * @property recordTypes the record types
+ * @property material
+ * @property kind
+ * @property fraction
+ */
 class RecordRepairRecipe(
     val recordTypes: Set<RecordType>,
     val material: Ingredient,
@@ -41,6 +81,13 @@ class RecordRepairRecipe(
     val fraction: Float,
 ) : Recipe<RecipeInput> {
 
+    /**
+     * Returns `true` if
+     *
+     * @param record
+     * @param held
+     * @return `true` if the condition holds, `false` otherwise
+     */
     fun matches(record: ItemStack, held: ItemStack): Boolean {
         val item = record.item as? EtherealRecordItem ?: return false
         val type = item.recordType
@@ -50,6 +97,12 @@ class RecordRepairRecipe(
         return kind != RepairKind.GLUE || held.damageValue < held.maxDamage
     }
 
+    /**
+     * Repair
+     *
+     * @param record
+     * @return the item stack
+     */
     fun repair(record: ItemStack): ItemStack {
         val item = record.item as? EtherealRecordItem ?: return ItemStack.EMPTY
         val max = record.maxDamage
@@ -77,11 +130,23 @@ class RecordRepairRecipe(
     override fun getSerializer(): RecipeSerializer<*> = ModRecipeTypes.RECORD_REPAIR_SERIALIZER.get()
     override fun getType(): RecipeType<*> = ModRecipeTypes.RECORD_REPAIR.get()
 
+    /**
+     * Serializer
+     * Singleton object — a single shared instance.
+     *
+     * @constructor Creates a new Serializer
+     */
     object Serializer : RecipeSerializer<RecordRepairRecipe> {
         override fun codec() = CODEC
         override fun streamCodec() = STREAM_CODEC
     }
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         val CODEC: MapCodec<RecordRepairRecipe> = RecordCodecBuilder.mapCodec { i ->
             i.group(
@@ -97,6 +162,13 @@ class RecordRepairRecipe(
         val STREAM_CODEC: StreamCodec<RegistryFriendlyByteBuf, RecordRepairRecipe> =
             ByteBufCodecs.fromCodecWithRegistries(CODEC.codec())
 
+        /**
+         * Calculates the glue repair cost
+         *
+         * @param maxDamage the max damage
+         * @param currentDamage the current damage
+         * @return the int
+         */
         fun calculateGlueRepairCost(maxDamage: Int, currentDamage: Int): Int {
             if (maxDamage <= 0) return 0
             val glueMaxDamage = ItemStack(AllItems.SUPER_GLUE.get()).maxDamage

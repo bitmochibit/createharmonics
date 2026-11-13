@@ -8,6 +8,13 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Bridge data for connecting mc packet system and the mods http service
+ *
+ * @constructor Creates a new UploadTicket
+ * @property token
+ * @property playerUuid the player uuid
+ * @property playerName the player name
+ * @property expiresAt the expires at
+ * @property uploadSession the upload session
  */
 data class UploadTicket(
     val token: String,
@@ -17,6 +24,12 @@ data class UploadTicket(
     val uploadSession: UploadSession
 )
 
+/**
+ * Upload ticket registry
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new UploadTicketRegistry
+ */
 object UploadTicketRegistry {
     private val tickets = ConcurrentHashMap<String, UploadTicket>()
     private val random = SecureRandom()
@@ -24,6 +37,14 @@ object UploadTicketRegistry {
     private const val TOKEN_BYTES = 32
 
 
+    /**
+     * Issue
+     *
+     * @param playerUuid the player uuid
+     * @param playerName the player name
+     * @param session
+     * @return the upload ticket
+     */
     fun issue(playerUuid: UUID, playerName: String, session: UploadSession): UploadTicket {
         val tokenBytes = ByteArray(TOKEN_BYTES).also { random.nextBytes(it) }
         val token = Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes)
@@ -40,7 +61,9 @@ object UploadTicketRegistry {
 
     /**
      * Consume a token to get a valid ticket
+     *
      * @return Valid UploadTicket, otherwise null
+     * @param token
      */
     fun consume(token: String): UploadTicket? {
         val ticket = tickets.remove(token) ?: return null
@@ -52,6 +75,10 @@ object UploadTicketRegistry {
     }
 
 
+    /**
+     * Purge expired
+     *
+     */
     fun purgeExpired() {
         val now = Instant.now()
         val iterator = tickets.values.iterator()
@@ -64,6 +91,10 @@ object UploadTicketRegistry {
         }
     }
 
+    /**
+     * Stops the all
+     *
+     */
     fun finishAll() {
         tickets.values.forEach { it.uploadSession.cancel() }
         tickets.clear()

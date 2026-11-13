@@ -8,6 +8,18 @@ import net.createmod.catnip.theme.Color
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.resources.ResourceLocation
 
+/**
+ * Mod gui texture
+ * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+ *
+ * @constructor Creates a new ModGuiTexture
+ * @property textureName the texture name
+ * @property startX the start x
+ * @property startY the start y
+ * @property width
+ * @property height
+ * @property namespace
+ */
 data class ModGuiTexture(
     val textureName: String,
     private val startX: Int,
@@ -25,6 +37,14 @@ data class ModGuiTexture(
         graphics.blit(location, x, y, startX, startY, width, height)
     }
 
+    /**
+     * Displays the colored
+     *
+     * @param graphics
+     * @param x
+     * @param y
+     * @param color
+     */
     fun renderColored(
         graphics: GuiGraphics,
         x: Int,

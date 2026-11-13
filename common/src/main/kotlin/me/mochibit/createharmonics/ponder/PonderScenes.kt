@@ -26,7 +26,19 @@ import net.minecraft.world.level.block.LeverBlock
 import net.minecraft.world.phys.AABB
 import kotlin.jvm.java
 
+/**
+ * Ponder scenes
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new PonderScenes
+ */
 object PonderScenes {
+    /**
+     * Record press base
+     *
+     * @param builder
+     * @param util
+     */
     fun recordPressBase(
         builder: SceneBuilder,
         util: SceneBuildingUtil,
@@ -142,6 +154,12 @@ object PonderScenes {
         scene.markAsFinished()
     }
 
+    /**
+     * Andesite jukebox
+     *
+     * @param builder
+     * @param util
+     */
     fun andesiteJukebox(
         builder: SceneBuilder,
         util: SceneBuildingUtil,

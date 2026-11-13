@@ -14,6 +14,17 @@ import me.mochibit.createharmonics.foundation.err
 import kotlin.coroutines.cancellation.CancellationException
 
 
+/**
+ * Probe result
+ * Data class — a value holder; `equals`, `hashCode`, `toString` and `copy` are generated.
+ *
+ * @constructor Creates a new ProbeResult
+ * @property durationSeconds the duration seconds
+ * @property sampleRate the sample rate
+ * @property title
+ * @property artist
+ * @property isLive the is live
+ */
 data class ProbeResult(
     val durationSeconds: Int,
     val sampleRate: Float,
@@ -22,9 +33,22 @@ data class ProbeResult(
     val isLive: Boolean,
 )
 
+/**
+ * F fprobe executor
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new FFprobeExecutor
+ */
 object FFprobeExecutor {
     private val json = Json { ignoreUnknownKeys = true }
 
+    /**
+     * Probe
+     * Suspending function — must be called from a coroutine or another suspending function.
+     *
+     * @param url
+     * @return the audio info
+     */
     suspend fun probe(url: String): AudioInfo {
         val r = probeRaw(url)
         return AudioInfo(
@@ -36,7 +60,14 @@ object FFprobeExecutor {
         )
     }
 
-    /** [source] is a URL or an absolute local path. */
+    /**
+     * [source] is a URL or an absolute local path.
+     *
+     * @param source
+     * @return the probe result
+     * @throws IllegalStateException
+     * @throws e
+     */
     suspend fun probeRaw(source: String): ProbeResult {
         try {
             val probePath = FFMPEGProvider.ffprobePath

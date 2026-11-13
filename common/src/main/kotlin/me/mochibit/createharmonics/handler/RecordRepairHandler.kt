@@ -15,6 +15,12 @@ import java.util.function.Supplier
 import kotlin.math.ceil
 import kotlin.math.ln
 
+/**
+ * Record repair handler
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new RecordRepairHandler
+ */
 object RecordRepairHandler : CommonEventHandler {
     override fun setupEvents() {
         eventService.onCreateDeployerRecipeSearch { be, input, addRecipe ->

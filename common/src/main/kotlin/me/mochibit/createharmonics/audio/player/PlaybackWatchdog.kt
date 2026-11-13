@@ -11,6 +11,17 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 
+/**
+ * Playback watchdog
+ *
+ * @constructor Creates a new PlaybackWatchdog
+ * @property scope
+ * @property interval
+ * @property isPlaying the is playing
+ * @property currentInstance the current instance
+ * @property isActiveInSoundManager the is active in sound manager
+ * @property onHang the on hang
+ */
 class PlaybackWatchdog(
     private val scope: CoroutineScope,
     private val interval: Duration = 1.seconds,
@@ -21,6 +32,10 @@ class PlaybackWatchdog(
 ) {
     private var job: Job? = null
 
+    /**
+     * Starts
+     *
+     */
     fun start() {
         if (job?.isActive == true) return
         job =
@@ -33,6 +48,10 @@ class PlaybackWatchdog(
             }
     }
 
+    /**
+     * Stops
+     *
+     */
     fun stop() = job?.cancel()
 }
 

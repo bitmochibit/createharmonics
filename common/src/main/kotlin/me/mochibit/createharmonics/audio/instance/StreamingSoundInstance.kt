@@ -13,6 +13,17 @@ import net.minecraft.util.RandomSource
 import org.joml.Vector3d
 import java.io.InputStream
 
+/**
+ * Streaming sound instance
+ *
+ * @constructor
+ * @property sourceStream the source stream
+ * @property sampleRate the sample rate
+ * @param audioPlayer the audio player
+ * @param soundEvent the sound event
+ * @param soundSource the sound source
+ * @param randomSource the random source
+ */
 abstract class StreamingSoundInstance(
     val sourceStream: InputStream,
     override var sampleRate: Int = 44100,
@@ -30,7 +41,28 @@ abstract class StreamingSoundInstance(
     SampleRatedInstance {
     override fun getLocation(): ResourceLocation = "streaming_sound_instance".asResource()
 
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
+        /**
+         * Simple factory
+         *
+         * @param audioPlayer the audio player
+         * @param stream
+         * @param soundEvent the sound event
+         * @param sampleRate the sample rate
+         * @param soundSource the sound source
+         * @param randomSource the random source
+         * @param looping
+         * @param attenuation
+         * @param delay
+         * @param relative
+         * @return the streaming sound instance
+         */
         fun simpleFactory(
             audioPlayer: AudioPlayer,
             stream: InputStream,

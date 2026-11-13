@@ -31,9 +31,21 @@ import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.shapes.CollisionContext
 import net.minecraft.world.phys.shapes.VoxelShape
 
+/**
+ * Amethyst catalyst block
+ *
+ * @constructor Creates a new AmethystCatalystBlock
+ * @property props
+ */
 class AmethystCatalystBlock(
     val props: Properties
 ) : Block(props), IBE<AmethystCatalystBlockEntity>, IWrenchable, ProperWaterloggedBlock {
+    /**
+     * Companion
+     * Companion object — holds factory methods and constants for the enclosing class.
+     *
+     * @constructor Creates a new Companion
+     */
     companion object {
         val POWERED = BlockStateProperties.POWERED
     }

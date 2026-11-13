@@ -17,6 +17,12 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import java.util.function.Predicate
 
+/**
+ * Mod creative tabs
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ModCreativeTabs
+ */
 @AutoRegister
 object ModCreativeTabs : Registrable {
     val MAIN_TAB: RegistryEntry<CreativeModeTab, CreativeModeTab> =
@@ -34,6 +40,13 @@ object ModCreativeTabs : Registrable {
         "Registering creative tabs".info()
     }
 
+    /**
+     * Creative tab
+     *
+     * @param name
+     * @param tab
+     * @return the registry entry
+     */
     fun creativeTab(
         name: String,
         tab: CreativeModeTab,
@@ -175,14 +188,53 @@ object ModCreativeTabs : Registrable {
         val anchor: Item,
         val type: Type,
     ) {
-        enum class Type { BEFORE, AFTER }
+        /**
+         * Type
+         * Enum — a fixed set of named constants.
+         *
+         * @constructor Creates a new Type
+         */
+        enum class Type {
+            /**
+             * Before
+             *
+             * @constructor Creates a new BEFORE
+             */
+            BEFORE,
 
+            /**
+             * After
+             *
+             * @constructor Creates a new AFTER
+             */
+            AFTER }
+
+        /**
+         * Companion
+         * Companion object — holds factory methods and constants for the enclosing class.
+         *
+         * @constructor Creates a new Companion
+         */
         companion object {
+            /**
+             * Before
+             *
+             * @param item
+             * @param anchor
+             * @return the item ordering
+             */
             fun before(
                 item: Item,
                 anchor: Item,
             ) = ItemOrdering(item, anchor, Type.BEFORE)
 
+            /**
+             * After
+             *
+             * @param item
+             * @param anchor
+             * @return the item ordering
+             */
             fun after(
                 item: Item,
                 anchor: Item,

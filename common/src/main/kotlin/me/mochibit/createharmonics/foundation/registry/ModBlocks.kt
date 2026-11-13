@@ -26,6 +26,12 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.material.MapColor
 import java.util.function.Supplier
 
+/**
+ * Mod blocks
+ * Singleton object — a single shared instance.
+ *
+ * @constructor Creates a new ModBlocks
+ */
 @AutoRegister
 object ModBlocks : Registrable {
     override val registrationOrder = 2
