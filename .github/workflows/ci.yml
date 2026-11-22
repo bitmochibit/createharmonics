@@ -1,14 +1,3 @@
-# .github/workflows/ci.yml
-#
-# Runs on every push and pull-request targeting main.
-# Steps:
-#   1. Build the full mod (shadowJar)
-#   2. Run data generation (runData) to verify it doesn't crash
-#   3. Run unit tests if any exist
-#
-# The produced JAR is uploaded as a build artifact so you can download it
-# from any run, useful for quick smoke-testing before deciding to release.
-
 name: CI
 
 on:
@@ -39,13 +28,9 @@ jobs:
       - name: Grant execute permission for Gradle wrapper
         run: chmod +x ./gradlew
 
-      # ── Full build (compiles common + neoforge, produces shaded JAR) ────────
       - name: Build
         run: ./gradlew :neoforge:build --stacktrace
 
-      # ── Data generation ──────────────────────────────────────────────────────
-      # runData launches a headless Minecraft instance to generate data files.
-      # It exits with a non-zero code on crash, which will fail the step.
       - name: Run data generation
         run: >
           ./gradlew :neoforge:runData
@@ -54,10 +39,8 @@ jobs:
         timeout-minutes: 10
         continue-on-error: false
         env:
-          # Needed for NeoForge's headless data run
           CI: true
 
-      # ── GameTests ───────────────────────────────────────────────────────────
       - name: Run game tests
         run: >
           ./gradlew :neoforge:runGameTestServer
@@ -67,13 +50,6 @@ jobs:
         env:
           CI: true
 
-      # ── Unit tests ───────────────────────────────────────────────────────────
-      # JUnit tests in :common or :neoforge are run here.
-      # This step is intentionally lenient: if no tests exist Gradle exits 0.
-      #
-      # When you add NeoForge GameTests, register a `gameTestServer` run in
-      # neoforge/build.gradle.kts and add a step like:
-      #   ./gradlew :neoforge:runGameTestServer
       - name: Run unit tests
         run: ./gradlew test --stacktrace
         continue-on-error: false
@@ -87,7 +63,6 @@ jobs:
             **/build/reports/tests/
           retention-days: 14
 
-      # ── Upload build artifacts ───────────────────────────────────────────────
       - name: Read mod version
         id: mod_version
         run: |
@@ -104,3 +79,40 @@ jobs:
           path: neoforge/build/libs/createharmonics-neoforge-*.jar
           if-no-files-found: error
           retention-days: 30
+
+      - name: Prepare nightly jar
+        id: nightly
+        if: github.event_name == 'push'
+        env:
+          BASE_VERSION: ${{ steps.mod_version.outputs.version }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          SHORT_SHA=$(git rev-parse --short=7 HEAD)
+          VERSION="${BASE_VERSION}-nightly.${RUN_NUMBER}+${SHORT_SHA}"
+          SRC=$(find neoforge/build/libs -name 'createharmonics-neoforge-*.jar' \
+                  ! -name '*-sources.jar' ! -name '*-dev*.jar' | head -n1)
+          DEST="createharmonics-neoforge-1.21.1-${VERSION}.jar"
+          cp "$SRC" "$DEST"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "file=${DEST}" >> "$GITHUB_OUTPUT"
+          echo "sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish nightly to Discord
+        if: github.event_name == 'push'
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          VERSION: ${{ steps.nightly.outputs.version }}
+          FILE: ${{ steps.nightly.outputs.file }}
+          SHA: ${{ steps.nightly.outputs.sha }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          MSG=$(git log -1 --pretty=%s)
+          PAYLOAD=$(jq -n \
+            --arg v "$VERSION" --arg sha "$SHA" --arg msg "$MSG" --arg url "$REPO_URL/commit/$(git rev-parse HEAD)" \
+            '{embeds:[{title:("Nightly " + $v), description:$msg,
+               url:$url, color:5763719,
+               fields:[{name:"Commit", value:("[" + $sha + "](" + $url + ")"), inline:true}]}]}')
+          curl -fsS \
+            -F "payload_json=$PAYLOAD" \
+            -F "file=@${FILE}" \
+            "$WEBHOOK"
