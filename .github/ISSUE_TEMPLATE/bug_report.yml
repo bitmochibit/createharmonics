@@ -1,0 +1,123 @@
+name: Bug report
+description: "Report a bug or crash in Create: Harmonics"
+title: "Brief bug description"
+labels: ["🔎 triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! Please fill in all required fields: without logs and the exact version I can't reproduce the problem.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-report checks
+      options:
+        - label: I searched existing issues (open and closed) and found no duplicate
+          required: true
+        - label: I tried the latest available version (release or nightly)
+          required: true
+
+  - type: dropdown
+    id: build_type
+    attributes:
+      label: Build type
+      description: Are you using an official release or a nightly build?
+      options:
+        - Release
+        - Nightly
+      default: 0
+    validations:
+      required: true
+
+  - type: input
+    id: mod_version
+    attributes:
+      label: Mod version
+      description: The jar version (for example `2.0.0`). For nightlies, use the base version.
+      placeholder: "1.1.8"
+    validations:
+      required: true
+
+  - type: input
+    id: nightly_build
+    attributes:
+      label: Build number and hash (nightly only)
+      description: |
+        Fill this in only if you are using a nightly. You can find it in the jar file name, after `-nightly.`
+        (for example `createharmonics-neoforge-1.21.1-1.1.8-nightly.42+a1b2c3d.jar` -> `42+a1b2c3d`).
+      placeholder: "42+a1b2c3d"
+
+  - type: input
+    id: mc_version
+    attributes:
+      label: Minecraft version
+      placeholder: "1.21.1"
+    validations:
+      required: true
+
+  - type: input
+    id: neoforge_version
+    attributes:
+      label: NeoForge version
+      placeholder: "21.1.xxx"
+    validations:
+      required: true
+
+  - type: input
+    id: create_version
+    attributes:
+      label: Create version
+      placeholder: "6.0.x"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: side
+    attributes:
+      label: Where does the problem occur?
+      options:
+        - Client (singleplayer)
+        - Client (local-server)
+        - Dedicated server
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happens? What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: input
+    id: logs
+    attributes:
+      label: Minecraft logs (mclo.gs)
+      description: |
+        Upload your `latest.log` to [mclo.gs](https://mclo.gs) and paste the link here
+        (for example `https://mclo.gs/abc1234`). Alternatively, use the `/mclogs` command if you have the mclogs mod.
+        If the game crashed, also upload the crash report and add its link in the description.
+        **Please do not paste logs directly or attach `.log` files.**
+      placeholder: "https://mclo.gs/..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional information
+      description: Screenshots, OS distro if on linux, list of other installed mods, etc.

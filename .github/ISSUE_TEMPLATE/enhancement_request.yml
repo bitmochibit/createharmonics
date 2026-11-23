@@ -1,0 +1,72 @@
+name: 💡 Enhancement
+description: Suggest an improvement to an existing feature
+title: "Title for the enhancement you propose"
+labels: ["💡 enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion! Use this form to improve something that already exists.
+        For brand new functionality, use the **Feature request** form. For bugs and crashes, use the **Bug report** form.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-submit checks
+      options:
+        - label: I searched existing issues (open and closed) and found no duplicate
+          required: true
+
+  - type: input
+    id: existing_feature
+    attributes:
+      label: Existing feature
+      description: What would you like to improve? (for example a block, an item, a config option)
+      placeholder: "Jukebox block should explode like a nuke"
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_behavior
+    attributes:
+      label: Current behavior
+      description: How does it work today, and what is the limitation or annoyance?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_change
+    attributes:
+      label: Proposed improvement
+      description: How should it work instead? drawings, examples or screenshots are welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches or workarounds you tried or thought about.
+
+  - type: input
+    id: mc_version
+    attributes:
+      label: Minecraft / NeoForge version
+      description: The version you are using, in case the request depends on it.
+      placeholder: "1.21.1 / NeoForge 21.1.xxx"
+
+  - type: dropdown
+    id: contribute
+    attributes:
+      label: Would you be willing to contribute?
+      options:
+        - "No"
+        - Yes, I can open a pull request
+        - Yes, I can help with testing
+      default: 0
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Links, references to other mods, anything else that helps.
